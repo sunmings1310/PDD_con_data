@@ -94,6 +94,9 @@ class ApiClient(private val prefs: ServerPrefs) {
     }
 
     fun finish(taskId: Long, status: String, errorMsg: String? = null) {
+        require(status in setOf("complete", "failed", "cancelled", "timed_out")) {
+            "unknown server task completion status: $status"
+        }
         val body = JSONObject()
             .put("device_key", prefs.deviceKey)
             .put("task_id", taskId)

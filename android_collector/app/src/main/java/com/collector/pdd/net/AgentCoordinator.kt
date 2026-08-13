@@ -79,7 +79,7 @@ class AgentCoordinator(
                             taskId = rid,
                             message = message,
                             itemId = target.remoteItemId,
-                            itemStatus = if (matched) "done" else "failed",
+                            itemStatus = TaskStatusMapping.itemResult(matched),
                         )
                     }.onFailure {
                         log("明细结果上报失败 item=${target.remoteItemId}: ${it.message}")
@@ -108,12 +108,7 @@ class AgentCoordinator(
             if (rid != null) {
                 scope.launch(Dispatchers.IO) {
                     runCatching {
-                        val st = when (status) {
-                            "finished" -> "done"
-                            "failed" -> "failed"
-                            "stopped" -> "cancelled"
-                            else -> "done"
-                        }
+                        val st = TaskStatusMapping.completionFor(status)
                         api.finish(rid, st)
                         log("已上报任务结束 #$rid status=$st")
                     }.onFailure {
@@ -187,9 +182,9 @@ class AgentCoordinator(
         val tidForHb = if (running) remoteTaskId else null
         if (!running && remoteTaskId != null) {
             val orphan = remoteTaskId
+            // 本地 idle 不能决定服务端业务终态；停止主动覆盖，等待后续恢复协议。
+            log("检测到本地空闲但远程任务仍存在 #$orphan，未覆盖服务端状态")
             remoteTaskId = null
-            runCatching { api.finish(orphan!!, "cancelled", "任务已结束，心跳清理") }
-            log("心跳清理残留任务 #$orphan")
         }
         val hb = api.heartbeat(status, tidForHb)
         if (!hb.optBoolean("ok", false)) {

@@ -15,6 +15,8 @@ from server.db import get_conn, next_id, row_as_dict, rows_as_dicts
 from server.image_filter import is_blocked_license_file, is_blocked_license_image
 from server.schemas import ApiOk, ProductUploadIn
 from server.services import append_task_log, get_device_by_key
+from server.task_state import StateConflict, TaskItemStatus
+from server.task_state_service import require_running_task, state_error_data, transition_item
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 logger = logging.getLogger("sjzq.products")
@@ -33,6 +35,11 @@ def upload_product(body: ProductUploadIn):
         device = get_device_by_key(cur, body.device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered")
+        if body.task_id:
+            try:
+                require_running_task(cur, body.task_id, device["device_id"])
+            except StateConflict as exc:
+                return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
 
         product_id = next_id(cur, "SJZQ_SEQ_PRODUCT")
         cur.execute(
@@ -189,15 +196,11 @@ def upload_product(body: ProductUploadIn):
                     )
                     item = cur.fetchone()
             if item:
-                cur.execute(
-                    """
-                    UPDATE SJZQ_TASK_ITEM
-                       SET STATUS = 'done', PRODUCT_ID = :pid,
-                           MESSAGE = '采集成功，目标匹配成功', UPDATE_TIME = SYSTIMESTAMP
-                     WHERE ITEM_ID = :iid
-                    """,
-                    {"pid": product_id, "iid": int(item[0])},
-                )
+                try:
+                    transition_item(cur, body.task_id, int(item[0]), TaskItemStatus.SUCCEEDED,
+                                    product_id=product_id, message="采集成功，目标匹配成功")
+                except StateConflict as exc:
+                    return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
             append_task_log(
                 cur,
                 body.task_id,

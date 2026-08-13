@@ -10,6 +10,8 @@ from server.db import get_conn, next_id, rows_as_dicts
 from server.ota_meta import latest_payload
 from server.schemas import ApiOk, DeviceHeartbeatIn, DeviceRegisterIn
 from server.services import enrich_device, get_device_by_key, mark_offline_stale
+from server.task_state import StateConflict, TaskItemStatus, TaskStatus
+from server.task_state_service import close_unfinished_items, state_error_data, transition_task
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -105,12 +107,13 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         # 仅允许绑定「进行中」任务；已结束/终止的 ID 不得把设备写回采集中
         if tid is not None:
             cur.execute(
-                "SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID = :id",
+                "SELECT STATUS, DEVICE_ID FROM SJZQ_TASK WHERE TASK_ID = :id",
                 {"id": int(tid)},
             )
             row = cur.fetchone()
             task_st = (str(row[0]).lower() if row and row[0] is not None else "")
-            if task_st != "running":
+            task_device_id = int(row[1]) if row and row[1] is not None else None
+            if task_st != "running" or task_device_id != int(device["device_id"]):
                 tid = None
                 if st == "busy":
                     st = "online"
@@ -272,21 +275,21 @@ def abort_task(device_id: int, request: Request, user=Depends(require_perms("dev
             return ApiOk(ok=False, message="设备不存在")
         task_id = row[1]
         if task_id:
-            cur.execute(
-                """
-                UPDATE SJZQ_TASK
-                   SET STATUS='failed', ERROR_MSG='远程终止', END_TIME=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
-                 WHERE TASK_ID=:id AND STATUS='running'
-                """,
-                {"id": int(task_id)},
-            )
+            try:
+                transition_task(cur, int(task_id), TaskStatus.CANCELLED)
+                close_unfinished_items(cur, int(task_id), TaskItemStatus.CANCELLED, "远程终止，条目未完成")
+                cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG='远程终止', END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
+                            {"id": int(task_id)})
+            except StateConflict as exc:
+                return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
         cur.execute(
             """
             UPDATE SJZQ_DEVICE
-               SET CURRENT_TASK_ID=NULL, STATUS='online', UPDATE_TIME=SYSTIMESTAMP
-             WHERE DEVICE_ID=:id
+               SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='idle', RUN_STARTED_AT=NULL,
+                   REST_UNTIL=NULL, UPDATE_TIME=SYSTIMESTAMP
+             WHERE DEVICE_ID=:id AND CURRENT_TASK_ID=:task_id
             """,
-            {"id": device_id},
+            {"id": device_id, "task_id": task_id},
         )
         cast_state.set_abort(device_id, True)
         write_op_log(

@@ -89,10 +89,11 @@
 
 ### BL-005 统一任务、任务项、设备和审核状态机
 
-- **状态/里程碑**：TODO / M1
+- **状态/里程碑**：DONE / M1（T003，2026-08-13）
 - **代码模块**：`server/routers/tasks.py`、`server/routers/devices.py`、`server/schemas.py`、`server/services.py`、`android_collector/.../TaskEngine.kt`、`AgentCoordinator.kt`、根目录 `task_runner.py`。
 - **任务**：定义服务端权威枚举、合法迁移、终态和不变量；明确 Android `finished/stopped`、桌面 `interrupted/paused` 的映射；将状态迁移从散落 SQL 收敛到可测试业务函数。
 - **验收**：状态迁移表与实现一致；非法迁移被拒绝；任务/任务项/设备状态组合测试通过；Web 显示不再依赖猜测式映射。
+- **完成证据**：新增集中状态定义与 Oracle 状态服务；task/progress/finish/cancel、device abort、OTA abort、product item 回填均使用统一迁移或运行态守卫；Python 25/25、T003 11/11、Android 状态映射 3/3、assembleDebug、Web build 通过。Android 全量单测仍仅有 T001 已登记的 `DetailReaderTest` 3 项既有失败。
 - **依赖/风险**：BL-004；旧桌面端是否纳入服务端状态为 UNKNOWN，未决策前仅定义隔离边界。
 
 ### BL-006 增加执行 attempt、任务租约和超时回收

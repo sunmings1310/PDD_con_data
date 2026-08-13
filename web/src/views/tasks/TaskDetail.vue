@@ -133,10 +133,10 @@ const editForm = reactive({product_id:null,product_name:'',sell_name:'',spec_tex
 let timer
 
 const items = computed(() => task.value?.items || [])
-const okItems = computed(() => items.value.filter((x) => x.status === 'done'))
-const failItems = computed(() => items.value.filter((x) => x.status === 'failed'))
-const retryItems = computed(() => items.value.filter((x) => ['failed', 'cancelled'].includes(x.status)))
-const pendingItems = computed(() => items.value.filter((x) => !['done', 'failed'].includes(x.status)))
+const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
+const failItems = computed(() => items.value.filter((x) => ['failed', 'not_matched'].includes(x.status)))
+const retryItems = computed(() => items.value.filter((x) => ['failed', 'not_matched', 'cancelled'].includes(x.status)))
+const pendingItems = computed(() => items.value.filter((x) => !['succeeded', 'done', 'failed', 'not_matched', 'cancelled'].includes(x.status)))
 const isMatchTask = computed(() => items.value.some((x) => x.target_approval && x.target_spec))
 const matchOkItems = computed(() => okItems.value.filter((x) => x.target_approval && x.target_spec))
 const matchFailItems = computed(() => failItems.value.filter((x) => x.target_approval && x.target_spec))
@@ -149,23 +149,24 @@ const percent = computed(() => {
 function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 
 function itemStatusText(status) {
-  return { pending: '待采集', running: '采集中', done: '采集成功', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
+  return { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
 }
 function itemStatusType(status) {
-  return { pending: 'info', running: 'warning', done: 'success', failed: 'danger', cancelled: 'info' }[status] || 'info'
+  return { pending: 'info', running: 'warning', succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[status] || 'info'
 }
 function matchStatusText(row) {
   if (!row.target_approval || !row.target_spec) return '-'
-  if (row.status === 'done') return '匹配成功'
+  if (['succeeded', 'done'].includes(row.status)) return '匹配成功'
+  if (row.status === 'not_matched') return '未匹配'
   if (row.status === 'failed') return '匹配失败'
   if (row.status === 'cancelled') return '已取消'
   return '待匹配'
 }
 function matchStatusType(row) {
-  return { done: 'success', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
+  return { succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
 }
 function taskStatusType(status) {
-  return { pending: 'info', running: 'warning', done: 'success', failed: 'danger', cancelled: 'info' }[status] || 'info'
+  return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
 }
 
 async function load() {

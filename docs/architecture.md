@@ -64,6 +64,9 @@ flowchart TD
     WS --> Hub["ws_hub / cast_state"]
     Routers --> Auth["auth_util / RBAC"]
     Routers --> Services["services.py"]
+    Routers --> TaskState["task_state_service.py"]
+    TaskState --> StateRules["task_state.py"]
+    TaskState --> DB
     Routers --> DB["db.py"]
     Services --> DB
     Auth --> DB
@@ -74,7 +77,7 @@ flowchart TD
     Main --> Static["web/dist 或 server/static"]
 ```
 
-路由按业务域拆分，但路由函数普遍直接书写 SQL、事务逻辑和响应转换；`services.py` 只抽取了少量共享逻辑。Web 页面也普遍直接调用 URL，前后端契约没有生成式客户端或共享 schema。
+路由按业务域拆分，但路由函数普遍直接书写 SQL、事务逻辑和响应转换；任务与任务项的业务状态例外，由 `task_state.py` 集中定义枚举/迁移/映射，并由 `task_state_service.py` 统一执行 Oracle 条件更新。设备连接/运行态仍由设备域维护。Web 页面也普遍直接调用 URL，前后端契约没有生成式客户端或共享 schema。
 
 ### 2.3 Android Agent
 
@@ -139,7 +142,8 @@ UI 配置/关键词或 Excel → `TaskRunner` 工作线程 → BitBrowser API �
 | 状态 | 持久化位置 | 说明 |
 |---|---|---|
 | 用户/角色/权限/操作日志 | Oracle | 服务端唯一来源 |
-| 设备/任务/任务项/任务日志 | Oracle | 服务端调度状态 |
+| 任务/任务项 | Oracle | `task_state_service.py` 是业务状态修改入口；客户端状态只作协议映射 |
+| 设备/任务日志 | Oracle | 设备连接态/运行态与任务业务状态分离 |
 | 商品/图片元数据/变更 | Oracle | 图片二进制在文件系统 |
 | APK 元数据/文件 | JSON + 文件系统 | `server/data/images/apk` |
 | WS 连接/投屏房间 | 服务进程内存 | 重启不持久化 |
@@ -182,4 +186,3 @@ erDiagram
 - Android：Gradle 构建 APK，服务端 OTA 保存并发布 latest 元数据。
 - 已存在 `server/run.ps1`，但没有发现 Dockerfile、Compose、CI 工作流、systemd/NSSM 配置或正式部署说明。
 - 当前线上/沙箱进程由什么守护、如何启动、是否多实例、是否有负载均衡均为 **UNKNOWN**。
-

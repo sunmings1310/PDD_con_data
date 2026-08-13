@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, Form
 from server.auth_util import get_current_user, require_perms, write_op_log
 from server.db import get_conn, next_id, row_as_dict, rows_as_dicts
 from server.config import settings
+from server.cast_state import cast_state
 from server.platforms import TASK_COLLECT, TASK_NURTURE
 from server.schemas import ApiOk, TaskCreateIn, TaskFinishIn, TaskProgressIn
 from server.services import (
@@ -21,6 +22,15 @@ from server.services import (
     parse_json_obj,
 )
 from server.ws_hub import notify_sync
+from server.task_state import StateConflict, TaskItemStatus, TaskStatus, task_status, task_storage_status
+from server.task_state_service import (
+    close_unfinished_items,
+    completed_result,
+    require_running_task,
+    state_error_data,
+    transition_item,
+    transition_task,
+)
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -100,8 +110,16 @@ def _task_ui_status(t: dict) -> str:
         return "待下发"
     if st == "running":
         return "执行中"
+    if st == "succeeded":
+        return "全部成功"
+    if st == "partially_succeeded":
+        return "部分成功"
     if st == "failed":
         return "执行失败"
+    if st == "cancelled":
+        return "已取消"
+    if st == "timed_out":
+        return "已超时"
     if st == "done":
         if (t.get("fail_count") or 0) > 0 and (t.get("success_count") or 0) > 0:
             return "部分成功"
@@ -109,6 +127,13 @@ def _task_ui_status(t: dict) -> str:
             return "全部失败"
         return "全部成功"
     return st or "-"
+
+
+def _normalize_task_output(t: dict) -> None:
+    try:
+        t["status"] = task_status(str(t.get("status") or "")).value
+    except ValueError:
+        pass
 
 
 @router.get("")
@@ -132,7 +157,11 @@ def list_tasks(
         params: dict = {}
         if status:
             sql += " AND STATUS = :st"
-            params["st"] = status
+            try:
+                params["st"] = task_storage_status(status)
+            except ValueError:
+                return ApiOk(ok=False, message=f"invalid task status filter: {status}",
+                             data={"error_code": "INVALID_TASK_STATUS"})
         if platform_code:
             sql += " AND PLATFORM_CODE = :p"
             params["p"] = platform_code
@@ -141,7 +170,9 @@ def list_tasks(
         cur.execute(sql, params)
         rows = rows_as_dicts(cur)
         for t in rows:
+            _normalize_task_output(t)
             t["ui_status"] = _task_ui_status(t)
+            _add_task_capabilities(t)
             t["can_review"] = user.get("role_code") == "super_admin" or int(t.get("create_user_id") or 0) == int(user["user_id"])
         return ApiOk(data=rows)
 
@@ -166,6 +197,7 @@ def get_task(task_id: int, user=Depends(require_perms("task:view"))):
             return ApiOk(ok=False, message="task not found")
         task["keyword_text"] = clob_to_str(task.get("keyword_text"))
         task["config_json"] = clob_to_str(task.get("config_json"))
+        _normalize_task_output(task)
         cur.execute(
             """
             SELECT ITEM_ID, ROW_INDEX, KEYWORD, TARGET_SPEC, TARGET_APPROVAL,
@@ -200,6 +232,7 @@ def get_task(task_id: int, user=Depends(require_perms("task:view"))):
             )
             task["logs"] = rows_as_dicts(cur)[:100]
         task["ui_status"] = _task_ui_status(task)
+        _add_task_capabilities(task)
         task["can_review"] = user.get("role_code") == "super_admin" or int(task.get("create_user_id") or 0) == int(user["user_id"])
         task["can_manage_results"] = task["can_review"]
         cur.execute("""
@@ -493,11 +526,13 @@ def review_task(
                SET REVIEW_STATUS=:decision, REVIEW_USER_ID=:reviewer_id,
                    REVIEW_USERNAME=:username, REVIEW_TIME=SYSTIMESTAMP,
                    REVIEW_REMARK=:remark, UPDATE_TIME=SYSTIMESTAMP
-             WHERE TASK_ID=:id
+             WHERE TASK_ID=:id AND STATUS='pending' AND REVIEW_STATUS='pending'
             """,
             {"decision": decision, "reviewer_id": user["user_id"], "username": user["username"],
              "remark": str(body.get("remark") or "")[:500] or None, "id": task_id},
         )
+        if cur.rowcount != 1:
+            return ApiOk(ok=False, message="审核状态已变化", data={"error_code": "REVIEW_STATE_CONFLICT"})
         append_task_log(cur, task_id, f"任务审核：{decision}，审核人={user['username']}")
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"], action="task_review",
@@ -505,6 +540,45 @@ def review_task(
             ip=request.client.host if request.client else None,
         )
         return ApiOk(message="审核完成")
+
+
+@router.post("/{task_id}/cancel")
+def cancel_task(
+    task_id: int,
+    request: Request,
+    user=Depends(require_perms("task:create")),
+):
+    """Cancel a pending/running task through the authoritative state machine."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT CREATE_USER_ID, DEVICE_ID FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": task_id})
+        row = cur.fetchone()
+        if not row:
+            return ApiOk(ok=False, message="任务不存在", data={"error_code": "TASK_NOT_FOUND"})
+        if user.get("role_code") != "super_admin" and int(row[0] or 0) != int(user["user_id"]):
+            return ApiOk(ok=False, message="运营只能取消本人创建的任务")
+        try:
+            _, changed = transition_task(cur, task_id, TaskStatus.CANCELLED)
+        except StateConflict as exc:
+            if exc.current == TaskStatus.CANCELLED.value:
+                return ApiOk(message="already cancelled", data={"status": "cancelled", "idempotent": True})
+            return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
+        if changed:
+            close_unfinished_items(cur, task_id, TaskItemStatus.CANCELLED, "任务已取消，条目未完成")
+            cur.execute("UPDATE SJZQ_TASK SET END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id", {"id": task_id})
+            if row[1] is not None:
+                cur.execute(
+                    """UPDATE SJZQ_DEVICE SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='idle',
+                              RUN_STARTED_AT=NULL, REST_UNTIL=NULL, UPDATE_TIME=SYSTIMESTAMP
+                         WHERE DEVICE_ID=:did AND CURRENT_TASK_ID=:tid""",
+                    {"did": int(row[1]), "tid": task_id},
+                )
+                cast_state.set_abort(int(row[1]), True)
+            append_task_log(cur, task_id, f"任务取消，操作人={user['username']}")
+            write_op_log(cur, user_id=user["user_id"], username=user["username"], action="task_cancel",
+                         module="task", detail=f"取消任务 #{task_id}",
+                         ip=request.client.host if request.client else None)
+        return ApiOk(message="已取消", data={"status": "cancelled"})
 
 
 @router.post("/pull")
@@ -591,19 +665,14 @@ def pull_task(device_key: str, platform_code: str | None = None):
             return ApiOk(message="no task", data=None)
 
         task_id = int(row[0])
-        cur.execute(
-            """
-            UPDATE SJZQ_TASK
-               SET STATUS = 'running',
-                   DEVICE_ID = :did,
-                   START_TIME = NVL(START_TIME, SYSTIMESTAMP),
-                   UPDATE_TIME = SYSTIMESTAMP
-             WHERE TASK_ID = :id AND STATUS = 'pending'
-            """,
-            {"did": device["device_id"], "id": task_id},
-        )
-        if cur.rowcount == 0:
+        try:
+            transition_task(cur, task_id, TaskStatus.RUNNING)
+        except StateConflict:
             return ApiOk(message="no task", data=None)
+        cur.execute("""UPDATE SJZQ_TASK SET DEVICE_ID=:did,
+                              START_TIME=NVL(START_TIME,SYSTIMESTAMP), UPDATE_TIME=SYSTIMESTAMP
+                         WHERE TASK_ID=:id AND STATUS='running'""",
+                    {"did": device["device_id"], "id": task_id})
 
         cur.execute(
             """
@@ -660,40 +729,31 @@ def task_progress(body: TaskProgressIn):
         device = get_device_by_key(cur, body.device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered")
+        try:
+            require_running_task(cur, body.task_id, device["device_id"])
+        except StateConflict as exc:
+            return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
         item_status = (body.item_status or "").strip().lower()
         if body.item_id is not None and item_status:
-            if item_status not in {"pending", "running", "done", "failed", "cancelled"}:
-                return ApiOk(ok=False, message="invalid item status")
-            cur.execute(
-                """
-                UPDATE SJZQ_TASK_ITEM
-                   SET STATUS = :status,
-                       PRODUCT_ID = NVL(:product_id, PRODUCT_ID),
-                       MESSAGE = :message,
-                       UPDATE_TIME = SYSTIMESTAMP
-                 WHERE TASK_ID = :task_id AND ITEM_ID = :item_id
-                """,
-                {
-                    "status": item_status,
-                    "product_id": body.product_id,
-                    "message": body.message[:1000],
-                    "task_id": body.task_id,
-                    "item_id": body.item_id,
-                },
-            )
-            if cur.rowcount == 0:
-                return ApiOk(ok=False, message="task item not found")
+            # Deprecated compatibility: old Agent used done and failed for match/no-match.
+            item_status = {"done": "succeeded"}.get(item_status, item_status)
+            try:
+                transition_item(cur, body.task_id, body.item_id, item_status,
+                                message=body.message, product_id=body.product_id)
+            except (StateConflict, ValueError) as exc:
+                data = state_error_data(exc) if isinstance(exc, StateConflict) else {"error_code": "INVALID_ITEM_STATUS"}
+                return ApiOk(ok=False, message=str(exc), data=data)
             # 明细状态是匹配任务的真实进度来源，按明细重算以避免重复回调导致计数漂移。
             cur.execute(
                 """
                 UPDATE SJZQ_TASK
                    SET SUCCESS_COUNT = (
                            SELECT COUNT(*) FROM SJZQ_TASK_ITEM
-                            WHERE TASK_ID = :task_id AND STATUS = 'done'
+                             WHERE TASK_ID = :task_id AND STATUS IN ('succeeded','done')
                        ),
                        FAIL_COUNT = (
                            SELECT COUNT(*) FROM SJZQ_TASK_ITEM
-                            WHERE TASK_ID = :task_id AND STATUS = 'failed'
+                             WHERE TASK_ID = :task_id AND STATUS IN ('failed','not_matched')
                        ),
                        UPDATE_TIME = SYSTIMESTAMP
                  WHERE TASK_ID = :task_id
@@ -743,52 +803,62 @@ def task_progress(body: TaskProgressIn):
 
 @router.post("/finish")
 def task_finish(body: TaskFinishIn):
-    status = body.status if body.status in ("done", "failed", "cancelled") else "done"
     with get_conn() as conn:
         cur = conn.cursor()
         device = get_device_by_key(cur, body.device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered")
-        terminal_item_status = "cancelled" if status == "cancelled" else "failed"
+        requested = (body.status or "").strip().lower()
+        if requested == "done":  # deprecated Android compatibility
+            requested = "complete"
+        if requested not in {"complete", "failed", "cancelled", "timed_out"}:
+            return ApiOk(ok=False, message=f"invalid task completion status: {requested}",
+                         data={"error_code": "INVALID_TASK_STATUS"})
+        try:
+            require_running_task(cur, body.task_id, device["device_id"])
+            if requested == "complete":
+                close_unfinished_items(cur, body.task_id, TaskItemStatus.FAILED,
+                                       (body.error_msg or "任务结束，未采集到匹配商品")[:1000])
+                status = completed_result(cur, body.task_id)
+            else:
+                status = TaskStatus(requested)
+        except StateConflict as exc:
+            # A repeated finish with the same resulting terminal state is idempotent.
+            try:
+                current = task_status(get_task_state_for_finish(cur, body.task_id))
+                repeated = (
+                    (requested != "complete" and current.value == requested)
+                    or (requested == "complete" and current in {
+                        TaskStatus.SUCCEEDED, TaskStatus.PARTIALLY_SUCCEEDED, TaskStatus.FAILED
+                    })
+                )
+            except (StateConflict, ValueError):
+                repeated = False
+            if repeated:
+                return ApiOk(message="already finished", data={"status": current.value, "idempotent": True})
+            return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
+        terminal_item_status = TaskItemStatus.CANCELLED if status in {TaskStatus.CANCELLED, TaskStatus.TIMED_OUT} else TaskItemStatus.FAILED
         terminal_item_message = (
             "任务已取消，条目未完成"
-            if status == "cancelled"
+            if status == TaskStatus.CANCELLED
             else ((body.error_msg or "任务结束，未采集到匹配商品")[:1000])
         )
-        cur.execute(
-            """
-            UPDATE SJZQ_TASK_ITEM
-               SET STATUS = :item_status,
-                   MESSAGE = NVL(MESSAGE, :item_message),
-                   UPDATE_TIME = SYSTIMESTAMP
-             WHERE TASK_ID = :task_id AND STATUS IN ('pending', 'running')
-            """,
-            {
-                "item_status": terminal_item_status,
-                "item_message": terminal_item_message,
-                "task_id": body.task_id,
-            },
-        )
-        cur.execute(
-            """
-            UPDATE SJZQ_TASK
-               SET STATUS = :st,
-                   ERROR_MSG = :err,
-                   END_TIME = SYSTIMESTAMP,
-                   UPDATE_TIME = SYSTIMESTAMP
-             WHERE TASK_ID = :id
-            """,
-            {"st": status, "err": (body.error_msg or "")[:1000] or None, "id": body.task_id},
-        )
+        close_unfinished_items(cur, body.task_id, terminal_item_status, terminal_item_message)
+        try:
+            transition_task(cur, body.task_id, status)
+        except StateConflict as exc:
+            return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
+        cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG=:err, END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
+                    {"err": (body.error_msg or "")[:1000] or None, "id": body.task_id})
         if REST_LOGIC_ENABLED:
             cur.execute(
                 """
                 UPDATE SJZQ_DEVICE
                    SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='resting', RUN_STARTED_AT=NULL,
                        REST_UNTIL=SYSTIMESTAMP+NUMTODSINTERVAL(NVL(MIN_REST_MIN,30), 'MINUTE'), UPDATE_TIME=SYSTIMESTAMP
-                 WHERE DEVICE_ID=:did
+                 WHERE DEVICE_ID=:did AND CURRENT_TASK_ID=:task_id
                 """,
-                {"did": device["device_id"]},
+                {"did": device["device_id"], "task_id": body.task_id},
             )
         else:
             cur.execute(
@@ -796,9 +866,9 @@ def task_finish(body: TaskFinishIn):
                 UPDATE SJZQ_DEVICE
                    SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='idle', RUN_STARTED_AT=NULL,
                        REST_UNTIL=NULL, UPDATE_TIME=SYSTIMESTAMP
-                 WHERE DEVICE_ID=:did
+                 WHERE DEVICE_ID=:did AND CURRENT_TASK_ID=:task_id
                 """,
-                {"did": device["device_id"]},
+                {"did": device["device_id"], "task_id": body.task_id},
             )
         # Excel 准字+规格任务以明细 done/failed 为准；普通多商品采集保留原商品成功计数。
         cur.execute(
@@ -806,11 +876,11 @@ def task_finish(body: TaskFinishIn):
             UPDATE SJZQ_TASK t
                SET SUCCESS_COUNT = (
                        SELECT COUNT(*) FROM SJZQ_TASK_ITEM i
-                        WHERE i.TASK_ID = t.TASK_ID AND i.STATUS = 'done'
+                         WHERE i.TASK_ID = t.TASK_ID AND i.STATUS IN ('succeeded','done')
                    ),
                    FAIL_COUNT = (
                        SELECT COUNT(*) FROM SJZQ_TASK_ITEM i
-                        WHERE i.TASK_ID = t.TASK_ID AND i.STATUS = 'failed'
+                         WHERE i.TASK_ID = t.TASK_ID AND i.STATUS IN ('failed','not_matched')
                    )
              WHERE t.TASK_ID = :task_id
                AND EXISTS (
@@ -825,7 +895,29 @@ def task_finish(body: TaskFinishIn):
         append_task_log(
             cur,
             body.task_id,
-            f"任务结束 status={status}",
+            f"任务结束 status={status.value}",
             device_id=device["device_id"],
         )
         return ApiOk()
+
+
+def get_task_state_for_finish(cur, task_id: int) -> str:
+    cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": task_id})
+    row = cur.fetchone()
+    if not row:
+        raise StateConflict("TASK_NOT_FOUND", "missing", "finish")
+    return str(row[0]).lower()
+
+
+def _add_task_capabilities(task: dict) -> None:
+    try:
+        status = task_status(str(task.get("status") or ""))
+    except ValueError:
+        task.update(terminal=False, dispatchable=False, can_cancel=False, can_retry=False)
+        return
+    task["terminal"] = status in {TaskStatus.SUCCEEDED, TaskStatus.PARTIALLY_SUCCEEDED,
+                                  TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.TIMED_OUT}
+    task["dispatchable"] = status == TaskStatus.PENDING and task.get("review_status") == "approved"
+    task["can_cancel"] = status in {TaskStatus.PENDING, TaskStatus.RUNNING}
+    task["can_retry"] = status in {TaskStatus.PARTIALLY_SUCCEEDED, TaskStatus.FAILED,
+                                    TaskStatus.CANCELLED, TaskStatus.TIMED_OUT}

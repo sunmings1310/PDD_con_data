@@ -13,6 +13,8 @@ from server.cast_state import cast_state
 from server.db import get_conn, rows_as_dicts
 from server.ota_meta import apk_dir, latest_payload, save_meta
 from server.schemas import ApiOk
+from server.task_state import StateConflict, TaskItemStatus, TaskStatus
+from server.task_state_service import close_unfinished_items, transition_task
 
 router = APIRouter(prefix="/api/ota", tags=["ota"])
 
@@ -130,22 +132,22 @@ def push_update(
             tid = d.get("current_task_id")
             did = int(d["device_id"])
             if tid:
-                cur.execute(
-                    """
-                    UPDATE SJZQ_TASK
-                       SET STATUS='failed', ERROR_MSG='一键更新终止',
-                           END_TIME=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
-                     WHERE TASK_ID=:id AND STATUS='running'
-                    """,
-                    {"id": int(tid)},
-                )
+                try:
+                    transition_task(cur, int(tid), TaskStatus.CANCELLED)
+                    close_unfinished_items(cur, int(tid), TaskItemStatus.CANCELLED, "一键更新终止，条目未完成")
+                    cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG='一键更新终止', END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
+                                {"id": int(tid)})
+                except StateConflict:
+                    # Device occupancy is still conditionally cleared below; the task authority is not overwritten.
+                    pass
             cur.execute(
                 """
                 UPDATE SJZQ_DEVICE
-                   SET CURRENT_TASK_ID=NULL, STATUS='online', UPDATE_TIME=SYSTIMESTAMP
-                 WHERE DEVICE_ID=:id
+                   SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='idle', RUN_STARTED_AT=NULL,
+                       REST_UNTIL=NULL, UPDATE_TIME=SYSTIMESTAMP
+                 WHERE DEVICE_ID=:id AND CURRENT_TASK_ID=:tid
                 """,
-                {"id": did},
+                {"id": did, "tid": tid},
             )
             cast_state.set_abort(did, True)
             aborted += 1

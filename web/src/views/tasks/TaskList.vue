@@ -4,8 +4,11 @@
       <el-select v-model="status" clearable placeholder="全部状态" style="width:140px" @change="load">
         <el-option label="待下发" value="pending" />
         <el-option label="执行中" value="running" />
-        <el-option label="全部完成" value="done" />
+        <el-option label="全部成功" value="succeeded" />
+        <el-option label="部分成功" value="partially_succeeded" />
         <el-option label="执行失败" value="failed" />
+        <el-option label="已取消" value="cancelled" />
+        <el-option label="已超时" value="timed_out" />
       </el-select>
       <el-button @click="load">刷新</el-button>
       <el-button v-if="store.hasPerm('task:create')" type="primary" @click="$router.push('/tasks/create')">创建任务</el-button>

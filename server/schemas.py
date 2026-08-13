@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+from server.task_state import TaskItemStatus, TaskStatus
 
 
 class PlatformOut(BaseModel):
@@ -95,7 +96,7 @@ class TaskProgressIn(BaseModel):
     success_delta: int = 0
     fail_delta: int = 0
     item_id: Optional[int] = None
-    item_status: Optional[str] = None
+    item_status: Optional[str] = None  # validated by authoritative state service; legacy done supported
     product_id: Optional[int] = None
     # 搜索一次关键词（含价格/销量重搜）计 1
     keyword_delta: int = 0
@@ -104,7 +105,7 @@ class TaskProgressIn(BaseModel):
 class TaskFinishIn(BaseModel):
     device_key: str
     task_id: int
-    status: str = "done"
+    status: str = "complete"
     error_msg: Optional[str] = None
 
 

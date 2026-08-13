@@ -54,6 +54,27 @@ class TaskState(str, Enum):
     STOP = "stop"
 
 
+# Explicit compatibility mapping. The desktop database remains isolated from
+# the server while its production role is UNKNOWN (T003 analysis section 7).
+DESKTOP_SERVER_STATUS_MAP = {
+    "running": "running",
+    "pause": "running",
+    "paused": "running",
+    "stop": "cancelled",
+    "stopped": "cancelled",
+    "finished": "complete",
+    "failed": "failed",
+    "interrupted": "failed",
+}
+
+
+def map_desktop_status_to_server(status: str) -> str:
+    try:
+        return DESKTOP_SERVER_STATUS_MAP[status]
+    except KeyError as exc:
+        raise ValueError(f"unknown desktop task status: {status}") from exc
+
+
 LogCallback = Callable[[str], None]
 
 
