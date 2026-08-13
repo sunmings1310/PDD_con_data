@@ -1,0 +1,175 @@
+"""Pydantic 请求/响应模型。"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
+
+
+class PlatformOut(BaseModel):
+    platform_code: str
+    platform_name: str
+    enabled: int
+    sort_no: int
+    remark: Optional[str] = None
+
+
+class DeviceRegisterIn(BaseModel):
+    device_key: str = Field(..., min_length=4, max_length=64)
+    device_name: Optional[str] = None
+    platform_code: str = "pinduoduo"
+    app_version: Optional[str] = None
+    os_version: Optional[str] = None
+    model: Optional[str] = None
+
+
+class DeviceHeartbeatIn(BaseModel):
+    device_key: str
+    status: str = "online"
+    app_version: Optional[str] = None
+    current_task_id: Optional[int] = None
+
+
+class DeviceOut(BaseModel):
+    device_id: int
+    device_key: str
+    device_name: Optional[str] = None
+    platform_code: str
+    app_version: Optional[str] = None
+    os_version: Optional[str] = None
+    model: Optional[str] = None
+    status: str
+    last_ip: Optional[str] = None
+    last_heartbeat: Optional[datetime] = None
+    current_task_id: Optional[int] = None
+    online: bool = False
+    create_time: Optional[datetime] = None
+
+
+class TaskCreateIn(BaseModel):
+    task_name: str
+    task_type: str = "collect"
+    platform_code: str = "pinduoduo"
+    keywords: list[str] = Field(default_factory=list)
+    priority: int = 5
+    device_id: Optional[int] = None
+    target_count: int = 0
+    config: Optional[dict[str, Any]] = None
+
+
+class TaskOut(BaseModel):
+    task_id: int
+    task_name: str
+    task_type: str
+    platform_code: str
+    status: str
+    priority: int
+    device_id: Optional[int] = None
+    keyword_text: Optional[str] = None
+    target_count: int = 0
+    success_count: int = 0
+    fail_count: int = 0
+    error_msg: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    create_time: Optional[datetime] = None
+
+
+class TaskPullOut(BaseModel):
+    task_id: int
+    task_name: str
+    task_type: str
+    platform_code: str
+    keywords: list[str] = Field(default_factory=list)
+    config: dict[str, Any] = Field(default_factory=dict)
+    items: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TaskProgressIn(BaseModel):
+    device_key: str
+    task_id: int
+    message: str
+    level: str = "info"
+    success_delta: int = 0
+    fail_delta: int = 0
+    item_id: Optional[int] = None
+    item_status: Optional[str] = None
+    product_id: Optional[int] = None
+    # 搜索一次关键词（含价格/销量重搜）计 1
+    keyword_delta: int = 0
+
+
+class TaskFinishIn(BaseModel):
+    device_key: str
+    task_id: int
+    status: str = "done"
+    error_msg: Optional[str] = None
+
+
+class ProductUploadIn(BaseModel):
+    device_key: str
+    task_id: Optional[int] = None
+    task_item_id: Optional[int] = None
+    platform_code: str = "pinduoduo"
+    keyword: Optional[str] = None
+    item_id: Optional[str] = None
+    sell_name: Optional[str] = None
+    product_name: Optional[str] = None
+    brand: Optional[str] = None
+    shop_name: Optional[str] = None
+    shop_id: Optional[str] = None
+    price: Optional[float] = None
+    display_price: Optional[float] = None
+    group_price: Optional[float] = None
+    deal_price: Optional[float] = None
+    original_price: Optional[float] = None
+    sales_num: Optional[int] = None
+    shop_sales_num: Optional[int] = None
+    comment_num: Optional[int] = None
+    spec: Optional[str] = None
+    sku_prices_text: Optional[str] = None
+    sku_prices: Optional[str] = None
+    dosage_form: Optional[str] = None
+    approval_no: Optional[str] = None
+    manufacturer: Optional[str] = None
+    expiry: Optional[str] = None
+    category: Optional[str] = None
+    coupon_info: Optional[str] = None
+    item_url: Optional[str] = None
+    pick_tag: Optional[str] = None
+    spec_list: Optional[str] = None
+    raw_json: Optional[str] = None
+    image_urls: list[str] = Field(default_factory=list)
+
+
+class ProductOut(BaseModel):
+    product_id: int
+    task_id: Optional[int] = None
+    platform_code: str
+    keyword: Optional[str] = None
+    item_id: Optional[str] = None
+    sell_name: Optional[str] = None
+    product_name: Optional[str] = None
+    brand: Optional[str] = None
+    shop_name: Optional[str] = None
+    shop_id: Optional[str] = None
+    price: Optional[float] = None
+    display_price: Optional[float] = None
+    group_price: Optional[float] = None
+    deal_price: Optional[float] = None
+    original_price: Optional[float] = None
+    sales_num: Optional[int] = None
+    approval_no: Optional[str] = None
+    manufacturer: Optional[str] = None
+    item_url: Optional[str] = None
+    pick_tag: Optional[str] = None
+    collect_time: Optional[datetime] = None
+    images: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ApiOk(BaseModel):
+    ok: bool = True
+    message: str = "ok"
+    data: Any = None

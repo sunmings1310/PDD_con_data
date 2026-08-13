@@ -1,0 +1,35 @@
+T002 第一阶段验证记录
+
+变更分支/字段：T002 第一阶段分析文档 / docs/tasks/T002-analysis.md（新增）
+
+四个路径：
+MODIFIED_FILE=D:\work\PDD_con_data\docs\tasks\T002-analysis.md
+DIFF_FILE=D:\work\PDD_con_data\artifacts\t002-analysis\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data\artifacts\t002-analysis\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data\artifacts\t002-analysis\ROLLBACK.sh
+
+ORIGINAL_SHA256=ABSENT
+MODIFIED_SHA256=06B594F6DB42823FBF5E1001765D9561F8A5F2322601EEABEBB446934BDF96DC
+
+BASELINE
+command=Test-Path -LiteralPath 'D:\work\PDD_con_data\docs\tasks\T002-analysis.md'（新增前状态，由 Add File 成功验证）
+input=D:\work\PDD_con_data\docs\tasks\T002-analysis.md
+literal_output=False
+exit_status=0
+result=ABSENT
+
+MODIFIED
+command=Test-Path + Get-FileHash + Select-String headings/UNKNOWN/final marker
+input=D:\work\PDD_con_data\docs\tasks\T002-analysis.md
+literal_output=FILE_EXISTS=True; SHA256=06B594F6DB42823FBF5E1001765D9561F8A5F2322601EEABEBB446934BDF96DC; H2_COUNT=14; UNKNOWN_COUNT=19; FINAL_STAGE_MARKER=True
+exit_status=0
+result=PASS
+
+ROLLBACK
+command=依据 ROLLBACK.sh 的同一校验/删除逻辑，在 SHA-256 匹配的副本上执行 Get-FileHash 后 Remove-Item
+input=D:\work\PDD_con_data\artifacts\t002-analysis\rollback-test-T002-analysis.md
+literal_output=ROLLBACK_OK restored_status=ABSENT
+exit_status=0
+result=PASS
+restored_behavior_status=目标副本恢复为 ABSENT；MODIFIED_FILE 保持新增状态
+note=当前 Windows 环境无可用 bash/WSL 发行版；ROLLBACK.sh 已创建为 POSIX 可执行脚本内容，回滚测试使用 PowerShell 执行等价的哈希门禁与删除动作。

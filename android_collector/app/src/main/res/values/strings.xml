@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">联机工具</string>
+    <string name="share_target_label">接收文本</string>
+    <string name="clip_paste_target_desc">linkdesk_paste_target</string>
+    <string name="a11y_summary">辅助已登录应用完成界面操作</string>
+    <string name="a11y_description">开启后可用于在本人设备上辅助完成必要的界面操作。请仅在合法、授权场景使用。</string>
+    <string name="channel_collect">后台任务</string>
+    <string name="notify_running">任务进行中</string>
+    <string name="notify_idle">服务已就绪</string>
+</resources>

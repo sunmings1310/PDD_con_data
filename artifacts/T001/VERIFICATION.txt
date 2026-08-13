@@ -1,0 +1,22 @@
+T001 TOOL TRANSACTION VERIFICATION
+Changed branch/field: requirements.txt direct dependency pins and explicit PyJWT declaration
+MODIFIED_FILE: D:\work\PDD_con_data\artifacts\T001\MODIFIED_FILE.txt
+DIFF_FILE: D:\work\PDD_con_data\artifacts\T001\DIFF_FILE.diff
+VERIFICATION: D:\work\PDD_con_data\artifacts\T001\VERIFICATION.txt
+ROLLBACK: D:\work\PDD_con_data\artifacts\T001\ROLLBACK.sh
+Original SHA256: e8fc260b568a19c6faeae23824759011d541ced0a5b48cda8f67f8692a4ae5f0
+Artifact original SHA256: e8fc260b568a19c6faeae23824759011d541ced0a5b48cda8f67f8692a4ae5f0
+Modified SHA256: c54b3ced70e3a46a36955733a2f1cbb110dd515e5d7c8c35a04b2042cb0bf310
+BASELINE command: python -c "from pathlib import Path; p=Path('artifacts/T001/ORIGINAL_FILE.txt'); print('PyJWT declared:', any(x.startswith('PyJWT') for x in p.read_text().splitlines()))"
+BASELINE input: artifacts/T001/ORIGINAL_FILE.txt
+BASELINE literal output/result: PyJWT declared: False
+BASELINE exit status: 0
+MODIFIED command: python -c "from pathlib import Path; p=Path('artifacts/T001/MODIFIED_FILE.txt'); print('PyJWT declared:', any(x.startswith('PyJWT') for x in p.read_text().splitlines()))"
+MODIFIED input: artifacts/T001/MODIFIED_FILE.txt
+MODIFIED literal output/result: PyJWT declared: True
+MODIFIED exit status: 0
+ROLLBACK command: PowerShell executes artifacts/T001/ROLLBACK.sh -Target artifacts/T001/rollback_test.txt -Source artifacts/T001/ORIGINAL_FILE.txt
+ROLLBACK input: artifacts/T001/rollback_test.txt
+ROLLBACK literal output/result: restored:D:\work\PDD_con_data\artifacts\T001\rollback_test.txt; SHA256=e8fc260b568a19c6faeae23824759011d541ced0a5b48cda8f67f8692a4ae5f0
+ROLLBACK exit status: 0
+Restored behavior/status: rollback_test.txt matches ORIGINAL_FILE.txt = True; requirements.txt and MODIFIED_FILE.txt remain changed.
