@@ -230,3 +230,92 @@ PR Reviewer 提出七类 Blocking Issues：heartbeat 覆盖设备占用、pull �
 - Web production build：PASS，1665 modules，保留既有大 chunk warning。
 - Android `assembleDebug` + `TaskStatusMappingTest`：PASS。
 - Android 全量 `DetailReaderTest` 的 3 项已知失败仍为 KNOWN EXISTING FAILURE；R1 未产生新失败。
+
+## PR Review R2
+
+第二轮 Reviewer 结论为 `REQUEST_CHANGES`。阻塞项集中在 Complete/Cancel 的锁顺序反转风险，以及缺少真实 Oracle 多连接、多事务并发验证。
+
+## R2 Resolution
+
+### 1. R1 Commit
+
+- commit：`bcc6e43`
+- message：`fix: harden task state transactions and idempotency`
+- 内容：R1 的 heartbeat 权威归属、pull 设备互斥、progress receipt、product rollback、abort ownership、complete 幂等收紧及专项测试已独立提交。
+
+### 2. Canonical Lock Order
+
+任务执行写事务统一采用以下顺序：
+
+1. `SJZQ_DEVICE`
+2. `SJZQ_TASK`
+3. `SJZQ_TASK_ITEM`
+4. receipt/product/image/log 等从属写入
+
+路径可以跳过无需修改的对象，但不得在取得较后层级锁后再取得较前层级锁。设备批量路径按 `DEVICE_ID` 升序锁定，避免不同事务以不同设备顺序形成环路。
+
+各路径实际顺序：
+
+| 路径 | 锁顺序 |
+|---|---|
+| Pull | Device → Task；无 Item 写锁 |
+| Complete | Device → Task → 全部 Task Item |
+| Cancel | Device（任务无设备时跳过）→ Task → 未完成 Task Item |
+| Product Upload | Device → Task → 指定/匹配 Task Item → Product/Image 从属写入 |
+| Progress | Device → Task → 指定 Task Item；无 item 回报时跳过 Item |
+| Device Abort | Device → Task → 未完成 Task Item |
+| OTA Abort | Device（按 DEVICE_ID 升序）→ Task → 未完成 Task Item |
+| Task 聚合 | 调用方已持有 Device，随后 Task → 全部 Task Item；纯服务调用为 Task → Item |
+
+### 3. Complete / Cancel
+
+- Complete 在读取/校验 running task 前先锁设备，再锁 Task 和 Item。
+- Cancel 先只读取得设备标识，随后按 Device → Task → Item 加锁，并在锁内重新执行权威迁移。
+- `transition_task` 强制以 `FOR UPDATE` 读取 Task；非法的不同状态迁移抛出 `StateConflict`，不再以 `changed=False` 静默继续副作用。
+- `transition_item` 强制按 Task → Item 加锁；聚合读取也锁定 Task 与 Item，避免 Complete/Cancel 与 progress/product 交叉覆盖。
+
+### 4. Concurrent Pull Test
+
+- 新增：`tests/test_task_state_r2_oracle.py::test_concurrent_pull_same_device_claims_at_most_one_task`。
+- 方法：`ThreadPoolExecutor` 两线程、Oracle pool 两个独立连接/事务，同时调用真实 `pull_task` API 函数。
+- 断言：仅一个请求获得任务；设备只有一个 `CURRENT_TASK_ID`；两个候选任务最多一个为 running。
+- 当前结果：`BLOCKED_BY_ENVIRONMENT`。环境未配置隔离 Oracle 测试 schema；测试没有降级为 mock，也没有伪报 PASS。
+
+### 5. Complete vs Cancel Race Test
+
+- 新增：`test_complete_cancel_race_twenty_times_without_deadlock`。
+- 方法：每轮创建 running Task/Item，两个独立 Oracle 事务同步发起真实 Complete 与 Cancel 路径，共执行 20 轮。
+- 断言：每轮在超时内返回；Task 仅有一个合法终态；Item 为合法终态；设备 `CURRENT_TASK_ID` 最终为空。
+- 当前结果：`BLOCKED_BY_ENVIRONMENT`（隔离 Oracle 未配置）。
+
+### 6. Receipt Concurrency Test
+
+- 新增：`test_duplicate_receipt_two_transactions_increment_once`。
+- 方法：两个独立连接同时插入相同 `PROGRESS_ID`，仅取得数据库主键声明权的事务累加计数。
+- `claim_progress_id` 只把 Oracle `ORA-00001` 识别为重复；其他数据库异常继续抛出。
+- 断言：一真一假两个 claim 结果、receipt 仅一行、计数仅增加一次。
+- 当前结果：`BLOCKED_BY_ENVIRONMENT`（隔离 Oracle 未配置）。
+
+### 7. Product Upload Rollback Test
+
+- 新增：`test_product_upload_api_failure_rolls_back_real_writes`。
+- 方法：真实 Oracle 事务通过 upload API 完成 Task 校验、Product 与 Product Image 写入后，在 Item 迁移点注入确定的 `StateConflict`。
+- 断言：API 返回失败；Product 与关联 Image 均不存在；Item 仍为 pending；Task 计数不变。
+- 当前结果：`BLOCKED_BY_ENVIRONMENT`（隔离 Oracle 未配置）。
+
+### 8. Test Environment Contract
+
+真实数据库套件仅在显式设置以下隔离测试参数后运行：
+
+- `T003_ORACLE_TEST_ENABLED=1`
+- `T003_ORACLE_DSN`
+- `T003_ORACLE_USER`
+- `T003_ORACLE_PASSWORD`
+
+当前四项均未设置，因此 unittest 将四项真实 Oracle 测试明确报告为 `skipped: BLOCKED_BY_ENVIRONMENT`。普通应用 `.env` 不会被该套件当作测试数据库使用，避免在非隔离库写入竞态数据。
+
+### 9. Remaining Risks
+
+- 真实 Oracle 多连接并发执行仍被测试环境阻塞；在该验证完成前，本轮并发阻塞项不能标记为 FIXED。
+- Oracle 套件依赖隔离 schema 已包含当前表、序列及 R1 receipt 迁移；未配置时不会自行修改 schema。
+- `DetailReaderTest` 的 3 项失败仍为 T001 已登记的 `KNOWN_EXISTING_FAILURE`，不属于 T003 新增失败。

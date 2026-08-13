@@ -16,6 +16,7 @@ from server.routers import devices, products, tasks  # noqa: E402
 from server.schemas import DeviceHeartbeatIn, ProductUploadIn, TaskFinishIn, TaskProgressIn  # noqa: E402
 from server.task_state import StateConflict  # noqa: E402
 from server.task_state_service import claim_progress_id  # noqa: E402
+import oracledb  # noqa: E402
 
 
 class RecordingCursor:
@@ -96,6 +97,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(tasks, "get_conn", conn_factory(conn)), \
              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+             patch.object(tasks, "lock_device", return_value=DEVICE), \
              patch.object(tasks, "require_running_task", return_value={}):
             response = tasks.task_progress(body)
         self.assertFalse(response.ok)
@@ -108,6 +110,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(tasks, "get_conn", conn_factory(conn)), \
              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+             patch.object(tasks, "lock_device", return_value=DEVICE), \
              patch.object(tasks, "require_running_task", return_value={}), \
              patch.object(tasks, "claim_progress_id", return_value=False):
             response = tasks.task_progress(body)
@@ -117,7 +120,8 @@ class R1ApiTransactionTest(unittest.TestCase):
 
     def test_progress_receipt_claim_replay(self):
         cur = RecordingCursor()
-        cur.execute = lambda sql, params=None: (_ for _ in ()).throw(Exception("duplicate")) if sql.lstrip().startswith("INSERT") else setattr(cur, "_rows", [(22, 7)])
+        duplicate = type("OracleError", (), {"code": 1})()
+        cur.execute = lambda sql, params=None: (_ for _ in ()).throw(oracledb.DatabaseError(duplicate)) if sql.lstrip().startswith("INSERT") else setattr(cur, "_rows", [(22, 7)])
         self.assertFalse(claim_progress_id(cur, "progress-0001", 22, 7))
 
     def test_product_non_running_rejected_before_insert(self):
@@ -125,6 +129,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(products, "get_conn", conn_factory(conn)), \
              patch.object(products, "get_device_by_key", return_value=DEVICE), \
+             patch.object(products, "lock_device", return_value=DEVICE), \
              patch.object(products, "require_running_task", side_effect=StateConflict("TASK_NOT_RUNNING", "failed", "running")):
             response = products.upload_product(ProductUploadIn(device_key="device-key", task_id=22))
         self.assertFalse(response.ok)
@@ -135,6 +140,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(products, "get_conn", conn_factory(conn)), \
              patch.object(products, "get_device_by_key", return_value=DEVICE), \
+             patch.object(products, "lock_device", return_value=DEVICE), \
              patch.object(products, "require_running_task", return_value={}), \
              patch.object(products, "next_id", return_value=100), \
              patch.object(products, "append_task_log", return_value=None):
@@ -150,6 +156,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         cur._rows = [(9,)]
         with patch.object(products, "get_conn", conn_factory(conn)), \
              patch.object(products, "get_device_by_key", return_value=DEVICE), \
+             patch.object(products, "lock_device", return_value=DEVICE), \
              patch.object(products, "require_running_task", return_value={}), \
              patch.object(products, "require_mutable_item", return_value=None), \
              patch.object(products, "next_id", side_effect=[100]), \
@@ -163,6 +170,7 @@ class R1ApiTransactionTest(unittest.TestCase):
             with self.subTest(terminal=terminal), \
                  patch.object(tasks, "get_conn", conn_factory(RecordingConnection(RecordingCursor()))), \
                  patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+                 patch.object(tasks, "lock_device", return_value=DEVICE), \
                  patch.object(tasks, "require_running_task", side_effect=StateConflict("TASK_NOT_RUNNING", terminal, "running")), \
                  patch.object(tasks, "get_task_state", return_value={"status": terminal, "device_id": 7}):
                 response = tasks.task_finish(TaskFinishIn(device_key="device-key", task_id=22, status="complete"))
@@ -173,6 +181,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(tasks, "get_conn", conn_factory(conn)), \
              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+             patch.object(tasks, "lock_device", return_value=DEVICE), \
              patch.object(tasks, "require_running_task", side_effect=StateConflict("TASK_DEVICE_MISMATCH", "8", "7")), \
              patch.object(tasks, "get_task_state", return_value={"status": "running", "device_id": 8}):
             response = tasks.task_finish(TaskFinishIn(device_key="device-key", task_id=22, status="complete"))
@@ -184,6 +193,7 @@ class R1ApiTransactionTest(unittest.TestCase):
         conn = RecordingConnection(cur)
         with patch.object(tasks, "get_conn", conn_factory(conn)), \
              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+             patch.object(tasks, "lock_device", return_value=DEVICE), \
              patch.object(tasks, "require_running_task", side_effect=StateConflict("TASK_NOT_RUNNING", "succeeded", "running")), \
              patch.object(tasks, "get_task_state", return_value={"status": "succeeded", "device_id": 7}):
             response = tasks.task_finish(TaskFinishIn(device_key="device-key", task_id=22, status="complete"))

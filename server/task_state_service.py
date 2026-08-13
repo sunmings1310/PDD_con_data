@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import oracledb
+
 from server.task_state import (
     ITEM_TERMINAL,
     StateConflict,
@@ -16,6 +18,30 @@ from server.task_state import (
     validate_item_transition,
     validate_task_transition,
 )
+
+
+# Canonical transaction lock order for task execution writes:
+#   1. SJZQ_DEVICE
+#   2. SJZQ_TASK
+#   3. SJZQ_TASK_ITEM
+# A path may omit rows it does not mutate, but must never acquire a row from an
+# earlier group after a later group. Receipt/product child rows are written only
+# after these execution-owner rows have been locked.
+def lock_device(cur: Any, device_id: int) -> dict[str, Any]:
+    cur.execute(
+        """SELECT DEVICE_ID, CURRENT_TASK_ID, STATUS, RUN_STATE
+             FROM SJZQ_DEVICE WHERE DEVICE_ID=:id FOR UPDATE""",
+        {"id": device_id},
+    )
+    row = cur.fetchone()
+    if not row:
+        raise StateConflict("DEVICE_NOT_FOUND", "missing", str(device_id))
+    return {
+        "device_id": int(row[0]),
+        "current_task_id": int(row[1]) if row[1] is not None else None,
+        "status": str(row[2] or "").lower(),
+        "run_state": str(row[3] or "").lower(),
+    }
 
 
 def get_task_state(cur: Any, task_id: int, *, for_update: bool = False) -> dict[str, Any]:
@@ -47,11 +73,13 @@ def require_running_task(
 
 
 def transition_task(cur: Any, task_id: int, requested: str | TaskStatus) -> tuple[TaskStatus, bool]:
-    task = get_task_state(cur, task_id)
+    task = get_task_state(cur, task_id, for_update=True)
     current = task_status(task["status"])
     target = task_status(requested)
     if not validate_task_transition(current, target):
-        return current, False
+        if current == target:
+            return current, False
+        raise StateConflict("ILLEGAL_TASK_TRANSITION", current.value, target.value)
     cur.execute(
         """
         UPDATE SJZQ_TASK SET STATUS=:new_status, UPDATE_TIME=SYSTIMESTAMP
@@ -73,9 +101,9 @@ def transition_item(
     message: str = "",
     product_id: int | None = None,
 ) -> tuple[TaskItemStatus, bool]:
-    require_running_task(cur, task_id)
+    require_running_task(cur, task_id, for_update=True)
     cur.execute(
-        "SELECT STATUS FROM SJZQ_TASK_ITEM WHERE TASK_ID=:tid AND ITEM_ID=:iid",
+        "SELECT STATUS FROM SJZQ_TASK_ITEM WHERE TASK_ID=:tid AND ITEM_ID=:iid FOR UPDATE",
         {"tid": task_id, "iid": item_id},
     )
     row = cur.fetchone()
@@ -84,7 +112,9 @@ def transition_item(
     old_storage = str(row[0]).lower()
     current, target = item_status(old_storage), item_status(requested)
     if not validate_item_transition(current, target):
-        return current, False
+        if current == target:
+            return current, False
+        raise StateConflict("ILLEGAL_TASK_ITEM_TRANSITION", current.value, target.value)
     cur.execute(
         """
         UPDATE SJZQ_TASK_ITEM
@@ -130,8 +160,8 @@ def close_unfinished_items(cur: Any, task_id: int, status: TaskItemStatus, messa
 
 
 def completed_result(cur: Any, task_id: int) -> TaskStatus:
-    task = require_running_task(cur, task_id)
-    cur.execute("SELECT STATUS FROM SJZQ_TASK_ITEM WHERE TASK_ID=:id", {"id": task_id})
+    task = require_running_task(cur, task_id, for_update=True)
+    cur.execute("SELECT STATUS FROM SJZQ_TASK_ITEM WHERE TASK_ID=:id FOR UPDATE", {"id": task_id})
     statuses = [str(row[0]).lower() for row in cur.fetchall()]
     return aggregate_task_result(
         statuses, success_count=task["success_count"], fail_count=task["fail_count"]
@@ -151,7 +181,10 @@ def claim_progress_id(cur: Any, progress_id: str, task_id: int, device_id: int) 
             {"progress_id": progress_id, "task_id": task_id, "device_id": device_id},
         )
         return True
-    except Exception:
+    except oracledb.DatabaseError as exc:
+        error = exc.args[0] if exc.args else None
+        if getattr(error, "code", None) != 1:  # ORA-00001 unique constraint violation
+            raise
         cur.execute(
             "SELECT TASK_ID, DEVICE_ID FROM SJZQ_PROGRESS_RECEIPT WHERE PROGRESS_ID=:progress_id",
             {"progress_id": progress_id},

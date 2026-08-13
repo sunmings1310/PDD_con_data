@@ -125,6 +125,8 @@ def push_update(
             SELECT DEVICE_ID, DEVICE_KEY, CURRENT_TASK_ID
               FROM SJZQ_DEVICE
              WHERE CURRENT_TASK_ID IS NOT NULL
+             ORDER BY DEVICE_ID
+             FOR UPDATE
             """
         )
         busy = rows_as_dicts(cur)

@@ -28,6 +28,7 @@ from server.task_state_service import (
     claim_progress_id,
     completed_result,
     get_task_state,
+    lock_device,
     require_running_task,
     state_error_data,
     transition_item,
@@ -561,6 +562,8 @@ def cancel_task(
         if user.get("role_code") != "super_admin" and int(row[0] or 0) != int(user["user_id"]):
             return ApiOk(ok=False, message="运营只能取消本人创建的任务")
         try:
+            if row[1] is not None:
+                lock_device(cur, int(row[1]))
             _, changed = transition_task(cur, task_id, TaskStatus.CANCELLED)
         except StateConflict as exc:
             if exc.current == TaskStatus.CANCELLED.value:
@@ -746,6 +749,7 @@ def task_progress(body: TaskProgressIn):
         if not device:
             return ApiOk(ok=False, message="device not registered")
         try:
+            lock_device(cur, int(device["device_id"]))
             require_running_task(cur, body.task_id, device["device_id"], for_update=True)
         except StateConflict as exc:
             return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
@@ -839,7 +843,8 @@ def task_finish(body: TaskFinishIn):
             return ApiOk(ok=False, message=f"invalid task completion status: {requested}",
                          data={"error_code": "INVALID_TASK_STATUS"})
         try:
-            require_running_task(cur, body.task_id, device["device_id"])
+            lock_device(cur, int(device["device_id"]))
+            require_running_task(cur, body.task_id, device["device_id"], for_update=True)
             if requested == "complete":
                 close_unfinished_items(cur, body.task_id, TaskItemStatus.FAILED,
                                        (body.error_msg or "任务结束，未采集到匹配商品")[:1000])

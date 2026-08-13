@@ -16,7 +16,7 @@ from server.image_filter import is_blocked_license_file, is_blocked_license_imag
 from server.schemas import ApiOk, ProductUploadIn
 from server.services import append_task_log, get_device_by_key
 from server.task_state import StateConflict, TaskItemStatus
-from server.task_state_service import require_mutable_item, require_running_task, state_error_data, transition_item
+from server.task_state_service import lock_device, require_mutable_item, require_running_task, state_error_data, transition_item
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 logger = logging.getLogger("sjzq.products")
@@ -37,6 +37,7 @@ def upload_product(body: ProductUploadIn):
             return ApiOk(ok=False, message="device not registered")
         if body.task_id:
             try:
+                lock_device(cur, int(device["device_id"]))
                 require_running_task(cur, body.task_id, device["device_id"], for_update=True)
                 if body.task_item_id:
                     require_mutable_item(cur, body.task_id, body.task_item_id)

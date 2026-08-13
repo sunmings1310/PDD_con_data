@@ -33,6 +33,8 @@ class FakeCursor:
             self.description = [(name,) for name in columns]
             self._rows = [(7, "device-key", "device", "pinduoduo", None, None, None, "busy", None, None,
                            11, 0, None, None, "running", None, None, 120, 30, None, None)]
+        elif "FROM SJZQ_DEVICE" in normalized and "FOR UPDATE" in normalized:
+            self._rows = [(7, 11, "busy", "running")]
         elif "SELECT STATUS, DEVICE_ID, SUCCESS_COUNT, FAIL_COUNT FROM SJZQ_TASK" in normalized:
             self._rows = [(self.task_status, 7, 0, 0)]
         elif "SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID" in normalized:

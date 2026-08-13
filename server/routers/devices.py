@@ -237,7 +237,7 @@ def abort_task(device_id: int, request: Request, user=Depends(require_perms("dev
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DEVICE_ID, CURRENT_TASK_ID, DEVICE_NAME FROM SJZQ_DEVICE WHERE DEVICE_ID=:id",
+            "SELECT DEVICE_ID, CURRENT_TASK_ID, DEVICE_NAME FROM SJZQ_DEVICE WHERE DEVICE_ID=:id FOR UPDATE",
             {"id": device_id},
         )
         row = cur.fetchone()
