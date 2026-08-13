@@ -1,0 +1,37 @@
+变更分支/字段：新增客户讨论稿；企业层、三级账号、企业数据隔离、商品模式 A/B、方案 A/B/C、分阶段演进和《客户确认事项》；同步更新 backlog 完成记录。
+
+四个路径：
+MODIFIED_FILE=D:\work\PDD_con_data\docs\customer\verification\MODIFIED_FILE.md
+DIFF_FILE=D:\work\PDD_con_data\docs\customer\verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data\docs\customer\verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data\docs\customer\verification\ROLLBACK.sh
+
+交付路径：D:\work\PDD_con_data\docs\customer\enterprise-management-proposal.md
+原始快照：D:\work\PDD_con_data\docs\customer\verification\ORIGINAL_FILE.md
+原始 SHA256：e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+修改后 SHA256：ab9e17af5d806c806c47c966acf3dd348fa88a341c9040ee281a22e15d92cdb6
+
+BASELINE
+command: PowerShell 读取 ORIGINAL_FILE.md，检查标题并统计字节。
+input: D:\work\PDD_con_data\docs\customer\verification\ORIGINAL_FILE.md
+literal output/result: BASELINE_LITERAL_OUTPUT=TITLE_PRESENT=False;BYTES=0
+exit status: 0
+
+MODIFIED
+command: PowerShell 读取 MODIFIED_FILE.md，检查标题、《客户确认事项》和方案 A 推荐文字。
+input: D:\work\PDD_con_data\docs\customer\verification\MODIFIED_FILE.md
+literal output/result: MODIFIED_LITERAL_OUTPUT=TITLE_PRESENT=True;CUSTOMER_CONFIRMATION=True;RECOMMENDATION=True
+exit status: 0
+
+ROLLBACK
+command: python D:\work\PDD_con_data\docs\customer\verification\ROLLBACK.sh C:\Users\Eden\AppData\Local\Temp\enterprise-management-proposal.rollback-test.md
+input: 从 MODIFIED_FILE.md 复制形成的另一份临时副本
+literal output/result: ROLLBACK_RESULT=removed:C:\Users\Eden\AppData\Local\Temp\enterprise-management-proposal.rollback-test.md; ROLLBACK_LITERAL_OUTPUT=RESTORED_ABSENT=True
+exit status: 0
+restored behavior/status: 临时副本恢复到基线的“不存在”状态；MODIFIED_FILE.md 仍保留修改后内容。
+
+项目验证：
+- Python: python -m py_compile <workspace Python files> => PY_COMPILE_EXIT=0。
+- Web: npm run build => WEB_BUILD_EXIT=1；Node.js v20.11.1 缺少 node:util.styleText 导出，与现有项目文档记录一致。
+- Android: .\gradlew.bat test => ANDROID_TEST_EXIT=1；JAVA_HOME 未设置且 PATH 中无 java，与现有项目文档记录一致。
+- 文档结构检查：标题、十个章节、《客户确认事项》、“已确定/建议/待客户确认”、无 SQL/类名/函数名检查均为 True。

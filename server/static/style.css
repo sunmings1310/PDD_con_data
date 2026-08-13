@@ -1,0 +1,157 @@
+:root {
+  --bg: #f2f4f7;
+  --panel: #ffffff;
+  --ink: #15202b;
+  --muted: #5b6b7c;
+  --line: #d7dee7;
+  --accent: #0b6e4f;
+  --accent-ink: #ffffff;
+  --warn: #b45309;
+  --danger: #b42318;
+  --ok: #067647;
+  --busy: #175cd3;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #dceee6 0%, transparent 55%),
+    linear-gradient(180deg, #eef2f6, var(--bg));
+  min-height: 100vh;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.86);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.tabs { display: flex; gap: 8px; flex: 1; }
+.tabs button, .toolbar button, .primary, .create-box button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.tabs button.active, .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.meta { color: var(--muted); font-size: 13px; }
+
+main { padding: 20px 24px 40px; max-width: 1280px; margin: 0 auto; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.toolbar input, .toolbar select,
+.create-box input, .create-box select, .create-box textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  background: #fff;
+}
+.toolbar input { min-width: 140px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  vertical-align: top;
+}
+th {
+  background: #f7fafc;
+  color: var(--muted);
+  font-weight: 600;
+}
+tr:last-child td { border-bottom: 0; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover td { background: #f3faf6; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid transparent;
+}
+.badge.online { color: var(--ok); background: #ecfdf3; border-color: #abefc6; }
+.badge.offline { color: var(--muted); background: #f2f4f7; border-color: #d0d5dd; }
+.badge.busy { color: var(--busy); background: #eff8ff; border-color: #b2ddff; }
+.badge.pending { color: var(--warn); background: #fffaeb; border-color: #fedf89; }
+.badge.running { color: var(--busy); background: #eff8ff; border-color: #b2ddff; }
+.badge.done { color: var(--ok); background: #ecfdf3; border-color: #abefc6; }
+.badge.failed { color: var(--danger); background: #fef3f2; border-color: #fecdca; }
+
+.create-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.create-box h2 { margin: 0 0 12px; font-size: 16px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.form-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.form-grid .full { grid-column: 1 / -1; }
+.msg { margin-left: 10px; color: var(--muted); font-size: 13px; }
+.detail {
+  margin-top: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+.detail.hidden { display: none; }
+.detail img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin: 4px 4px 0 0;
+}
+@media (max-width: 800px) {
+  .top { flex-wrap: wrap; }
+  .form-grid { grid-template-columns: 1fr; }
+  table { display: block; overflow-x: auto; }
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>平台数据采集中控</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">平台数据采集中控</div>
+    <nav class="tabs">
+      <button data-tab="devices" class="active">设备</button>
+      <button data-tab="tasks">任务</button>
+      <button data-tab="products">商品查询</button>
+    </nav>
+    <div class="meta" id="healthMeta">连接中…</div>
+  </header>
+
+  <main>
+    <section id="tab-devices" class="panel active">
+      <div class="toolbar">
+        <select id="devicePlatform"></select>
+        <button id="btnRefreshDevices">刷新</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>状态</th><th>设备</th><th>平台</th><th>型号</th>
+            <th>版本</th><th>IP</th><th>心跳</th><th>当前任务</th>
+          </tr>
+        </thead>
+        <tbody id="deviceBody"></tbody>
+      </table>
+    </section>
+
+    <section id="tab-tasks" class="panel">
+      <div class="create-box">
+        <h2>下发任务</h2>
+        <div class="form-grid">
+          <label>任务名 <input id="taskName" placeholder="如：感冒灵采集" /></label>
+          <label>类型
+            <select id="taskType">
+              <option value="collect">采集</option>
+              <option value="nurture">养号</option>
+            </select>
+          </label>
+          <label>平台 <select id="taskPlatform"></select></label>
+          <label>指定设备
+            <select id="taskDevice">
+              <option value="">自动分配在线设备</option>
+            </select>
+          </label>
+          <label class="full">关键词（每行一个）
+            <textarea id="taskKeywords" rows="5" placeholder="感冒灵颗粒&#10;布洛芬缓释胶囊"></textarea>
+          </label>
+        </div>
+        <button id="btnCreateTask" class="primary">创建并下发</button>
+        <span id="taskMsg" class="msg"></span>
+      </div>
+
+      <div class="toolbar">
+        <select id="taskStatusFilter">
+          <option value="">全部状态</option>
+          <option value="pending">pending</option>
+          <option value="running">running</option>
+          <option value="done">done</option>
+          <option value="failed">failed</option>
+        </select>
+        <button id="btnRefreshTasks">刷新任务</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>名称</th><th>类型</th><th>平台</th>
+            <th>状态</th><th>成功/失败</th><th>设备</th><th>创建时间</th>
+          </tr>
+        </thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+    </section>
+
+    <section id="tab-products" class="panel">
+      <div class="toolbar">
+        <select id="prodPlatform"></select>
+        <input id="prodKeyword" placeholder="关键词" />
+        <input id="prodItemId" placeholder="商品ID" />
+        <input id="prodApproval" placeholder="批准文号" />
+        <button id="btnSearchProd" class="primary">查询</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>平台</th><th>关键词</th><th>商品ID</th>
+            <th>名称</th><th>店铺</th><th>价格</th><th>准字</th><th>时间</th>
+          </tr>
+        </thead>
+        <tbody id="prodBody"></tbody>
+      </table>
+      <div id="prodDetail" class="detail hidden"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
