@@ -12,6 +12,7 @@ import java.io.FileInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
+import java.util.UUID
 
 class ApiClient(private val prefs: ServerPrefs) {
 
@@ -87,6 +88,9 @@ class ApiClient(private val prefs: ServerPrefs) {
             .put("success_delta", successDelta)
             .put("fail_delta", failDelta)
             .put("keyword_delta", keywordDelta)
+        if (successDelta != 0 || failDelta != 0 || keywordDelta != 0) {
+            body.put("progress_id", UUID.randomUUID().toString())
+        }
         if (itemId != null) body.put("item_id", itemId)
         if (!itemStatus.isNullOrBlank()) body.put("item_status", itemStatus)
         if (productId != null) body.put("product_id", productId)

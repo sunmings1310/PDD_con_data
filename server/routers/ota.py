@@ -14,7 +14,7 @@ from server.db import get_conn, rows_as_dicts
 from server.ota_meta import apk_dir, latest_payload, save_meta
 from server.schemas import ApiOk
 from server.task_state import StateConflict, TaskItemStatus, TaskStatus
-from server.task_state_service import close_unfinished_items, transition_task
+from server.task_state_service import close_unfinished_items, require_running_task, transition_task
 
 router = APIRouter(prefix="/api/ota", tags=["ota"])
 
@@ -133,13 +133,14 @@ def push_update(
             did = int(d["device_id"])
             if tid:
                 try:
+                    require_running_task(cur, int(tid), did, for_update=True)
                     transition_task(cur, int(tid), TaskStatus.CANCELLED)
                     close_unfinished_items(cur, int(tid), TaskItemStatus.CANCELLED, "一键更新终止，条目未完成")
                     cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG='一键更新终止', END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
                                 {"id": int(tid)})
                 except StateConflict:
-                    # Device occupancy is still conditionally cleared below; the task authority is not overwritten.
-                    pass
+                    # Stale ownership is not an authorization to terminate or clear another execution.
+                    continue
             cur.execute(
                 """
                 UPDATE SJZQ_DEVICE

@@ -11,7 +11,7 @@ from server.ota_meta import latest_payload
 from server.schemas import ApiOk, DeviceHeartbeatIn, DeviceRegisterIn
 from server.services import enrich_device, get_device_by_key, mark_offline_stale
 from server.task_state import StateConflict, TaskItemStatus, TaskStatus
-from server.task_state_service import close_unfinished_items, state_error_data, transition_task
+from server.task_state_service import close_unfinished_items, require_running_task, state_error_data, transition_task
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -102,46 +102,17 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         if not device:
             return ApiOk(ok=False, message="device not registered", data=None)
 
-        st = (body.status or "online").strip().lower() or "online"
-        tid = body.current_task_id
-        # 仅允许绑定「进行中」任务；已结束/终止的 ID 不得把设备写回采集中
-        if tid is not None:
-            cur.execute(
-                "SELECT STATUS, DEVICE_ID FROM SJZQ_TASK WHERE TASK_ID = :id",
-                {"id": int(tid)},
-            )
-            row = cur.fetchone()
-            task_st = (str(row[0]).lower() if row and row[0] is not None else "")
-            task_device_id = int(row[1]) if row and row[1] is not None else None
-            if task_st != "running" or task_device_id != int(device["device_id"]):
-                tid = None
-                if st == "busy":
-                    st = "online"
-        elif st != "busy":
-            tid = None
-
-        # 关闭休息逻辑时，心跳会清理历史休息窗口并直接回到空闲。
-        run_state_sql = (
-            "CASE WHEN :tid IS NOT NULL THEN 'running' "
-            "WHEN REST_UNTIL IS NOT NULL AND REST_UNTIL>SYSTIMESTAMP THEN 'resting' ELSE 'idle' END"
-            if REST_LOGIC_ENABLED else
-            "CASE WHEN :tid IS NOT NULL THEN 'running' ELSE 'idle' END"
-        )
-        rest_until_sql = "REST_UNTIL" if REST_LOGIC_ENABLED else "NULL"
+        # Client task/status values are observations only. Server assignment is authoritative.
+        # A stale/empty heartbeat must never clear or replace CURRENT_TASK_ID/RUN_STATE.
+        assigned_task_id = device.get("current_task_id")
+        st = "busy" if assigned_task_id is not None else "online"
         cur.execute(
-            f"""
+            """
             UPDATE SJZQ_DEVICE
                SET STATUS = :st,
                    APP_VERSION = NVL(:av, APP_VERSION),
                    LAST_IP = :ip,
                    LAST_HEARTBEAT = SYSTIMESTAMP,
-                   CURRENT_TASK_ID = :tid,
-                   RUN_STATE = {run_state_sql},
-                   RUN_STARTED_AT = CASE
-                       WHEN :tid IS NOT NULL THEN NVL(RUN_STARTED_AT, SYSTIMESTAMP)
-                       ELSE NULL
-                   END,
-                   REST_UNTIL = {rest_until_sql},
                    UPDATE_TIME = SYSTIMESTAMP
              WHERE DEVICE_KEY = :k
             """,
@@ -149,7 +120,6 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
                 "st": st,
                 "av": body.app_version,
                 "ip": ip,
-                "tid": tid,
                 "k": body.device_key,
             },
         )
@@ -276,12 +246,15 @@ def abort_task(device_id: int, request: Request, user=Depends(require_perms("dev
         task_id = row[1]
         if task_id:
             try:
+                require_running_task(cur, int(task_id), device_id, for_update=True)
                 transition_task(cur, int(task_id), TaskStatus.CANCELLED)
                 close_unfinished_items(cur, int(task_id), TaskItemStatus.CANCELLED, "远程终止，条目未完成")
                 cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG='远程终止', END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
                             {"id": int(task_id)})
             except StateConflict as exc:
                 return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
+        else:
+            return ApiOk(ok=False, message="设备没有当前任务", data={"error_code": "TASK_NOT_FOUND"})
         cur.execute(
             """
             UPDATE SJZQ_DEVICE

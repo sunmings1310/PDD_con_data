@@ -25,7 +25,9 @@ from server.ws_hub import notify_sync
 from server.task_state import StateConflict, TaskItemStatus, TaskStatus, task_status, task_storage_status
 from server.task_state_service import (
     close_unfinished_items,
+    claim_progress_id,
     completed_result,
+    get_task_state,
     require_running_task,
     state_error_data,
     transition_item,
@@ -475,6 +477,7 @@ async def upload_anomaly(
         device = get_device_by_key(cur, device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered")
+
         cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": task_id})
         if int(cur.fetchone()[0] or 0) == 0:
             return ApiOk(ok=False, message="task not found")
@@ -590,16 +593,27 @@ def pull_task(device_key: str, platform_code: str | None = None):
         if not device:
             return ApiOk(ok=False, message="device not registered")
 
+        # Serialize pull requests for one device. The lock, task claim and device
+        # occupancy update share the get_conn transaction.
+        cur.execute(
+            """SELECT CURRENT_TASK_ID, RUN_STATE, REST_UNTIL, RUN_STARTED_AT,
+                      NVL(MAX_CONTINUOUS_MIN,120), NVL(MIN_REST_MIN,30)
+                 FROM SJZQ_DEVICE WHERE DEVICE_ID=:id FOR UPDATE""",
+            {"id": device["device_id"]},
+        )
+        locked_device = cur.fetchone()
+        if not locked_device:
+            return ApiOk(ok=False, message="device not registered")
+        if locked_device[0] is not None:
+            return ApiOk(message="device already occupied", data=None)
+
         if REST_LOGIC_ENABLED:
+            _, _, rest_until, run_started, max_minutes, rest_minutes = locked_device
             cur.execute(
-                """
-                SELECT CASE WHEN REST_UNTIL IS NOT NULL AND REST_UNTIL>SYSTIMESTAMP THEN 1 ELSE 0 END,
-                       REST_UNTIL, RUN_STARTED_AT, NVL(MAX_CONTINUOUS_MIN,120), NVL(MIN_REST_MIN,30)
-                  FROM SJZQ_DEVICE WHERE DEVICE_ID=:id
-                """,
-                {"id": device["device_id"]},
+                "SELECT CASE WHEN :rest_until IS NOT NULL AND :rest_until>SYSTIMESTAMP THEN 1 ELSE 0 END FROM DUAL",
+                {"rest_until": rest_until},
             )
-            resting, rest_until, run_started, max_minutes, rest_minutes = cur.fetchone()
+            resting = cur.fetchone()[0]
             if int(resting or 0) == 1:
                 cur.execute("UPDATE SJZQ_DEVICE SET RUN_STATE='resting', STATUS='online' WHERE DEVICE_ID=:id", {"id": device["device_id"]})
                 return ApiOk(message=f"device resting until {rest_until}", data=None)
@@ -680,10 +694,12 @@ def pull_task(device_key: str, platform_code: str | None = None):
                SET CURRENT_TASK_ID = :tid, STATUS = 'busy', RUN_STATE='running',
                    RUN_STARTED_AT=NVL(RUN_STARTED_AT, SYSTIMESTAMP), REST_UNTIL=NULL,
                    UPDATE_TIME = SYSTIMESTAMP
-             WHERE DEVICE_ID = :did
+             WHERE DEVICE_ID = :did AND CURRENT_TASK_ID IS NULL
             """,
             {"tid": task_id, "did": device["device_id"]},
         )
+        if cur.rowcount != 1:
+            raise StateConflict("DEVICE_OCCUPANCY_RACE", "occupied", str(task_id))
 
         cur.execute(
             """
@@ -730,10 +746,18 @@ def task_progress(body: TaskProgressIn):
         if not device:
             return ApiOk(ok=False, message="device not registered")
         try:
-            require_running_task(cur, body.task_id, device["device_id"])
+            require_running_task(cur, body.task_id, device["device_id"], for_update=True)
         except StateConflict as exc:
             return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
         item_status = (body.item_status or "").strip().lower()
+        has_delta = bool(body.success_delta or body.fail_delta or body.keyword_delta)
+        if has_delta:
+            if not body.progress_id:
+                return ApiOk(ok=False, message="delta progress requires progress_id",
+                             data={"error_code": "PROGRESS_ID_REQUIRED"})
+            if not claim_progress_id(cur, body.progress_id, body.task_id, int(device["device_id"])):
+                return ApiOk(message="duplicate progress ignored",
+                             data={"progress_id": body.progress_id, "idempotent": True})
         if body.item_id is not None and item_status:
             # Deprecated compatibility: old Agent used done and failed for match/no-match.
             item_status = {"done": "succeeded"}.get(item_status, item_status)
@@ -825,11 +849,15 @@ def task_finish(body: TaskFinishIn):
         except StateConflict as exc:
             # A repeated finish with the same resulting terminal state is idempotent.
             try:
-                current = task_status(get_task_state_for_finish(cur, body.task_id))
+                terminal_task = get_task_state(cur, body.task_id)
+                if terminal_task["device_id"] != int(device["device_id"]):
+                    raise StateConflict("TASK_DEVICE_MISMATCH", str(terminal_task["device_id"]),
+                                        str(device["device_id"]))
+                current = task_status(terminal_task["status"])
                 repeated = (
                     (requested != "complete" and current.value == requested)
                     or (requested == "complete" and current in {
-                        TaskStatus.SUCCEEDED, TaskStatus.PARTIALLY_SUCCEEDED, TaskStatus.FAILED
+                        TaskStatus.SUCCEEDED, TaskStatus.PARTIALLY_SUCCEEDED
                     })
                 )
             except (StateConflict, ValueError):

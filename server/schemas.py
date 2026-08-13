@@ -100,6 +100,8 @@ class TaskProgressIn(BaseModel):
     product_id: Optional[int] = None
     # 搜索一次关键词（含价格/销量重搜）计 1
     keyword_delta: int = 0
+    # Required for any delta update; persisted server-side for replay protection.
+    progress_id: Optional[str] = Field(default=None, min_length=8, max_length=64)
 
 
 class TaskFinishIn(BaseModel):

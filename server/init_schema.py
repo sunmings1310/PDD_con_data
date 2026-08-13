@@ -99,6 +99,16 @@ DDL_STATEMENTS = [
         CONSTRAINT PK_SJZQ_TASK_LOG PRIMARY KEY (LOG_ID)
     )
     """,
+    # ---------- Progress delta replay receipts ----------
+    """
+    CREATE TABLE SJZQ_PROGRESS_RECEIPT (
+        PROGRESS_ID     VARCHAR2(64) NOT NULL,
+        TASK_ID        NUMBER(18) NOT NULL,
+        DEVICE_ID      NUMBER(18) NOT NULL,
+        CREATE_TIME    TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+        CONSTRAINT PK_SJZQ_PROGRESS_RECEIPT PRIMARY KEY (PROGRESS_ID)
+    )
+    """,
     # ---------- 商品主表 ----------
     """
     CREATE TABLE SJZQ_PRODUCT (
@@ -224,6 +234,7 @@ def init_schema(drop_existing: bool = False) -> None:
                 "SJZQ_PRODUCT_IMAGE",
                 "SJZQ_PRODUCT",
                 "SJZQ_TASK_LOG",
+                "SJZQ_PROGRESS_RECEIPT",
                 "SJZQ_TASK_ITEM",
                 "SJZQ_TASK",
                 "SJZQ_DEVICE",

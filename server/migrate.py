@@ -15,6 +15,23 @@ def ensure_schema_patches() -> None:
         )
         _ensure_requirement_schema(cur)
         _ensure_goods_library(cur)
+        _ensure_progress_receipt(cur)
+
+
+def _ensure_progress_receipt(cur) -> None:
+    if not _object_exists(cur, "SJZQ_PROGRESS_RECEIPT"):
+        cur.execute(
+            """
+            CREATE TABLE SJZQ_PROGRESS_RECEIPT (
+                PROGRESS_ID VARCHAR2(64) NOT NULL,
+                TASK_ID NUMBER(18) NOT NULL,
+                DEVICE_ID NUMBER(18) NOT NULL,
+                CREATE_TIME TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+                CONSTRAINT PK_SJZQ_PROGRESS_RECEIPT PRIMARY KEY (PROGRESS_ID)
+            )
+            """
+        )
+        print("[migrate] created SJZQ_PROGRESS_RECEIPT")
 
 
 def _ensure_column(cur, table: str, column: str, ddl: str) -> None:

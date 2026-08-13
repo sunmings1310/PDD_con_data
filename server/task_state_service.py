@@ -18,9 +18,10 @@ from server.task_state import (
 )
 
 
-def get_task_state(cur: Any, task_id: int) -> dict[str, Any]:
+def get_task_state(cur: Any, task_id: int, *, for_update: bool = False) -> dict[str, Any]:
     cur.execute(
-        "SELECT STATUS, DEVICE_ID, SUCCESS_COUNT, FAIL_COUNT FROM SJZQ_TASK WHERE TASK_ID=:id",
+        "SELECT STATUS, DEVICE_ID, SUCCESS_COUNT, FAIL_COUNT FROM SJZQ_TASK WHERE TASK_ID=:id" +
+        (" FOR UPDATE" if for_update else ""),
         {"id": task_id},
     )
     row = cur.fetchone()
@@ -34,8 +35,10 @@ def get_task_state(cur: Any, task_id: int) -> dict[str, Any]:
     }
 
 
-def require_running_task(cur: Any, task_id: int, device_id: int | None = None) -> dict[str, Any]:
-    task = get_task_state(cur, task_id)
+def require_running_task(
+    cur: Any, task_id: int, device_id: int | None = None, *, for_update: bool = False
+) -> dict[str, Any]:
+    task = get_task_state(cur, task_id, for_update=for_update)
     if task_status(task["status"]) != TaskStatus.RUNNING:
         raise StateConflict("TASK_NOT_RUNNING", task_status(task["status"]).value, TaskStatus.RUNNING.value)
     if device_id is not None and task["device_id"] != int(device_id):
@@ -97,6 +100,22 @@ def transition_item(
     return target, True
 
 
+def require_mutable_item(cur: Any, task_id: int, item_id: int) -> TaskItemStatus:
+    """Lock and validate an item before side effects such as product insertion."""
+    require_running_task(cur, task_id, for_update=True)
+    cur.execute(
+        "SELECT STATUS FROM SJZQ_TASK_ITEM WHERE TASK_ID=:tid AND ITEM_ID=:iid FOR UPDATE",
+        {"tid": task_id, "iid": item_id},
+    )
+    row = cur.fetchone()
+    if not row:
+        raise StateConflict("TASK_ITEM_NOT_FOUND", "missing", TaskItemStatus.SUCCEEDED.value)
+    current = item_status(str(row[0]).lower())
+    if current not in {TaskItemStatus.PENDING, TaskItemStatus.RUNNING}:
+        raise StateConflict("TASK_ITEM_TERMINAL", current.value, TaskItemStatus.SUCCEEDED.value)
+    return current
+
+
 def close_unfinished_items(cur: Any, task_id: int, status: TaskItemStatus, message: str) -> None:
     if status not in ITEM_TERMINAL:
         raise ValueError("unfinished items must be closed with a terminal status")
@@ -121,3 +140,23 @@ def completed_result(cur: Any, task_id: int) -> TaskStatus:
 
 def state_error_data(exc: StateConflict) -> dict[str, str]:
     return {"error_code": exc.code, "current_status": exc.current, "requested_status": exc.requested}
+
+
+def claim_progress_id(cur: Any, progress_id: str, task_id: int, device_id: int) -> bool:
+    """Persistently claim a delta request ID; duplicate delivery is a safe no-op."""
+    try:
+        cur.execute(
+            """INSERT INTO SJZQ_PROGRESS_RECEIPT (PROGRESS_ID, TASK_ID, DEVICE_ID)
+               VALUES (:progress_id, :task_id, :device_id)""",
+            {"progress_id": progress_id, "task_id": task_id, "device_id": device_id},
+        )
+        return True
+    except Exception:
+        cur.execute(
+            "SELECT TASK_ID, DEVICE_ID FROM SJZQ_PROGRESS_RECEIPT WHERE PROGRESS_ID=:progress_id",
+            {"progress_id": progress_id},
+        )
+        row = cur.fetchone()
+        if row and int(row[0]) == int(task_id) and int(row[1]) == int(device_id):
+            return False
+        raise

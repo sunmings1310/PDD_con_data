@@ -170,3 +170,63 @@ Android 全量 unit test：FAIL（KNOWN EXISTING FAILURE），仅 `DetailReaderT
 **DONE**
 
 依据：服务端权威枚举、合法迁移、终态保护、聚合、Android/Desktop 映射和统一 Oracle 入口已实现；任务相关直接状态写已收敛；Python、Web、Android build 与 T003 Android 测试通过。Android 全量测试没有新增失败，仅保留 T001 已登记的 3 项既有失败。Lease、retry queue、outbox、schema 迁移和 reconciliation 均未越界实现。
+
+## PR Review R1
+
+PR Reviewer 提出七类 Blocking Issues：heartbeat 覆盖设备占用、pull 缺少设备级原子互斥、progress 终态保护与 delta 重放、product upload 事务原子性、device/OTA abort 归属、complete 幂等过宽、接口/事务/竞态测试不足。
+
+## PR Review R1 Resolution
+
+### 1. Heartbeat
+
+- 修复：heartbeat 不再写 `CURRENT_TASK_ID`、`RUN_STATE`、`RUN_STARTED_AT`、`REST_UNTIL`；客户端 task ID 仅为观察输入。服务端依据已有 `CURRENT_TASK_ID` 派生本次在线/忙状态。
+- 测试：普通 heartbeat 不清占用；旧 task heartbeat 不覆盖新 task；SQL 断言 heartbeat 无任务归属写入。
+
+### 2. Pull atomicity
+
+- 修复：`pull` 在事务内以 `SELECT ... FOR UPDATE` 锁定设备行，先确认 `CURRENT_TASK_ID IS NULL`，再 claim task，并以条件 UPDATE 建立占用。相同设备的并发 pull 被 Oracle 行锁串行化。
+- 测试：验证设备行锁、条件占用及第二个 pull 在首个提交后观察到占用而不能领取。
+
+### 3. Progress / replay
+
+- 修复：progress 使用 `require_running_task(..., for_update=True)` 将运行态/归属判断与写入放在同一事务；终态及错误设备拒绝。delta 请求新增 `progress_id`，在 `SJZQ_PROGRESS_RECEIPT` 以主键持久化去重；重复请求安全 no-op。没有 delta 的日志/item 结果保持兼容。
+- 测试：终态迟到 progress 拒绝；delta 缺 ID 拒绝；相同 ID 重放不累计；receipt 重放识别。
+
+### 4. Product Upload transaction
+
+- 修复：插入前锁定并验证 task 和显式 item 可变；商品、图片元数据、计数、item 迁移继续共用 `get_conn` 事务；item 迁移冲突显式 rollback 后返回失败，异常由 context manager rollback。
+- 测试：非运行态在 INSERT 前拒绝；item 迁移失败触发 rollback；终态/迟到由运行态和 item 终态守卫拒绝。正常提交依赖现有 upload 流程及 Oracle 集成环境，真实 Oracle 集成测试仍由 BL-010 提供。
+
+### 5. Abort ownership
+
+- 修复：device abort 与 OTA abort 均在终止前调用 `require_running_task(..., expected_device_id, for_update=True)`；清占用继续要求 `CURRENT_TASK_ID` 精确匹配。错设备、已重分配、任务不存在均不终止权威任务。
+- 测试：代码路径断言归属锁及条件清理；状态服务已有 device mismatch/not found 错误覆盖。
+
+### 6. Complete idempotency
+
+- 修复：重复 `complete` 只在已有 `succeeded/partially_succeeded` 且设备归属相同时幂等成功；`failed/cancelled -> complete` 返回冲突；错误设备及旧 Agent 被拒绝。
+- 测试：成功终态重复 complete 幂等；failed/cancelled complete 拒绝；错误设备拒绝；首次 running complete 仍由聚合路径覆盖。
+
+### 7. Race/transaction tests
+
+- 新增 `tests/test_task_state_r1.py`，覆盖 heartbeat、pull 设备互斥、progress receipt、upload rollback、abort ownership、complete 精确幂等和迟到请求保护。
+- T003 专项：26 项通过；Python 全量：40 项通过（最终专项补充后总数）。
+
+### R1 事务边界与兼容影响
+
+- Heartbeat 不再是设备任务归属写入口。
+- Pull 在单一 Oracle 事务中锁设备、claim task、写设备占用。
+- Progress 锁 task 后领取持久化 `progress_id` 再应用 delta。
+- Product upload 在单一连接事务中验证、插入、迁移；业务失败显式 rollback。
+- API URL 不变；有 delta 的 `/api/tasks/progress` 现在必须传 8～64 字符 `progress_id`。Android 已自动生成 UUID。旧客户端若实际发送非零 delta，升级前会收到 `PROGRESS_ID_REQUIRED`，这是防止重复累计所需的最小兼容收紧。
+
+### R1 数据库变化
+
+- 新增最小表 `SJZQ_PROGRESS_RECEIPT(PROGRESS_ID PK, TASK_ID, DEVICE_ID, CREATE_TIME)`，仅用于持久化 delta replay protection；未引入 attempt、lease、outbox 或 retry queue。
+
+### R1 回归
+
+- Python：40/40 PASS；compile/import PASS（`T003_R1_IMPORTS_OK`）。
+- Web production build：PASS，1665 modules，保留既有大 chunk warning。
+- Android `assembleDebug` + `TaskStatusMappingTest`：PASS。
+- Android 全量 `DetailReaderTest` 的 3 项已知失败仍为 KNOWN EXISTING FAILURE；R1 未产生新失败。
