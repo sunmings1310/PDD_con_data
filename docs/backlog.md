@@ -418,7 +418,7 @@
 
 Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进入 Phase 6。
 
-# Phase 5.5 企业化硬化完成记录（2026-08-17）
+# Phase 5.5 企业化硬化完成记录（2026-08-18）
 
 - [x] Device enrollment 一次性 token、hash 存储、轮换、设备 key 轮换和 revoke
 - [x] 被撤销设备统一 Agent/OTA/投屏发布门禁，撤销时终止活动执行权
@@ -426,6 +426,6 @@ Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进�
 - [x] Active Task、Daily Snapshot、Storage usage/reservation/ledger 与迁移回填
 - [x] 跨租户、撤销设备、配额并发、媒体/Excel 旁路离线专项测试
 - [x] legacy/default 最终移除条件 ADR
-- [ ] 隔离 Oracle Phase 5.5 真实迁移/并发回归（环境门禁）
+- [x] 隔离 Oracle Phase 1～5.5 真实迁移、两租户、设备 revoke、媒体与 quota 两会话并发回归
 
-验收见 `docs/tasks/phase55-acceptance.md`。完成全量可用环境回归和 Sol Review 后停止，不进入 Phase 6。
+验收见 `docs/tasks/phase55-acceptance.md`。Phase 5.5 已 ACCEPTED，Phase 6 已 UNBLOCKED 但尚未开始；等待批准。

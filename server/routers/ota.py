@@ -37,12 +37,13 @@ def _apk_dir(tenant=None):
     return apk_dir(scope)
 
 
-def _tenant_latest(enterprise_id: int, workspace_id: int) -> dict:
+def _tenant_latest(enterprise_id: int, workspace_id: int, device_id: int | None = None) -> dict:
     scope = (enterprise_id, workspace_id)
     payload = latest_payload(scope)
     if payload.get("has_apk"):
         path = "apk/latest.apk" if scope == (1, 1) else f"apk/{enterprise_id}/{workspace_id}/latest.apk"
-        payload["apk_url"] = signed_media_url(path, enterprise_id, workspace_id, 900)
+        payload["apk_url"] = signed_media_url(path, enterprise_id, workspace_id, 900,
+                                               device_id=device_id)
     return payload
 
 
@@ -53,7 +54,8 @@ def ota_latest(device_key: str = Query(..., min_length=4, max_length=64)):
         device = get_device_by_key(conn.cursor(), device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered", data={"error_code": "DEVICE_REVOKED_OR_UNKNOWN"})
-    return ApiOk(data=_tenant_latest(int(device["enterprise_id"]), int(device["workspace_id"])))
+    return ApiOk(data=_tenant_latest(int(device["enterprise_id"]), int(device["workspace_id"]),
+                                     int(device["device_id"])))
 
 
 @router.get("/status")

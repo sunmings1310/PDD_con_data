@@ -153,7 +153,13 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         latest = latest_payload(scope)
         if latest.get("has_apk"):
             apk_path = "apk/latest.apk" if scope == (1, 1) else f"apk/{scope[0]}/{scope[1]}/latest.apk"
-            latest["apk_url"] = signed_media_url(apk_path, scope[0], scope[1], 900)
+            latest["apk_url"] = signed_media_url(apk_path, scope[0], scope[1], 900,
+                                                  device_id=int(device["device_id"]))
+        pending_update = data["commands"].get("update_apk")
+        if pending_update:
+            apk_path = "apk/latest.apk" if scope == (1, 1) else f"apk/{scope[0]}/{scope[1]}/latest.apk"
+            pending_update["apk_url"] = signed_media_url(apk_path, scope[0], scope[1], 900,
+                                                          device_id=int(device["device_id"]))
         data["latest_apk"] = latest
         return ApiOk(data=data)
 

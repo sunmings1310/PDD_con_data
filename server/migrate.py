@@ -91,6 +91,12 @@ def _ensure_phase55_enterprise_hardening(conn, cur) -> None:
             _ensure_sequence(cur, sequence)
         for name, ddl in P55_INDEXES:
             _ensure_index(cur, name, ddl)
+        # Phase 5 adopts the legacy/default rows with deterministic ID 1.  On
+        # a fresh installation those direct inserts can be ahead of sequences
+        # that have never produced a value, so advance both generators before
+        # the first real enterprise/workspace is created.
+        _ensure_sequence_above_table(cur, "SJZQ_SEQ_ENTERPRISE", "SJZQ_ENTERPRISE", "ENTERPRISE_ID")
+        _ensure_sequence_above_table(cur, "SJZQ_SEQ_WORKSPACE", "SJZQ_WORKSPACE", "WORKSPACE_ID")
         # Phase 5 added tenant columns after the legacy global account unique
         # key. Replace it only in the hardening migration so released P5
         # checksums stay immutable and equal account names can exist per tenant.
@@ -541,6 +547,20 @@ def _ensure_sequence(cur, name: str) -> None:
     if not _sequence_exists(cur, name):
         cur.execute(f"CREATE SEQUENCE {name} START WITH 1 INCREMENT BY 1 NOCACHE")
         print(f"[migrate] created sequence {name}")
+
+
+def _ensure_sequence_above_table(cur, sequence: str, table: str, id_column: str) -> None:
+    """Ensure the next generated ID cannot collide with directly seeded rows."""
+    cur.execute(f"SELECT NVL(MAX({id_column}),0) FROM {table}")
+    maximum = int(cur.fetchone()[0] or 0)
+    cur.execute(f"SELECT {sequence}.NEXTVAL FROM DUAL")
+    current = int(cur.fetchone()[0])
+    if current <= maximum:
+        increment = maximum + 1 - current
+        cur.execute(f"ALTER SEQUENCE {sequence} INCREMENT BY {increment}")
+        cur.execute(f"SELECT {sequence}.NEXTVAL FROM DUAL")
+        cur.fetchone()
+        cur.execute(f"ALTER SEQUENCE {sequence} INCREMENT BY 1")
 
 
 def _ensure_index(cur, name: str, ddl: str) -> None:

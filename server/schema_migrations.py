@@ -363,7 +363,7 @@ P5_COMPAT_MIGRATION_DESCRIPTION = "Preserve Phase 1-4 fixture inserts with deter
 # quota mutations are serialized through one usage row and leave an immutable
 # event ledger plus an idempotent resource reservation.
 P55_MIGRATION_ID = "P5_5_001_ENTERPRISE_HARDENING"
-P55_MIGRATION_CHECKSUM = "8b1b3ddb1588c9a3cc03ae9a322a3a5e7c8564a211bd48a83dec70efd54ef303"
+P55_MIGRATION_CHECKSUM = "73a3eb0a99551d7a13f0fb2f0506dd026ad4ce1697fce18970174479cd13d4d9"
 P55_MIGRATION_DESCRIPTION = "One-time device enrollment, revocation, and transactional quota ledger"
 
 P55_TABLES: tuple[tuple[str, str], ...] = (

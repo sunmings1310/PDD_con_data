@@ -23,8 +23,15 @@ function Add-Result([string]$Name, [string]$Status, [string]$Detail) {
 function Should-Run([string]$Name) { return $Suite -eq 'all' -or $Suite -eq $Name }
 
 function Test-PythonDependencies([string]$Candidate) {
-    & $Candidate -c 'import loguru, oracledb' 2>$null
-    return $LASTEXITCODE -eq 0
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        & $Candidate -c 'import loguru, oracledb' 2>$null
+        $nativeExit = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    return $nativeExit -eq 0
 }
 
 function Get-PythonPath {
@@ -99,6 +106,7 @@ if (Should-Run 'oracle') {
             'tests/test_job_service.py',
             'tests/test_phase2_route_oracle.py',
             'tests/test_phase3_oracle.py'
+            'tests/test_phase55_oracle.py'
         ) $Root
     }
 }
@@ -106,8 +114,12 @@ if (Should-Run 'oracle') {
 if (Should-Run 'android') {
     $jdk = Get-JdkHome
     $sdk = Get-AndroidSdkRoot
+    $javaPath = if ($jdk) { Join-Path $jdk 'bin\java.exe' } else { $null }
+    $javaVersion = if ($javaPath) {
+        & $env:ComSpec /d /c ('""{0}" -version 2>&1"' -f $javaPath) | Select-Object -First 1
+    } else { '' }
     if (-not $jdk) { Add-Result 'android-jvm' 'BLOCKED' 'run .\scripts\bootstrap-jdk17.ps1 or set JAVA_HOME to JDK 17' }
-    elseif ((& (Join-Path $jdk 'bin\java.exe') -version 2>&1 | Select-Object -First 1) -notmatch '"17\.') { Add-Result 'android-jvm' 'BLOCKED' 'requires JDK 17' }
+    elseif ($javaVersion -notmatch '"17\.') { Add-Result 'android-jvm' 'BLOCKED' 'requires JDK 17' }
     elseif (-not $sdk -or -not (Test-Path (Join-Path $sdk 'platforms\android-34')) -or -not (Test-Path (Join-Path $sdk 'build-tools\34.0.0'))) { Add-Result 'android-jvm' 'BLOCKED' 'Android SDK Platform 34 and Build Tools 34.0.0 are required' }
     else {
         $env:JAVA_HOME = $jdk

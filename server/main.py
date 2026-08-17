@@ -83,13 +83,25 @@ app.include_router(ws_router)
 
 @app.get("/media/{media_path:path}")
 def tenant_media(media_path: str, enterprise_id: int = Query(...), workspace_id: int = Query(...),
-                 expires: int = Query(...), signature: str = Query(...)):
+                 expires: int = Query(...), signature: str = Query(...),
+                 device_id: int | None = Query(None)):
     normalized = media_path.replace("\\", "/").lstrip("/")
-    if not verify_media_signature(normalized, enterprise_id, workspace_id, expires, signature):
+    if not verify_media_signature(normalized, enterprise_id, workspace_id, expires, signature, device_id):
         raise HTTPException(status_code=403, detail="media access denied")
     candidate = (IMAGE_DIR / normalized).resolve()
     if IMAGE_DIR.resolve() not in candidate.parents or not candidate.is_file():
         raise HTTPException(status_code=404, detail="media not found")
+    if device_id is not None:
+        from server.db import get_conn
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""SELECT COUNT(*) FROM SJZQ_DEVICE
+                             WHERE DEVICE_ID=:device_id AND ENTERPRISE_ID=:enterprise_id
+                               AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
+                        {"device_id": device_id, "enterprise_id": enterprise_id,
+                         "workspace_id": workspace_id})
+            if int(cur.fetchone()[0] or 0) == 0:
+                raise HTTPException(status_code=403, detail="media access denied")
     if not normalized.startswith("apk/"):
         from server.db import get_conn
         with get_conn() as conn:

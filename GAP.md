@@ -1,4 +1,4 @@
-# 项目审计与 GAP 基线（更新于 2026-08-17）
+# 项目审计与 GAP 基线（更新于 2026-08-18）
 
 ## Phase 2 状态更新（2026-08-17）
 
@@ -333,12 +333,14 @@ T004/T005 先确定成功语义；T006 可并行；T007/T008 在成功语义固�
 - 设备首次 enrollment：**P1 TECH DEBT**。新设备要求显式企业/Workspace 上下文；一次性 enrollment token、轮换和撤销仍需补齐。
 - 非核心旧域：账号养护、OTA、投屏媒体 URL 和旧 Excel 兼容导出仍需继续收敛到统一 TenantContext；租户核心 API 与验收路径已封闭。
 
-# Phase 5.5 企业化硬化收敛记录（2026-08-17）
+# Phase 5.5 企业化硬化收敛记录（2026-08-18）
 
 - Device enrollment：**CLOSED IN CODE**。短期一次性 token 只存 hash，消费行锁、轮换、设备 key 轮换、revoke 及活动执行权终止已实现。
 - 被撤销设备：**CLOSED IN CODE**。Heartbeat、Task/Job、商品/图片、OTA ack、投屏发布共用 active-device 查询门禁。
 - 旁路 TenantContext：**CLOSED IN CODE**。账号养护、设备管理、租户 OTA 文件/指令、投屏 viewer、签名媒体、Excel 匹配/导出/建任务均带 Enterprise/Workspace 谓词；裸 `/media` 已关闭。
 - 配额：**CLOSED IN CODE**。Active Task、Daily Snapshot、Storage 使用 Oracle usage/reservation/ledger，同事务 reserve/commit/release，usage 行锁封闭并发超卖，`P5_5_001` 回填存量事实。
 - legacy/default：**EXIT CRITERIA DEFINED**。30 天零默认写入、全客户端显式上下文、存量归属清零、关闭 fallback 后真实 Oracle 全量通过等条件全部满足后，才执行独立移除迁移。
-- 测试：Phase 5.5 离线专项 5/5 通过；全量 Python/Android/Web 结果记录于验收制品。隔离 Oracle 配置仍是无条件进入 Phase 6 的门禁。
-- Phase 6：**不得无条件启动**。须先完成隔离 Oracle 上 `P5_5_001` 可重入迁移、真实两租户/撤销设备/配额并发/媒体旁路集成回归并全部通过。
+- Oracle 最终门禁：**CLOSED**。Oracle 19c 隔离 schema 上 `P5_5_001` 首次/重复迁移、两 Enterprise 全读取面隔离、设备 revoke 全链路、三类 quota 两 session 并发以及媒体旁路均通过。
+- 全量回归：Python 164/164、Oracle 36/36、Android JVM、Web production build 全部 PASS；统一入口 `PASS=4 FAIL=0 BLOCKED=0`。
+- Phase 5.5：**ACCEPTED**。最终 Sol Review 无阻塞项。
+- Phase 6：**UNBLOCKED**。本记录只解除启动门禁；Phase 6 尚未开始，PR 未合并，等待批准。

@@ -5,11 +5,12 @@ import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
 
-os.environ.update({
+for _key, _value in {
     "APP_ENV": "test", "ORACLE_HOST": "127.0.0.1", "ORACLE_PORT": "1521",
     "ORACLE_SERVICE": "TEST", "ORACLE_USER": "TEST", "ORACLE_PASSWORD": "test-password",
     "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
-})
+}.items():
+    os.environ.setdefault(_key, _value)
 
 from server.routers import tasks  # noqa: E402
 from server.schemas import TaskFinishIn, TaskProgressIn  # noqa: E402

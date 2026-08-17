@@ -239,7 +239,7 @@ flowchart LR
 - 设备首次接入：管理端在 TenantContext 中签发一次性 enrollment token；Agent 消费后绑定 Enterprise/Workspace，token 只以 hash 持久化。设备撤销状态是所有 Agent/WS 写路径的共同前置条件。
 - 配额事务：Task 创建/终态、Snapshot/Raw 持久化、图片写入/删除分别驱动 Active Task、Daily Snapshot、Storage reservation 与 ledger。Oracle quota usage 行是并发串行化点。
 - 旁路边界：账号养护、OTA、投屏 viewer、Excel 与设备管理使用 TenantContext；OTA 文件按租户目录隔离。
-- 媒体边界：`/media` 不再由裸 StaticFiles 暴露。服务端签发短期 HMAC URL，读取时校验租户签名、路径约束和 ProductImage 归属。
+- 媒体边界：`/media` 不再由裸 StaticFiles 暴露。服务端签发短期 HMAC URL，读取时校验租户签名、路径约束和 ProductImage 归属；设备 OTA URL 还绑定 `device_id` 并实时检查 revoke，使已签发 URL 在设备撤销后立即失效。
 - 兼容边界：`legacy/default` 仅保留迁移和旧 fixture 兼容，不是正常运行时的授权事实；最终退出条件见 `docs/decisions/phase55-enterprise-hardening.md`。
 
 `server/management_queries.py` 是只读管理查询层，`server/routers/management.py` 只负责鉴权、参数边界和响应包装。该查询层直接读取 Phase 2/3 权威事实，不参与采集写事务，也不改变 Product Snapshot、Quarantine 或 Job Event。
