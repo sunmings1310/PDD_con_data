@@ -1,0 +1,35 @@
+{
+  "base": {
+    "platform_code": "pinduoduo",
+    "item_id": "99887766",
+    "sell_name": "合法离线样本商品",
+    "price": 19.9,
+    "sales_num": 12,
+    "sku_prices": [{"sku_id": "sku-1", "price": 19.9}],
+    "page_status": "product",
+    "parse_status": "success",
+    "quality_status": "pass",
+    "parser_version": "pdd-fixture-1",
+    "quality_rules_version": "phase3-1",
+    "field_sources": {
+      "item_id": "embedded_json",
+      "name": "detail_response",
+      "price": "embedded_state",
+      "sales_num": "detail_response",
+      "shop": "detail_response",
+      "sku": "embedded_state"
+    }
+  },
+  "cases": [
+    {"name": "normal", "overrides": {}, "accepted": true},
+    {"name": "price_empty", "overrides": {"price": null}, "accepted": false, "missing": "price"},
+    {"name": "price_abnormal", "overrides": {"price": -1}, "accepted": false, "error": "PRICE_INVALID"},
+    {"name": "identity_missing", "overrides": {"item_id": ""}, "accepted": false, "missing": "platform_product_id"},
+    {"name": "sku_missing", "overrides": {"sku_prices": null, "field_sources": {"item_id": "embedded_json", "name": "detail_response", "price": "embedded_state", "sales_num": "detail_response"}}, "accepted": true, "warning": "sku_missing"},
+    {"name": "sku_abnormal", "overrides": {"sku_prices": [{"sku_id": "sku-1", "price": -5}]}, "accepted": false, "error": "SKU_INVALID_PRICE"},
+    {"name": "sales_missing", "overrides": {"sales_num": null, "field_sources": {"item_id": "embedded_json", "name": "detail_response", "price": "embedded_state", "sku": "embedded_state"}}, "accepted": true, "warning": "sales_missing"},
+    {"name": "page_abnormal", "overrides": {"page_status": "verification"}, "accepted": false, "error": "PAGE_VERIFICATION"},
+    {"name": "parser_partial", "overrides": {"parse_status": "partial"}, "accepted": true},
+    {"name": "source_missing", "overrides": {"field_sources": {"item_id": "embedded_json"}}, "accepted": false, "error_prefix": "FIELD_SOURCE_MISSING"}
+  ]
+}

@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
+from server.task_state import TaskItemStatus, TaskStatus
 
 
 class PlatformOut(BaseModel):
@@ -18,6 +19,7 @@ class PlatformOut(BaseModel):
 
 class DeviceRegisterIn(BaseModel):
     device_key: str = Field(..., min_length=4, max_length=64)
+    enrollment_token: Optional[str] = Field(default=None, min_length=20, max_length=256)
     device_name: Optional[str] = None
     platform_code: str = "pinduoduo"
     app_version: Optional[str] = None
@@ -95,23 +97,33 @@ class TaskProgressIn(BaseModel):
     success_delta: int = 0
     fail_delta: int = 0
     item_id: Optional[int] = None
-    item_status: Optional[str] = None
+    item_status: Optional[str] = None  # validated by authoritative state service; legacy done supported
     product_id: Optional[int] = None
     # 搜索一次关键词（含价格/销量重搜）计 1
     keyword_delta: int = 0
+    # Required for any delta update; persisted server-side for replay protection.
+    progress_id: Optional[str] = Field(default=None, min_length=8, max_length=64)
 
 
 class TaskFinishIn(BaseModel):
     device_key: str
     task_id: int
-    status: str = "done"
+    status: str = "complete"
     error_msg: Optional[str] = None
+    finish_id: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    expected_product_count: Optional[int] = Field(default=None, ge=0)
+    expected_image_count: Optional[int] = Field(default=None, ge=0)
 
 
 class ProductUploadIn(BaseModel):
     device_key: str
+    idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
     task_id: Optional[int] = None
     task_item_id: Optional[int] = None
+    job_id: Optional[int] = Field(default=None, gt=0)
+    attempt_id: Optional[int] = Field(default=None, gt=0)
+    worker_id: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    lease_token: Optional[str] = Field(default=None, min_length=32, max_length=256)
     platform_code: str = "pinduoduo"
     keyword: Optional[str] = None
     item_id: Optional[str] = None
@@ -142,6 +154,12 @@ class ProductUploadIn(BaseModel):
     spec_list: Optional[str] = None
     raw_json: Optional[str] = None
     image_urls: list[str] = Field(default_factory=list)
+    parse_status: Optional[str] = None
+    page_status: Optional[str] = None
+    quality_status: Optional[str] = None
+    field_sources: dict[str, str] = Field(default_factory=dict)
+    parser_version: Optional[str] = Field(default=None, max_length=64)
+    quality_rules_version: Optional[str] = Field(default=None, max_length=64)
 
 
 class ProductOut(BaseModel):
@@ -173,3 +191,45 @@ class ApiOk(BaseModel):
     ok: bool = True
     message: str = "ok"
     data: Any = None
+
+# Phase 2 worker Job protocol.  All mutable calls include the authoritative Lease identity.
+class JobAcquireIn(BaseModel):
+    device_key: str = Field(..., min_length=4, max_length=64)
+    worker_id: str = Field(..., min_length=1, max_length=128)
+    platform_code: Optional[str] = Field(default=None, max_length=32)
+    lease_seconds: int = Field(default=120, ge=15, le=900)
+
+
+class JobLeaseIn(BaseModel):
+    device_key: str = Field(..., min_length=4, max_length=64)
+    worker_id: str = Field(..., min_length=1, max_length=128)
+    job_id: int = Field(..., gt=0)
+    attempt_id: int = Field(..., gt=0)
+    lease_token: str = Field(..., min_length=32, max_length=256)
+
+
+class JobHeartbeatIn(JobLeaseIn):
+    lease_seconds: int = Field(default=120, ge=15, le=900)
+
+
+class JobCheckpointIn(JobLeaseIn):
+    version: int = Field(..., ge=1)
+    idempotency_key: str = Field(..., min_length=8, max_length=128)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class JobCompleteIn(JobLeaseIn):
+    result_receipt_key: str = Field(..., min_length=8, max_length=128)
+    result_receipt_keys: list[str] = Field(default_factory=list, max_length=200)
+    result_product_id: Optional[int] = Field(default=None, gt=0)
+
+
+class JobFailIn(JobLeaseIn):
+    error_class: str = Field(..., min_length=3, max_length=64)
+    error_code: str = Field(..., min_length=1, max_length=128)
+    error_message: str = Field(default="", max_length=2000)
+
+
+class JobRecoverIn(BaseModel):
+    device_key: str = Field(..., min_length=4, max_length=64)
+    worker_id: str = Field(..., min_length=1, max_length=128)

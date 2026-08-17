@@ -32,6 +32,7 @@ class SettingsActivity : AppCompatActivity() {
         val etHost = findViewById<EditText>(R.id.etServerHost)
         val etPort = findViewById<EditText>(R.id.etServerPort)
         val etName = findViewById<EditText>(R.id.etDeviceName)
+        val etEnrollmentToken = findViewById<EditText>(R.id.etEnrollmentToken)
         val tvKey = findViewById<TextView>(R.id.tvDeviceKey)
         val tvResult = findViewById<TextView>(R.id.tvTestResult)
 
@@ -39,12 +40,14 @@ class SettingsActivity : AppCompatActivity() {
         etHost.setText(prefs.host)
         etPort.setText(if (prefs.port > 0) prefs.port.toString() else "")
         etName.setText(prefs.deviceName)
+        etEnrollmentToken.setText(prefs.enrollmentToken)
         tvKey.text = "设备Key：${prefs.deviceKey}"
 
         findViewById<Button>(R.id.btnSaveServer).setOnClickListener {
             prefs.host = etHost.text.toString().trim()
             prefs.port = etPort.text.toString().trim().toIntOrNull() ?: 0
             prefs.deviceName = etName.text.toString().trim().ifBlank { Build.MODEL }
+            prefs.enrollmentToken = etEnrollmentToken.text.toString().trim()
             prefs.enabled = cbOnline.isChecked
             tvKey.text = "设备Key：${prefs.deviceKey}"
 

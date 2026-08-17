@@ -1,16 +1,23 @@
 <template>
   <div class="page-card">
     <div class="toolbar">
-      <el-select v-model="status" clearable placeholder="全部状态" style="width:140px" @change="load">
+      <el-select v-model="status" clearable placeholder="全部状态" style="width:140px" @change="applyFilters">
         <el-option label="待下发" value="pending" />
         <el-option label="执行中" value="running" />
-        <el-option label="全部完成" value="done" />
+        <el-option label="全部成功" value="succeeded" />
+        <el-option label="部分成功" value="partially_succeeded" />
         <el-option label="执行失败" value="failed" />
+        <el-option label="已取消" value="cancelled" />
+        <el-option label="已超时" value="timed_out" />
       </el-select>
       <el-button @click="load">刷新</el-button>
       <el-button v-if="store.hasPerm('task:create')" type="primary" @click="$router.push('/tasks/create')">创建任务</el-button>
     </div>
-    <el-table :data="list" stripe border @row-click="goDetail">
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" style="margin-bottom:12px">
+      <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+    </el-alert>
+    <el-table v-loading="loading" :data="list" stripe border @row-click="goDetail">
+      <template #empty><el-empty :description="loading ? '正在加载' : (error ? '任务列表加载失败' : '暂无任务')" /></template>
       <el-table-column prop="task_id" label="任务ID" width="90" />
       <el-table-column prop="task_name" label="任务名称" min-width="160" />
       <el-table-column prop="platform_code" label="平台" width="110" />
@@ -39,6 +46,15 @@
         <template #default="{ row }">{{ fmt(row.create_time) }}</template>
       </el-table-column>
     </el-table>
+    <el-pagination
+      v-model:current-page="page"
+      v-model:page-size="limit"
+      :total="total"
+      :page-sizes="[20, 50, 100]"
+      layout="total, sizes, prev, pager, next"
+      style="margin-top:16px;justify-content:flex-end"
+      @change="load"
+    />
   </div>
 </template>
 
@@ -54,6 +70,11 @@ const store = useUserStore()
 const router = useRouter()
 const list = ref([])
 const status = ref('')
+const loading = ref(false)
+const page = ref(1)
+const limit = ref(20)
+const total = ref(0)
+const error = ref('')
 
 function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 function countText(row) {
@@ -79,9 +100,22 @@ async function review(row, decision) {
 }
 
 async function load() {
-  const q = status.value ? `?status=${status.value}` : ''
-  const res = await http.get(`/api/tasks${q}`)
-  list.value = res.data || []
+  loading.value = true
+  error.value = ''
+  try {
+    const params = new URLSearchParams({ page: String(page.value), limit: String(limit.value) })
+    if (status.value) params.set('status', status.value)
+    const res = await http.get(`/api/tasks?${params}`)
+    list.value = res.data?.items || []
+    total.value = res.data?.total || 0
+  } catch (e) {
+    list.value = []
+    total.value = 0
+    error.value = e?.message || e?.detail || '任务列表加载失败'
+  } finally {
+    loading.value = false
+  }
 }
+function applyFilters() { page.value = 1; load() }
 onMounted(load)
 </script>

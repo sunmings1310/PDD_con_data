@@ -82,14 +82,17 @@ def write_op_log(
     module: str,
     detail: str = "",
     ip: Optional[str] = None,
+    enterprise_id: Optional[int] = None,
+    workspace_id: Optional[int] = None,
 ) -> None:
     cur.execute("SELECT SJZQ_SEQ_OP_LOG.NEXTVAL FROM DUAL")
     log_id = int(cur.fetchone()[0])
     cur.execute(
         """
         INSERT INTO SJZQ_OP_LOG
-        (LOG_ID, USER_ID, USERNAME, ACTION_CODE, MODULE_CODE, DETAIL_TEXT, IP_ADDR)
-        VALUES (:log_id, :user_id, :username, :action_code, :module_code, :detail_text, :ip_addr)
+        (LOG_ID, USER_ID, USERNAME, ACTION_CODE, MODULE_CODE, DETAIL_TEXT, IP_ADDR,ENTERPRISE_ID,WORKSPACE_ID)
+        VALUES (:log_id, :user_id, :username, :action_code, :module_code, :detail_text, :ip_addr,
+                :enterprise_id,:workspace_id)
         """,
         {
             "log_id": log_id,
@@ -99,6 +102,8 @@ def write_op_log(
             "module_code": (module or "")[:64],
             "detail_text": (detail or "")[:2000],
             "ip_addr": ip,
+            "enterprise_id": enterprise_id,
+            "workspace_id": workspace_id,
         },
     )
 

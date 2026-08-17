@@ -1,5 +1,18 @@
 # 稳定数据采集系统 Backlog
 
+> 2026-08-16 全面审计基线：[`../GAP.md`](../GAP.md)。本轮未实施业务重构或数据库迁移。
+>
+> Phase 1 已于 2026-08-17 完成验收。Phase 2 已完成实现与验收：Task/Job/Attempt/Lease/Checkpoint、原子领取、恢复、Pause/Resume、reconciliation、Android 生命周期恢复和 18 项故障矩阵均已进入统一门禁。验收报告：[`tasks/phase2-acceptance.md`](tasks/phase2-acceptance.md)。等待批准后再进入 Phase 3。
+
+## Phase 1 执行记录（2026-08-16）
+
+| 任务 | 状态 | 完成内容 | 验收 |
+|---|---|---|---|
+| T004 固定 fixture + 成功门禁 | DONE | 10 类脱敏离线样本；统一 `page_status/parse_status/quality_status`；Android 与服务端双重门禁；字段来源和规则版本持久化 | Python fixture/quality tests 通过；Android quality tests 通过；异常页不生成 outbox |
+| T005 修复 Android 假完成 | DONE | Room v2 持久 outbox、稳定 idempotency key、指数重试、商品/图片/finish 明确 ack、Oracle receipt、finish manifest、App 重启补偿 | Python 协议、MockWebServer、Room migration/reopen/原子事务及真实 Oracle 并发/回滚/完成闭环通过 |
+| T006 完整测试基线 | DONE | 固定 Python 3.10、Node 22.18、JDK 17.0.20、Gradle 8.4、SDK 34；统一 `scripts/test-baseline.ps1` 严格区分 PASS/FAIL/BLOCKED | Python 60、Oracle 8、Android JVM 36、Web build 全部 PASS；严格入口 exit=0 |
+| Phase 1 数据契约 ADR | DONE | Product、ProductSnapshot、Task、Job、Attempt、商品/快照身份、幂等与完成不变量 | `docs/decisions/phase1-success-data-contract.md` |
+
 > 制定日期：2026-08-13  
 > 依据：`docs/gap-analysis.md` 与当前代码。  
 > 排序规则：P0 → P1 → P2 → P3；同优先级按依赖顺序排列。每项都指向现有代码模块，不以“建设平台”“优化架构”等不可验收表述作为任务。
@@ -46,7 +59,7 @@
 
 | 编号 | 遗留问题 | 分类 | 后续归属/状态 |
 |---|---|---|---|
-| T001-F01 | 缺少隔离的 Oracle 测试环境，服务端完整 lifespan/readiness 尚未在测试环境验证；现有原项目 Oracle 已完成只读连接及 `SELECT 1 FROM dual` 验证。 | P0 / M0 阻塞项 | BL-010；TODO |
+| T001-F01 | 缺少隔离的 Oracle 测试环境。 | P0 / M0 阻塞项 | BL-010；DONE（2026-08-17，专用测试 Schema 已完成迁移和真实事务验收） |
 | T001-F02 | Android `DetailReaderTest` 15 项中有 3 项既有失败。 | P0 / 最低测试门禁 | BL-011；TODO |
 | T001-F03 | Gradle Wrapper 在干净环境首次下载 Gradle/Maven 依赖需要可用网络、组织镜像或预置缓存。 | P1 / 构建基础设施 | BL-113；TODO |
 | T001-F04 | Android SDK command-line tools 与当前 AGP 产生 SDK XML 版本兼容警告，但 debug assemble 成功。 | P2 / 工具链兼容优化 | BL-209；TODO，可暂缓 |
@@ -54,21 +67,22 @@
 
 ### BL-010 建立隔离的 Oracle 测试环境
 
-- **状态/里程碑**：TODO / M0
+- **状态/里程碑**：DONE / M0（2026-08-17）
 - **来源**：T001-F01
 - **代码模块**：`server/config.py`、`server/db.py`、`server/main.py` lifespan、`server/init_schema.py`、`server/init_rbac_schema.py`、`server/migrate.py`、待建测试环境配置/脚本。
 - **任务**：提供与现有 Oracle 方言一致、与原项目数据隔离的测试 schema；为服务启动、readiness、schema 基线和迁移测试提供可重复的配置与初始化/清理方式。现有原项目 Oracle 仅允许继续做已批准的只读核对，不能作为破坏性迁移测试库。
 - **验收**：使用专用测试凭据完成 `SELECT 1 FROM dual`；FastAPI lifespan 完整启动并关闭；初始化/迁移可在测试 schema 执行；测试数据可清理且不会访问原项目业务 schema；配置中无真实密码入库。
-- **依赖/风险**：依赖测试 Oracle 实例/schema 的外部提供或批准；BL-003 完成后使用其秘密注入方式。该任务阻塞 BL-004 的写入式迁移验证和 BL-009/BL-111 的 Oracle 集成测试。
+- **完成证据**：专用可写 Schema 通过 Oracle 19c 连接；`ensure_schema_patches()` 成功新增 progress/upload receipt、质量字段并使远程图片 `REL_PATH` 可空；8 项真实多连接/事务测试通过且测试标记数据残留为 0。凭据仅经环境变量注入。
+- **依赖/风险**：完整 FastAPI lifespan/readiness 独立留在服务部署验收；BL-004 的版本化迁移链仍需后续建设。
 
 ### BL-011 修复 Android DetailReaderTest 既有失败
 
-- **状态/里程碑**：TODO / M0-M2
+- **状态/里程碑**：DONE / M0-M2（2026-08-16）
 - **来源**：T001-F02
 - **代码模块**：`android_collector/app/src/test/java/com/collector/pdd/parser/DetailReaderTest.kt`、`android_collector/app/src/main/java/com/collector/pdd/parser/DetailReader.kt`、必要时 Android/JVM 测试依赖配置。
 - **任务**：逐项判定 2 个 `JSONObject.put` 本地 JVM 问题属于测试环境缺口还是生产逻辑耦合，并确认“期望 63.5、实际 null”属于错误测试期望还是解析回归；只修复已证实根因，不为了绿测修改业务结果。
 - **验收**：记录 3 个失败各自根因；`testDebugUnitTest` 15 项全部通过，或经业务确认删除/修改错误期望并保留证据；新增/修订样本能防止同类回归；Android debug assemble 仍通过。
-- **依赖/风险**：依赖 T001 工具链；价格期望语义不明确时标记 UNKNOWN 并请求业务确认。该任务是 BL-009 最低 Android 测试门禁的前置。
+- **完成证据**：JVM 使用真实 `org.json` 测试实现，未启用 `returnDefaultValues`；补贴价在免拼栏优先作为 group/display；新增 10 类 fixture 回放、质量门禁、MockWebServer、Room migration/outbox 重启和重试策略测试。`testDebugUnitTest` 36/36 通过。
 
 ### BL-003 外置秘密并增加配置启动校验
 
@@ -89,42 +103,47 @@
 
 ### BL-005 统一任务、任务项、设备和审核状态机
 
-- **状态/里程碑**：TODO / M1
+- **状态/里程碑**：DONE / M1（T003，2026-08-13）
 - **代码模块**：`server/routers/tasks.py`、`server/routers/devices.py`、`server/schemas.py`、`server/services.py`、`android_collector/.../TaskEngine.kt`、`AgentCoordinator.kt`、根目录 `task_runner.py`。
 - **任务**：定义服务端权威枚举、合法迁移、终态和不变量；明确 Android `finished/stopped`、桌面 `interrupted/paused` 的映射；将状态迁移从散落 SQL 收敛到可测试业务函数。
 - **验收**：状态迁移表与实现一致；非法迁移被拒绝；任务/任务项/设备状态组合测试通过；Web 显示不再依赖猜测式映射。
+- **完成证据**：新增集中状态定义与 Oracle 状态服务；task/progress/finish/cancel、device abort、OTA abort、product item 回填均使用统一迁移或运行态守卫；Python 25/25、T003 11/11、Android 状态映射 3/3、assembleDebug、Web build 通过。Android 全量单测仍仅有 T001 已登记的 `DetailReaderTest` 3 项既有失败。
 - **依赖/风险**：BL-004；旧桌面端是否纳入服务端状态为 UNKNOWN，未决策前仅定义隔离边界。
 
 ### BL-006 增加执行 attempt、任务租约和超时回收
 
-- **状态/里程碑**：TODO / M1
+- **状态/里程碑**：DONE / M1（Phase 2，2026-08-17）
 - **代码模块**：`server/routers/tasks.py` 的 `pull_task/progress/task_finish`、`server/routers/devices.py` heartbeat、Oracle 任务相关 schema、`AgentCoordinator.kt`、`ApiClient.kt`。
 - **任务**：每次领取生成 `attempt_id`，记录租约截止与续租；用 Oracle 条件更新/锁防止重复领取；增加过期 attempt reconciliation。
 - **验收**：两个 Agent 并发领取仅一个成功；Agent 断线后任务在规定时间恢复/重排；旧 attempt 的迟到进度和完成请求被拒绝；所有自动回收有审计记录。
+- **完成证据**：`CollectionJob/Attempt/Lease/Checkpoint` schema、原子 `SKIP LOCKED` acquire、token hash fence、heartbeat、30 秒 reconciliation、真实 Oracle 并发/过期 lease/route 集成与 18 项故障注入通过。
 - **依赖/风险**：BL-005；租约时长、续租周期和最大尝试次数需业务/运行数据确认。
 
 ### BL-007 实现上报幂等与单调进度
 
-- **状态/里程碑**：TODO / M1
+- **状态/里程碑**：PARTIAL / M1（Phase 1-2）
 - **代码模块**：`server/routers/tasks.py`、`products.py`、Oracle 商品/图片/任务项 schema、`ApiClient.kt`、`AgentCoordinator.kt`、Room entities/DAO。
 - **任务**：为 progress、product、image、anomaly、finish 定义幂等键；进度包含 attempt 与单调序号；商品和图片写入建立确定的重复语义。
 - **验收**：同一请求重复 10 次不重复计数/终结/建商品/建图片；乱序进度不能回退状态；相同业务键冲突产生明确错误或既定合并结果。
+- **完成证据**：product/image/checkpoint/complete 使用稳定 idempotency key；checkpoint 单调；ACK 丢失重放、旧 lease、重复 outbox 均通过。跨任务 `Product + ProductSnapshot` 业务去重仍留 Phase 3。
 - **依赖/风险**：BL-006；商品业务唯一键当前 UNKNOWN，须先决策，不能以普通索引替代语义。
 
 ### BL-008 建立 Android 持久化 outbox 与失败闭环
 
-- **状态/里程碑**：TODO / M1
+- **状态/里程碑**：DONE / M1（Phase 1-2，2026-08-17）
 - **代码模块**：`android_collector/.../data/AppDatabase.kt`、`Dao.kt`、`Entities.kt`、`net/AgentCoordinator.kt`、`net/ApiClient.kt`、服务端 progress/product/image/finish API。
 - **任务**：本地持久化待上报操作；按错误分类做有限退避；成功确认后删除；超过策略进入 dead-letter/待人工状态。
 - **验收**：上传中断、App 重启、服务端 5xx 后待办不丢失且可重放；永久错误不无限重试；重放与 BL-007 幂等测试组合通过。
+- **完成证据**：Room v3 assignment/outbox、2→3 migration、有限退避、旧 lease 隔离、WorkManager/ForegroundService/Boot 恢复和 JVM migration/recovery tests 通过。
 - **依赖/风险**：BL-007；Room schema migration 必须兼容已安装版本。
 
 ### BL-009 建立最低自动化门禁
 
-- **状态/里程碑**：TODO / M0-M1
+- **状态/里程碑**：DONE / M0-M1（本地门禁，2026-08-17）
 - **代码模块**：待建服务端测试目录、`android_collector/app/src/test`、`web/package.json` 测试脚本、构建脚本/CI 配置。
 - **任务**：把构建、配置校验、schema migration、状态机、并发领取、重复上报和断线恢复纳入可重复脚本。
 - **验收**：统一入口运行 Python、Web build、Android unit tests 和 M1 集成测试；失败返回非零状态并保留关键证据。
+- **完成证据**：`scripts/test-baseline.ps1` 严格运行 Python、真实 Oracle Phase1/2、Android JVM、Web build；CI 托管自动化仍归 BL-112。
 - **依赖/风险**：BL-001～BL-008 按内容逐步接入；Oracle 测试环境方案 UNKNOWN。
 
 ## P1：稳定运行闭环
@@ -318,6 +337,15 @@
 - **验收**：有优化前后 bundle/首屏指标对比；目标 chunk 或加载指标达到批准阈值；页面路由和 Web 自动测试通过。若指标证明无实际影响，可用“评估后不实施”关闭并保留数据。
 - **依赖/风险**：依赖 BL-108 指标和 BL-111 Web 回归；当前仅为构建警告，不得抢占 P0/P1。
 
+## Phase 3 数据质量交付（2026-08-17）
+
+- **DONE / BL-101**：新增 `SJZQ_PRODUCT_MASTER`，数据库唯一键 `(PLATFORM_CODE, PLATFORM_PRODUCT_ID)`；新采集不重复创建业务 Product identity。
+- **DONE / BL-105, BL-106**：动态事实进入不可变 `SJZQ_PRODUCT_SNAPSHOT`；价格、销量、SKU、可用状态、标题、店铺差异写入 `SJZQ_SNAPSHOT_DIFF`。
+- **DONE / BL-107**：服务端 `QualityGate phase3-1` 是 strict upload 唯一质量入口；关键字段 provenance 写入 `SJZQ_FIELD_PROVENANCE`；拒绝观察进入 `SJZQ_DATA_QUARANTINE`。
+- **DONE / BL-111（Phase 3 范围）**：固定离线质量矩阵、真实 Oracle Product/Snapshot/Quarantine 测试以及 Phase 1/2 回归进入统一测试入口。
+- **DONE / BL-004（最小框架）**：新增 `SJZQ_SCHEMA_MIGRATION` 与可重入 `P3_001_DATA_QUALITY`；后续迁移仍需逐个纳入版本框架。
+- **DEFERRED**：历史 `SJZQ_PRODUCT` 去重/回填需要数据合并决策；稳定 `platform_sku_id` 未具备前，不创建 SKU 主档；Quarantine 管理 UI 留给 Phase 4。
+
 ## P3：长期演进
 
 ### BL-301 决定旧桌面采集链路去留并执行
@@ -366,3 +394,38 @@
 - **P1 出口**：BL-101～BL-112 完成；系统具备可靠任务、数据质量、可观测和自动化门禁闭环。
 - **P2 出口**：每项必须有 M3 指标证明必要性；没有收益可用“评估后不实施”关闭。
 - **P3 出口**：由业务价值驱动，不得挤占尚未关闭的 P0/P1。
+# Phase 4 管理与可观测性（2026-08-17）
+
+- [x] Quarantine 服务端分页、筛选、详情与 Raw/Quality/执行链关联。
+- [x] Product Master Snapshot 时间线、Diff 与字段来源展示。
+- [x] 服务端真实质量聚合、版本表现、错误集中度与基础异常提示。
+- [x] Task → Job → Attempt → Event/Device/Error 分页轨迹。
+- [x] Tasks、Products、Jobs、Attempts、Snapshots、Quarantine 的服务端真实分页。
+- [x] 管理页面 loading/error/empty 状态与对象跳转。
+- [ ] Quarantine 人工修复/重放流程（非 Phase 4 优先目标）。
+- [x] Attempt Event、Quarantine、Snapshot、Task/Product 分页关键复合索引（`P4_001_MANAGEMENT_INDEXES`）。
+- [ ] JSON 虚拟列/search index（以真实容量和执行计划决定）。
+# Phase 5 企业化完成记录（2026-08-17）
+
+- [x] Enterprise、Workspace、Enterprise/Workspace membership 与租户 Role 边界
+- [x] 全局最小 Product identity + Enterprise 私有 Product/Snapshot/Quarantine
+- [x] Task/Job/Attempt/Lease/Checkpoint/Event 租户归属与设备租户领取边界
+- [x] Dashboard、Task、Product、Quality、Quarantine、Trace、日志查询租户谓词
+- [x] 管理端企业/Workspace 选择器与请求头上下文
+- [x] Workspace/User/Active Task/Daily Snapshot/Storage 配额基础表；Workspace 创建执行配额
+- [x] `P5_001`、`P5_002`、`P5_003` Oracle 可重入 migration
+- [x] 离线租户契约、真实 Oracle 跨租户 ID、分页与 migration 测试
+
+Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进入 Phase 6。
+
+# Phase 5.5 企业化硬化完成记录（2026-08-17）
+
+- [x] Device enrollment 一次性 token、hash 存储、轮换、设备 key 轮换和 revoke
+- [x] 被撤销设备统一 Agent/OTA/投屏发布门禁，撤销时终止活动执行权
+- [x] 账号养护、设备管理、OTA、投屏 viewer/媒体、Excel TenantContext 收敛
+- [x] Active Task、Daily Snapshot、Storage usage/reservation/ledger 与迁移回填
+- [x] 跨租户、撤销设备、配额并发、媒体/Excel 旁路离线专项测试
+- [x] legacy/default 最终移除条件 ADR
+- [ ] 隔离 Oracle Phase 5.5 真实迁移/并发回归（环境门禁）
+
+验收见 `docs/tasks/phase55-acceptance.md`。完成全量可用环境回归和 Sol Review 后停止，不进入 Phase 6。

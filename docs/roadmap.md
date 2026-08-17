@@ -588,3 +588,10 @@ T001 已消除最初的依赖与工具链阻断：`requirements.txt` 已补齐�
 - 核心故障能通过指标/日志/告警发现，并有处置手册和演练记录。
 - 核心行为进入自动化门禁，接口和 schema 演进受契约测试保护。
 - 缓存、队列、多实例和多平台等复杂度仅在指标和业务需求证明必要时引入。
+# Phase 4 执行状态（2026-08-17）
+
+# Phase 5.5 企业化硬化执行状态（2026-08-17）
+
+Phase 5.5 只关闭 Phase 5 的企业隔离硬化债务：设备 enrollment/revoke、旁路 TenantContext、三类配额账本与 legacy/default 退出门禁。它不引入新平台、缓存、队列、broker 或 Phase 6 产品范围。实现与离线专项测试已完成；真实 Oracle 门禁通过前，Phase 6 不具备无条件启动条件。
+
+管理与可观测性已按 `docs/decisions/phase4-management-observability.md` 实施；本阶段只增加既有 Phase 2/3 事实的管理查询、真实分页、服务端质量聚合和排查型 Web 页面，不改变已稳定的写入架构。最终测试与限制见 `docs/tasks/phase4-acceptance.md`，完成后停止，不进入 Phase 5。

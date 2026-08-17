@@ -4,6 +4,7 @@
       <div class="toolbar">
         <el-button @click="$router.back()">返回</el-button>
         <el-button type="primary" @click="load">刷新</el-button>
+        <el-button type="success" @click="$router.push(`/tasks/${route.params.id}/trace`)">查看执行轨迹</el-button>
         <el-button v-if="task?.device_id && store.hasPerm('device:cast')" @click="$router.push(`/devices/${task.device_id}/cast`)">关联设备投屏</el-button>
       </div>
       <el-descriptions v-if="task" :column="3" border>
@@ -46,6 +47,9 @@
         <el-table-column label="状态" width="100"><template #default="{row}"><el-tag :type="row.library_status==='saved'?'success':'warning'">{{ row.library_status==='saved'?'已入库':'待保存' }}</el-tag></template></el-table-column>
         <el-table-column v-if="task?.can_manage_results" label="操作" width="140"><template #default="{row}"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template></el-table-column>
       </el-table>
+      <el-pagination v-model:current-page="productPage" v-model:page-size="productLimit"
+        :total="productTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
+        style="margin-top:16px;justify-content:flex-end" @change="loadProducts" />
     </div>
 
     <div class="page-card" v-if="task?.anomalies?.length">
@@ -128,15 +132,18 @@ const store = useUserStore()
 const task = ref(null)
 const taskProducts = ref([])
 const selectedProducts = ref([])
+const productPage = ref(1)
+const productLimit = ref(50)
+const productTotal = ref(0)
 const editVisible = ref(false)
 const editForm = reactive({product_id:null,product_name:'',sell_name:'',spec_text:'',approval_no:'',manufacturer:'',price:null,deal_price:null})
 let timer
 
 const items = computed(() => task.value?.items || [])
-const okItems = computed(() => items.value.filter((x) => x.status === 'done'))
-const failItems = computed(() => items.value.filter((x) => x.status === 'failed'))
-const retryItems = computed(() => items.value.filter((x) => ['failed', 'cancelled'].includes(x.status)))
-const pendingItems = computed(() => items.value.filter((x) => !['done', 'failed'].includes(x.status)))
+const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
+const failItems = computed(() => items.value.filter((x) => ['failed', 'not_matched'].includes(x.status)))
+const retryItems = computed(() => items.value.filter((x) => ['failed', 'not_matched', 'cancelled'].includes(x.status)))
+const pendingItems = computed(() => items.value.filter((x) => !['succeeded', 'done', 'failed', 'not_matched', 'cancelled'].includes(x.status)))
 const isMatchTask = computed(() => items.value.some((x) => x.target_approval && x.target_spec))
 const matchOkItems = computed(() => okItems.value.filter((x) => x.target_approval && x.target_spec))
 const matchFailItems = computed(() => failItems.value.filter((x) => x.target_approval && x.target_spec))
@@ -149,28 +156,35 @@ const percent = computed(() => {
 function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 
 function itemStatusText(status) {
-  return { pending: '待采集', running: '采集中', done: '采集成功', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
+  return { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
 }
 function itemStatusType(status) {
-  return { pending: 'info', running: 'warning', done: 'success', failed: 'danger', cancelled: 'info' }[status] || 'info'
+  return { pending: 'info', running: 'warning', succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[status] || 'info'
 }
 function matchStatusText(row) {
   if (!row.target_approval || !row.target_spec) return '-'
-  if (row.status === 'done') return '匹配成功'
+  if (['succeeded', 'done'].includes(row.status)) return '匹配成功'
+  if (row.status === 'not_matched') return '未匹配'
   if (row.status === 'failed') return '匹配失败'
   if (row.status === 'cancelled') return '已取消'
   return '待匹配'
 }
 function matchStatusType(row) {
-  return { done: 'success', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
+  return { succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
 }
 function taskStatusType(status) {
-  return { pending: 'info', running: 'warning', done: 'success', failed: 'danger', cancelled: 'info' }[status] || 'info'
+  return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
 }
 
 async function load() {
-  const [res, products] = await Promise.all([http.get(`/api/tasks/${route.params.id}`), http.get(`/api/products?task_id=${route.params.id}&limit=200`)])
-  task.value = res.data; taskProducts.value = products.data?.items || []
+  const [res] = await Promise.all([http.get(`/api/tasks/${route.params.id}`), loadProducts()])
+  task.value = res.data
+}
+
+async function loadProducts() {
+  const products = await http.get(`/api/products?task_id=${route.params.id}&page=${productPage.value}&limit=${productLimit.value}`)
+  taskProducts.value = products.data?.items || []
+  productTotal.value = Number(products.data?.total || 0)
 }
 
 function editProduct(row){Object.assign(editForm,row);editVisible.value=true}

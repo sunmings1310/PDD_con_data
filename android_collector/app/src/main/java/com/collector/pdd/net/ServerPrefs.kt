@@ -28,6 +28,10 @@ class ServerPrefs(ctx: Context) {
         get() = sp.getString(KEY_PLATFORM, "pinduoduo")?.trim().orEmpty().ifBlank { "pinduoduo" }
         set(v) = sp.edit().putString(KEY_PLATFORM, v.trim()).apply()
 
+    var enrollmentToken: String
+        get() = sp.getString(KEY_ENROLLMENT_TOKEN, "")?.trim().orEmpty()
+        set(v) = sp.edit().putString(KEY_ENROLLMENT_TOKEN, v.trim()).apply()
+
     val deviceKey: String
         get() {
             val existed = sp.getString(KEY_DEVICE, null)
@@ -36,6 +40,31 @@ class ServerPrefs(ctx: Context) {
             sp.edit().putString(KEY_DEVICE, gen).apply()
             return gen
         }
+
+    /** Durable hand-off between a successful pull and TaskEngine's first Room transaction. */
+    fun pendingTaskJson(): String? = sp.getString(KEY_PENDING_TASK, null)?.takeIf { it.isNotBlank() }
+
+    fun savePendingTask(json: String) {
+        check(sp.edit().putString(KEY_PENDING_TASK, json).commit()) {
+            "failed to persist pulled task assignment"
+        }
+    }
+
+    /** Stable logical worker identity; changes only when app data is cleared. */
+    val workerId: String
+        get() {
+            val existed = sp.getString(KEY_WORKER, null)
+            if (!existed.isNullOrBlank()) return existed
+            val generated = "android-worker-" + UUID.randomUUID().toString().replace("-", "")
+            check(sp.edit().putString(KEY_WORKER, generated).commit()) { "failed to persist worker identity" }
+            return generated
+        }
+
+    fun clearPendingTask() {
+        check(sp.edit().remove(KEY_PENDING_TASK).commit()) {
+            "failed to clear persisted task assignment"
+        }
+    }
 
     /**
      * 解析最终 API 根地址。
@@ -75,6 +104,9 @@ class ServerPrefs(ctx: Context) {
         private const val KEY_PORT = "port"
         private const val KEY_NAME = "device_name"
         private const val KEY_PLATFORM = "platform"
+        private const val KEY_ENROLLMENT_TOKEN = "enrollment_token"
         private const val KEY_DEVICE = "device_key"
+        private const val KEY_WORKER = "worker_id"
+        private const val KEY_PENDING_TASK = "pending_remote_task_json"
     }
 }

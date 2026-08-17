@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import secrets
+
 from fastapi import APIRouter, Depends, Request
 
 from server.auth_util import require_perms, write_op_log
+from server.tenant import require_tenant_perms
+from server.device_enrollment import consume, issue, revoke as revoke_enrollment, rotate
 from server.cast_state import cast_state
 from server.db import get_conn, next_id, rows_as_dicts
 from server.ota_meta import latest_payload
+from server.media_access import signed_media_url
 from server.schemas import ApiOk, DeviceHeartbeatIn, DeviceRegisterIn
 from server.services import enrich_device, get_device_by_key, mark_offline_stale
+from server.task_state import StateConflict, TaskItemStatus, TaskStatus
+from server.task_state_service import close_unfinished_items, require_running_task, state_error_data, transition_task
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -37,8 +44,10 @@ def register_device(body: DeviceRegisterIn, request: Request):
     ip = request.client.host if request.client else None
     with get_conn() as conn:
         cur = conn.cursor()
-        existed = get_device_by_key(cur, body.device_key)
+        existed = get_device_by_key(cur, body.device_key, include_revoked=True)
         if existed:
+            if existed.get("revoked_at") is not None:
+                return ApiOk(ok=False, message="device revoked", data={"error_code": "DEVICE_REVOKED"})
             cur.execute(
                 """
                 UPDATE SJZQ_DEVICE
@@ -51,7 +60,7 @@ def register_device(body: DeviceRegisterIn, request: Request):
                        LAST_IP = :ip,
                        LAST_HEARTBEAT = SYSTIMESTAMP,
                        UPDATE_TIME = SYSTIMESTAMP
-                 WHERE DEVICE_KEY = :k
+                 WHERE DEVICE_KEY = :k AND REVOKED_AT IS NULL
                 """,
                 {
                     "name": body.device_name,
@@ -63,17 +72,25 @@ def register_device(body: DeviceRegisterIn, request: Request):
                     "k": body.device_key,
                 },
             )
+            if cur.rowcount != 1:
+                return ApiOk(ok=False, message="device revoked", data={"error_code": "DEVICE_REVOKED"})
             device = get_device_by_key(cur, body.device_key)
             return ApiOk(message="updated", data=enrich_device(device or {}))
 
-        device_id = next_id(cur, "SJZQ_SEQ_DEVICE")
+        try:
+            device_id = next_id(cur, "SJZQ_SEQ_DEVICE")
+            scope = consume(cur, bearer=body.enrollment_token or "", device_id=device_id)
+        except ValueError as exc:
+            return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
         cur.execute(
             """
             INSERT INTO SJZQ_DEVICE (
                 DEVICE_ID, DEVICE_KEY, DEVICE_NAME, PLATFORM_CODE,
-                APP_VERSION, OS_VERSION, MODEL, STATUS, LAST_IP, LAST_HEARTBEAT
+                APP_VERSION, OS_VERSION, MODEL, STATUS, LAST_IP, LAST_HEARTBEAT,
+                ENTERPRISE_ID, WORKSPACE_ID, ENROLLMENT_TOKEN_ID
             ) VALUES (
-                :id, :k, :name, :plat, :av, :os, :model, 'online', :ip, SYSTIMESTAMP
+                :id, :k, :name, :plat, :av, :os, :model, 'online', :ip, SYSTIMESTAMP,
+                :enterprise_id, :workspace_id, :enrollment_token_id
             )
             """,
             {
@@ -85,6 +102,8 @@ def register_device(body: DeviceRegisterIn, request: Request):
                 "os": body.os_version,
                 "model": body.model,
                 "ip": ip,
+                "enterprise_id": scope.enterprise_id, "workspace_id": scope.workspace_id,
+                "enrollment_token_id": scope.token_id,
             },
         )
         device = get_device_by_key(cur, body.device_key)
@@ -100,56 +119,29 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         if not device:
             return ApiOk(ok=False, message="device not registered", data=None)
 
-        st = (body.status or "online").strip().lower() or "online"
-        tid = body.current_task_id
-        # 仅允许绑定「进行中」任务；已结束/终止的 ID 不得把设备写回采集中
-        if tid is not None:
-            cur.execute(
-                "SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID = :id",
-                {"id": int(tid)},
-            )
-            row = cur.fetchone()
-            task_st = (str(row[0]).lower() if row and row[0] is not None else "")
-            if task_st != "running":
-                tid = None
-                if st == "busy":
-                    st = "online"
-        elif st != "busy":
-            tid = None
-
-        # 关闭休息逻辑时，心跳会清理历史休息窗口并直接回到空闲。
-        run_state_sql = (
-            "CASE WHEN :tid IS NOT NULL THEN 'running' "
-            "WHEN REST_UNTIL IS NOT NULL AND REST_UNTIL>SYSTIMESTAMP THEN 'resting' ELSE 'idle' END"
-            if REST_LOGIC_ENABLED else
-            "CASE WHEN :tid IS NOT NULL THEN 'running' ELSE 'idle' END"
-        )
-        rest_until_sql = "REST_UNTIL" if REST_LOGIC_ENABLED else "NULL"
+        # Client task/status values are observations only. Server assignment is authoritative.
+        # A stale/empty heartbeat must never clear or replace CURRENT_TASK_ID/RUN_STATE.
+        assigned_task_id = device.get("current_task_id")
+        st = "busy" if assigned_task_id is not None else "online"
         cur.execute(
-            f"""
+            """
             UPDATE SJZQ_DEVICE
                SET STATUS = :st,
                    APP_VERSION = NVL(:av, APP_VERSION),
                    LAST_IP = :ip,
                    LAST_HEARTBEAT = SYSTIMESTAMP,
-                   CURRENT_TASK_ID = :tid,
-                   RUN_STATE = {run_state_sql},
-                   RUN_STARTED_AT = CASE
-                       WHEN :tid IS NOT NULL THEN NVL(RUN_STARTED_AT, SYSTIMESTAMP)
-                       ELSE NULL
-                   END,
-                   REST_UNTIL = {rest_until_sql},
                    UPDATE_TIME = SYSTIMESTAMP
-             WHERE DEVICE_KEY = :k
+             WHERE DEVICE_KEY = :k AND REVOKED_AT IS NULL
             """,
             {
                 "st": st,
                 "av": body.app_version,
                 "ip": ip,
-                "tid": tid,
                 "k": body.device_key,
             },
         )
+        if cur.rowcount != 1:
+            return ApiOk(ok=False, message="device revoked", data={"error_code": "DEVICE_REVOKED"})
         device = get_device_by_key(cur, body.device_key)
         data = enrich_device(device or {})
         # App 端指令：投屏请求 / 远程终止
@@ -157,12 +149,17 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
             cast_state.ensure_room(int(data["device_id"]), body.device_key)
         data["commands"] = cast_state.device_commands(body.device_key)
         # 供 App 比对版本：不一致时主界面显示「更新」按钮
-        data["latest_apk"] = latest_payload()
+        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
+        latest = latest_payload(scope)
+        if latest.get("has_apk"):
+            apk_path = "apk/latest.apk" if scope == (1, 1) else f"apk/{scope[0]}/{scope[1]}/latest.apk"
+            latest["apk_url"] = signed_media_url(apk_path, scope[0], scope[1], 900)
+        data["latest_apk"] = latest
         return ApiOk(data=data)
 
 
 @router.get("")
-def list_devices(platform_code: str | None = None, _=Depends(require_perms("device:view"))):
+def list_devices(platform_code: str | None = None, tenant=Depends(require_tenant_perms("device:view"))):
     from server.config import settings
 
     with get_conn() as conn:
@@ -187,11 +184,11 @@ def list_devices(platform_code: str | None = None, _=Depends(require_perms("devi
                       AND NVL(STATUS, 'offline') NOT IN ('offline', 'error')
                      THEN 1 ELSE 0
                    END AS IS_ALIVE
-              FROM SJZQ_DEVICE
+              FROM SJZQ_DEVICE WHERE ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
         """
-        params: dict = {}
+        params: dict = dict(tenant.binds)
         if platform_code:
-            sql += " WHERE PLATFORM_CODE = :p"
+            sql += " AND PLATFORM_CODE = :p"
             params["p"] = platform_code
         sql += " ORDER BY LAST_HEARTBEAT DESC NULLS LAST, DEVICE_ID DESC"
         cur.execute(sql, params)
@@ -201,6 +198,7 @@ def list_devices(platform_code: str | None = None, _=Depends(require_perms("devi
             if "is_alive" in d:
                 d["online"] = int(d.get("is_alive") or 0) == 1
             d["ui_status"] = _ui_status(d)
+            d.pop("device_key", None)
             rows.append(d)
         return ApiOk(data=rows)
 
@@ -211,6 +209,7 @@ def update_binding(
     body: dict,
     request: Request,
     user=Depends(require_perms("device:manage")),
+    tenant=Depends(require_tenant_perms("device:manage")),
 ):
     """绑定运营并强制每名运营最多两台设备。"""
     owner_raw = body.get("owner_user_id")
@@ -220,13 +219,15 @@ def update_binding(
         rest_minutes = int(body.get("min_rest_min") or 30)
     except (TypeError, ValueError):
         return ApiOk(ok=False, message="绑定参数格式错误")
-    if user.get("role_code") != "super_admin" and owner_id not in (None, int(user["user_id"])):
+    if tenant.role_code != "super_admin" and owner_id not in (None, int(user["user_id"])):
         return ApiOk(ok=False, message="运营只能绑定本人设备")
     if max_minutes < 15 or max_minutes > 720 or rest_minutes < 5 or rest_minutes > 240:
         return ApiOk(ok=False, message="连续运行须15-720分钟，休息须5-240分钟")
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM SJZQ_DEVICE WHERE DEVICE_ID=:id", {"id": device_id})
+        cur.execute("""SELECT COUNT(*) FROM SJZQ_DEVICE WHERE DEVICE_ID=:id
+                        AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                        AND REVOKED_AT IS NULL""", {"id": device_id, **tenant.binds})
         if int(cur.fetchone()[0]) == 0:
             return ApiOk(ok=False, message="设备不存在")
         if owner_id is not None:
@@ -234,8 +235,9 @@ def update_binding(
                 """
                 SELECT COUNT(*) FROM SJZQ_DEVICE
                  WHERE OWNER_USER_ID=:owner_id AND DEVICE_ID<>:device_id
+                   AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL
                 """,
-                {"owner_id": owner_id, "device_id": device_id},
+                {"owner_id": owner_id, "device_id": device_id, **tenant.binds},
             )
             if int(cur.fetchone()[0] or 0) >= 2:
                 return ApiOk(ok=False, message="该运营已绑定2台设备，不能继续绑定")
@@ -245,48 +247,55 @@ def update_binding(
                SET OWNER_USER_ID=:owner_id, GROUP_NAME=:group_name,
                    MAX_CONTINUOUS_MIN=:max_minutes, MIN_REST_MIN=:rest_minutes,
                    UPDATE_TIME=SYSTIMESTAMP
-             WHERE DEVICE_ID=:device_id
+             WHERE DEVICE_ID=:device_id AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
             """,
             {"owner_id": owner_id, "group_name": body.get("group_name"),
-             "max_minutes": max_minutes, "rest_minutes": rest_minutes, "device_id": device_id},
+             "max_minutes": max_minutes, "rest_minutes": rest_minutes, "device_id": device_id, **tenant.binds},
         )
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"],
             action="device_bind", module="device",
             detail=f"设备 {device_id} 绑定运营 {owner_id or '-'}，连续{max_minutes}分钟/休息{rest_minutes}分钟",
             ip=request.client.host if request.client else None,
+            **tenant.binds,
         )
         return ApiOk(message="绑定已保存")
 
 
 @router.post("/{device_id}/abort-task")
-def abort_task(device_id: int, request: Request, user=Depends(require_perms("device:manage"))):
+def abort_task(device_id: int, request: Request, user=Depends(require_perms("device:manage")),
+               tenant=Depends(require_tenant_perms("device:manage"))):
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT DEVICE_ID, CURRENT_TASK_ID, DEVICE_NAME FROM SJZQ_DEVICE WHERE DEVICE_ID=:id",
-            {"id": device_id},
+            """SELECT DEVICE_ID, CURRENT_TASK_ID, DEVICE_NAME FROM SJZQ_DEVICE
+                WHERE DEVICE_ID=:id AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                  AND REVOKED_AT IS NULL FOR UPDATE""",
+            {"id": device_id, **tenant.binds},
         )
         row = cur.fetchone()
         if not row:
             return ApiOk(ok=False, message="设备不存在")
         task_id = row[1]
         if task_id:
-            cur.execute(
-                """
-                UPDATE SJZQ_TASK
-                   SET STATUS='failed', ERROR_MSG='远程终止', END_TIME=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
-                 WHERE TASK_ID=:id AND STATUS='running'
-                """,
-                {"id": int(task_id)},
-            )
+            try:
+                require_running_task(cur, int(task_id), device_id, for_update=True)
+                transition_task(cur, int(task_id), TaskStatus.CANCELLED)
+                close_unfinished_items(cur, int(task_id), TaskItemStatus.CANCELLED, "远程终止，条目未完成")
+                cur.execute("UPDATE SJZQ_TASK SET ERROR_MSG='远程终止', END_TIME=SYSTIMESTAMP WHERE TASK_ID=:id",
+                            {"id": int(task_id)})
+            except StateConflict as exc:
+                return ApiOk(ok=False, message=str(exc), data=state_error_data(exc))
+        else:
+            return ApiOk(ok=False, message="设备没有当前任务", data={"error_code": "TASK_NOT_FOUND"})
         cur.execute(
             """
             UPDATE SJZQ_DEVICE
-               SET CURRENT_TASK_ID=NULL, STATUS='online', UPDATE_TIME=SYSTIMESTAMP
-             WHERE DEVICE_ID=:id
+               SET CURRENT_TASK_ID=NULL, STATUS='online', RUN_STATE='idle', RUN_STARTED_AT=NULL,
+                   REST_UNTIL=NULL, UPDATE_TIME=SYSTIMESTAMP
+             WHERE DEVICE_ID=:id AND CURRENT_TASK_ID=:task_id
             """,
-            {"id": device_id},
+            {"id": device_id, "task_id": task_id},
         )
         cast_state.set_abort(device_id, True)
         write_op_log(
@@ -297,12 +306,13 @@ def abort_task(device_id: int, request: Request, user=Depends(require_perms("dev
             module="device",
             detail=f"终止设备 {device_id} 任务 {task_id}",
             ip=request.client.host if request.client else None,
+            **tenant.binds,
         )
         return ApiOk(message="已终止")
 
 
 @router.get("/{device_id}/tasks")
-def device_tasks(device_id: int, _=Depends(require_perms("device:view"))):
+def device_tasks(device_id: int, tenant=Depends(require_tenant_perms("device:view"))):
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -310,9 +320,99 @@ def device_tasks(device_id: int, _=Depends(require_perms("device:view"))):
             SELECT TASK_ID, TASK_NAME, TASK_TYPE, PLATFORM_CODE, STATUS,
                    SUCCESS_COUNT, FAIL_COUNT, START_TIME, END_TIME, CREATE_TIME
               FROM SJZQ_TASK
-             WHERE DEVICE_ID = :id
+             WHERE DEVICE_ID = :id AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
              ORDER BY TASK_ID DESC FETCH FIRST 100 ROWS ONLY
             """,
-            {"id": device_id},
+            {"id": device_id, **tenant.binds},
         )
         return ApiOk(data=rows_as_dicts(cur))
+
+
+@router.post("/enrollment-tokens")
+def create_enrollment_token(body: dict, tenant=Depends(require_tenant_perms("device:manage"))):
+    minutes = max(5, min(int(body.get("expires_minutes") or 60), 1440))
+    with get_conn() as conn:
+        token_id, bearer = issue(conn.cursor(), enterprise_id=tenant.enterprise_id,
+                                 workspace_id=tenant.workspace_id, issued_by=tenant.user_id,
+                                 expires_minutes=minutes)
+        return ApiOk(data={"token_id": token_id, "enrollment_token": bearer,
+                           "expires_minutes": minutes})
+
+
+@router.post("/enrollment-tokens/{token_id}/rotate")
+def rotate_enrollment_token(token_id: int, body: dict,
+                            tenant=Depends(require_tenant_perms("device:manage"))):
+    minutes = max(5, min(int(body.get("expires_minutes") or 60), 1440))
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            new_id, bearer = rotate(cur, token_id=token_id, enterprise_id=tenant.enterprise_id,
+                                    workspace_id=tenant.workspace_id, issued_by=tenant.user_id,
+                                    expires_minutes=minutes)
+        except (LookupError, ValueError) as exc:
+            return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
+        return ApiOk(data={"token_id": new_id, "enrollment_token": bearer,
+                           "replaces_token_id": token_id, "expires_minutes": minutes})
+
+
+@router.post("/enrollment-tokens/{token_id}/revoke")
+def revoke_enrollment_token(token_id: int,
+                            tenant=Depends(require_tenant_perms("device:manage"))):
+    with get_conn() as conn:
+        changed = revoke_enrollment(conn.cursor(), token_id=token_id,
+                                    enterprise_id=tenant.enterprise_id,
+                                    workspace_id=tenant.workspace_id)
+        return ApiOk(ok=changed, message="enrollment token 已撤销" if changed else "token 不存在或已失效")
+
+
+@router.post("/{device_id}/revoke")
+async def revoke_device(device_id: int, tenant=Depends(require_tenant_perms("device:manage"))):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""SELECT CURRENT_TASK_ID FROM SJZQ_DEVICE WHERE DEVICE_ID=:id
+                        AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                        AND REVOKED_AT IS NULL FOR UPDATE""", {"id": device_id, **tenant.binds})
+        row = cur.fetchone()
+        if not row:
+            return ApiOk(ok=False, message="设备不存在", data={"error_code": "DEVICE_NOT_FOUND"})
+        task_id = int(row[0]) if row[0] is not None else None
+        if task_id is not None:
+            try:
+                require_running_task(cur, task_id, device_id, for_update=True)
+                transition_task(cur, task_id, TaskStatus.CANCELLED)
+                close_unfinished_items(cur, task_id, TaskItemStatus.CANCELLED, "设备已撤销，条目未完成")
+                cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS='cancelled',PAUSE_REQUESTED=0,
+                                  LEASE_TOKEN_HASH=NULL,LEASE_EXPIRES_AT=NULL,UPDATE_TIME=SYSTIMESTAMP
+                                 WHERE TASK_ID=:task_id AND STATUS IN ('pending','leased','running','paused','retry_wait')""",
+                            {"task_id": task_id})
+                cur.execute("""UPDATE SJZQ_COLLECTION_LEASE SET STATUS='released',RELEASED_AT=SYSTIMESTAMP,
+                                  RELEASE_REASON='device_revoked'
+                                 WHERE DEVICE_ID=:device_id AND STATUS='active'""", {"device_id": device_id})
+                cur.execute("""UPDATE SJZQ_COLLECTION_ATTEMPT SET STATUS='cancelled',FINISHED_AT=SYSTIMESTAMP,
+                                  ERROR_CODE='DEVICE_REVOKED'
+                                 WHERE DEVICE_ID=:device_id AND STATUS IN ('leased','running')""", {"device_id": device_id})
+            except StateConflict:
+                pass
+        cur.execute("""UPDATE SJZQ_DEVICE SET REVOKED_AT=SYSTIMESTAMP,REVOKED_BY=:user_id,
+                          STATUS='offline',CURRENT_TASK_ID=NULL,ACTIVE_JOB_ID=NULL,ACTIVE_ATTEMPT_ID=NULL,
+                          UPDATE_TIME=SYSTIMESTAMP
+                         WHERE DEVICE_ID=:id AND ENTERPRISE_ID=:enterprise_id
+                           AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
+                    {"id": device_id, "user_id": tenant.user_id, **tenant.binds})
+    await cast_state.disconnect_room(device_id, "device revoked")
+    return ApiOk(message="设备已撤销")
+
+
+@router.post("/{device_id}/rotate-key")
+async def rotate_device_key(device_id: int, tenant=Depends(require_tenant_perms("device:manage"))):
+    replacement = "device_" + secrets.token_urlsafe(24)
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""UPDATE SJZQ_DEVICE SET DEVICE_KEY=:replacement,DEVICE_KEY_ROTATED_AT=SYSTIMESTAMP,
+                          UPDATE_TIME=SYSTIMESTAMP WHERE DEVICE_ID=:id AND ENTERPRISE_ID=:enterprise_id
+                          AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
+                    {"replacement": replacement, "id": device_id, **tenant.binds})
+        if cur.rowcount != 1:
+            return ApiOk(ok=False, message="设备不存在", data={"error_code": "DEVICE_NOT_FOUND"})
+    await cast_state.disconnect_room(device_id, "device key rotated")
+    return ApiOk(data={"device_id": device_id, "device_key": replacement})

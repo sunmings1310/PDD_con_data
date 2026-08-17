@@ -3,20 +3,41 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from contextlib import suppress
+import asyncio
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from server.config import IMAGE_DIR, settings
 from server.db import close_pool, init_pool
-from server.routers import accounts, auth, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users
+from server.routers import accounts, auth, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users, jobs, management, enterprises
 from server.ws_hub import router as ws_router
+from server.media_access import verify_media_signature
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+
+def _reconcile_once() -> None:
+    from server.db import get_conn
+    from server.job_reconciliation import reconcile_oracle
+
+    with get_conn() as conn:
+        reconcile_oracle(conn.cursor(), limit=100)
+
+
+async def _reconciliation_loop() -> None:
+    while True:
+        try:
+            await asyncio.to_thread(_reconcile_once)
+        except Exception:  # reconciliation failures must not stop API serving
+            import logging
+            logging.getLogger("sjzq.reconciliation").exception("periodic reconciliation failed")
+        await asyncio.sleep(30)
 
 
 @asynccontextmanager
@@ -26,7 +47,11 @@ async def lifespan(_: FastAPI):
     from server.migrate import ensure_schema_patches
 
     ensure_schema_patches()
+    reconciliation_task = asyncio.create_task(_reconciliation_loop())
     yield
+    reconciliation_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await reconciliation_task
     close_pool()
 
 
@@ -40,11 +65,14 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(enterprises.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)
 app.include_router(platforms.router)
 app.include_router(devices.router)
 app.include_router(tasks.router)
+app.include_router(jobs.router)
+app.include_router(management.router)
 app.include_router(products.router)
 app.include_router(excel_match.router)
 app.include_router(accounts.router)
@@ -53,7 +81,27 @@ app.include_router(ota.router)
 app.include_router(cast.router)
 app.include_router(ws_router)
 
-app.mount("/media", StaticFiles(directory=str(IMAGE_DIR)), name="media")
+@app.get("/media/{media_path:path}")
+def tenant_media(media_path: str, enterprise_id: int = Query(...), workspace_id: int = Query(...),
+                 expires: int = Query(...), signature: str = Query(...)):
+    normalized = media_path.replace("\\", "/").lstrip("/")
+    if not verify_media_signature(normalized, enterprise_id, workspace_id, expires, signature):
+        raise HTTPException(status_code=403, detail="media access denied")
+    candidate = (IMAGE_DIR / normalized).resolve()
+    if IMAGE_DIR.resolve() not in candidate.parents or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="media not found")
+    if not normalized.startswith("apk/"):
+        from server.db import get_conn
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""SELECT COUNT(*) FROM SJZQ_PRODUCT_IMAGE
+                             WHERE REL_PATH=:path AND ENTERPRISE_ID=:enterprise_id
+                               AND WORKSPACE_ID=:workspace_id""",
+                        {"path": normalized, "enterprise_id": enterprise_id,
+                         "workspace_id": workspace_id})
+            if int(cur.fetchone()[0] or 0) == 0:
+                raise HTTPException(status_code=404, detail="media not found")
+    return FileResponse(candidate)
 if STATIC_DIR.exists():
     app.mount("/legacy-static", StaticFiles(directory=str(STATIC_DIR)), name="legacy_static")
 

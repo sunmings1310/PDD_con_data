@@ -115,7 +115,10 @@ tr.clickable:hover td { background: #f3faf6; }
 .badge.pending { color: var(--warn); background: #fffaeb; border-color: #fedf89; }
 .badge.running { color: var(--busy); background: #eff8ff; border-color: #b2ddff; }
 .badge.done { color: var(--ok); background: #ecfdf3; border-color: #abefc6; }
+.badge.succeeded { color: var(--ok); background: #ecfdf3; border-color: #abefc6; }
+.badge.partially_succeeded { color: var(--warn); background: #fffaeb; border-color: #fedf89; }
 .badge.failed { color: var(--danger); background: #fef3f2; border-color: #fecdca; }
+.badge.cancelled, .badge.timed_out { color: var(--danger); background: #fef3f2; border-color: #fecdca; }
 
 .create-box {
   background: var(--panel);

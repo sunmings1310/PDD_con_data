@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request
 
 from server.auth_util import get_current_user, hash_password, require_perms, write_op_log
+from server.tenant import require_tenant_perms
 from server.db import get_conn, next_id, rows_as_dicts
 from server.schemas import ApiOk
 
@@ -45,7 +46,7 @@ def list_users(
     username: str | None = None,
     role_id: int | None = None,
     status: str | None = None,
-    _=Depends(require_perms("user:manage")),
+    tenant=Depends(require_tenant_perms("user:manage")),
 ):
     with get_conn() as conn:
         cur = conn.cursor()
@@ -53,10 +54,11 @@ def list_users(
             SELECT u.USER_ID, u.USERNAME, u.REAL_NAME, u.MOBILE, u.ROLE_ID, u.STATUS,
                    u.LAST_LOGIN_AT, u.CREATE_TIME, r.ROLE_NAME, r.ROLE_CODE
               FROM SJZQ_USER u
-              JOIN SJZQ_ROLE r ON r.ROLE_ID = u.ROLE_ID
-             WHERE 1=1
+              JOIN SJZQ_ENTERPRISE_MEMBERSHIP m ON m.USER_ID=u.USER_ID
+              JOIN SJZQ_ROLE r ON r.ROLE_ID = m.ROLE_ID
+             WHERE m.ENTERPRISE_ID=:enterprise_id
         """
-        params: dict = {}
+        params: dict = {"enterprise_id":tenant.enterprise_id}
         if username:
             sql += " AND u.USERNAME LIKE :un"
             params["un"] = f"%{username}%"
@@ -72,7 +74,7 @@ def list_users(
 
 
 @router.post("/users")
-def create_user(body: dict, request: Request, user=Depends(require_perms("user:manage"))):
+def create_user(body: dict, request: Request, user=Depends(get_current_user), tenant=Depends(require_tenant_perms("user:manage"))):
     username = (body.get("username") or "").strip()
     password = body.get("password") or ""
     if not username:
@@ -101,6 +103,11 @@ def create_user(body: dict, request: Request, user=Depends(require_perms("user:m
                 "st": body.get("status") or "enabled",
             },
         )
+        membership_id = next_id(cur, "SJZQ_SEQ_ENT_MEMBERSHIP")
+        cur.execute("""INSERT INTO SJZQ_ENTERPRISE_MEMBERSHIP
+            (MEMBERSHIP_ID,ENTERPRISE_ID,USER_ID,ROLE_ID,STATUS)
+            VALUES (:mid,:enterprise_id,:uid,:role_id,'active')""",
+            {"mid":membership_id,"enterprise_id":tenant.enterprise_id,"uid":uid,"role_id":body.get("role_id")})
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"],
             action="user_create", module="user", detail=f"新增用户 {username}",
@@ -110,24 +117,26 @@ def create_user(body: dict, request: Request, user=Depends(require_perms("user:m
 
 
 @router.put("/users/{user_id}")
-def update_user(user_id: int, body: dict, request: Request, user=Depends(require_perms("user:manage"))):
+def update_user(user_id: int, body: dict, request: Request, user=Depends(get_current_user), tenant=Depends(require_tenant_perms("user:manage"))):
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
-            UPDATE SJZQ_USER
-               SET REAL_NAME = :rn, MOBILE = :mb, ROLE_ID = :rid,
-                   STATUS = :st, UPDATE_TIME = SYSTIMESTAMP
-             WHERE USER_ID = :id
+            UPDATE SJZQ_USER SET REAL_NAME=:rn,MOBILE=:mb,UPDATE_TIME=SYSTIMESTAMP
+             WHERE USER_ID=:id AND EXISTS (SELECT 1 FROM SJZQ_ENTERPRISE_MEMBERSHIP m
+                 WHERE m.USER_ID=SJZQ_USER.USER_ID AND m.ENTERPRISE_ID=:enterprise_id)
             """,
             {
                 "rn": body.get("real_name"),
                 "mb": body.get("mobile"),
-                "rid": body.get("role_id"),
-                "st": body.get("status") or "enabled",
                 "id": user_id,
+                "enterprise_id":tenant.enterprise_id,
             },
         )
+        cur.execute("""UPDATE SJZQ_ENTERPRISE_MEMBERSHIP SET ROLE_ID=:rid,STATUS=:st,UPDATE_TIME=SYSTIMESTAMP
+                        WHERE ENTERPRISE_ID=:enterprise_id AND USER_ID=:id""",
+                    {"rid":body.get("role_id"),"st":body.get("status") or "active",
+                     "enterprise_id":tenant.enterprise_id,"id":user_id})
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"],
             action="user_update", module="user", detail=f"编辑用户 {user_id}",
@@ -137,15 +146,17 @@ def update_user(user_id: int, body: dict, request: Request, user=Depends(require
 
 
 @router.post("/users/{user_id}/reset-password")
-def reset_password(user_id: int, body: dict, request: Request, user=Depends(require_perms("user:manage"))):
+def reset_password(user_id: int, body: dict, request: Request, user=Depends(get_current_user), tenant=Depends(require_tenant_perms("user:manage"))):
     pwd = body.get("password") or ""
     if len(pwd) < 12:
         return ApiOk(ok=False, message="临时密码必须由管理员指定且至少 12 个字符")
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE SJZQ_USER SET PASSWORD_HASH=:ph, UPDATE_TIME=SYSTIMESTAMP WHERE USER_ID=:id",
-            {"ph": hash_password(pwd), "id": user_id},
+            """UPDATE SJZQ_USER SET PASSWORD_HASH=:ph,UPDATE_TIME=SYSTIMESTAMP WHERE USER_ID=:id
+                AND EXISTS (SELECT 1 FROM SJZQ_ENTERPRISE_MEMBERSHIP m WHERE m.USER_ID=SJZQ_USER.USER_ID
+                             AND m.ENTERPRISE_ID=:enterprise_id)""",
+            {"ph": hash_password(pwd), "id": user_id,"enterprise_id":tenant.enterprise_id},
         )
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"],
@@ -156,12 +167,13 @@ def reset_password(user_id: int, body: dict, request: Request, user=Depends(requ
 
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, request: Request, user=Depends(require_perms("user:manage"))):
+def delete_user(user_id: int, request: Request, user=Depends(get_current_user), tenant=Depends(require_tenant_perms("user:manage"))):
     if int(user_id) == int(user["user_id"]):
         return ApiOk(ok=False, message="不能删除自己")
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute("DELETE FROM SJZQ_USER WHERE USER_ID=:id", {"id": user_id})
+        cur.execute("DELETE FROM SJZQ_ENTERPRISE_MEMBERSHIP WHERE ENTERPRISE_ID=:enterprise_id AND USER_ID=:id",
+                    {"enterprise_id":tenant.enterprise_id,"id":user_id})
         write_op_log(
             cur, user_id=user["user_id"], username=user["username"],
             action="user_delete", module="user", detail=f"删除用户 {user_id}",
@@ -246,16 +258,16 @@ def list_op_logs(
     username: str | None = None,
     action: str | None = None,
     limit: int = Query(100, ge=1, le=500),
-    _=Depends(require_perms("log:view")),
+    tenant=Depends(require_tenant_perms("log:view")),
 ):
     with get_conn() as conn:
         cur = conn.cursor()
         sql = """
             SELECT LOG_ID, USER_ID, USERNAME, ACTION_CODE, MODULE_CODE,
                    DETAIL_TEXT, IP_ADDR, CREATE_TIME
-              FROM SJZQ_OP_LOG WHERE 1=1
+              FROM SJZQ_OP_LOG WHERE ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
         """
-        params: dict = {}
+        params: dict = dict(tenant.binds)
         if username:
             sql += " AND USERNAME LIKE :un"
             params["un"] = f"%{username}%"

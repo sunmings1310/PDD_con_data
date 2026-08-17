@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.collector.pdd.data.AppDatabase
+import com.collector.pdd.service.AgentRecoveryScheduler
 
 class CollectorApp : Application() {
     lateinit var database: AppDatabase
@@ -14,6 +15,7 @@ class CollectorApp : Application() {
         super.onCreate()
         instance = this
         database = AppDatabase.get(this)
+        AgentRecoveryScheduler.enqueue(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(

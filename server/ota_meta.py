@@ -10,17 +10,20 @@ from server.cast_state import cast_state
 from server.config import settings
 
 
-def apk_dir() -> Path:
+def apk_dir(scope: tuple[int, int] = (1, 1)) -> Path:
     p = Path(settings.image_dir) / "apk"
+    if scope != (1, 1):
+        p = p / str(scope[0]) / str(scope[1])
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-def meta_path() -> Path:
-    return apk_dir() / "meta.json"
+def meta_path(scope: tuple[int, int] = (1, 1)) -> Path:
+    return apk_dir(scope) / "meta.json"
 
 
-def save_meta(version_name: str, version_code: int, size: int) -> dict[str, Any]:
+def save_meta(version_name: str, version_code: int, size: int,
+              scope: tuple[int, int] = (1, 1)) -> dict[str, Any]:
     meta = {
         "version_name": (version_name or "").strip()[:32],
         "version_code": int(version_code or 0),
@@ -28,21 +31,14 @@ def save_meta(version_name: str, version_code: int, size: int) -> dict[str, Any]
     }
     cast_state.set_apk_meta(meta["version_name"], meta["version_code"], meta["size"])
     try:
-        meta_path().write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        meta_path(scope).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
     return meta
 
 
-def load_meta() -> dict[str, Any]:
-    mem = dict(cast_state.apk_meta or {})
-    if mem.get("version_name"):
-        return {
-            "version_name": str(mem.get("version_name") or ""),
-            "version_code": int(mem.get("version_code") or 0),
-            "size": int(mem.get("size") or 0),
-        }
-    p = meta_path()
+def load_meta(scope: tuple[int, int] = (1, 1)) -> dict[str, Any]:
+    p = meta_path(scope)
     if p.is_file():
         try:
             obj = json.loads(p.read_text(encoding="utf-8"))
@@ -58,15 +54,15 @@ def load_meta() -> dict[str, Any]:
                 return meta
         except Exception:  # noqa: BLE001
             pass
-    apk = apk_dir() / "latest.apk"
+    apk = apk_dir(scope) / "latest.apk"
     if apk.is_file():
         return {"version_name": "", "version_code": 0, "size": apk.stat().st_size}
     return {"version_name": "", "version_code": 0, "size": 0}
 
 
-def latest_payload() -> dict[str, Any]:
-    apk = apk_dir() / "latest.apk"
-    meta = load_meta()
+def latest_payload(scope: tuple[int, int] = (1, 1)) -> dict[str, Any]:
+    apk = apk_dir(scope) / "latest.apk"
+    meta = load_meta(scope)
     has = apk.is_file()
     size = apk.stat().st_size if has else int(meta.get("size") or 0)
     ver = str(meta.get("version_name") or "")
@@ -75,7 +71,8 @@ def latest_payload() -> dict[str, Any]:
     apk_url = ""
     if has:
         q = f"v={ver or '0'}&c={code}&s={size}"
-        apk_url = f"/media/apk/latest.apk?{q}"
+        prefix = "apk/latest.apk" if scope == (1, 1) else f"apk/{scope[0]}/{scope[1]}/latest.apk"
+        apk_url = f"/media/{prefix}?{q}"
     return {
         "has_apk": has,
         "version_name": ver,

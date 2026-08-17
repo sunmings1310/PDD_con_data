@@ -20,7 +20,7 @@ function fmtTime(v) {
 function badge(status, online) {
   if (online === true) return `<span class="badge online">在线</span>`;
   if (online === false) return `<span class="badge offline">离线</span>`;
-  const cls = ["pending", "running", "done", "failed", "busy", "online", "offline"].includes(status)
+  const cls = ["pending", "running", "succeeded", "partially_succeeded", "done", "failed", "cancelled", "timed_out", "busy", "online", "offline"].includes(status)
     ? status
     : "offline";
   return `<span class="badge ${cls}">${status || "-"}</span>`;

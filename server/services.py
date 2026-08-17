@@ -65,7 +65,7 @@ def device_online_flag(last_heartbeat: Any, status: str) -> bool:
     return hb >= datetime.now() - timedelta(seconds=grace)
 
 
-def get_device_by_key(cur: oracledb.Cursor, device_key: str) -> dict[str, Any] | None:
+def get_device_by_key(cur: oracledb.Cursor, device_key: str, *, include_revoked: bool = False) -> dict[str, Any] | None:
     cur.execute(
         """
         SELECT DEVICE_ID, DEVICE_KEY, DEVICE_NAME, PLATFORM_CODE, APP_VERSION,
@@ -74,11 +74,12 @@ def get_device_by_key(cur: oracledb.Cursor, device_key: str) -> dict[str, Any] |
                OWNER_USER_ID, GROUP_NAME, RUN_STATE, RUN_STARTED_AT, REST_UNTIL,
                NVL(MAX_CONTINUOUS_MIN, 120) AS MAX_CONTINUOUS_MIN,
                NVL(MIN_REST_MIN, 30) AS MIN_REST_MIN,
-               CREATE_TIME, UPDATE_TIME
+               CREATE_TIME, UPDATE_TIME, ENTERPRISE_ID, WORKSPACE_ID, REVOKED_AT
           FROM SJZQ_DEVICE
          WHERE DEVICE_KEY = :k
+           AND (:include_revoked=1 OR REVOKED_AT IS NULL)
         """,
-        {"k": device_key},
+        {"k": device_key, "include_revoked": 1 if include_revoked else 0},
     )
     return row_as_dict(cur)
 
@@ -132,8 +133,10 @@ def append_task_log(
     log_id = next_id(cur, "SJZQ_SEQ_TASK_LOG")
     cur.execute(
         """
-        INSERT INTO SJZQ_TASK_LOG (LOG_ID, TASK_ID, DEVICE_ID, LEVEL_CODE, MESSAGE)
-        VALUES (:id, :tid, :did, :lv, :msg)
+        INSERT INTO SJZQ_TASK_LOG (LOG_ID, TASK_ID, DEVICE_ID, LEVEL_CODE, MESSAGE, ENTERPRISE_ID, WORKSPACE_ID)
+        VALUES (:id, :tid, :did, :lv, :msg,
+                (SELECT ENTERPRISE_ID FROM SJZQ_TASK WHERE TASK_ID=:tid),
+                (SELECT WORKSPACE_ID FROM SJZQ_TASK WHERE TASK_ID=:tid))
         """,
         {
             "id": log_id,

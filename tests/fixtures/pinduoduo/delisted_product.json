@@ -1,0 +1,34 @@
+{
+  "expected": {
+    "product_count": 0,
+    "reason": "delisted_product"
+  },
+  "description": "商品下架页",
+  "parser_version": "pdd-android-1",
+  "page_text": "商品已下架`n该商品已不存在或已下架",
+  "detail_raw": {
+    "sell_name": "商品已下架",
+    "item_id": "100000000002",
+    "body_snippet": "商品已下架"
+  },
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-delisted-001",
+  "field_sources": {
+    "attributes": "none",
+    "original_price": "none",
+    "shop_name": "none",
+    "images": "none",
+    "title": "dom",
+    "sales_num": "none",
+    "price": "none",
+    "item_url": "url",
+    "item_id": "url",
+    "sku": "none"
+  },
+  "page_status": "sold_out",
+  "quality_status": "quarantined",
+  "page_url": "https://mobile.yangkeduo.com/goods.html?goods_id=100000000002",
+  "parse_status": "not_attempted",
+  "should_emit_product": false,
+  "platform": "pinduoduo"
+}

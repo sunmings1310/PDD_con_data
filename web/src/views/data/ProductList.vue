@@ -9,10 +9,14 @@
         <el-input v-model="q.brand" placeholder="品牌" clearable style="width:140px" />
         <el-input v-model="q.item_id" placeholder="商品ID" clearable style="width:160px" />
         <el-input v-model="q.approval_no" placeholder="批准文号" clearable style="width:160px" />
-        <el-button type="primary" @click="load">查询</el-button>
+        <el-button type="primary" @click="applyFilters">查询</el-button>
         <el-button v-if="store.hasPerm('data:export')" @click="exportSelected">导出选中</el-button>
       </div>
-      <el-table :data="list" stripe border @selection-change="(rows) => (selected = rows)">
+      <el-alert v-if="displayError" :title="displayError" type="error" show-icon :closable="false" style="margin-bottom:12px">
+        <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+      </el-alert>
+      <el-table v-loading="loading" :data="list" stripe border @selection-change="(rows) => (selected = rows)">
+        <template #empty><el-empty :description="loading ? '正在加载' : (error ? '商品列表加载失败' : '暂无商品')" /></template>
         <el-table-column type="selection" width="48" fixed />
         <el-table-column prop="product_id" label="ID" width="70" fixed />
         <el-table-column label="平台" width="90">
@@ -53,14 +57,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="approval_no" label="准字" width="140" show-overflow-tooltip />
-        <el-table-column label="操作" width="190" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button v-if="row.master_product_id" link type="success" @click="$router.push(`/products/${row.master_product_id}/timeline`)">时间线</el-button>
             <el-button v-if="isSuperAdmin" link type="warning" @click="openEdit(row)">修改</el-button>
             <el-button v-if="isSuperAdmin" link type="danger" @click="removeProduct(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <el-pagination v-model:current-page="page" v-model:page-size="limit" :total="total"
+        :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
+        style="margin-top:16px;justify-content:flex-end" @change="load" />
     </div>
 
     <el-dialog v-model="detailVisible" title="商品详情" width="860px" destroy-on-close>
@@ -155,6 +163,13 @@ const store = useUserStore()
 const platforms = ref([])
 const list = ref([])
 const selected = ref([])
+const loading = ref(false)
+const error = ref('')
+const platformError = ref('')
+const displayError = computed(() => error.value || platformError.value)
+const page = ref(1)
+const limit = ref(20)
+const total = ref(0)
 const detailVisible = ref(false)
 const detail = ref(null)
 const galleryVisible = ref(false)
@@ -233,11 +248,25 @@ function openGallery(row) {
 }
 
 async function load() {
+  loading.value = true
+  error.value = ''
   const params = new URLSearchParams()
   Object.entries(q).forEach(([k, v]) => { if (v) params.set(k, v) })
-  const res = await http.get(`/api/products?${params}`)
-  list.value = res.data?.items || []
+  params.set('page', String(page.value))
+  params.set('limit', String(limit.value))
+  try {
+    const res = await http.get(`/api/products?${params}`)
+    list.value = res.data?.items || []
+    total.value = Number(res.data?.total || 0)
+  } catch (e) {
+    list.value = []
+    total.value = 0
+    error.value = e?.message || e?.detail || '商品列表加载失败'
+  } finally {
+    loading.value = false
+  }
 }
+function applyFilters() { page.value = 1; load() }
 
 async function openDetail(row) {
   const res = await http.get(`/api/products/${row.product_id}`)
@@ -272,8 +301,12 @@ function exportSelected() {
 }
 
 onMounted(async () => {
-  const p = await http.get('/api/platforms')
-  platforms.value = p.data || []
+  try {
+    const p = await http.get('/api/platforms')
+    platforms.value = p.data || []
+  } catch (e) {
+    platformError.value = e?.message || e?.detail || '平台列表加载失败，已继续加载商品'
+  }
   load()
 })
 </script>

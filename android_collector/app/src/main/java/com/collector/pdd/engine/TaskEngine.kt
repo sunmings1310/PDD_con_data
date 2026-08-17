@@ -5,7 +5,10 @@ import com.collector.pdd.data.CollectConfig
 import com.collector.pdd.data.CollectTarget
 import com.collector.pdd.data.ProductEntity
 import com.collector.pdd.data.TaskEntity
+import com.collector.pdd.data.OutboxEntity
+import com.collector.pdd.data.OutboxPayload
 import com.collector.pdd.parser.DetailReader
+import com.collector.pdd.parser.ProductQualityGate
 import com.collector.pdd.service.CollectA11yService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -20,10 +23,11 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.UUID
 
 class TaskEngine(
     private val log: (String) -> Unit,
-    private val onProductCollected: (suspend (localTaskId: Long, product: ProductEntity, remoteItemId: Long?) -> Unit)? = null,
+    private val onProductCollected: (suspend (localTaskId: Long, outboxId: String, product: ProductEntity, remoteItemId: Long?) -> Unit)? = null,
     private val onTaskFinished: (suspend (localTaskId: Long, status: String) -> Unit)? = null,
     /** 每成功发起一次关键词搜索（含价格/销量重搜）回调一次 */
     private val onKeywordSearched: (suspend (keyword: String) -> Unit)? = null,
@@ -147,6 +151,7 @@ class TaskEngine(
                     ?.joinToString(",") { it.keyword }
                     ?: config.keywords.joinToString(","),
                 status = "running",
+                remoteTaskId = config.remoteTaskId,
             )
         )
         currentTaskId = taskId
@@ -214,9 +219,10 @@ class TaskEngine(
                             ensureActive()
                             if (stopFlag.get()) break
                             total++
-                            val ok = collectOneWithPolicy(
+                            val slot = "target_match_${i + 1}"
+                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
                                 actions, dbTaskId = taskId, keyword = kw,
-                                pickTag = "target_match_${i + 1}",
+                                pickTag = slot,
                                 openIndex = i,
                                 target = target,
                                 config = config,
@@ -249,9 +255,10 @@ class TaskEngine(
                             ensureActive()
                             if (stopFlag.get()) break
                             total++
-                            val ok = collectOneWithPolicy(
+                            val slot = "default_top_${i + 1}"
+                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
                                 actions, dbTaskId = taskId, keyword = kw,
-                                pickTag = "default_top_${i + 1}",
+                                pickTag = slot,
                                 openIndex = i,
                                 config = config,
                                 runtime = accessRuntime,
@@ -269,7 +276,7 @@ class TaskEngine(
                             searchKeywordCounted(actions, kw)
                             actions.sortByPriceAsc()
                             total++
-                            val ok = collectOneWithPolicy(
+                            val ok = if (confirmed(config, kw, "price_asc_first")) true else collectOneWithPolicy(
                                 actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "price_asc_first",
                                 openIndex = 0,
@@ -291,7 +298,7 @@ class TaskEngine(
                             searchKeywordCounted(actions, kw)
                             actions.sortBySalesDesc()
                             total++
-                            val ok = collectOneWithPolicy(
+                            val ok = if (confirmed(config, kw, "sales_desc_first")) true else collectOneWithPolicy(
                                 actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "sales_desc_first",
                                 openIndex = 0,
@@ -315,7 +322,11 @@ class TaskEngine(
                 }
             }
 
-            endStatus = if (stopFlag.get()) "stopped" else "finished"
+            endStatus = when {
+                stopFlag.get() -> "stopped"
+                success == 0 && fail > 0 -> "failed"
+                else -> "finished"
+            }
         } catch (e: CancellationException) {
             endStatus = "stopped"
             throw e
@@ -342,7 +353,8 @@ class TaskEngine(
                 }
                 try {
                     onTaskFinished?.invoke(taskId, endStatus)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    log("任务结束确认入队失败，将在 Agent 恢复时补偿: ${e.message}")
                 }
                 currentTaskId = null
             }
@@ -357,6 +369,13 @@ class TaskEngine(
             log("已完成 ${config.batchSize} 个商品，本批冷却 ${seconds} 秒…")
             if (config.batchCooldownMs > 0) delay(config.batchCooldownMs)
         }
+    }
+
+    private fun confirmed(config: CollectConfig, keyword: String, pickTag: String): Boolean {
+        val key = "$keyword|$pickTag"
+        if (key !in config.confirmedSlots) return false
+        log("Checkpoint 已确认，跳过重复采集【$keyword/$pickTag】")
+        return true
     }
 
     private suspend fun collectOneWithPolicy(
@@ -736,14 +755,52 @@ class TaskEngine(
                 product = product.copy(itemUrl = GoodsLinkResolver.buildGoodsUrl(product.itemId))
             }
 
-            CollectorApp.instance.database.productDao().insert(product)
-            try {
-                onProductCollected?.invoke(dbTaskId, product, target?.remoteItemId)
-            } catch (e: Exception) {
-                log("联机上报回调异常: ${e.message}")
+            val (checkedProduct, quality) = ProductQualityGate.apply(a11yPageText, product)
+            product = checkedProduct
+            if (!quality.accepted) {
+                recordActionAnomaly(
+                    config,
+                    dbTaskId,
+                    "quality_gate",
+                    "page=${quality.pageStatus} parse=${quality.parseStatus} quality=${quality.qualityStatus} missing=${quality.missingFields}",
+                    a11yPageText,
+                )
+                log("质量门禁拒绝【$pickTag】：page=${quality.pageStatus} missing=${quality.missingFields}")
+                restoreSearchList(actions, keyword)
+                return false
+            }
+
+            val remoteTask = config.remoteTaskId
+            if (remoteTask == null) {
+                CollectorApp.instance.database.productDao().insert(product)
+            } else {
+                val payload = OutboxPayload.product(product, config.platformCode)
+                val outboxId = "p-$remoteTask-${UUID.randomUUID()}"
+                val remoteItemId = target?.remoteItemId?.takeIf { target.requiresMatch }
+                val event = OutboxEntity(
+                    outboxId = outboxId,
+                    eventType = "product",
+                    remoteTaskId = remoteTask,
+                    taskItemId = remoteItemId,
+                    payloadJson = payload.toString(),
+                    requiredImageCount = OutboxPayload.localImageCount(payload),
+                    jobId = config.remoteJobId,
+                    attemptId = config.attemptId,
+                    leaseToken = config.leaseToken,
+                    workerId = config.workerId,
+                    traceId = config.traceId,
+                    checkpointVersion = config.checkpointVersion,
+                )
+                CollectorApp.instance.database.outboxDao().insertProductAndOutbox(product, event)
+                try {
+                    onProductCollected?.invoke(dbTaskId, outboxId, product, remoteItemId)
+                } catch (e: Exception) {
+                    // Product + outbox are already durable.  Network delivery is retried by AgentCoordinator.
+                    log("商品已进入待上报队列 outbox=$outboxId err=${e.message}")
+                }
             }
             log(
-                "成功【$pickTag】id=${product.itemId.ifBlank { "-" }} " +
+                "采集并持久化【$pickTag】id=${product.itemId.ifBlank { "-" }} " +
                     "展示价=${product.displayPrice ?: "-"} 单买=${product.dealPrice ?: "-"} " +
                     "准字=${product.approvalNo.ifBlank { "-" }} 厂家=${product.manufacturer.ifBlank { "-" }} " +
                     "图=${if (product.mainImages.isBlank()) 0 else product.mainImages.split("|").size} " +

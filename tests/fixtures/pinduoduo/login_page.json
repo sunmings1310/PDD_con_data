@@ -1,0 +1,30 @@
+{
+  "expected": {
+    "product_count": 0,
+    "reason": "login_page"
+  },
+  "description": "登录页",
+  "parser_version": "pdd-android-1",
+  "page_text": "手机登录`n请输入手机号`n发送验证码",
+  "detail_raw": {},
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-login-001",
+  "field_sources": {
+    "attributes": "none",
+    "original_price": "none",
+    "shop_name": "none",
+    "images": "none",
+    "title": "dom",
+    "sales_num": "none",
+    "price": "none",
+    "item_url": "url",
+    "item_id": "none",
+    "sku": "none"
+  },
+  "page_status": "login_required",
+  "quality_status": "quarantined",
+  "page_url": "https://mobile.yangkeduo.com/login.html",
+  "parse_status": "not_attempted",
+  "should_emit_product": false,
+  "platform": "pinduoduo"
+}
