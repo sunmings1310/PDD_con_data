@@ -29,6 +29,8 @@ class CastState:
         self.apk_meta: dict[str, Any] = {}
         self.pending_apk: dict[str, Any] | None = None
         self.apk_pending_keys: set[str] = set()
+        self.pending_apk_by_scope: dict[tuple[int, int], dict[str, Any]] = {}
+        self.apk_keys_by_scope: dict[tuple[int, int], set[str]] = {}
 
     def ensure_room(self, device_id: int, device_key: str) -> DeviceCastRoom:
         room = self.rooms_by_id.get(device_id)
@@ -47,6 +49,22 @@ class CastState:
         room = self.rooms_by_id.get(device_id)
         if room:
             room.requested = False
+
+    async def disconnect_room(self, device_id: int, reason: str) -> None:
+        room = self.rooms_by_id.pop(device_id, None)
+        if not room:
+            return
+        self.key_to_id.pop(room.device_key, None)
+        peers = ([room.publisher] if room.publisher else []) + list(room.viewers)
+        room.publisher = None
+        room.viewers.clear()
+        room.requested = False
+        for peer in peers:
+            try:
+                await peer.send_text('{"type":"error","message":"' + reason + '"}')
+                await peer.close(code=1008)
+            except Exception:
+                pass
 
     def cast_requested_for_key(self, device_key: str) -> bool:
         did = self.key_to_id.get(device_key)
@@ -70,8 +88,10 @@ class CastState:
             "abort_task": self.pop_abort_for_key(device_key),
             "update_apk": None,
         }
-        if self.pending_apk and device_key in self.apk_pending_keys:
-            cmds["update_apk"] = dict(self.pending_apk)
+        for scope, payload in self.pending_apk_by_scope.items():
+            if device_key in self.apk_keys_by_scope.get(scope, set()):
+                cmds["update_apk"] = dict(payload)
+                break
         return cmds
 
     def set_apk_meta(self, version_name: str, version_code: int, size: str | int) -> None:
@@ -81,24 +101,35 @@ class CastState:
             "size": int(size or 0),
         }
 
-    def get_pending_apk(self) -> dict[str, Any] | None:
-        if not self.pending_apk:
+    def get_pending_apk(self, scope: tuple[int, int] = (1, 1)) -> dict[str, Any] | None:
+        pending = self.pending_apk_by_scope.get(scope)
+        if not pending:
             return None
         return {
-            **self.pending_apk,
-            "pending_devices": len(self.apk_pending_keys),
+            **pending,
+            "pending_devices": len(self.apk_keys_by_scope.get(scope, set())),
         }
 
-    def push_apk_update(self, payload: dict[str, Any], device_keys: list[str]) -> None:
+    def push_apk_update(self, payload: dict[str, Any], device_keys: list[str],
+                        scope: tuple[int, int] = (1, 1)) -> None:
         self.pending_apk = dict(payload)
         self.apk_pending_keys = {k for k in device_keys if k}
+        self.pending_apk_by_scope[scope] = dict(payload)
+        self.apk_keys_by_scope[scope] = {k for k in device_keys if k}
         self.set_apk_meta(
             str(payload.get("version_name") or ""),
             int(payload.get("version_code") or 0),
             payload.get("size") or 0,
         )
 
-    def ack_apk_update(self, device_key: str, version_name: str = "") -> None:
+    def ack_apk_update(self, device_key: str, version_name: str = "",
+                       scope: tuple[int, int] | None = None) -> None:
+        scopes = [scope] if scope is not None else list(self.apk_keys_by_scope)
+        for selected in scopes:
+            keys = self.apk_keys_by_scope.get(selected, set())
+            keys.discard(device_key)
+            if not keys:
+                self.pending_apk_by_scope.pop(selected, None)
         self.apk_pending_keys.discard(device_key)
         if not self.apk_pending_keys:
             # 全部 ack 后仍保留 meta，便于状态页展示；清空 pending 避免新设备误触发

@@ -1,0 +1,30 @@
+{
+  "expected": {
+    "product_count": 0,
+    "reason": "busy_page"
+  },
+  "description": "服务繁忙页",
+  "parser_version": "pdd-android-1",
+  "page_text": "系统繁忙，请稍后重试`n服务开小差了",
+  "detail_raw": {},
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-busy-001",
+  "field_sources": {
+    "attributes": "none",
+    "original_price": "none",
+    "shop_name": "none",
+    "images": "none",
+    "title": "dom",
+    "sales_num": "none",
+    "price": "none",
+    "item_url": "url",
+    "item_id": "none",
+    "sku": "none"
+  },
+  "page_status": "busy",
+  "quality_status": "quarantined",
+  "page_url": "https://mobile.yangkeduo.com/error.html",
+  "parse_status": "not_attempted",
+  "should_emit_product": false,
+  "platform": "pinduoduo"
+}

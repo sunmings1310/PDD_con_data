@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
 
-from server.auth_util import require_perms
+from server.tenant import require_tenant_perms
 from server.db import get_conn, rows_as_dicts
 from server.schemas import ApiOk
 from server.services import clob_to_str
@@ -62,13 +62,14 @@ def overview(
     approval_no: str | None = None,
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
-    _=Depends(require_perms("report:view")),
+    tenant=Depends(require_tenant_perms("report:view")),
 ):
     with get_conn() as conn:
         cur = conn.cursor()
         base = "NVL(DEAL_PRICE, NVL(DISPLAY_PRICE, PRICE))"
-        clauses = ["PLATFORM_CODE=:platform", "NVL(IS_DELETED,0)=0", "NVL(LIBRARY_STATUS,'saved')='saved'"]
-        params: dict = {"platform": platform_code}
+        clauses = ["PLATFORM_CODE=:platform", "NVL(IS_DELETED,0)=0", "NVL(LIBRARY_STATUS,'saved')='saved'",
+                   "ENTERPRISE_ID=:enterprise_id", "WORKSPACE_ID=:workspace_id"]
+        params: dict = {"platform": platform_code, **tenant.binds}
         if product_name:
             clauses.append("(PRODUCT_NAME LIKE :product_name OR SELL_NAME LIKE :product_name OR KEYWORD LIKE :product_name)")
             params["product_name"] = f"%{product_name}%"

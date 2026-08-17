@@ -56,7 +56,12 @@ function pushLog(msg) {
 function connectView() {
   ws?.close()
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  ws = new WebSocket(`${proto}://${location.host}/ws/cast/view/${route.params.id}`)
+  const params = new URLSearchParams({
+    token: localStorage.getItem('sjzq_token') || '',
+    enterprise_id: localStorage.getItem('sjzq_enterprise_id') || '',
+    workspace_id: localStorage.getItem('sjzq_workspace_id') || '',
+  })
+  ws = new WebSocket(`${proto}://${location.host}/ws/cast/view/${route.params.id}?${params}`)
   ws.binaryType = 'arraybuffer'
   ws.onopen = () => pushLog('已连接投屏观看通道')
   ws.onclose = () => {

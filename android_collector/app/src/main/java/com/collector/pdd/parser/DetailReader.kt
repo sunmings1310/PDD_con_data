@@ -164,8 +164,8 @@ object DetailReader {
             groupPrice = groupPrice,
             dealPrice = dealPrice,
             originalPrice = originalPrice,
-            salesNum = parseSalesNum(productSales),
-            shopSalesNum = parseSalesNum(shopSales),
+            salesNum = productSales?.takeIf { it.isNotBlank() }?.let { parseSalesNum(it) },
+            shopSalesNum = shopSales?.takeIf { it.isNotBlank() }?.let { parseSalesNum(it) },
             commentNum = commentNum,
             spec = spec,
             skuPricesText = skuText,
@@ -180,6 +180,15 @@ object DetailReader {
             itemUrl = itemUrl,
             pickTag = pickTag,
             specList = specList,
+            fieldSources = JSONObject()
+                .put("name", "detail_text")
+                .put("item_id", if (itemIdHint.isNotBlank()) "list_card" else "detail_text")
+                .put("item_url", if (urlHint.isNotBlank()) "share_link" else "derived")
+                .put("price", if (listPrice != null) "list_card" else "detail_text")
+                .put("sku", if (skuPanelText.isNotBlank()) "sku_panel" else "detail_text")
+                .put("sales_num", if (productSales.isNullOrBlank()) "none" else "detail_text")
+                .put("shop", "detail_text")
+                .toString(),
             updateTime = LocalDateTime.now().format(timeFmt),
         )
     }
@@ -208,8 +217,10 @@ object DetailReader {
             ?: Regex("""\u5feb\u8981\u62a2\u5149[^\n]{0,8}[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)""")
                 .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
 
-        val subsidy = Regex("""\u8865\u8d34\u4ef7[^\u00a5\uffe5\n]{0,24}[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)""")
-            .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+        val subsidy = text.indexOf("补贴价").takeIf { it >= 0 }?.let { start ->
+            val region = text.substring(start, (start + 48).coerceAtMost(text.length))
+            Regex("""\d+(?:\.\d{1,2})?""").find(region)?.value?.toDoubleOrNull()
+        }
 
         val dealExplicit = Regex("""[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)\s*\u5355\u72ec(?:\u8d2d\u4e70|\u4e70)""")
             .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
@@ -217,9 +228,9 @@ object DetailReader {
                 .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
 
         val group = when {
+            subsidy != null -> subsidy
             singleMianPinBar || fuzhenBar -> null
-            else -> subsidy
-                ?: Regex("""\u9996\u4ef6\s*[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)""")
+            else -> Regex("""\u9996\u4ef6\s*[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)""")
                     .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()
                 ?: Regex("""[\u00a5\uffe5]\s*(\d+(?:\.\d{1,2})?)\s*(?:\u514d\u62fc\u8d2d\u4e70|\u53d1\u8d77\u62fc\u5355|\u62fc\u5355\u4ef7)""")
                     .find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()

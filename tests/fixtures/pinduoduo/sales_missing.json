@@ -1,0 +1,52 @@
+{
+  "expected": {
+    "item_id": "100000000006",
+    "sku_count": 1,
+    "sales_num": null
+  },
+  "description": "销量缺失但价格存在",
+  "parser_version": "pdd-android-1",
+  "page_text": "商品详情`n收纳盒 3件装`n拼单价 ¥15.00",
+  "detail_raw": {
+    "sku_rows": [
+      {
+        "group_price_raw": 1500,
+        "sku_id": "sku-sm",
+        "spec": "3件装",
+        "normal_price_raw": 2000
+      }
+    ],
+    "group_price_candidates": [
+      1500
+    ],
+    "shop_name": "示例收纳店",
+    "body_snippet": "收纳盒 3件装`n拼单价 ¥15.00",
+    "product_name": "收纳盒",
+    "main_images": [
+      "https://img.example.invalid/pdd/100000000006-1.jpg"
+    ],
+    "display_price": "15.00",
+    "item_id": "100000000006",
+    "sell_name": "收纳盒 3件装"
+  },
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-sales-missing-001",
+  "field_sources": {
+    "attributes": "embedded_json",
+    "original_price": "none",
+    "shop_name": "embedded_json",
+    "images": "embedded_json",
+    "title": "embedded_json",
+    "sales_num": "none",
+    "price": "embedded_json",
+    "item_url": "url",
+    "item_id": "embedded_json",
+    "sku": "embedded_json"
+  },
+  "page_status": "product",
+  "quality_status": "warning",
+  "page_url": "https://mobile.yangkeduo.com/goods.html?goods_id=100000000006",
+  "parse_status": "partial",
+  "should_emit_product": true,
+  "platform": "pinduoduo"
+}

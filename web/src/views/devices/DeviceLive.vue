@@ -15,7 +15,7 @@
       <h3 class="section-title" style="margin-top:16px">任务进度</h3>
       <el-progress
         :percentage="percent"
-        :status="task.status === 'failed' ? 'exception' : task.status === 'done' ? 'success' : undefined"
+        :status="['failed', 'timed_out'].includes(task.status) ? 'exception' : ['succeeded', 'partially_succeeded', 'done'].includes(task.status) ? 'success' : undefined"
       />
       <p style="margin:8px 0 16px;color:#4E5969">
         成功 {{ task.success_count || 0 }} / 失败 {{ task.fail_count || 0 }} / 目标 {{ task.target_count || 0 }}

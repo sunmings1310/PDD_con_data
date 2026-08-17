@@ -1,8 +1,10 @@
 .venv/
 .venv-*/
+venv/
 .tools/
 __pycache__/
 *.pyc
+node_modules/
 logs/*.log
 *.log
 output_data/*
@@ -20,5 +22,5 @@ server/.env.*
 credentials/
 secrets/
 server/data/
-artifacts/gradle-t002/
-artifacts/*.log
+local.properties
+artifacts/

@@ -48,6 +48,15 @@ data class CollectConfig(
     val imageRuleVersion: Int = 1,
     /** 服务端任务 ID（联机模式） */
     val remoteTaskId: Long? = null,
+    /** Phase 2 server-authoritative execution identity. */
+    val remoteJobId: Long? = null,
+    val attemptId: Long? = null,
+    val leaseToken: String? = null,
+    val workerId: String? = null,
+    val traceId: String? = null,
+    val checkpointVersion: Int = 0,
+    /** Server-confirmed keyword/pick slots restored from the durable checkpoint. */
+    val confirmedSlots: Set<String> = emptySet(),
     val platformCode: String = "pinduoduo",
     /** collect | nurture；养护任务只浏览，不写入商品资料库。 */
     val taskType: String = "collect",

@@ -1,0 +1,96 @@
+{
+  "expected": {
+    "title": "维生素C片 100mg*60片",
+    "sales_num": 23000,
+    "item_id": "100000000001",
+    "price": 15.99,
+    "group_price": 12.99,
+    "deal_price": 19.9,
+    "sku_count": 2
+  },
+  "description": "正常详情页，嵌入 JSON + DOM 字段完整",
+  "parser_version": "pdd-android-1",
+  "page_text": "【示例旗舰店】维生素C片 100mg*60片 拼单价 ¥12.99 单独购买 ¥19.90 近30天已拼 2.3万",
+  "detail_raw": {
+    "approval_no": "国药准字H12345678",
+    "pack_specs_dom": [
+      "1盒",
+      "2盒"
+    ],
+    "has_single_buy": true,
+    "category": "维生素",
+    "manufacturer": "示例制药厂",
+    "spec": "100mg*60片",
+    "panel_price": "12.99",
+    "dosage_form": "片剂",
+    "brand": "示例品牌",
+    "item_id": "100000000001",
+    "main_images": [
+      "https://img.example.invalid/pdd/100000000001-1.jpg"
+    ],
+    "has_group_buy": true,
+    "expiry": "24个月",
+    "props": [
+      {
+        "value": "100mg*60片",
+        "name": "规格"
+      },
+      {
+        "value": "示例品牌",
+        "name": "品牌"
+      }
+    ],
+    "display_price": "12.99",
+    "sell_name": "维生素C片 100mg*60片",
+    "sku_rows": [
+      {
+        "group_price_raw": 1299,
+        "sku_id": "sku-1",
+        "spec": "1盒",
+        "normal_price_raw": 1990
+      },
+      {
+        "group_price_raw": 2399,
+        "sku_id": "sku-2",
+        "spec": "2盒",
+        "normal_price_raw": 3690
+      }
+    ],
+    "shop_sales_raw": "8.1万",
+    "sales_raw": "2.3万",
+    "original_candidates": [
+      2590
+    ],
+    "coupon_info": "满50减5",
+    "group_price_candidates": [
+      1299
+    ],
+    "product_name": "维生素C片",
+    "body_snippet": "维生素C片 100mg*60片`n拼单价 ¥12.99`n单独购买 ¥19.90`n近30天已拼 2.3万",
+    "shop_id": "shop-001",
+    "shop_name": "示例旗舰店",
+    "single_price_candidates": [
+      1990
+    ]
+  },
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-normal-001",
+  "field_sources": {
+    "attributes": "embedded_json",
+    "original_price": "embedded_json",
+    "shop_name": "embedded_json",
+    "images": "embedded_json",
+    "title": "embedded_json",
+    "sales_num": "dom",
+    "price": "embedded_json",
+    "item_url": "url",
+    "item_id": "embedded_json",
+    "sku": "embedded_json"
+  },
+  "page_status": "product",
+  "quality_status": "passed",
+  "page_url": "https://mobile.yangkeduo.com/goods.html?goods_id=100000000001",
+  "parse_status": "success",
+  "should_emit_product": true,
+  "platform": "pinduoduo"
+}

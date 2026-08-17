@@ -6,30 +6,34 @@ import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from server.auth_util import require_perms
+from server.auth_util import decode_token, require_perms
 from server.cast_state import cast_state
 from server.db import get_conn, row_as_dict
 from server.schemas import ApiOk
+from server.tenant import require_tenant_perms
+from server.services import get_device_by_key
 
 router = APIRouter(tags=["cast"])
 
 
-def _load_device(device_id: int) -> dict | None:
+def _load_device(device_id: int, tenant=None) -> dict | None:
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             SELECT DEVICE_ID, DEVICE_KEY, DEVICE_NAME, STATUS
-              FROM SJZQ_DEVICE WHERE DEVICE_ID = :id
+              FROM SJZQ_DEVICE WHERE DEVICE_ID = :id AND REVOKED_AT IS NULL
+                AND (:enterprise_id IS NULL OR (ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id))
             """,
-            {"id": device_id},
+            {"id": device_id, "enterprise_id": tenant.enterprise_id if tenant else None,
+             "workspace_id": tenant.workspace_id if tenant else None},
         )
         return row_as_dict(cur)
 
 
 @router.post("/api/cast/{device_id}/start")
-async def cast_start(device_id: int, user=Depends(require_perms("device:cast"))):
-    d = _load_device(device_id)
+async def cast_start(device_id: int, tenant=Depends(require_tenant_perms("device:cast"))):
+    d = _load_device(device_id, tenant)
     if not d:
         return ApiOk(ok=False, message="设备不存在")
     cast_state.request_cast(int(d["device_id"]), d["device_key"])
@@ -37,7 +41,9 @@ async def cast_start(device_id: int, user=Depends(require_perms("device:cast")))
 
 
 @router.post("/api/cast/{device_id}/stop")
-async def cast_stop(device_id: int, user=Depends(require_perms("device:cast"))):
+async def cast_stop(device_id: int, tenant=Depends(require_tenant_perms("device:cast"))):
+    if not _load_device(device_id, tenant):
+        return ApiOk(ok=False, message="设备不存在")
     cast_state.stop_cast(device_id)
     room = cast_state.rooms_by_id.get(device_id)
     if room:
@@ -59,7 +65,9 @@ async def cast_stop(device_id: int, user=Depends(require_perms("device:cast"))):
 
 
 @router.get("/api/cast/{device_id}/status")
-def cast_status(device_id: int, _=Depends(require_perms("device:view"))):
+def cast_status(device_id: int, tenant=Depends(require_tenant_perms("device:view"))):
+    if not _load_device(device_id, tenant):
+        return ApiOk(ok=False, message="设备不存在")
     room = cast_state.rooms_by_id.get(device_id)
     return ApiOk(
         data={
@@ -76,11 +84,7 @@ async def cast_publish(ws: WebSocket, device_key: str):
     # 解析设备
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT DEVICE_ID, DEVICE_KEY FROM SJZQ_DEVICE WHERE DEVICE_KEY = :k",
-            {"k": device_key},
-        )
-        row = row_as_dict(cur)
+        row = get_device_by_key(cur, device_key)
     if not row:
         await ws.send_text(json.dumps({"type": "error", "message": "unknown device"}))
         await ws.close()
@@ -129,7 +133,36 @@ async def cast_publish(ws: WebSocket, device_key: str):
 @router.websocket("/ws/cast/view/{device_id}")
 async def cast_view(ws: WebSocket, device_id: int):
     await ws.accept()
-    d = _load_device(device_id)
+    try:
+        payload = decode_token(ws.query_params.get("token") or "")
+        enterprise_id = int(ws.query_params.get("enterprise_id") or 0)
+        workspace_id = int(ws.query_params.get("workspace_id") or 0)
+    except Exception:
+        await ws.send_text(json.dumps({"type": "error", "message": "unauthorized"}))
+        await ws.close(code=1008)
+        return
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("""SELECT COUNT(*) FROM SJZQ_ENTERPRISE_MEMBERSHIP m
+                         JOIN SJZQ_USER u ON u.USER_ID=m.USER_ID AND u.STATUS='enabled'
+                         JOIN SJZQ_WORKSPACE w ON w.ENTERPRISE_ID=m.ENTERPRISE_ID
+                         JOIN SJZQ_ROLE_PERM rp ON rp.ROLE_ID=m.ROLE_ID AND rp.PERM_CODE='device:cast'
+                        WHERE m.USER_ID=:user_id AND m.ENTERPRISE_ID=:enterprise_id
+                          AND m.STATUS='active' AND w.WORKSPACE_ID=:workspace_id AND w.STATUS='active'
+                          AND (NOT EXISTS (SELECT 1 FROM SJZQ_WORKSPACE_MEMBERSHIP x
+                                          WHERE x.WORKSPACE_ID=w.WORKSPACE_ID)
+                               OR EXISTS (SELECT 1 FROM SJZQ_WORKSPACE_MEMBERSHIP x
+                                           WHERE x.ENTERPRISE_ID=m.ENTERPRISE_ID
+                                             AND x.WORKSPACE_ID=w.WORKSPACE_ID AND x.USER_ID=m.USER_ID))""",
+                    {"user_id": int(payload["uid"]), "enterprise_id": enterprise_id,
+                     "workspace_id": workspace_id})
+        allowed = int(cur.fetchone()[0] or 0) > 0
+    if not allowed:
+        await ws.send_text(json.dumps({"type": "error", "message": "unauthorized"}))
+        await ws.close(code=1008)
+        return
+    scope = type("Scope", (), {"enterprise_id": enterprise_id, "workspace_id": workspace_id})()
+    d = _load_device(device_id, scope)
     if not d:
         await ws.send_text(json.dumps({"type": "error", "message": "device not found"}))
         await ws.close()

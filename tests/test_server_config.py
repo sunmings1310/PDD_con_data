@@ -21,7 +21,8 @@ BASE_ENV = {
 
 # server.config intentionally validates at import time; test discovery supplies a
 # complete isolated configuration before importing the module under test.
-os.environ.update(BASE_ENV)
+for _key, _value in BASE_ENV.items():
+    os.environ.setdefault(_key, _value)
 
 from server.config import ConfigurationError, Settings, load_settings  # noqa: E402
 

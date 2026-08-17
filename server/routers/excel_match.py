@@ -23,6 +23,9 @@ from server.auth_util import require_perms, write_op_log
 from server.config import settings
 from server.db import get_conn, next_id, rows_as_dicts
 from server.schemas import ApiOk
+from server.tenant import require_tenant_perms
+from server.media_access import signed_media_url
+from server.quota import ACTIVE_TASK, QuotaExceeded, reserve_and_commit
 
 router = APIRouter(prefix="/api/excel", tags=["excel"])
 
@@ -156,22 +159,24 @@ def _price_range(minimum: Any, maximum: Any) -> str:
     return f"{_money(minimum)}-{_money(maximum)}"
 
 
-def _image_url(value: Any) -> str:
+def _image_url(value: Any, tenant=None) -> str:
     image = _text(value).replace("\\", "/")
-    if not image or image.startswith(("http://", "https://", "/")):
+    if not image or image.startswith(("http://", "https://")):
         return image
-    return f"/media/{image.lstrip('/')}"
+    clean = image.removeprefix("/media/").lstrip("/")
+    return signed_media_url(clean, tenant.enterprise_id, tenant.workspace_id) if tenant else ""
 
 
-def _candidate(cur, hit: dict[str, Any], platform_code: str, range_min: Any, range_max: Any) -> dict[str, Any]:
+def _candidate(cur, hit: dict[str, Any], platform_code: str, range_min: Any, range_max: Any, tenant) -> dict[str, Any]:
     cur.execute(
         """
         SELECT SPEC, SALE_PRICE
           FROM T_GOODS_LIBRARY
          WHERE PLATFORM_CODE = :platform_code AND GOODS_ID = :goods_id
+           AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
          ORDER BY UPDATE_TIME DESC NULLS LAST, LIBRARY_ID DESC
         """,
-        {"platform_code": platform_code, "goods_id": hit.get("goods_id")},
+        {"platform_code": platform_code, "goods_id": hit.get("goods_id"), **tenant.binds},
     )
     spec_prices: list[str] = []
     seen: set[tuple[str, str]] = set()
@@ -196,13 +201,13 @@ def _candidate(cur, hit: dict[str, Any], platform_code: str, range_min: Any, ran
         "list_price": hit.get("list_price"),
         "multi_spec_prices": "、".join(spec_prices),
         "price_range": _price_range(range_min, range_max),
-        "main_image": _image_url(hit.get("main_image")),
+        "main_image": _image_url(hit.get("main_image"), tenant),
         "update_time": hit.get("update_time"),
     }
 
 
 def _match_one(
-    cur, platform_code: str, approval_no: str, product_name: str, spec: str, manufacturer: str,
+    cur, platform_code: str, approval_no: str, product_name: str, spec: str, manufacturer: str, tenant,
 ) -> list[dict[str, Any]]:
     approval_key = _normalize_approval(approval_no)
     spec_key = _normalize_spec(spec)
@@ -214,10 +219,11 @@ def _match_one(
                BRAND, MANUFACTURER, LIST_PRICE, SALE_PRICE, MAIN_IMAGE, UPDATE_TIME
          FROM T_GOODS_LIBRARY
          WHERE PLATFORM_CODE = :platform_code
+           AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
            AND REPLACE(UPPER(TRIM(APPROVAL_NO)), ' ', '') = :approval_no
          ORDER BY UPDATE_TIME DESC NULLS LAST, LIBRARY_ID DESC
         """,
-        {"platform_code": platform_code, "approval_no": approval_key},
+        {"platform_code": platform_code, "approval_no": approval_key, **tenant.binds},
     )
     hits = [
         hit for hit in rows_as_dicts(cur)
@@ -233,7 +239,7 @@ def _match_one(
     prices = [hit.get("sale_price") for hit in hits if hit.get("sale_price") is not None]
     range_min = min(prices) if prices else None
     range_max = max(prices) if prices else None
-    return [_candidate(cur, hit, platform_code, range_min, range_max) for hit in hits]
+    return [_candidate(cur, hit, platform_code, range_min, range_max, tenant) for hit in hits]
 
 
 def _result_row(
@@ -290,7 +296,7 @@ def _result_row(
 
 
 @router.get("/template")
-def download_template(_=Depends(require_perms("excel:import"))):
+def download_template(_=Depends(require_tenant_perms("excel:import"))):
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "导入模板"
@@ -319,6 +325,7 @@ async def match_excel(
     file: UploadFile = File(...),
     platform_code: str = "pinduoduo",
     user=Depends(require_perms("excel:match")),
+    tenant=Depends(require_tenant_perms("excel:match")),
 ):
     try:
         rows = _read_excel_rows(file.filename or "", await file.read())
@@ -361,7 +368,7 @@ async def match_excel(
             }
             if not approval_no and not spec:
                 continue
-            candidates = _match_one(cur, platform_code, approval_no, product_name, spec, manufacturer) if all((approval_no, product_name, spec, manufacturer)) else []
+            candidates = _match_one(cur, platform_code, approval_no, product_name, spec, manufacturer, tenant) if all((approval_no, product_name, spec, manufacturer)) else []
             result = _result_row(excel_row, approval_no, spec, product_name, manufacturer, candidates, search_keyword, original_row)
             results.append(result)
             if result["match_status"] == "unique":
@@ -377,6 +384,7 @@ async def match_excel(
             action="goods_library_excel_match",
             module="excel",
             detail=f"平台={platform_code} 唯一={unique_count} 多匹配={multiple_count} 未匹配={unmatched_count}",
+            **tenant.binds,
         )
 
     return ApiOk(
@@ -439,10 +447,11 @@ def _safe_name(value: Any, fallback: str) -> str:
 
 
 def _local_media_path(image: str) -> Path | None:
-    if not image.startswith("/media/"):
+    parsed_path = urlparse(image).path
+    if not parsed_path.startswith("/media/"):
         return None
     root = Path(settings.image_dir).resolve()
-    candidate = (root / image.removeprefix("/media/")).resolve()
+    candidate = (root / parsed_path.removeprefix("/media/")).resolve()
     try:
         candidate.relative_to(root)
     except ValueError:
@@ -470,7 +479,8 @@ def _image_bytes(image: Any) -> tuple[bytes, str] | None:
 
 
 @router.post("/export-batch")
-def export_batch(body: dict, user=Depends(require_perms("excel:export"))):
+def export_batch(body: dict, user=Depends(require_perms("excel:export")),
+                 tenant=Depends(require_tenant_perms("excel:export"))):
     rows = [row for row in (body.get("rows") or []) if row.get("matched") and row.get("product_id")]
     if not rows:
         return ApiOk(ok=False, message="请至少勾选一条已匹配商品")
@@ -478,6 +488,25 @@ def export_batch(body: dict, user=Depends(require_perms("excel:export"))):
     platform_name = platform_code
     with get_conn() as conn:
         cur = conn.cursor()
+        product_ids = [int(row["product_id"]) for row in rows]
+        for product_id in product_ids:
+            cur.execute("""SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:id
+                             AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                             AND NVL(IS_DELETED,0)=0""", {"id": product_id, **tenant.binds})
+            if int(cur.fetchone()[0] or 0) != 1:
+                return ApiOk(ok=False, message="导出商品不存在")
+        # Never fetch a client-supplied /media path. Rehydrate the attachment
+        # from the tenant-owned product so a forged row cannot export another
+        # workspace's file through the server-side local-file shortcut.
+        for row in rows:
+            cur.execute("""SELECT REL_PATH,SOURCE_URL FROM SJZQ_PRODUCT_IMAGE
+                             WHERE PRODUCT_ID=:id AND ENTERPRISE_ID=:enterprise_id
+                               AND WORKSPACE_ID=:workspace_id
+                             ORDER BY SORT_NO,IMAGE_ID FETCH FIRST 1 ROWS ONLY""",
+                        {"id": int(row["product_id"]), **tenant.binds})
+            image = cur.fetchone()
+            row["main_image"] = (signed_media_url(str(image[0]), tenant.enterprise_id, tenant.workspace_id)
+                                 if image and image[0] else (str(image[1]) if image and image[1] else ""))
         cur.execute("SELECT PLATFORM_NAME FROM SJZQ_PLATFORM WHERE PLATFORM_CODE = :code", {"code": platform_code})
         result = cur.fetchone()
         if result and result[0]:
@@ -489,6 +518,7 @@ def export_batch(body: dict, user=Depends(require_perms("excel:export"))):
             action="goods_library_excel_export",
             module="excel",
             detail=f"平台={platform_code} 导出={len(rows)}",
+            **tenant.binds,
         )
 
     output = io.BytesIO()
@@ -520,8 +550,17 @@ def export_batch(body: dict, user=Depends(require_perms("excel:export"))):
 
 
 @router.post("/export-matched")
-def export_matched(body: dict, _=Depends(require_perms("excel:export"))):
+def export_matched(body: dict, tenant=Depends(require_tenant_perms("excel:export"))):
     """兼容旧前端：把全部结果导出为单个 Excel。"""
+    product_ids = [int(row["product_id"]) for row in body.get("rows") or [] if row.get("product_id")]
+    with get_conn() as conn:
+        cur = conn.cursor()
+        for product_id in product_ids:
+            cur.execute("""SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:id
+                             AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                             AND NVL(IS_DELETED,0)=0""", {"id": product_id, **tenant.binds})
+            if int(cur.fetchone()[0] or 0) != 1:
+                return ApiOk(ok=False, message="导出商品不存在")
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "匹配结果"
@@ -539,7 +578,8 @@ def export_matched(body: dict, _=Depends(require_perms("excel:export"))):
 
 
 @router.post("/unmatched-to-task")
-def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
+def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch")),
+                      tenant=Depends(require_tenant_perms("task:create"))):
     """把 Excel 未匹配行下发给 Android，由 APP 按准字+规格核对详情。"""
     rows = [row for row in (body.get("rows") or []) if not row.get("matched")]
     targets = []
@@ -570,26 +610,32 @@ def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT PLATFORM_CODE, OWNER_USER_ID FROM SJZQ_DEVICE WHERE DEVICE_ID = :device_id",
-            {"device_id": device_id},
+            """SELECT PLATFORM_CODE, OWNER_USER_ID FROM SJZQ_DEVICE WHERE DEVICE_ID = :device_id
+                AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
+            {"device_id": device_id, **tenant.binds},
         )
         device = cur.fetchone()
         if not device:
             return ApiOk(ok=False, message="所选采集设备不存在")
         if _text(device[0]) != _text(platform):
             return ApiOk(ok=False, message="所选设备与当前平台不一致")
-        if user.get("role_code") != "super_admin" and int(device[1] or 0) != int(user["user_id"]):
+        if tenant.role_code != "super_admin" and int(device[1] or 0) != int(user["user_id"]):
             return ApiOk(ok=False, message="运营只能向本人绑定的设备下发任务")
         task_id = next_id(cur, "SJZQ_SEQ_TASK")
+        try:
+            reserve_and_commit(cur, enterprise_id=tenant.enterprise_id, workspace_id=tenant.workspace_id,
+                               metric=ACTIVE_TASK, amount=1, resource_type="task", resource_key=str(task_id))
+        except QuotaExceeded as exc:
+            return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
         cur.execute(
             """
             INSERT INTO SJZQ_TASK (
                 TASK_ID, TASK_NAME, TASK_TYPE, PLATFORM_CODE, DEVICE_ID, STATUS, PRIORITY,
                 KEYWORD_TEXT, TARGET_COUNT, CONFIG_JSON, CREATE_USER_ID, CREATE_USERNAME,
-                REVIEW_STATUS
+                REVIEW_STATUS,ENTERPRISE_ID,WORKSPACE_ID
             ) VALUES (
                 :task_id, :task_name, 'collect', :platform, :device_id, 'pending', 5,
-                :keywords, :target_count, :config_json, :user_id, :username, 'pending'
+                :keywords, :target_count, :config_json, :user_id, :username, 'pending',:enterprise_id,:workspace_id
             )
             """,
             {
@@ -607,7 +653,7 @@ def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
                     ensure_ascii=False,
                 ),
                 "user_id": user["user_id"],
-                "username": user["username"],
+                "username": user["username"], **tenant.binds,
             },
         )
         for index, target in enumerate(targets):
@@ -617,11 +663,11 @@ def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
                 INSERT INTO SJZQ_TASK_ITEM (
                     ITEM_ID, TASK_ID, ROW_INDEX, KEYWORD,
                     TARGET_SPEC, TARGET_APPROVAL, TARGET_NAME, TARGET_MANUFACTURER,
-                    ORIGINAL_ROW_JSON, STATUS
+                    ORIGINAL_ROW_JSON, STATUS,ENTERPRISE_ID,WORKSPACE_ID
                 ) VALUES (
                     :item_id, :task_id, :row_index, :keyword,
                     :target_spec, :target_approval, :target_name, :target_manufacturer,
-                    :original_row_json, 'pending'
+                    :original_row_json, 'pending',:enterprise_id,:workspace_id
                 )
                 """,
                 {
@@ -633,7 +679,7 @@ def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
                     "target_approval": target["approval"],
                     "target_name": target["name"],
                     "target_manufacturer": target["manufacturer"],
-                    "original_row_json": json.dumps(target["original_row"], ensure_ascii=False),
+                    "original_row_json": json.dumps(target["original_row"], ensure_ascii=False), **tenant.binds,
                 },
             )
         write_op_log(
@@ -643,5 +689,6 @@ def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch"))):
             action="excel_android_match_task",
             module="excel",
             detail=f"未匹配下发 Android 任务 #{task_id} 设备={device_id} 共 {len(targets)} 条",
+            **tenant.binds,
         )
         return ApiOk(data={"task_id": task_id, "device_id": device_id, "count": len(targets)})

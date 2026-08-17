@@ -1,0 +1,48 @@
+{
+  "expected": {
+    "product_count": 0,
+    "reason": "price_missing"
+  },
+  "description": "正常详情但价格缺失",
+  "parser_version": "pdd-android-1",
+  "page_text": "商品详情`n无糖燕麦片 500g`n近30天已拼 1000",
+  "detail_raw": {
+    "sales_raw": "近30天已拼 1000",
+    "sell_name": "无糖燕麦片 500g",
+    "item_id": "100000000004",
+    "shop_name": "示例食品店",
+    "product_name": "无糖燕麦片",
+    "main_images": [
+      "https://img.example.invalid/pdd/100000000004-1.jpg"
+    ],
+    "sku_rows": [
+      {
+        "group_price_raw": null,
+        "sku_id": "sku-pm",
+        "spec": "500g",
+        "normal_price_raw": null
+      }
+    ],
+    "body_snippet": "无糖燕麦片 500g`n近30天已拼 1000"
+  },
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-price-missing-001",
+  "field_sources": {
+    "attributes": "embedded_json",
+    "original_price": "none",
+    "shop_name": "embedded_json",
+    "images": "embedded_json",
+    "title": "embedded_json",
+    "sales_num": "dom",
+    "price": "none",
+    "item_url": "url",
+    "item_id": "embedded_json",
+    "sku": "embedded_json"
+  },
+  "page_status": "product",
+  "quality_status": "quarantined",
+  "page_url": "https://mobile.yangkeduo.com/goods.html?goods_id=100000000004",
+  "parse_status": "partial",
+  "should_emit_product": false,
+  "platform": "pinduoduo"
+}

@@ -13,7 +13,8 @@ TEST_SERVER_ENV = {
     "ORACLE_PASSWORD": "test-only-password",
     "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
 }
-os.environ.update(TEST_SERVER_ENV)
+for _key, _value in TEST_SERVER_ENV.items():
+    os.environ.setdefault(_key, _value)
 
 from server.init_rbac_schema import _bootstrap_admin_credentials  # noqa: E402
 

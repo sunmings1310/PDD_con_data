@@ -12,6 +12,13 @@
         <el-menu-item v-if="store.hasPerm('data:view')" index="/products">
           <el-icon><Goods /></el-icon><span>商品资料库</span>
         </el-menu-item>
+        <el-sub-menu v-if="store.hasPerm('data:view')" index="quality-management">
+          <template #title>
+            <el-icon><TrendCharts /></el-icon><span>质量与可观测性</span>
+          </template>
+          <el-menu-item index="/quality">数据质量</el-menu-item>
+          <el-menu-item index="/quarantines">Quarantine 工作台</el-menu-item>
+        </el-sub-menu>
         <el-menu-item v-if="store.hasPerm('excel:match')" index="/excel">
           <el-icon><Document /></el-icon><span>Excel匹配回填</span>
         </el-menu-item>
@@ -39,6 +46,11 @@
           <span class="route-title">{{ route.meta.title || '工作台' }}</span>
         </div>
         <div class="header-right">
+          <el-select :model-value="tenantKey" class="tenant-select" placeholder="选择企业 / Workspace" @change="onTenantChange">
+            <el-option v-for="item in store.tenantContexts" :key="`${item.enterprise_id}:${item.workspace_id}`"
+              :label="`${item.enterprise_name} / ${item.workspace_name}`"
+              :value="`${item.enterprise_id}:${item.workspace_id}`" />
+          </el-select>
           <el-tag type="success" effect="plain">在线设备 {{ store.summary.online_devices }}</el-tag>
           <el-tag type="warning" effect="plain">进行中任务 {{ store.summary.running_tasks }}</el-tag>
           <span class="clock">{{ nowText }}</span>
@@ -64,7 +76,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { useUserStore } from '@/stores/user'
@@ -73,6 +85,7 @@ const store = useUserStore()
 const route = useRoute()
 const router = useRouter()
 const nowText = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
+const tenantKey = computed(() => `${store.enterpriseId}:${store.workspaceId}`)
 let timer
 let summaryTimer
 
@@ -92,6 +105,12 @@ onUnmounted(() => {
 function onLogout() {
   store.logout()
   router.replace('/login')
+}
+function onTenantChange(value) {
+  const [enterpriseId, workspaceId] = String(value).split(':')
+  store.selectTenant(enterpriseId, workspaceId)
+  store.refreshSummary()
+  router.go(0)
 }
 </script>
 
@@ -130,6 +149,7 @@ function onLogout() {
   align-items: center;
   gap: 12px;
 }
+.tenant-select { width: 260px; }
 .clock { color: var(--sjzq-gray); font-size: 12px; }
 .user-entry {
   cursor: pointer;

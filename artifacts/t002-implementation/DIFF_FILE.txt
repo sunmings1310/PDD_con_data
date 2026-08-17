@@ -1,5 +1,0 @@
-﻿T002 REVIEWABLE CHANGE SUMMARY
-server: required Oracle/JWT Settings, ranges, production strength, redacted errors
-android: release-only external signing injection and early missing-field validation
-tests: 11 configuration cases
-docs: migration, rotation, regression and BL-003 DONE

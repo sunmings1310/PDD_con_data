@@ -12,6 +12,10 @@ http.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  const enterpriseId = localStorage.getItem('sjzq_enterprise_id')
+  const workspaceId = localStorage.getItem('sjzq_workspace_id')
+  if (enterpriseId) config.headers['X-Enterprise-Id'] = enterpriseId
+  if (workspaceId) config.headers['X-Workspace-Id'] = workspaceId
   return config
 })
 

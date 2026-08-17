@@ -14,6 +14,7 @@ from server.auth_util import (
 )
 from server.db import get_conn, row_as_dict, rows_as_dicts
 from server.schemas import ApiOk
+from server.tenant import list_user_contexts
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -63,17 +64,20 @@ def login(body: dict, request: Request):
         from server.auth_util import get_user_perms
 
         perms = get_user_perms(cur, int(user["role_id"]))
+        contexts = list_user_contexts(cur, int(user["user_id"]))
         return ApiOk(
             data={
                 "token": token,
-                "user": {**user, "perms": perms},
+                "user": {**user, "perms": perms, "tenant_contexts": contexts},
             }
         )
 
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
-    return ApiOk(data=user)
+    with get_conn() as conn:
+        contexts = list_user_contexts(conn.cursor(), int(user["user_id"]))
+    return ApiOk(data={**user, "tenant_contexts": contexts})
 
 
 @router.post("/change-password")

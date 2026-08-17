@@ -1,0 +1,44 @@
+{
+  "expected": {
+    "item_id": "100000000005",
+    "sku_count": 0
+  },
+  "description": "单规格商品无 SKU 明细",
+  "parser_version": "pdd-android-1",
+  "page_text": "玻璃杯 350ml`n拼单价 ¥9.90`n近30天已拼 500",
+  "detail_raw": {
+    "group_price_candidates": [
+      990
+    ],
+    "sales_raw": "近30天已拼 500",
+    "body_snippet": "玻璃杯 350ml`n拼单价 ¥9.90`n近30天已拼 500",
+    "product_name": "玻璃杯",
+    "main_images": [
+      "https://img.example.invalid/pdd/100000000005-1.jpg"
+    ],
+    "shop_name": "示例家居店",
+    "display_price": "9.90",
+    "item_id": "100000000005",
+    "sell_name": "玻璃杯 350ml"
+  },
+  "quality_rules_version": "phase1-1",
+  "fixture_id": "pdd-sku-missing-001",
+  "field_sources": {
+    "attributes": "embedded_json",
+    "original_price": "none",
+    "shop_name": "embedded_json",
+    "images": "embedded_json",
+    "title": "embedded_json",
+    "sales_num": "dom",
+    "price": "embedded_json",
+    "item_url": "url",
+    "item_id": "embedded_json",
+    "sku": "none"
+  },
+  "page_status": "product",
+  "quality_status": "warning",
+  "page_url": "https://mobile.yangkeduo.com/goods.html?goods_id=100000000005",
+  "parse_status": "partial",
+  "should_emit_product": true,
+  "platform": "pinduoduo"
+}
