@@ -3,15 +3,27 @@ package com.collector.pdd.engine
 import com.collector.pdd.CollectorApp
 import com.collector.pdd.data.CollectConfig
 import com.collector.pdd.data.CollectTarget
+import com.collector.pdd.data.AppDatabase
 import com.collector.pdd.data.ProductEntity
 import com.collector.pdd.data.TaskEntity
 import com.collector.pdd.data.OutboxEntity
 import com.collector.pdd.data.OutboxPayload
-import com.collector.pdd.parser.DetailReader
-import com.collector.pdd.parser.ProductQualityGate
+import com.collector.pdd.collector.Collector
+import com.collector.pdd.collector.CollectorRegistry
+import com.collector.pdd.collector.CollectorSession
+import com.collector.pdd.collector.CollectorException
+import com.collector.pdd.collector.CollectorErrorAction
+import com.collector.pdd.collector.CollectorErrorPolicy
+import com.collector.pdd.collector.CollectorRetryDisposition
+import com.collector.pdd.collector.DetailCollectionRequest
+import com.collector.pdd.collector.SearchRequest
+import com.collector.pdd.collector.SearchSort
+import com.collector.pdd.collector.SystemCollectorError
+import com.collector.pdd.collector.search
+import com.collector.pdd.collector.restoreSearch
+import com.collector.pdd.collector.collectDetail
 import com.collector.pdd.service.CollectA11yService
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
@@ -35,6 +47,9 @@ class TaskEngine(
     private val onTargetFinished: (suspend (target: CollectTarget, matched: Boolean, message: String) -> Unit)? = null,
     /** 连续动作异常时保存现场并上报服务端。 */
     private val onActionAnomaly: (suspend (localTaskId: Long, actionName: String, message: String, pageText: String, consecutiveCount: Int) -> Unit)? = null,
+    private val databaseProvider: () -> AppDatabase = { CollectorApp.instance.database },
+    private val accessibilityEnabled: () -> Boolean = { CollectA11yService.isEnabled() },
+    private val updateNotification: (String) -> Unit = { CollectA11yService.instance?.updateNotification(it) },
 ) {
     private val stopFlag = AtomicBoolean(false)
     private var job: Job? = null
@@ -44,8 +59,6 @@ class TaskEngine(
 
     private val timeFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
-    private class AccessIssueException(val issue: AccessIssue) : RuntimeException(issue.evidence)
-
     private data class AccessRuntime(
         var batchCount: Int = 0,
         var consecutiveSoldOut: Int = 0,
@@ -53,8 +66,14 @@ class TaskEngine(
 
     fun isRunning(): Boolean = job?.isActive == true
 
-    private suspend fun searchKeywordCounted(actions: PddActions, keyword: String) {
-        actions.searchKeyword(keyword)
+    private suspend fun searchKeywordCounted(
+        collector: Collector,
+        actions: CollectorSession,
+        keyword: String,
+        sort: SearchSort = SearchSort.DEFAULT,
+        prefetchPages: Int = 0,
+    ) {
+        collector.search(actions, SearchRequest(keyword, sort = sort, prefetchPages = prefetchPages))
         try {
             onKeywordSearched?.invoke(keyword)
         } catch (_: Exception) {
@@ -91,15 +110,22 @@ class TaskEngine(
         }
     }
 
-    private suspend fun restoreSearchList(actions: PddActions, keyword: String): Boolean {
-        if (actions.returnToSearchList()) return true
-        log("未恢复商品列表，重新搜索【$keyword】后继续后续商品")
+    private suspend fun restoreSearchList(collector: Collector, actions: CollectorSession, keyword: String): Boolean {
         return try {
-            searchKeywordCounted(actions, keyword)
-            actions.scrollList(2)
-            val ok = actions.looksLikeSearchList() || actions.listCardsOrEmpty().isNotEmpty()
-            log(if (ok) "重新搜索后商品列表已恢复" else "重新搜索后列表仍为空")
-            ok
+            val result = collector.restoreSearch(
+                actions,
+                SearchRequest(keyword, prefetchPages = 2),
+            )
+            if (result.researched) {
+                log("未恢复商品列表，已重新搜索【$keyword】")
+                try { onKeywordSearched?.invoke(keyword) } catch (_: Exception) {}
+            }
+            log(if (result.restored) "商品列表已恢复" else "商品列表仍不可用")
+            result.restored
+        } catch (e: CollectorException) {
+            if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
+            log("重新搜索恢复列表失败 code=${e.code}: ${e.message}")
+            false
         } catch (e: Exception) {
             log("重新搜索恢复列表失败: ${e.message}")
             false
@@ -117,7 +143,7 @@ class TaskEngine(
             log("任务正在运行中")
             return
         }
-        if (!CollectA11yService.isEnabled()) {
+        if (!accessibilityEnabled()) {
             log("请先开启无障碍服务（联机工具）")
             return
         }
@@ -140,8 +166,12 @@ class TaskEngine(
         }
     }
 
+    internal suspend fun awaitCompletionForTest() {
+        job?.join()
+    }
+
     private suspend fun runTask(config: CollectConfig) = coroutineScope {
-        val db = CollectorApp.instance.database
+        val db = databaseProvider()
         val now = LocalDateTime.now().format(timeFmt)
         val taskId = db.taskDao().insert(
             TaskEntity(
@@ -155,7 +185,7 @@ class TaskEngine(
             )
         )
         currentTaskId = taskId
-        CollectA11yService.instance?.updateNotification("采集中 task=$taskId")
+        updateNotification("采集中 task=$taskId")
         log(
                 "任务启动 task_id=$taskId 关键词数=${config.targets.takeIf { it.isNotEmpty() }?.size ?: config.keywords.size} " +
                 "匹配目标=${config.targets.count { it.requiresMatch }} " +
@@ -163,15 +193,18 @@ class TaskEngine(
                 "批次=${config.batchSize}/${config.batchCooldownMs / 1000}s 繁忙=${config.busyResponse} 拟人=${config.humanLevel}"
         )
 
-        val actions = PddActions(log, config)
         val accessRuntime = AccessRuntime()
         var total = 0
         var success = 0
         var fail = 0
         var endStatus = "finished"
+        var sessionForCleanup: CollectorSession? = null
 
         try {
-            actions.openPdd()
+            val collector = CollectorRegistry.require(config.platformCode)
+            val actions = collector.createSession(log, config)
+            sessionForCleanup = actions
+            actions.start()
 
             val workItems = config.targets.takeIf { it.isNotEmpty() }
                 ?: config.keywords.map { CollectTarget(keyword = it) }
@@ -192,15 +225,18 @@ class TaskEngine(
                         }
                 )
                 try {
-                    searchKeywordCounted(actions, kw)
+                    searchKeywordCounted(
+                        collector,
+                        actions,
+                        kw,
+                        prefetchPages = if (target.requiresMatch) 0 else 2,
+                    )
 
                     if (config.taskType == "nurture") {
-                        actions.scrollList(2)
                         total++
-                        val (opened, _) = actions.openCardAt(0)
+                        val opened = actions.browseCandidate(0, config.readMinMs, config.readMaxMs)
                         if (opened) {
-                            HumanBehavior.sleepMs(config.readMinMs.toDouble(), config.readMaxMs.toDouble())
-                            restoreSearchList(actions, kw)
+                            restoreSearchList(collector, actions, kw)
                             success++
                             reportTargetResult(target, true, "账号养护浏览完成")
                         } else {
@@ -221,7 +257,7 @@ class TaskEngine(
                             total++
                             val slot = "target_match_${i + 1}"
                             val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
-                                actions, dbTaskId = taskId, keyword = kw,
+                                collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = slot,
                                 openIndex = i,
                                 target = target,
@@ -249,7 +285,6 @@ class TaskEngine(
                         }
                     } else {
                         // 普通采集保留轻量浏览；搜索动作自身已确认结果页就绪。
-                        actions.scrollList(2)
                         log("【$kw】搜索列表，采集前 $n 个")
                         for (i in 0 until n) {
                             ensureActive()
@@ -257,7 +292,7 @@ class TaskEngine(
                             total++
                             val slot = "default_top_${i + 1}"
                             val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
-                                actions, dbTaskId = taskId, keyword = kw,
+                                collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = slot,
                                 openIndex = i,
                                 config = config,
@@ -273,17 +308,20 @@ class TaskEngine(
                         log("拟人休息后执行：价格升序…")
                         actions.betweenItems()
                         try {
-                            searchKeywordCounted(actions, kw)
-                            actions.sortByPriceAsc()
+                            searchKeywordCounted(collector, actions, kw, sort = SearchSort.PRICE_ASC)
                             total++
                             val ok = if (confirmed(config, kw, "price_asc_first")) true else collectOneWithPolicy(
-                                actions, dbTaskId = taskId, keyword = kw,
+                                collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "price_asc_first",
                                 openIndex = 0,
                                 config = config,
                                 runtime = accessRuntime,
                             )
                             if (ok) success++ else fail++
+                        } catch (e: CollectorException) {
+                            if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
+                            fail++
+                            log("价格排序采集失败 code=${e.code}: ${e.message}")
                         } catch (e: Exception) {
                             fail++
                             log("价格排序采集失败: ${e.message}")
@@ -295,17 +333,20 @@ class TaskEngine(
                         log("拟人休息后执行：销量降序…")
                         actions.betweenItems()
                         try {
-                            searchKeywordCounted(actions, kw)
-                            actions.sortBySalesDesc()
+                            searchKeywordCounted(collector, actions, kw, sort = SearchSort.SALES_DESC)
                             total++
                             val ok = if (confirmed(config, kw, "sales_desc_first")) true else collectOneWithPolicy(
-                                actions, dbTaskId = taskId, keyword = kw,
+                                collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "sales_desc_first",
                                 openIndex = 0,
                                 config = config,
                                 runtime = accessRuntime,
                             )
                             if (ok) success++ else fail++
+                        } catch (e: CollectorException) {
+                            if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
+                            fail++
+                            log("销量排序采集失败 code=${e.code}: ${e.message}")
                         } catch (e: Exception) {
                             fail++
                             log("销量排序采集失败: ${e.message}")
@@ -313,6 +354,11 @@ class TaskEngine(
                     }
                 } catch (e: CancellationException) {
                     throw e
+                } catch (e: CollectorException) {
+                    if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
+                    fail++
+                    log("关键词失败 $kw code=${e.code} err=${e.message}")
+                    if (target.requiresMatch) reportTargetResult(target, false, "采集失败：${e.message ?: e.code.name}")
                 } catch (e: Exception) {
                     fail++
                     log("关键词失败 $kw err=${e.message}")
@@ -343,11 +389,11 @@ class TaskEngine(
                     status = endStatus,
                 )
                 if (task != null) db.taskDao().update(task)
-                CollectA11yService.instance?.updateNotification("采集结束 $endStatus")
+                updateNotification("采集结束 $endStatus")
                 log("任务结束 status=$endStatus total=$total success=$success fail=$fail")
                 try {
-                    // 终止/完成：先回拼多多首页，再回联机工具主界面
-                    actions.finishAndReturnToApp()
+                    // 终止/完成：由 Collector 收尾平台页面，再回联机工具主界面。
+                    sessionForCleanup?.finish()
                 } catch (e: Exception) {
                     log("返回联机工具失败: ${e.message}")
                 }
@@ -379,7 +425,8 @@ class TaskEngine(
     }
 
     private suspend fun collectOneWithPolicy(
-        actions: PddActions,
+        collector: Collector,
+        actions: CollectorSession,
         dbTaskId: Long,
         keyword: String,
         pickTag: String,
@@ -391,68 +438,84 @@ class TaskEngine(
         var retries = 0
         while (!stopFlag.get()) {
             try {
-                val ok = collectOne(actions, dbTaskId, keyword, pickTag, openIndex, target, config)
+                val ok = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)
                 runtime.consecutiveSoldOut = 0
                 if (ok) consecutiveActionAnomalies = 0
                 afterItem(config, runtime)
                 return ok
-            } catch (e: AccessIssueException) {
-                if (e.issue.type == AccessIssueType.SOLD_OUT) {
-                    runtime.consecutiveSoldOut++
-                    log("检测到售罄/下架：${e.issue.evidence}，连续 ${runtime.consecutiveSoldOut} 个")
-                    runCatching { restoreSearchList(actions, keyword) }
-                    val threshold = config.soldOutStopThreshold
-                    if (threshold > 0 && runtime.consecutiveSoldOut >= threshold) {
-                        log("连续售罄达到阈值 $threshold，停止本次任务")
+            } catch (e: CollectorException) {
+                when (CollectorErrorPolicy.action(e)) {
+                    CollectorErrorAction.FAIL_FAST -> throw e
+
+                    CollectorErrorAction.STOP_TASK -> {
+                        runtime.consecutiveSoldOut = 0
+                        recordActionAnomaly(config, dbTaskId, "collector_stop", e.message.orEmpty(), e.evidence)
                         stopFlag.set(true)
+                        log("采集器要求停止任务 code=${e.code}: ${e.message}")
+                        afterItem(config, runtime)
+                        return false
                     }
-                    afterItem(config, runtime)
-                    return false
-                }
 
-                runtime.consecutiveSoldOut = 0
-                val issueLabel = if (e.issue.type == AccessIssueType.RISK) "疑似风控" else "访问繁忙"
-                recordActionAnomaly(config, dbTaskId, "access_guard", e.issue.evidence, actions.readPageText())
-                if (stopFlag.get()) return false
-                val response = config.busyResponse.lowercase()
-                log("检测到$issueLabel：${e.issue.evidence}，回复策略=$response")
-                if (response == "stop") {
-                    stopFlag.set(true)
-                    log("已按策略停止本次任务")
-                    return false
-                }
-                if (response == "skip") {
-                    runCatching { restoreSearchList(actions, keyword) }
-                    log("已按策略跳过当前商品")
-                    afterItem(config, runtime)
-                    return false
-                }
-                if (retries >= config.busyRetryCount) {
-                    log("自动重试次数已用完（${config.busyRetryCount} 次），跳过当前商品")
-                    runCatching { restoreSearchList(actions, keyword) }
-                    afterItem(config, runtime)
-                    return false
-                }
+                    CollectorErrorAction.FAIL_ITEM -> {
+                        if (e.code == SystemCollectorError.ITEM_UNAVAILABLE) {
+                            runtime.consecutiveSoldOut++
+                            log("检测到售罄/下架：${e.message}，连续 ${runtime.consecutiveSoldOut} 个")
+                            val threshold = config.soldOutStopThreshold
+                            if (threshold > 0 && runtime.consecutiveSoldOut >= threshold) {
+                                log("连续售罄达到阈值 $threshold，停止本次任务")
+                                stopFlag.set(true)
+                            }
+                        } else {
+                            runtime.consecutiveSoldOut = 0
+                            log("当前商品失败 code=${e.code}: ${e.message}")
+                            if (e.code == SystemCollectorError.PARSE_ERROR ||
+                                e.code == SystemCollectorError.DATA_QUALITY_FAILURE
+                            ) {
+                                recordActionAnomaly(config, dbTaskId, "collector_item", e.message.orEmpty(), e.evidence)
+                            }
+                        }
+                        runCatching { restoreSearchList(collector, actions, keyword) }
+                        afterItem(config, runtime)
+                        return false
+                    }
 
-                retries++
-                val base = if (e.issue.type == AccessIssueType.RISK) {
-                    config.riskCooldownMs
-                } else {
-                    config.busyCooldownMs
+                    CollectorErrorAction.RETRY -> {
+                        runtime.consecutiveSoldOut = 0
+                        recordActionAnomaly(config, dbTaskId, "access_guard", e.message.orEmpty(), e.evidence)
+                        if (stopFlag.get()) return false
+                        val response = config.busyResponse.lowercase()
+                        log("采集器暂时失败 code=${e.code}: ${e.message}，回复策略=$response")
+                        when (CollectorErrorPolicy.retryDisposition(e, response, retries, config.busyRetryCount)) {
+                            CollectorRetryDisposition.STOP -> {
+                                stopFlag.set(true)
+                                return false
+                            }
+                            CollectorRetryDisposition.SKIP,
+                            CollectorRetryDisposition.EXHAUSTED -> {
+                                log(if (response == "skip") "已按策略跳过当前商品" else "自动重试次数已用完（${config.busyRetryCount} 次）")
+                                runCatching { restoreSearchList(collector, actions, keyword) }
+                                afterItem(config, runtime)
+                                return false
+                            }
+                            CollectorRetryDisposition.RETRY -> Unit
+                        }
+                        retries++
+                        val baseCooldown = CollectorErrorPolicy.cooldownMs(e, config.busyCooldownMs, config.riskCooldownMs)
+                        val cooldown = (baseCooldown * retries).coerceAtMost(30 * 60 * 1000L)
+                        log("第 $retries 次恢复：冷却 ${cooldown / 1000} 秒后重试当前商品")
+                        runCatching { actions.reset() }
+                        delay(cooldown)
+                        searchKeywordCounted(collector, actions, keyword, prefetchPages = 2)
+                    }
                 }
-                val cooldown = (base * retries).coerceAtMost(30 * 60 * 1000L)
-                log("第 $retries 次恢复：冷却 ${cooldown / 1000} 秒后重试当前商品")
-                runCatching { actions.goToPddHome() }
-                delay(cooldown)
-                searchKeywordCounted(actions, keyword)
-                actions.scrollList(2)
             }
         }
         return false
     }
 
     private suspend fun collectOne(
-        actions: PddActions,
+        collector: Collector,
+        actions: CollectorSession,
         dbTaskId: Long,
         keyword: String,
         pickTag: String,
@@ -461,133 +524,23 @@ class TaskEngine(
         config: CollectConfig,
     ): Boolean {
         return try {
-            val (opened, listMeta) = actions.openCardAt(openIndex)
-            if (!opened) {
-                recordActionAnomaly(config, dbTaskId, "open_card", "列表为空或第 ${openIndex + 1} 个商品无法打开", actions.readPageText())
+            val collected = collector.collectDetail(
+                actions,
+                DetailCollectionRequest(keyword, pickTag, openIndex, log),
+            )
+            if (collected.failureAction != null) {
+                recordActionAnomaly(
+                    config,
+                    dbTaskId,
+                    collected.failureAction,
+                    collected.failureMessage.orEmpty(),
+                    collected.raw.evidence,
+                )
                 return false
             }
-            AccessGuard.detect(actions.readPageText())?.let { throw AccessIssueException(it) }
+            var product = requireNotNull(collected.product).copy(taskId = dbTaskId)
+            val quality = requireNotNull(collected.quality)
 
-            // 1) 刚进详情主图在顶部：先一键保存采图
-            HumanBehavior.sleepMs(900.0, 1600.0)
-            val probeImages = actions.tryProbeMainImage(listMeta.itemId, alreadyAtTop = true)
-            // 采图曾误把详情主图「1/5」当大图预览再 Back，导致退到列表；此处强制校验并重进
-            if (!actions.ensureOnGoodsDetail(openIndex)) {
-                recordActionAnomaly(config, dbTaskId, "restore_detail", "采图后未能停留在商品详情", actions.readPageText())
-                AccessGuard.detect(actions.readPageText())?.let { throw AccessIssueException(it) }
-                log("采图后未能停留在商品详情，放弃本条后续取链/读参")
-                return false
-            }
-
-            // 采图后先轻读一屏价格（底栏弹层打开后可能消失）
-            HumanBehavior.sleepMs(350.0, 800.0)
-            var priceText = actions.readPageText()
-            var shopSalesText = ""
-            var skuPanelText = ""
-            var paramsText = ""
-
-            // 2) 商品信息采集：永久固定在采图之后，固定顺序（不再随机）
-            //    多规格 → 商品参数 → 店铺销量 → 详情拟人
-            val midSteps = listOf("sku", "params", "shop_sales", "human")
-            log("采图后固定执行商品信息采集：${midSteps.joinToString(" → ")}")
-            for ((idx, step) in midSteps.withIndex()) {
-                if (idx > 0) {
-                    try {
-                        actions.randomBridgeHuman("step_$step")
-                    } catch (_: Exception) {
-                    }
-                }
-                when (step) {
-                    "shop_sales" -> {
-                        shopSalesText = try {
-                            actions.peekShopSalesText()
-                        } catch (_: Exception) {
-                            ""
-                        }
-                        priceText = priceText + "\n" + actions.readPageText()
-                    }
-                    "human" -> {
-                        try {
-                            actions.maybeDetailHumanGestures()
-                        } catch (e: Exception) {
-                            log("详情拟人动作异常: ${e.message}")
-                        }
-                    }
-                    "sku" -> {
-                        skuPanelText = try {
-                            actions.openAndReadSkuPrices()
-                        } catch (e: Exception) {
-                            log("多规格读取失败: ${e.message}")
-                            ""
-                        }
-                        if (!actions.ensureOnGoodsDetail(openIndex)) {
-                            log("读规格后已离开详情，尝试恢复失败")
-                        }
-                        priceText = priceText + "\n" + actions.readPageText()
-                    }
-                    "params" -> {
-                        paramsText = try {
-                            actions.openAndReadProductParams()
-                        } catch (e: Exception) {
-                            log("商品参数读取失败: ${e.message}")
-                            ""
-                        }
-                        if (!actions.ensureOnGoodsDetail(openIndex)) {
-                            log("读参数后已离开详情，尝试恢复失败")
-                        }
-                    }
-                }
-            }
-
-            // 3) 分享取链放较后（读参/规格后常需回顶）
-            try {
-                actions.randomBridgeHuman("before_share")
-            } catch (_: Exception) {
-            }
-            if (!actions.ensureOnGoodsDetail(openIndex)) {
-                log("取链前不在详情页，跳过分享取链")
-            }
-            log("开始复制链接解析…")
-            val share = if (actions.looksLikeGoodsDetail()) {
-                actions.tryCaptureShareLink()
-            } else {
-                PddActions.ShareCapture()
-            }
-
-            val harvest = actions.harvestPage()
-            val mainText = actions.readPageText()
-
-            // 6) 无障碍解析商品字段
-            val a11yPageText = buildString {
-                append(priceText)
-                append('\n')
-                if (shopSalesText.isNotBlank()) {
-                    append(shopSalesText)
-                    append('\n')
-                }
-                append(mainText)
-                if (paramsText.isNotBlank()) {
-                    append('\n')
-                    append("---商品参数---\n")
-                    append(paramsText)
-                }
-                if (skuPanelText.isNotBlank()) {
-                    append('\n')
-                    append("---多规格售价---\n")
-                    append(skuPanelText)
-                }
-            }
-            var product = DetailReader.parse(
-                pageText = a11yPageText,
-                keyword = keyword,
-                pickTag = pickTag,
-                listPrice = listMeta.listPrice,
-                itemIdHint = listMeta.itemId,
-                shopIdHint = harvest.mallId,
-                imageHints = emptyList(),
-                urlHint = "",
-                skuPanelText = skuPanelText,
-            ).copy(taskId = dbTaskId)
             if (target?.requiresMatch == true) {
                 val match = ProductTargetMatcher.match(
                     expectedApproval = target.targetApproval,
@@ -601,172 +554,26 @@ class TaskEngine(
                 )
                 if (!match.matched) {
                     log(
-                        "匹配跳过【$pickTag】" +
-                            "准字=${match.actualApproval.ifBlank { "-" }}/${match.expectedApproval} " +
+                        "匹配跳过【$pickTag】准字=${match.actualApproval.ifBlank { "-" }}/${match.expectedApproval} " +
                             "规格=${match.actualSpec.ifBlank { "-" }}/${match.expectedSpec} " +
                             "准字命中=${match.approvalMatched} 规格命中=${match.specMatched}"
                     )
-                    restoreSearchList(actions, keyword)
+                    restoreSearchList(collector, actions, keyword)
                     return false
                 }
-                log(
-                    "匹配命中【$pickTag】准字=${product.approvalNo} 规格=${product.spec} " +
-                        "item=${target.remoteItemId ?: "-"}"
-                )
-            }
-            if (product.skuPricesText.isNotBlank()) {
-                log("多规格售价已写入: ${product.skuPricesText.take(180)}")
+                log("匹配命中【$pickTag】准字=${product.approvalNo} 规格=${product.spec} item=${target.remoteItemId ?: "-"}")
             }
 
-            // 6) 分享结果直接写入；网络负责 ps= 短链展开 + 补图
-            var shareId = share.goodsId
-                .ifBlank { GoodsLinkResolver.extractGoodsId(share.url) }
-                .ifBlank { GoodsLinkResolver.extractGoodsId(share.raw) }
-            var shareUrl = when {
-                share.url.isNotBlank() -> share.url
-                shareId.isNotBlank() -> GoodsLinkResolver.buildGoodsUrl(shareId)
-                else -> GoodsLinkResolver.extractGoodsUrls(share.raw).firstOrNull().orEmpty()
-            }
-            // 复制链接常见：goods1.html?ps=UvSyTr2i6T → 307 出 goods_id
-            if (shareId.isBlank() && (shareUrl.contains("ps=", true) ||
-                    shareUrl.contains("goods1.html", true) ||
-                    share.raw.contains("ps=", true))
-            ) {
-                log("检测到 ps= 分享链，正在展开…")
-                val expanded = try {
-                    withContext(Dispatchers.IO) {
-                        GoodsLinkResolver.expandShareLink(
-                            shareUrl.ifBlank { share.raw },
-                        )
-                    }
-                } catch (e: Exception) {
-                    log("ps= 展开失败: ${e.message}")
-                    GoodsLinkResolver.Resolved()
-                }
-                if (expanded.goodsId.isNotBlank()) {
-                    shareId = expanded.goodsId
-                    shareUrl = expanded.itemUrl.ifBlank {
-                        GoodsLinkResolver.buildGoodsUrl(expanded.goodsId)
-                    }
-                    log("ps= 展开成功 id=$shareId")
-                } else if (expanded.itemUrl.isNotBlank() && shareUrl.isBlank()) {
-                    shareUrl = expanded.itemUrl
-                }
-            }
-            if (shareId.isNotBlank() || shareUrl.isNotBlank()) {
-                product = product.copy(
-                    itemId = shareId.ifBlank { product.itemId },
-                    itemUrl = shareUrl.ifBlank { product.itemUrl },
-                )
-                log(
-                    "已写入分享链 id=${product.itemId.ifBlank { "-" }} " +
-                        "url=${product.itemUrl.ifBlank { "-" }.take(90)}"
-                )
-            } else if (share.raw.isNotBlank()) {
-                val prev = share.raw.replace("\n", " ").take(100)
-                if (prev.contains("http", true) || prev.contains("ps=", true) ||
-                    prev.contains("yangkeduo", true)
-                ) {
-                    log("分享有内容但未解析出链 preview=$prev")
-                } else {
-                    log("分享未拿到链接（非URL文本已忽略）")
-                }
-            } else {
-                log("分享未拿到链接，无法写商品ID/链接")
-            }
-
-            val expectTokens = listOf(keyword, product.productName, product.brand, product.sellName)
-                .flatMap { it.split(" ", "　", "/", "·", ",") }
-                .map { it.trim() }
-                .filter { it.length >= 2 }
-                .distinct()
-            val resolved = try {
-                GoodsLinkResolver.resolve(
-                    rawShare = share.raw.take(4000),
-                    hintUrl = shareUrl.ifBlank { product.itemUrl },
-                    hintGoodsId = shareId.ifBlank { product.itemId },
-                    expectTokens = expectTokens,
-                )
-            } catch (e: Exception) {
-                log("网络解析跳过: ${e.message}")
-                GoodsLinkResolver.Resolved()
-            }
-            if (resolved.rejected && resolved.itemUrl.isBlank() && resolved.goodsId.isBlank()) {
-                log("网络补图跳过（防串号）: ${resolved.rejectReason}")
-            } else if (resolved.goodsId.isNotBlank()) {
-                // 仅当分享没拿到 ID，或网络 ID 与分享一致时，才用网络结果
-                val idOk = shareId.isBlank() || shareId == resolved.goodsId
-                if (idOk) {
-                    log(
-                        "网络补齐 id=${resolved.goodsId} 图=${resolved.images.size} " +
-                            "title=${resolved.title.take(40)}"
-                    )
-                    product = product.copy(
-                        itemId = resolved.goodsId,
-                        itemUrl = resolved.itemUrl.ifBlank {
-                            GoodsLinkResolver.buildGoodsUrl(resolved.goodsId)
-                        },
-                    )
-                    if (resolved.images.isNotEmpty()) {
-                        product = product.copy(mainImages = resolved.images.joinToString("|"))
-                    }
-                } else {
-                    log("网络ID与分享不一致，保留分享ID share=$shareId net=${resolved.goodsId}")
-                    if (resolved.images.isNotEmpty() && product.mainImages.isBlank()) {
-                        product = product.copy(mainImages = resolved.images.joinToString("|"))
-                    }
-                }
-            } else {
-                if (resolved.itemUrl.isNotBlank() && product.itemUrl.isBlank()) {
-                    product = product.copy(itemUrl = resolved.itemUrl)
-                    log("网络仅拿到短链，已写入链接")
-                }
-                if (resolved.images.isNotEmpty() && product.mainImages.isBlank()) {
-                    product = product.copy(mainImages = resolved.images.joinToString("|"))
-                }
-                if (resolved.rejectReason.isNotBlank()) {
-                    log("网络未解析出ID: ${resolved.rejectReason}")
-                }
-            }
-
-            val localImgs = buildList {
-                if (listMeta.imageHint.isNotBlank()) add(listMeta.imageHint)
-                addAll(probeImages)
-                addAll(share.images)
-                addAll(harvest.images)
-            }.filter { GoodsLinkResolver.isProductImageUrl(it) }.distinct()
-            if (product.mainImages.isBlank() && localImgs.isNotEmpty()) {
-                product = product.copy(mainImages = localImgs.joinToString("|"))
-            }
-            // 若采图时还没有商品ID，用最终 ID 重命名提示即可；不再截图冒充
-            if (product.mainImages.isBlank()) {
-                log("图片为空：一键保存/相册抓取未成功（请看上方「开始一键保存采图」日志）")
-            }
-            if (product.mainImages.isNotBlank()) {
-                product = product.copy(
-                    mainImages = product.mainImages.split("|")
-                        .filter { GoodsLinkResolver.isProductImageUrl(it) }
-                        .distinct()
-                        .joinToString("|"),
-                )
-            }
-            // 有 ID 无链接时补全
-            if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) {
-                product = product.copy(itemUrl = GoodsLinkResolver.buildGoodsUrl(product.itemId))
-            }
-
-            val (checkedProduct, quality) = ProductQualityGate.apply(a11yPageText, product)
-            product = checkedProduct
             if (!quality.accepted) {
                 recordActionAnomaly(
                     config,
                     dbTaskId,
                     "quality_gate",
                     "page=${quality.pageStatus} parse=${quality.parseStatus} quality=${quality.qualityStatus} missing=${quality.missingFields}",
-                    a11yPageText,
+                    collected.raw.evidence,
                 )
                 log("质量门禁拒绝【$pickTag】：page=${quality.pageStatus} missing=${quality.missingFields}")
-                restoreSearchList(actions, keyword)
+                restoreSearchList(collector, actions, keyword)
                 return false
             }
 
@@ -795,7 +602,6 @@ class TaskEngine(
                 try {
                     onProductCollected?.invoke(dbTaskId, outboxId, product, remoteItemId)
                 } catch (e: Exception) {
-                    // Product + outbox are already durable.  Network delivery is retried by AgentCoordinator.
                     log("商品已进入待上报队列 outbox=$outboxId err=${e.message}")
                 }
             }
@@ -805,16 +611,15 @@ class TaskEngine(
                     "准字=${product.approvalNo.ifBlank { "-" }} 厂家=${product.manufacturer.ifBlank { "-" }} " +
                     "图=${if (product.mainImages.isBlank()) 0 else product.mainImages.split("|").size} " +
                     "链=${if (product.itemUrl.isBlank()) "-" else "有"} " +
-                    "参数=${if (paramsText.isBlank()) "未开" else "已开"}"
+                    "参数=${if (collected.paramsCaptured) "已开" else "未开"}"
             )
-            // 必须确认回到可点击的商品列表；返回栈异常时自动重新搜索。
-            restoreSearchList(actions, keyword)
+            restoreSearchList(collector, actions, keyword)
             true
-        } catch (e: AccessIssueException) {
+        } catch (e: CollectorException) {
             throw e
         } catch (e: Exception) {
             log("本条失败 $pickTag err=${e.message}")
-            try { restoreSearchList(actions, keyword) } catch (_: Exception) {}
+            try { restoreSearchList(collector, actions, keyword) } catch (_: Exception) {}
             false
         }
     }
