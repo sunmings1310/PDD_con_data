@@ -88,10 +88,13 @@ flowchart TD
     Coordinator --> ApiClient
     Coordinator --> TaskEngine
     ApiClient --> Server["FastAPI Agent API"]
-    TaskEngine --> PddActions
+    TaskEngine --> Registry["CollectorRegistry"]
+    Registry --> Contract["Collector Contract"]
+    Contract --> PddCollector["PddCollector / Adapter"]
+    PddCollector --> PddActions
     TaskEngine --> Matcher["ProductTargetMatcher"]
     PddActions --> A11y["A11yHelper / CollectA11yService"]
-    PddActions --> DetailReader
+    PddCollector --> DetailReader
     TaskEngine --> Room["Room DAO"]
     TaskEngine --> Outbox[("Room upload_outbox")]
     Coordinator --> Assignment[("Room job_assignment")]
@@ -104,7 +107,7 @@ flowchart TD
     ApkUpdater --> OTA["/api/ota/latest + APK"]
 ```
 
-`AgentCoordinator` 是远程调度适配层；`TaskEngine` 是本地执行状态机；`PddActions` 是平台 UI 自动化实现。当前平台常量预留天猫、京东、抖音，但实际动作实现只有拼多多可确认。
+`AgentCoordinator` 是远程调度适配层；`TaskEngine` 是平台无关的本地执行状态机。它按任务的 `platform_code` 从 `CollectorRegistry` 获取 Collector，只消费统一 Search/Detail 结果和系统错误。`PddCollector` 包裹既有 `PddActions`、`DetailReader`、链接解析和页面错误映射；Registry 当前只注册拼多多。平台常量占位不代表 Collector 已接入。
 
 ## 3. 主要数据流
 
@@ -115,7 +118,7 @@ flowchart TD
 3. 同一事务为采集 TaskItem 生成稳定 `CollectionJob.JOB_KEY`；Android 注册后调用 `POST /api/jobs/acquire`。
 4. 服务端以 `FOR UPDATE SKIP LOCKED` 原子领取，创建 `CollectionAttempt` 与可过期 `Lease`；数据库只保存 token hash，bearer token 仅返回 Worker。
 5. Agent 先把 Job/Attempt/Lease 写入 Room，再调用 start 并启动 `TaskEngine`；heartbeat 只用服务端时钟续租。
-6. `TaskEngine` 先分类页面并运行 `ProductQualityGate`；异常页和必填字段失败不生成商品。通过门禁的商品与 `product` outbox 事件在同一 Room 事务写入。
+6. `TaskEngine` 经 Registry 调用平台 Collector；PDD Adapter 复用既有页面分类、详情解析与客户端质量行为并返回统一结果。异常页和必填字段失败不生成商品；通过门禁的商品与 `product` outbox 事件在同一 Room 事务写入。
 7. `AgentCoordinator` 按持久 outbox 重试；`ApiClient` 使用稳定 idempotency key 上传商品，必要时上传本地图片，只有明确的 `acknowledged + persisted` 才将事件标记为 acked。
 8. 服务端在同一 Oracle 事务写商品、任务计数与 `SJZQ_UPLOAD_RECEIPT`；同 key 同 payload 返回既有确认，同 key 不同 payload 拒绝。
 9. 每个商品得到 ACK 后，Android 把 `keyword|pick_tag` 确认槽位写入单调、幂等 checkpoint；恢复时跳过已确认槽位。本地执行结束提交全部已确认 product receipt manifest，服务端逐项验证 lease、receipt、Product，并以 TaskItem 绑定商品作为 canonical result 后结束 Attempt/Lease。零确认结果和任一永久拒绝均转 Job failure，不能完成。

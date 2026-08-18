@@ -95,9 +95,16 @@ if (Should-Run 'oracle') {
     $python = Get-PythonPath
     $required = @('T003_ORACLE_DSN', 'T003_ORACLE_USER', 'T003_ORACLE_PASSWORD')
     $missing = @($required | Where-Object { -not (Get-Item -Path "Env:$($_)" -ErrorAction SilentlyContinue).Value })
+    $requiredFlags = @(
+        'T003_ORACLE_TEST_ENABLED',
+        'PHASE5_ORACLE_TEST_ENABLED',
+        'PHASE55_ORACLE_TEST_ENABLED',
+        'PHASE6A_ORACLE_TEST_ENABLED'
+    )
+    $disabledFlags = @($requiredFlags | Where-Object { (Get-Item -Path "Env:$($_)" -ErrorAction SilentlyContinue).Value -ne '1' })
     if (-not $python) { Add-Result 'oracle-integration' 'BLOCKED' 'Python test environment is unavailable' }
-    elseif ($env:T003_ORACLE_TEST_ENABLED -ne '1' -or $missing.Count -gt 0) {
-        Add-Result 'oracle-integration' 'BLOCKED' 'requires T003_ORACLE_TEST_ENABLED=1 and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md'
+    elseif ($missing.Count -gt 0 -or $disabledFlags.Count -gt 0) {
+        Add-Result 'oracle-integration' 'BLOCKED' 'requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md'
     } else {
         Invoke-Native 'oracle-integration' $python @(
             '-m', 'unittest', '-v',
@@ -105,8 +112,10 @@ if (Should-Run 'oracle') {
             'tests/test_phase2_schema_contract.py',
             'tests/test_job_service.py',
             'tests/test_phase2_route_oracle.py',
-            'tests/test_phase3_oracle.py'
-            'tests/test_phase55_oracle.py'
+            'tests/test_phase3_oracle.py',
+            'tests/test_phase5_oracle.py',
+            'tests/test_phase55_oracle.py',
+            'tests/test_phase6a_oracle.py'
         ) $Root
     }
 }

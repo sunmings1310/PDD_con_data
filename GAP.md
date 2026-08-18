@@ -53,7 +53,7 @@ Phase 1 的 P0 已全部关闭。专用 Oracle 测试 Schema 已完成迁移及 
 | 数据质量与去重 | 45% | 基础质量状态、任务内商品去重和异常隔离完成；ProductSnapshot 尚未实施 |
 | 自动化测试 | 70% | Python 60、Oracle 8、Android JVM 36、Web build 纳入统一严格入口；CI 待建设 |
 | 企业化 | 15% | 只有全局 RBAC/owner，无租户/workspace 隔离 |
-| 多平台扩展 | 20% | 服务端有平台码，动作/解析仍高度耦合拼多多 |
+| 多平台扩展 | 45% | Phase 6A 已建立 Collector Contract/Registry 并迁移 PDD；第二平台尚未接入验证 |
 
 **总体约 50%**：适合作为单租户内测骨架，尚不能宣称稳定生产采集或多企业交付。
 
@@ -280,7 +280,7 @@ Collector
 | 问题 | 涉及模块 | 影响 | 建议方案 | 复杂度 | 推荐 Agent | 可并行 | 验收方式 |
 |---|---|---|---|---|---|---|---|
 | P3-01 缺企业/workspace | 用户/任务/设备/商品/报表 | 不能多企业隔离 | Phase 5 实施逻辑租户；先评审模型/访问矩阵 | 高 | Sol：架构/DB | 后期 | 两企业/同 ID 越权测试全过 |
-| P3-02 平台代码耦合 PDD | Android/Desktop | 新平台复制大模块 | 拼多多稳定后包最小 adapter | 高 | Sol：架构 | 依赖 Phase1-3 | PDD 行为无差异；新平台不改 PDD parser |
+| P3-02 平台代码耦合 PDD | Android/Desktop | 新平台复制大模块 | **PHASE 6A CLOSED（权威 Android/服务端链）**：Collector Contract/Registry/PddAdapter；旧桌面链继续按 BL-301 冻结隔离 | 高 | Sol：架构 | 依赖 Phase1-3 | PDD compatibility 通过；TaskEngine/Quality 核心无 PDD import/条件；第二平台验证留 Phase 6B |
 | P3-03 查询/bundle 性能 | Product/report/Web | 规模后变慢 | 先指标，再 DB 分页/索引/聚合/分包 | 中 | Terra：性能 | 是 | 有 P95、计划、bundle 前后对比 |
 | P3-04 缓存/多实例实时状态 | API/WS/投屏 | 扩容时不一致 | 指标驱动缓存；权威状态不缓存；评估 broker/sticky | 中 | Sol：分布式 | 后期 | 实例重启/切换可预测；无缓存仍正确 |
 
@@ -343,4 +343,5 @@ T004/T005 先确定成功语义；T006 可并行；T007/T008 在成功语义固�
 - Oracle 最终门禁：**CLOSED**。Oracle 19c 隔离 schema 上 `P5_5_001` 首次/重复迁移、两 Enterprise 全读取面隔离、设备 revoke 全链路、三类 quota 两 session 并发以及媒体旁路均通过。
 - 全量回归：Python 164/164、Oracle 36/36、Android JVM、Web production build 全部 PASS；统一入口 `PASS=4 FAIL=0 BLOCKED=0`。
 - Phase 5.5：**ACCEPTED**。最终 Sol Review 无阻塞项。
-- Phase 6：**UNBLOCKED**。本记录只解除启动门禁；Phase 6 尚未开始，PR 未合并，等待批准。
+- Phase 6A：**ACCEPTED**。Collector ADR、Android/服务端 Registry、PDD Adapter、Capability、System Error、PDD before/after compatibility 与真实 Oracle integration 已完成；Phase 1～6A exhaustive Oracle `40/40 PASS`，统一严格入口 `PASS=4 FAIL=0 BLOCKED=0`。
+- Phase 6B：**UNBLOCKED / NOT STARTED**。仅解除第二平台验证门禁；未接入 JD、淘宝、1688，等待独立批准。

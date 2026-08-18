@@ -588,6 +588,14 @@ T001 已消除最初的依赖与工具链阻断：`requirements.txt` 已补齐�
 - 核心故障能通过指标/日志/告警发现，并有处置手册和演练记录。
 - 核心行为进入自动化门禁，接口和 schema 演进受契约测试保护。
 - 缓存、队列、多实例和多平台等复杂度仅在指标和业务需求证明必要时引入。
+
+## Phase 6A Collector Abstraction 执行状态（2026-08-19）
+
+- **ACCEPTED**：最小 Collector Contract、Registry、Capability、统一 Identity/System Error 与 PddAdapter 已实现。
+- PDD 通过 before/after、真实 Oracle Product/Snapshot/Quality/Quarantine/Diff/idempotency compatibility。
+- Phase 1～6A exhaustive Oracle：`40/40 PASS`，无 skip；全量严格入口：`PASS=4 FAIL=0 BLOCKED=0`。
+- 核心 Task/Job/Quality/Tenant/Quota 层不依赖 PDD 原始响应或平台条件链。
+- Phase 6B：**UNBLOCKED / NOT STARTED**。本记录不授权或启动 JD、淘宝、1688 等第二平台实现。
 # Phase 4 执行状态（2026-08-17）
 
 # Phase 5.5 企业化硬化执行状态（2026-08-17）

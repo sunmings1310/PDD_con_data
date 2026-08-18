@@ -5,10 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
-from urllib.parse import parse_qs, urlparse
+
+from server.collectors import DynamicField, PlatformIdentity, collector_registry
 
 
-PARSER_VERSION = "pdd-android-1"
+DEFAULT_PLATFORM = collector_registry.platforms()[0]
+PARSER_VERSION = collector_registry.require(DEFAULT_PLATFORM).parser_version
 QUALITY_RULES_VERSION = "phase1-1"
 
 
@@ -54,27 +56,15 @@ class QualityResult:
         )
 
 
-def classify_page(text: str) -> PageStatus:
+def classify_page(text: str, platform: str | None = None) -> PageStatus:
     """Classify rendered page text before product parsing."""
-
-    value = (text or "").replace("\u200b", "").strip()
-    compact = "".join(value.split())
-    if not compact:
-        return PageStatus.MALFORMED
-    if any(marker in compact for marker in ("登录后继续", "手机号登录", "手机登录", "验证码登录", "请先登录")):
-        return PageStatus.LOGIN_REQUIRED
-    if any(marker in compact for marker in ("完成验证", "安全验证", "拖动滑块", "操作频繁", "验证后继续")):
-        return PageStatus.CHALLENGE
-    if any(marker in compact for marker in ("系统繁忙", "访问人数较多", "网络繁忙", "稍后再试")):
-        return PageStatus.BUSY
-    if any(marker in compact for marker in ("商品已售罄", "已下架", "商品已下架")):
-        return PageStatus.SOLD_OUT
-    if any(marker in compact for marker in ("商品不存在", "商品已失效", "页面不存在", "找不到该商品")):
-        return PageStatus.NOT_FOUND
-    product_markers = ("商品详情", "立即购买", "免拼购买", "单独购买", "去拼单", "拼单价", "已拼")
-    if sum(marker in compact for marker in product_markers) >= 2:
-        return PageStatus.PRODUCT
-    return PageStatus.MALFORMED
+    collector = collector_registry.get(platform or DEFAULT_PLATFORM)
+    if collector is None:
+        return PageStatus.UNKNOWN
+    try:
+        return PageStatus(collector.classify_page(text))
+    except ValueError:
+        return PageStatus.UNKNOWN
 
 
 def _value(source: Any, name: str, default: Any = None) -> Any:
@@ -84,18 +74,13 @@ def _value(source: Any, name: str, default: Any = None) -> Any:
 
 
 def _valid_item_url(platform: str, item_id: str, item_url: str) -> bool:
-    try:
-        parsed = urlparse(item_url)
-    except ValueError:
+    collector = collector_registry.get(platform)
+    if collector is None:
         return False
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return False
-    if platform != "pinduoduo":
-        return bool(item_id)
-    if not item_id.isdigit() or "yangkeduo.com" not in parsed.netloc.lower():
-        return False
-    values = parse_qs(parsed.query).get("goods_id", [])
-    return item_id in values
+    return collector.validate_item_url(
+        PlatformIdentity(platform=platform, platform_product_id=item_id),
+        item_url,
+    )
 
 
 def evaluate_product(source: Any) -> QualityResult:
@@ -116,7 +101,8 @@ def evaluate_product(source: Any) -> QualityResult:
             warnings=(),
         )
 
-    platform = str(_value(source, "platform_code", "pinduoduo") or "").strip().lower()
+    platform = str(_value(source, "platform_code", DEFAULT_PLATFORM) or "").strip().lower()
+    collector = collector_registry.get(platform)
     item_id = str(_value(source, "item_id", "") or "").strip()
     name = str(_value(source, "sell_name", "") or _value(source, "product_name", "") or "").strip()
     item_url = str(_value(source, "item_url", "") or "").strip()
@@ -144,9 +130,17 @@ def evaluate_product(source: Any) -> QualityResult:
     original_price = _value(source, "original_price")
     if isinstance(original_price, (int, float)) and float(original_price) <= 0:
         errors.append("invalid_original_price")
-    if not str(_value(source, "sku_prices", "") or _value(source, "sku_prices_text", "") or "").strip():
+    if (
+        collector is not None
+        and DynamicField.SKU_PRICE in collector.capabilities.dynamic_fields
+        and not str(_value(source, "sku_prices", "") or _value(source, "sku_prices_text", "") or "").strip()
+    ):
         warnings.append("sku_missing")
-    if _value(source, "sales_num") is None:
+    if (
+        collector is not None
+        and DynamicField.SALES in collector.capabilities.dynamic_fields
+        and _value(source, "sales_num") is None
+    ):
         warnings.append("sales_missing")
 
     if missing or errors:
