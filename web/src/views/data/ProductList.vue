@@ -22,30 +22,30 @@
         <el-table-column label="平台" width="90">
           <template #default="{ row }">{{ platformName(row.platform_code) }}</template>
         </el-table-column>
-        <el-table-column prop="item_id" label="商品ID" width="130" />
-        <el-table-column prop="sell_name" label="标题" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="platform_product_id" label="平台商品ID" width="130" />
+        <el-table-column prop="platform_title" label="平台完整标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="brand" label="品牌" width="100" show-overflow-tooltip />
         <el-table-column prop="shop_name" label="店铺" width="120" show-overflow-tooltip />
         <el-table-column label="列表价" width="90">
-          <template #default="{ row }">{{ fmtPrice(row.price) }}</template>
+          <template #default="{ row }">{{ fmtPrice(row.list_price) }}</template>
         </el-table-column>
         <el-table-column label="详情价" width="90">
-          <template #default="{ row }">{{ fmtPrice(row.display_price) }}</template>
+          <template #default="{ row }">{{ fmtPrice(row.detail_price) }}</template>
         </el-table-column>
         <el-table-column label="拼单价" width="90">
           <template #default="{ row }">{{ fmtPrice(row.group_price) }}</template>
         </el-table-column>
         <el-table-column label="单独购买价" width="100">
-          <template #default="{ row }">{{ fmtPrice(row.deal_price) }}</template>
+          <template #default="{ row }">{{ fmtPrice(row.single_purchase_price) }}</template>
         </el-table-column>
         <el-table-column label="销量" width="90">
-          <template #default="{ row }">{{ row.sales_num ?? '-' }}</template>
+          <template #default="{ row }">{{ row.sales ?? '-' }}</template>
         </el-table-column>
         <el-table-column label="店铺销量" width="90">
-          <template #default="{ row }">{{ row.shop_sales_num ?? '-' }}</template>
+          <template #default="{ row }">{{ row.shop_sales ?? '-' }}</template>
         </el-table-column>
-        <el-table-column label="规格" width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.spec_text || row.spec || '-' }}</template>
+        <el-table-column label="商品属性规格" width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.product_attribute_spec || '-' }}</template>
         </el-table-column>
         <el-table-column label="图片附件" width="120">
           <template #default="{ row }">
@@ -56,7 +56,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="approval_no" label="准字" width="140" show-overflow-tooltip />
+        <el-table-column prop="approval_number" label="批准文号" width="140" show-overflow-tooltip />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
@@ -74,30 +74,32 @@
     <el-dialog v-model="detailVisible" title="商品详情" width="860px" destroy-on-close>
       <template v-if="detail">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="标题">{{ detail.sell_name || detail.product_name }}</el-descriptions-item>
-          <el-descriptions-item label="商品ID">{{ detail.item_id }}</el-descriptions-item>
-          <el-descriptions-item label="平台">{{ platformName(detail.platform_code) }}</el-descriptions-item>
-          <el-descriptions-item label="品牌">{{ detail.brand || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="店铺">{{ detail.shop_name }}</el-descriptions-item>
-          <el-descriptions-item label="准字">{{ detail.approval_no }}</el-descriptions-item>
-          <el-descriptions-item label="规格">{{ detail.spec_text || detail.spec || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="列表价">{{ fmtPrice(detail.price) }}</el-descriptions-item>
-          <el-descriptions-item label="详情价">{{ fmtPrice(detail.display_price) }}</el-descriptions-item>
-          <el-descriptions-item label="拼单价">{{ fmtPrice(detail.group_price) }}</el-descriptions-item>
-          <el-descriptions-item label="单独购买价">{{ fmtPrice(detail.deal_price) }}</el-descriptions-item>
-          <el-descriptions-item label="销量">{{ detail.sales_num ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="店铺销量">{{ detail.shop_sales_num ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="厂家">{{ detail.manufacturer }}</el-descriptions-item>
-          <el-descriptions-item label="链接" :span="2"><a :href="detail.item_url" target="_blank">{{ detail.item_url }}</a></el-descriptions-item>
+          <el-descriptions-item label="平台完整标题">{{ detail.stable_profile.platform_title || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="规范商品名称">{{ detail.stable_profile.canonical_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="平台商品ID">{{ detail.identity.platform_product_id }}</el-descriptions-item>
+          <el-descriptions-item label="平台">{{ platformName(detail.identity.platform_code) }}</el-descriptions-item>
+          <el-descriptions-item label="品牌">{{ detail.stable_profile.brand || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="店铺">{{ detail.latest_observation.shop_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="批准文号">{{ detail.stable_profile.approval_number || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="商品属性规格">{{ detail.stable_profile.product_attribute_spec || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="列表价">{{ fmtPrice(detail.latest_observation.list_price) }}</el-descriptions-item>
+          <el-descriptions-item label="详情价">{{ fmtPrice(detail.latest_observation.detail_price) }}</el-descriptions-item>
+          <el-descriptions-item label="拼单价">{{ fmtPrice(detail.latest_observation.group_price) }}</el-descriptions-item>
+          <el-descriptions-item label="单独购买价">{{ fmtPrice(detail.latest_observation.single_purchase_price) }}</el-descriptions-item>
+          <el-descriptions-item label="销量">{{ detail.latest_observation.sales ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="店铺销量">{{ detail.latest_observation.shop_sales ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="生产厂家">{{ detail.stable_profile.manufacturer || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="来源链接" :span="2"><a :href="detail.identity.source_url" target="_blank">{{ detail.identity.source_url }}</a></el-descriptions-item>
+          <el-descriptions-item label="Provenance">{{ detail.provenance.status }}</el-descriptions-item>
         </el-descriptions>
         <div class="sku-table-wrap">
           <div class="gallery-title">多规格售价（一行一个售卖规格）</div>
           <el-table v-if="skuRows(detail).length" :data="skuRows(detail)" size="small" border stripe>
             <el-table-column type="index" label="#" width="50" />
-            <el-table-column prop="spec" label="售卖规格" min-width="280" show-overflow-tooltip />
+            <el-table-column prop="spec_text" label="SKU 购买组合" min-width="280" show-overflow-tooltip />
             <el-table-column label="售价" width="120">
               <template #default="{ row }">
-                {{ row.normal_price != null && row.normal_price !== '' ? `¥${row.normal_price}` : '-' }}
+                {{ skuPrice(row) != null ? `¥${skuPrice(row)}` : '-' }}
               </template>
             </el-table-column>
           </el-table>
@@ -139,14 +141,12 @@
     </el-dialog>
     <el-dialog v-model="editVisible" title="超级管理员修改商品资料" width="680px">
       <el-form label-width="110px" :model="editForm">
-        <el-form-item label="商品名称"><el-input v-model="editForm.product_name" /></el-form-item>
-        <el-form-item label="品名/标题"><el-input v-model="editForm.sell_name" /></el-form-item>
+        <el-form-item label="平台完整标题"><el-input v-model="editForm.platform_title" /></el-form-item>
+        <el-form-item label="规范商品名称"><el-input v-model="editForm.canonical_name" /></el-form-item>
         <el-form-item label="品牌"><el-input v-model="editForm.brand" /></el-form-item>
-        <el-form-item label="规格"><el-input v-model="editForm.spec_text" /></el-form-item>
-        <el-form-item label="批准文号"><el-input v-model="editForm.approval_no" /></el-form-item>
+        <el-form-item label="商品属性规格"><el-input v-model="editForm.product_attribute_spec" /></el-form-item>
+        <el-form-item label="批准文号"><el-input v-model="editForm.approval_number" /></el-form-item>
         <el-form-item label="生产厂家"><el-input v-model="editForm.manufacturer" /></el-form-item>
-        <el-form-item label="列表价"><el-input-number v-model="editForm.price" :min="0" :precision="2" /></el-form-item>
-        <el-form-item label="单独购买价"><el-input-number v-model="editForm.deal_price" :min="0" :precision="2" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="saveEdit">保存</el-button></template>
     </el-dialog>
@@ -175,7 +175,7 @@ const detail = ref(null)
 const galleryVisible = ref(false)
 const galleryUrls = ref([])
 const editVisible = ref(false)
-const editForm = reactive({ product_id:null, product_name:'', sell_name:'', brand:'', spec_text:'', approval_no:'', manufacturer:'', price:null, deal_price:null })
+const editForm = reactive({ product_id:null, scope:'library', platform_title:'', canonical_name:'', brand:'', product_attribute_spec:'', approval_number:'', manufacturer:'', dosage_form:'', category:'', expiry:'' })
 const isSuperAdmin = computed(() => store.profile?.role_code === 'super_admin')
 const q = reactive({ platform_code: '', keyword: '', brand: '', item_id: '', approval_no: '' })
 
@@ -205,6 +205,7 @@ function absUrl(u) {
 }
 
 function imageUrls(row) {
+  if (Array.isArray(row?.media)) return row.media.map((i) => absUrl(i.url)).filter(Boolean)
   const imgs = row?.images || []
   if (imgs.length) {
     return imgs.map((i) => absUrl(i.url || i)).filter(Boolean)
@@ -218,6 +219,7 @@ function coverOf(row) {
 }
 
 function skuRows(row) {
+  if (Array.isArray(row?.sku?.sku_combinations)) return row.sku.sku_combinations
   const raw = row?.sku_prices_json || row?.sku_prices || ''
   if (raw) {
     try {
@@ -236,6 +238,10 @@ function skuRows(row) {
     const m = part.match(/^(.+?)\(售价[¥￥]([\d.]+)\)$/)
     return { spec: m?.[1]?.trim() || part, normal_price: m?.[2] ? Number(m[2]) : null }
   })
+}
+
+function skuPrice(row) {
+  return row.single_purchase_price ?? row.detail_price ?? row.group_price ?? row.list_price ?? row.original_price ?? null
 }
 
 function openGallery(row) {
@@ -274,8 +280,17 @@ async function openDetail(row) {
   detailVisible.value = true
 }
 
-function openEdit(row) { Object.assign(editForm, row); editVisible.value = true }
-async function saveEdit() { const id=editForm.product_id; const res=await http.put(`/api/products/${id}`, editForm); if(!res.ok)return; ElMessage.success('已保存'); editVisible.value=false; load() }
+async function openEdit(row) {
+  const res = await http.get(`/api/products/${row.product_id}/edit?scope=library`)
+  Object.assign(editForm, res.data)
+  editVisible.value = true
+}
+async function saveEdit() {
+  const { product_id, ...payload } = editForm
+  const res = await http.put(`/api/products/${product_id}`, payload)
+  if(!res.ok)return
+  ElMessage.success('已保存'); editVisible.value=false; load()
+}
 async function removeProduct(row) { await ElMessageBox.confirm(`确认删除商品 #${row.product_id}？`, '提示', {type:'warning'}); const res=await http.delete(`/api/products/${row.product_id}`); if(res.ok){ElMessage.success('已删除');load()} }
 
 function exportSelected() {
@@ -284,10 +299,10 @@ function exportSelected() {
     return
   }
   const header = [
-    'product_id', 'platform_code', 'item_id', 'sell_name', 'brand', 'shop_name',
-    'price', 'display_price', 'group_price', 'deal_price',
-    'sales_num', 'shop_sales_num', 'spec_text', 'sku_prices_text',
-    'approval_no', 'item_url', 'image_count',
+    'product_id', 'platform_code', 'platform_product_id', 'platform_title', 'canonical_name', 'brand', 'shop_name',
+    'list_price', 'detail_price', 'group_price', 'single_purchase_price',
+    'sales', 'shop_sales', 'product_attribute_spec', 'sku_prices_text',
+    'approval_number', 'item_url', 'image_count',
   ]
   const lines = [header.join(',')]
   selected.value.forEach((r) => {

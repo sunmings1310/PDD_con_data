@@ -202,6 +202,21 @@ class R1ApiTransactionTest(unittest.TestCase):
         self.assertTrue(response.ok)
         self.assertTrue(response.data["idempotent"])
 
+    def test_late_non_success_finish_after_server_cancel_acks_cancelled(self):
+        for local_status in ("failed", "cancelled", "timed_out"):
+            with self.subTest(local_status=local_status), \
+                 patch.object(tasks, "get_conn", conn_factory(RecordingConnection(RecordingCursor()))), \
+                 patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
+                 patch.object(tasks, "lock_device", return_value=DEVICE), \
+                 patch.object(tasks, "require_running_task", side_effect=StateConflict("TASK_NOT_RUNNING", "cancelled", "running")), \
+                 patch.object(tasks, "get_task_state", return_value={"status": "cancelled", "device_id": 7}):
+                response = tasks.task_finish(
+                    TaskFinishIn(device_key="device-key", task_id=22, status=local_status)
+                )
+            self.assertTrue(response.ok)
+            self.assertEqual("cancelled", response.data["status"])
+            self.assertTrue(response.data["idempotent"])
+
     def test_abort_paths_require_current_task_device_ownership(self):
         device_source = Path("server/routers/devices.py").read_text(encoding="utf-8")
         ota_source = Path("server/routers/ota.py").read_text(encoding="utf-8")

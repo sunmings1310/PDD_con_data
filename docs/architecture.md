@@ -173,6 +173,8 @@ UI 配置/关键词或 Excel → `TaskRunner` 工作线程 → BitBrowser API �
 
 商品模型采用“全局最小平台 identity + Enterprise 私有 Product”：`SJZQ_PRODUCT_MASTER` 仅作内部 `(platform_code, platform_product_id)` identity registry，租户 API 使用 `SJZQ_ENTERPRISE_PRODUCT.ENTERPRISE_PRODUCT_ID`。Raw、Snapshot、Quality、Quarantine、Diff、Task/Job/Attempt/Event 均具有 `ENTERPRISE_ID/WORKSPACE_ID`；Snapshot predecessor 只在相同 EnterpriseProduct 和 Workspace 内查找。
 
+商品业务读取统一经过 `server/product_read_model.py` 的 Canonical Product Read Model。该层把 legacy `SJZQ_PRODUCT` 与 strict protocol 的 ProductMaster/EnterpriseProduct/ProductSnapshot/Raw/Media 组合为 Identity、Stable Profile、Latest Observation、SKU、Media 和 Provenance；legacy 无 Raw/Snapshot 关联时显式标记 provenance unavailable。字段和价格语义、兼容列映射、Effective Price 优先级及普通编辑白名单由 `server/product_contract.py` 唯一维护，详见 `docs/decisions/2026-08-20-product-field-semantics-p0.md`。
+
 历史单空间数据迁入 `legacy/default` 租户。`P5_002` 对核心私有事实启用非空租户键；`P5_003` 仅为 Phase 1～4 直接 SQL fixture 保留确定性的 legacy 默认值，新服务写入必须显式传递 TenantContext 或从已绑定 Device/Task 继承。
 
 - 管理 API 使用 JWT Bearer + Oracle RBAC；前端路由权限只影响展示，真正权限由 FastAPI dependency 执行。
@@ -235,6 +237,22 @@ flowchart LR
 - Android：Gradle 构建 APK，服务端 OTA 保存并发布 latest 元数据。
 - 已存在 `server/run.ps1`，但没有发现 Dockerfile、Compose、CI 工作流、systemd/NSSM 配置或正式部署说明。
 - 当前线上/沙箱进程由什么守护、如何启动、是否多实例、是否有负载均衡均为 **UNKNOWN**。
+
+## 8. Raw Product Capture（单商品事实保留）
+
+Android PDD Collector 在一次商品详情采集内按 `SEARCH/DETAIL/SKU/SHOP/PROMOTION/MEDIA/EMBEDDED/OTHER` 记录原始业务证据。Raw source 在 Parser 裁剪之前形成，并随同同一 product outbox 上传；认证头、Cookie、会话/租约/设备凭证和无关系统通知在 Agent 与服务端执行两层最小过滤。
+
+服务端 `server.raw_capture` 不扩展正式 Product/Snapshot schema，而是在 `server/data/raw-captures/<capture_id>/` 保存 source 文件、`manifest.json`、Parser 上传事实和自动 Field Inventory。Manifest 绑定 Task/Job/Attempt/Device/Tenant/Product identity、采集器/Parser 版本、每个 source 的 size/SHA-256/storage reference/parse status。Oracle 的现有 Product、RawCollection、Snapshot 与 Receipt 语义保持不变。
+
+`scripts/raw_capture_replay.py <capture_id>` 只读取本地 Capture，顺序执行 Parser 输入恢复、Normalizer、服务端 QualityGate，并以 dry-run/analysis 输出；该路径不访问 PDD，也不覆盖 Product/Snapshot。
+
+### 8.1 多样本 Schema Discovery derived layer
+
+- `scripts/schema_discovery.py` 只读取已落盘 Raw Capture 与 Android 离线 replay 输出，不访问 PDD。
+- 每个样本生成统一 Field Inventory 与 Raw → Parsed → Normalized → Persisted Mapping；聚合层按 source/path/type 统计出现率、null rate、变化度及结构化去向。
+- Android Parser `pdd-android-2` 使用精确参数标签边界，标题优先取完整详情标题；仅独立 SKU panel 可产出 SKU 事实。
+- 字段缺失语义先在 Parser/Normalizer 边界通过 observation state 设计与 `field_sources` 兼容表达落地，不在本阶段修改正式 Oracle 商品 Schema。
+- Aggregate inventory 与 Schema Proposal 均为 derived artifacts；Raw 文件及其 SHA-256 不被分析过程改写。
 # Phase 4 管理与可观测性增量（2026-08-17）
 
 ## Phase 5.5 企业化硬化增量（2026-08-17）
@@ -248,3 +266,12 @@ flowchart LR
 `server/management_queries.py` 是只读管理查询层，`server/routers/management.py` 只负责鉴权、参数边界和响应包装。该查询层直接读取 Phase 2/3 权威事实，不参与采集写事务，也不改变 Product Snapshot、Quarantine 或 Job Event。
 
 Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间线和 Task Trace。增长列表统一使用服务端 `page/limit/total`；页面必须显示 loading、error、empty，并通过稳定 ID 在 Task、Job、Attempt、Product 和 Quarantine 之间导航。详细语义见 `docs/decisions/phase4-management-observability.md`。
+# SKU Panel Raw Source（专项验证）
+
+PDD 采集器仅通过详情页内合法的购买/选择规格入口打开规格面板，并将打开前快照、面板快照、规格维度、逐组合观察及交互防护状态保存为独立 `SKU_PANEL` Raw Source。采集流程禁止点击确认订单、提交订单或支付控件。`ProductAttribute` 中名为“规格/规格类型”的商品参数不映射为 SKU；只有 `SKU_PANEL` 的直接组合证据才能产生 SKU 观察，平台 SKU ID 未直接出现时保持 `NOT_OBSERVED`，不得构造标识。
+
+## Generic SKU Dynamic Dimension
+
+SKU Collector 只按照 SKU Panel 的 Accessibility 空间结构、可点击候选、选择状态和稳定后的页面状态动态发现 `dimension_index/raw_name/options`。`raw_name` 与 option 原文都是不透明业务数据；颜色、尺码、容量、型号、套餐、包装、剂量等词不进入维度发现、组合生成或价格归属控制流。组合保存结构化 `selected_options`，并将价格、availability、disabled、default、media、platform SKU ID 分别按直接证据写入 Observation State。
+
+组合切换采用 `selection → state changed/target already selected → consecutive stable fingerprints → capture`。价格只与稳定后的组合快照共同保存，DETAIL 主价不回填到组合。Header-free 回退只保留单候选观察，不构造多维组合。正式 Oracle SKU/SkuSnapshot Schema 仍未建立。

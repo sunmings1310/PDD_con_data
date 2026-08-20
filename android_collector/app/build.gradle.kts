@@ -29,8 +29,8 @@ android {
         applicationId = "com.linkdesk.tool"
         minSdk = 26
         targetSdk = 33
-        versionCode = 70
-        versionName = "1.0.69"
+        versionCode = 83
+        versionName = "1.0.82"
     }
 
     buildFeatures {

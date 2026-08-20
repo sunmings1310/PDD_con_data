@@ -4,7 +4,7 @@ import com.collector.pdd.data.ProductEntity
 import org.json.JSONObject
 
 object ProductQualityGate {
-    const val PARSER_VERSION = "pdd-android-1"
+    const val PARSER_VERSION = "pdd-android-2"
     const val QUALITY_RULES_VERSION = "phase3-1"
 
     data class Decision(
@@ -52,7 +52,7 @@ object ProductQualityGate {
         }
         if (missing.isNotEmpty()) return Decision(pageStatus, "failed", "quarantined", missing)
         val warnings = buildList {
-            if (product.skuPrices.isBlank() && product.skuPricesText.isBlank()) add("sku_missing")
+            if ((product.skuPrices.isBlank() || product.skuPrices == "[]") && product.skuPricesText.isBlank()) add("sku_missing")
             if (product.salesNum == null) add("sales_missing")
         }
         return Decision(

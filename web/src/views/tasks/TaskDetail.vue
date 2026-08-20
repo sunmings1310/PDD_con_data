@@ -43,7 +43,7 @@
       <div class="toolbar"><h3 class="section-title" style="margin:0;flex:1">本次采集商品（{{ taskProducts.length }}）</h3><el-button v-if="task?.can_manage_results" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button></div>
       <el-table :data="taskProducts" border stripe @selection-change="selectedProducts=$event">
         <el-table-column type="selection" width="48" :selectable="row=>row.library_status!=='saved'" />
-        <el-table-column prop="product_id" label="ID" width="80" /><el-table-column prop="product_name" label="商品名称" min-width="170" /><el-table-column prop="spec_text" label="规格" width="140" /><el-table-column prop="approval_no" label="批准文号" width="180" /><el-table-column prop="manufacturer" label="厂家" min-width="170" />
+        <el-table-column prop="product_id" label="ID" width="80" /><el-table-column prop="canonical_name" label="规范商品名称" min-width="170" /><el-table-column prop="platform_title" label="平台完整标题" min-width="190" show-overflow-tooltip /><el-table-column prop="product_attribute_spec" label="商品属性规格" width="150" /><el-table-column prop="approval_number" label="批准文号" width="180" /><el-table-column prop="manufacturer" label="生产厂家" min-width="170" />
         <el-table-column label="状态" width="100"><template #default="{row}"><el-tag :type="row.library_status==='saved'?'success':'warning'">{{ row.library_status==='saved'?'已入库':'待保存' }}</el-tag></template></el-table-column>
         <el-table-column v-if="task?.can_manage_results" label="操作" width="140"><template #default="{row}"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template></el-table-column>
       </el-table>
@@ -114,7 +114,7 @@
           </el-tab-pane>
       </el-tabs>
     </div>
-    <el-dialog v-model="editVisible" title="修改本次采集数据" width="650px"><el-form label-width="100px"><el-form-item label="商品名称"><el-input v-model="editForm.product_name" /></el-form-item><el-form-item label="品名"><el-input v-model="editForm.sell_name" /></el-form-item><el-form-item label="规格"><el-input v-model="editForm.spec_text" /></el-form-item><el-form-item label="批准文号"><el-input v-model="editForm.approval_no" /></el-form-item><el-form-item label="厂家"><el-input v-model="editForm.manufacturer" /></el-form-item><el-form-item label="列表价"><el-input-number v-model="editForm.price" :min="0" :precision="2" /></el-form-item><el-form-item label="单独购买价"><el-input-number v-model="editForm.deal_price" :min="0" :precision="2" /></el-form-item></el-form><template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="saveProductEdit">保存</el-button></template></el-dialog>
+    <el-dialog v-model="editVisible" title="修改本次采集稳定资料" width="650px"><el-form label-width="120px"><el-form-item label="平台完整标题"><el-input v-model="editForm.platform_title" /></el-form-item><el-form-item label="规范商品名称"><el-input v-model="editForm.canonical_name" /></el-form-item><el-form-item label="品牌"><el-input v-model="editForm.brand" /></el-form-item><el-form-item label="商品属性规格"><el-input v-model="editForm.product_attribute_spec" /></el-form-item><el-form-item label="批准文号"><el-input v-model="editForm.approval_number" /></el-form-item><el-form-item label="生产厂家"><el-input v-model="editForm.manufacturer" /></el-form-item></el-form><template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="saveProductEdit">保存</el-button></template></el-dialog>
   </div>
 </template>
 
@@ -136,7 +136,7 @@ const productPage = ref(1)
 const productLimit = ref(50)
 const productTotal = ref(0)
 const editVisible = ref(false)
-const editForm = reactive({product_id:null,product_name:'',sell_name:'',spec_text:'',approval_no:'',manufacturer:'',price:null,deal_price:null})
+const editForm = reactive({product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 let timer
 
 const items = computed(() => task.value?.items || [])
@@ -187,8 +187,16 @@ async function loadProducts() {
   productTotal.value = Number(products.data?.total || 0)
 }
 
-function editProduct(row){Object.assign(editForm,row);editVisible.value=true}
-async function saveProductEdit(){const res=await http.put(`/api/products/${editForm.product_id}`,editForm);if(res.ok){ElMessage.success('已保存');editVisible.value=false;load()}}
+async function editProduct(row){
+  const res=await http.get(`/api/products/${row.product_id}/edit?scope=capture`)
+  Object.assign(editForm,res.data)
+  editVisible.value=true
+}
+async function saveProductEdit(){
+  const {product_id,...payload}=editForm
+  const res=await http.put(`/api/products/${product_id}`,payload)
+  if(res.ok){ElMessage.success('已保存');editVisible.value=false;load()}
+}
 async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');load()}}
 async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);load()}}
 

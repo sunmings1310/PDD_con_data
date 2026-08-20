@@ -11,6 +11,8 @@ import com.collector.pdd.parser.DetailReader
 import com.collector.pdd.parser.ProductQualityGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 class PddCollector : Collector {
     override val platform: String = "pinduoduo"
@@ -98,6 +100,8 @@ private object PddDetailCollector : DetailCollector {
         val actions = (session as? PddCollectorSession)?.actions
             ?: throw CollectorException(SystemCollectorError.CAPABILITY_NOT_SUPPORTED, "PDD detail requires PDD session")
         val log = request.log
+        val searchCapturedAt = System.currentTimeMillis()
+        val searchPageText = actions.readPageText()
         val (opened, listMeta) = actions.openCardAt(request.openIndex)
         if (!opened) {
             return DetailCollectionResult(
@@ -123,7 +127,7 @@ private object PddDetailCollector : DetailCollector {
         HumanBehavior.sleepMs(350.0, 800.0)
         var priceText = actions.readPageText()
         var shopSalesText = ""
-        var skuPanelText = ""
+        var skuPanelCapture: PddActions.SkuPanelCapture? = null
         var paramsText = ""
         val midSteps = listOf("sku", "params", "shop_sales", "human")
         log("采图后固定执行商品信息采集：${midSteps.joinToString(" → ")}")
@@ -131,8 +135,8 @@ private object PddDetailCollector : DetailCollector {
             if (idx > 0) runCatching { actions.randomBridgeHuman("step_$step") }
             when (step) {
                 "sku" -> {
-                    skuPanelText = runCatching { actions.openAndReadSkuPrices() }
-                        .onFailure { log("多规格读取失败: ${it.message}") }.getOrDefault("")
+                    skuPanelCapture = runCatching { actions.openAndReadSkuPrices() }
+                        .onFailure { log("多规格读取失败: ${it.message}") }.getOrNull()
                     if (!actions.ensureOnGoodsDetail(request.openIndex)) log("读规格后已离开详情，尝试恢复失败")
                     priceText += "\n" + actions.readPageText()
                 }
@@ -161,12 +165,12 @@ private object PddDetailCollector : DetailCollector {
             if (shopSalesText.isNotBlank()) append(shopSalesText).append('\n')
             append(mainText)
             if (paramsText.isNotBlank()) append("\n---商品参数---\n").append(paramsText)
-            if (skuPanelText.isNotBlank()) append("\n---多规格售价---\n").append(skuPanelText)
+            if (skuPanelCapture != null) append("\n---多规格售价---\n").append(skuPanelCapture?.parserText)
         }
         var product = normalize(
             DetailParseRequest(
                 pageText, request.keyword, request.pickTag, listMeta.listPrice, listMeta.itemId,
-                harvest.mallId, emptyList(), "", skuPanelText,
+                harvest.mallId, emptyList(), "", skuPanelCapture?.parserText.orEmpty(),
             )
         )
 
@@ -226,6 +230,62 @@ private object PddDetailCollector : DetailCollector {
         }
         if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) product = product.copy(itemUrl = buildProductUrl(product.itemId))
         val (checked, quality) = applyQuality(pageText, product)
+        val capturedAt = System.currentTimeMillis()
+        val sources = buildList {
+            add(RawSource(
+                type = "SEARCH",
+                sourceIdentifier = "search-card:${request.openIndex}",
+                capturedAtEpochMs = searchCapturedAt,
+                contentType = "application/json",
+                payload = JSONObject()
+                    .put("keyword", request.keyword)
+                    .put("open_index", request.openIndex)
+                    .put("list_price", listMeta.listPrice ?: JSONObject.NULL)
+                    .put("item_id_hint", listMeta.itemId)
+                    .put("title_hint", listMeta.titleHint)
+                    .put("image_hint", listMeta.imageHint)
+                    .put("page_text", searchPageText)
+                    .toString(),
+            ))
+            add(RawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
+            if (skuPanelCapture != null) {
+                val skuRaw = JSONObject(skuPanelCapture?.rawPayload.orEmpty())
+                    .put("platform", "pinduoduo")
+                    .put("platform_product_id", checked.itemId)
+                    .put("product_title", checked.sellName)
+                add(RawSource(
+                    "SKU_PANEL", "purchase-or-selector-panel", capturedAt,
+                    contentType = "application/json",
+                    schemaHint = "pdd-sku-panel-a11y-v1",
+                    payload = skuRaw.toString(),
+                ))
+            }
+            if (shopSalesText.isNotBlank()) add(RawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
+            if (checked.couponInfo.isNotBlank()) {
+                add(RawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
+            }
+            val media = (localImages + checked.mainImages.split("|").filter(String::isNotBlank)).distinct()
+            if (media.isNotEmpty()) add(RawSource(
+                "MEDIA", "product-media", capturedAt, contentType = "application/json",
+                payload = JSONObject().put("items", JSONArray(media.mapIndexed { index, url ->
+                    JSONObject().put("url", url).put("type", "image").put("order", index)
+                })).toString(),
+            ))
+            if (harvest.blob.isNotBlank() || harvest.urls.isNotEmpty() || share.raw.isNotBlank()) {
+                add(RawSource(
+                    "EMBEDDED", "accessibility-harvest", capturedAt, contentType = "application/json",
+                    payload = JSONObject()
+                        .put("goods_id", harvest.goodsId)
+                        .put("mall_id", harvest.mallId)
+                        .put("urls", JSONArray(harvest.urls))
+                        .put("images", JSONArray(harvest.images))
+                        .put("blob", harvest.blob)
+                        .put("share", share.raw)
+                        .toString(),
+                ))
+            }
+            if (paramsText.isNotBlank()) add(RawSource("OTHER", "product-params", capturedAt, payload = paramsText))
+        }
         return DetailCollectionResult(
             product = checked,
             raw = RawResult(
@@ -244,6 +304,7 @@ private object PddDetailCollector : DetailCollector {
                 fieldSources = checked.fieldSources,
                 parserVersion = checked.parserVersion,
                 capabilities = PddCollector().capabilities,
+                sources = sources,
             ),
             quality = quality,
             paramsCaptured = paramsText.isNotBlank(),

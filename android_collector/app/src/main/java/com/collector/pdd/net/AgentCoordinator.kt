@@ -42,6 +42,7 @@ class AgentCoordinator(
     @Volatile private var awaitingJobRecovery = false
     @Volatile private var activeJob: JobLeaseIdentity? = null
     @Volatile private var pauseRequested = false
+    private var lastEngineRecoveryAttemptAt = 0L
     private val engine = TaskEngine(
         log = { msg ->
             log(msg)
@@ -227,6 +228,20 @@ class AgentCoordinator(
                     throw e
                 }
             }
+            val now = System.currentTimeMillis()
+            val terminalExists = CollectorApp.instance.database.outboxDao()
+                .get("job-terminal-${job.jobId}-${job.attemptId}") != null
+            if (shouldRetryRecoveredEngine(
+                    engineRunning = engine.isRunning(),
+                    terminalExists = terminalExists,
+                    now = now,
+                    lastAttemptAt = lastEngineRecoveryAttemptAt,
+                )
+            ) {
+                lastEngineRecoveryAttemptAt = now
+                log("Job 引擎未运行，重试恢复 #${job.jobId}/${job.attemptId}")
+                startEngineForJob(job)
+            }
         }
         val data = hb.optJSONObject("data")
         // 心跳附带服务端最新包版本，驱动主界面更新条
@@ -272,7 +287,7 @@ class AgentCoordinator(
             // 服务端已停止请求时也可继续推，直到 Web stop；此处不强制停
         }
 
-        if (!engine.isRunning() && remoteTaskId == null && activeJob == null) {
+        if (!engine.isRunning() && activeJob == null) {
             var jobsApiUnavailable = false
             val jobLease = try {
                 api.acquireJob(workerId)
@@ -402,12 +417,22 @@ class AgentCoordinator(
     private suspend fun enqueueFinish(localTaskId: Long, remoteId: Long, status: String, error: String? = null) {
         val dao = CollectorApp.instance.database.outboxDao()
         val finishId = "finish-$remoteId-$localTaskId"
-        if (dao.get(finishId) != null) return
         val payload = JSONObject()
             .put("status", status)
             .put("expected_product_count", dao.productEventCount(remoteId))
             .put("expected_image_count", dao.imageEventCount(remoteId))
         if (!error.isNullOrBlank()) payload.put("error_msg", error.take(500))
+        val existing = dao.get(finishId)
+        if (existing != null) {
+            if (shouldRequeueLegacyFinishForCancellation(existing, status)) {
+                dao.requeueLegacyFinishForCancellation(
+                    finishId,
+                    payload.toString(),
+                    System.currentTimeMillis(),
+                )
+            }
+            return
+        }
         dao.insert(
             OutboxEntity(
                 outboxId = finishId,
@@ -550,15 +575,19 @@ class AgentCoordinator(
                     }
                     "job_complete" -> {
                         val identity = activeJob ?: error("job assignment not recovered")
-                        val products = dao.listForAttempt(identity.jobId, identity.attemptId)
-                        if (products.any { it.eventType == "product" && it.state !in setOf("acked", "rejected") }) {
+                        val attemptEvents = dao.listForAttempt(identity.jobId, identity.attemptId)
+                        val products = confirmedJobProducts(
+                            identity.payload.optJSONObject("_checkpoint"),
+                            dao.listProductsForJob(identity.jobId),
+                        )
+                        if (products.any { it.state !in setOf("acked", "rejected") }) {
                             error("job product acknowledgements pending")
                         }
-                        if (products.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
+                        if (attemptEvents.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
                             error("job checkpoint acknowledgement pending")
                         }
-                        val rejected = products.filter { it.eventType == "product" && it.state == "rejected" }
-                        val receipts = products.filter { it.eventType == "product" && it.state == "acked" }
+                        val rejected = products.filter { it.state == "rejected" }
+                        val receipts = products.filter { it.state == "acked" }
                         when (jobTerminalAction(receipts.size, rejected.size)) {
                             JobTerminalAction.FAIL_REJECTED ->
                                 api.failJob(identity, "data_quality", "PRODUCT_REJECTED", "rejected_products=${rejected.size}")
@@ -727,6 +756,13 @@ class AgentCoordinator(
             taskType = source.optString("task_type", "collect"),
             humanLevel = source.optString("human_level", "strict").ifBlank { "strict" },
         )
+        if (checkpointCoversCollectWork(cfg)) {
+            log("Checkpoint 已覆盖全部采集槽位，直接提交 Job 完成 #${identity.jobId}")
+            enqueueJobCheckpoint(identity, TaskStatusMapping.COMPLETE)
+            enqueueJobTerminal(identity, TaskStatusMapping.COMPLETE)
+            flushOutbox()
+            return
+        }
         withContext(Dispatchers.Main) { engine.start(scope, cfg) }
     }
 
@@ -888,10 +924,10 @@ class AgentCoordinator(
                 val item = items.optJSONObject(i) ?: continue
                 val keyword = item.optString("keyword").trim()
                 if (keyword.isEmpty()) continue
-                val approval = item.optString("target_approval").trim()
-                val name = item.optString("target_name").trim()
-                val spec = item.optString("target_spec").trim()
-                val manufacturer = item.optString("target_manufacturer").trim()
+                val approval = optionalJsonText(item, "target_approval")
+                val name = optionalJsonText(item, "target_name")
+                val spec = optionalJsonText(item, "target_spec")
+                val manufacturer = optionalJsonText(item, "target_manufacturer")
                 val itemId = item.optLong("item_id", item.optLong("task_item_id")).takeIf { it > 0L }
                 add(
                     CollectTarget(
@@ -924,6 +960,59 @@ class AgentCoordinator(
             instance = c
             return c
         }
+    }
+}
+
+internal fun shouldRequeueLegacyFinishForCancellation(event: OutboxEntity, status: String): Boolean =
+    status == "cancelled" && event.eventType == "finish" && event.jobId == null && event.state != "acked"
+
+internal fun optionalJsonText(source: JSONObject, key: String): String {
+    if (!source.has(key) || source.isNull(key)) return ""
+    return source.optString(key, "").trim().takeUnless { it.equals("null", ignoreCase = true) }.orEmpty()
+}
+
+/** Select the server-confirmed Job receipts across attempts using the durable checkpoint slots. */
+internal fun confirmedJobProducts(
+    checkpoint: JSONObject?,
+    jobProducts: List<OutboxEntity>,
+): List<OutboxEntity> {
+    val slots = buildSet {
+        checkpoint?.optJSONArray("confirmed_slots")?.let { values ->
+            for (index in 0 until values.length()) {
+                values.optString(index).takeIf { it.isNotBlank() }?.let(::add)
+            }
+        }
+    }
+    if (slots.isEmpty()) return emptyList()
+    return jobProducts.filter { event ->
+        val product = runCatching { JSONObject(event.payloadJson) }.getOrNull() ?: return@filter false
+        val keyword = product.optString("keyword")
+        val pickTag = product.optString("pick_tag")
+        keyword.isNotBlank() && pickTag.isNotBlank() && "$keyword|$pickTag" in slots
+    }
+}
+
+internal fun shouldRetryRecoveredEngine(
+    engineRunning: Boolean,
+    terminalExists: Boolean,
+    now: Long,
+    lastAttemptAt: Long,
+): Boolean = !engineRunning && !terminalExists && now - lastAttemptAt >= 15_000L
+
+/** Ordinary collection can finish without reopening PDD when every required slot is ACKed. */
+internal fun checkpointCoversCollectWork(config: CollectConfig): Boolean {
+    if (config.taskType != "collect" || config.confirmedSlots.isEmpty()) return false
+    if (config.targets.any { it.requiresMatch }) return false
+    val keywords = config.targets.takeIf { it.isNotEmpty() }?.map { it.keyword } ?: config.keywords
+    return keywords.all { keyword ->
+        val required = buildSet {
+            for (index in 1..config.maxDetailPerKeyword.coerceAtLeast(1)) {
+                add("$keyword|default_top_$index")
+            }
+            if (config.enablePriceSort) add("$keyword|price_asc_first")
+            if (config.enableSalesSort) add("$keyword|sales_desc_first")
+        }
+        config.confirmedSlots.containsAll(required)
     }
 }
 

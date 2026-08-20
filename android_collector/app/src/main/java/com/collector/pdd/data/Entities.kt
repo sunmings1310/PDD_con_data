@@ -55,7 +55,7 @@ data class ProductEntity(
     val pageStatus: String = "product",
     val qualityStatus: String = "passed",
     val fieldSources: String = "{}",
-    val parserVersion: String = "pdd-android-1",
+    val parserVersion: String = "pdd-android-2",
     val qualityRulesVersion: String = "phase3-1",
 )
 

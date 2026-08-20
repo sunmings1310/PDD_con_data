@@ -1,5 +1,19 @@
 # 稳定数据采集系统 Backlog
 
+## 2026-08-20 商品数据一致性 P0
+
+- [x] 冻结 `platform_title`、`canonical_name`、`product_attribute_spec`、`sku_dimensions`、`sku_combinations` 语义。
+- [x] 冻结五种价格语义及唯一 Effective Price 策略。
+- [x] 建立兼容 legacy/strict protocol 的 Canonical Product Read Model。
+- [x] 建立 Detail/Edit/Capture/Snapshot DTO 边界，并使两个编辑窗口按 scope 获取 Edit DTO。
+- [x] 普通 PUT 只允许稳定资料，动态观察、Raw 和 Snapshot 不可覆盖。
+- [x] Android legacy 上传委托 durable `OutboxPayload.product()`，移除重复字段 Mapper。
+- [x] 增加商品 `985843042423` Golden Sample 只读验证。
+- [ ] P1：正式 ProductAttribute、SKU Dimension/Combination/SkuSnapshot Schema 与迁移。
+- [ ] P2：历史数据回填、污染 SKU 清洗及完整 Manual Override 生命周期。
+
+- 2026-08-19 PDD 真机 E2E：修复 legacy pull 跨 Enterprise/Workspace 领取、服务端取消后 Android legacy finish 永久挂起，以及 JSON null 目标字段误变成字符串 `"null"` 导致普通关键词进入匹配模式；Android 测试版升级至 1.0.71，Run `PDD-E2E-20260819-091900-90b53658` 继续 Smoke。
+
 > 2026-08-16 全面审计基线：[`../GAP.md`](../GAP.md)。本轮未实施业务重构或数据库迁移。
 >
 > Phase 1 已于 2026-08-17 完成验收。Phase 2 已完成实现与验收：Task/Job/Attempt/Lease/Checkpoint、原子领取、恢复、Pause/Resume、reconciliation、Android 生命周期恢复和 18 项故障矩阵均已进入统一门禁。验收报告：[`tasks/phase2-acceptance.md`](tasks/phase2-acceptance.md)。等待批准后再进入 Phase 3。
@@ -440,3 +454,58 @@ Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进�
 - [x] 未接入 JD、淘宝、1688；未进入 Phase 6B
 
 验收见 `docs/tasks/phase6a-acceptance.md`。Phase 6A 已 ACCEPTED；Phase 6B 已 UNBLOCKED 但 NOT STARTED。
+### PDD 真机 E2E：恢复中的 Job 自动重启采集引擎（1.0.73）
+
+- 修复 APK 更新后无障碍服务尚未恢复时，Job lease 持续心跳但采集引擎只尝试启动一次的问题。
+- Agent 在没有终态 outbox 的前提下每 15 秒重试恢复引擎；终态已入队时不会重复启动采集。
+- 增加恢复重试、终态抑制和节流回归测试。
+### PDD 真机 E2E：完整 Checkpoint 直接终结恢复 Job（1.0.74）
+
+- 普通采集的全部必需槽位已有服务端 ACK 时，不再重新打开 PDD 或重复搜索。
+- Agent 直接提交完成 Checkpoint 与跨 Attempt 商品回执清单，避免平台页面初始化失败把已完成 Job 错误降级为失败。
+- 目标匹配任务仍禁止该捷径，保持逐目标业务校验语义。
+### PDD 真机 E2E：普通采集 TaskItem 终态绑定
+
+- 普通关键词 Job 不要求商品上传前预绑定 TaskItem；Job Complete 使用首个已 ACK 回执作为 canonical product 并原子写入 TaskItem。
+- 有准字、规格、名称或厂家目标的匹配 Job 继续强制校验预绑定商品属于回执清单。
+- Android 后续普通采集会将 `default_top_1` 绑定为 TaskItem canonical result。
+### PDD 真机 E2E：虚拟列表翻页与 retry_wait 重新领取（1.0.75）
+
+- 修复搜索结果仅暴露约 6 个可见节点时，绝对索引 7+ 永远无法打开的问题；会确定性向前滚动并选择未采集商品。
+- 同一 Collector session 记录已打开商品身份，滚动重叠时跳过重复卡片。
+- Job 已释放为 `retry_wait` 后，即使仍有该 Task 的 outbox 状态，Agent 也会继续向服务端 acquire；服务端仍是唯一调度真相。
+
+### PDD 单商品 Raw Product Capture（2026-08-19）
+
+- [x] 真机 Device 6 使用 Task 1124 / Job 323 / Attempt 333 采集真实商品 `969857899556`，Task 成功终结且 Oracle Product 365 / Snapshot 247 / Raw 323 / 8 张图片持久化。
+- [x] Capture `cap-1124-24dc79be-aa59-4cda-a182-a01abba58a7c` 保存 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED、OTHER；本样本没有独立 SKU panel source。后续多样本证据确认 DETAIL 中的局部规格标记不足以构成 Raw SKU，已移除旧的推导式 SKU。
+- [x] Manifest 保存 source size/SHA-256/reference/status，并绑定 Task/Job/Attempt/Device/Tenant、collector `1.0.76`、parser `pdd-android-1`。
+- [x] 双层敏感数据过滤、完整反序列化/hash/source/identity 校验和离线 dry-run Parser → Normalizer → QualityGate 通过。
+- [x] 自动生成 Field Inventory 与当前字段损失分级；未扩展 Product/Snapshot 业务 schema，Phase 6B 继续暂停。
+
+### PDD 多样本 Raw Capture 与 Schema Discovery（2026-08-20）
+
+- [x] Device 6 / Task 1127 完成 8 个真实商品采集，`8/8 success`；连同 Task 1124 基线形成 9 商品样本集。
+- [x] 每个样本生成并校验 manifest、Raw Sources、SHA-256、Field Inventory 与 Raw → Parsed → Normalized → Persisted Mapping。
+- [x] 修复完整标题被局部标签覆盖、manufacturer/spec 键值错位、`0` 与未观察混淆及 DETAIL 推导伪 SKU；9 样本 Kotlin 离线 replay 通过且 `network_access=false`。
+- [x] 形成 170 行 Aggregate Field Inventory、126 行字段 Mapping、94 行 Raw Only 候选及 Field Observation Model ADR。
+- [x] 完成 SKU 证据判断：9/9 无独立 SKU Raw，多规格样本仍缺少可验证 SKU identity/组合价格库存，结论为 D+B；不把 Parser 推导结果伪装为 Raw。
+- [x] 输出 `artifacts/schema-discovery-20260820/deliverables/SCHEMA_PROPOSAL.md`；未执行 Oracle migration，Phase 6B 继续暂停并等待确认。
+# 2026-08-20 PDD SKU Panel 专项验证
+
+- [x] 使用 3 个真实多规格商品生成独立 `SKU_PANEL` Raw Capture，其中 v1.0.81 样本记录 2 个维度和 14 个逐组合观察。
+- [x] 保留打开前/后完整可访问性快照、capture identity、时间与 SHA-256，并验证确认订单/提交订单/支付均未触发。
+- [x] 将 `规格=4G` 定位为状态栏文本误识别并修复；商品参数规格继续归类为 `ProductAttribute`。
+- [x] 平台 SKU ID 无直接证据时输出 `NOT_OBSERVED`，Parser 组合保留 `sku_id=null` 与 `evidence_source=SKU_PANEL`。
+- [ ] 正式 Schema migration 保持暂停，等待专项报告确认。
+
+## 2026-08-20 Generic SKU 动态维度与药品优先验证
+
+- [x] 冻结 ProductAttribute/SKU 边界及类目无关 Dynamic Dimension Contract。
+- [x] 审计并移除 SKU 控制流中的颜色、尺码、容量、型号、套餐、包装数量、盒装等业务词硬编码。
+- [x] 实现结构化 dimension/options/selected_options/evidence/observation state。
+- [x] 实现组合点击后的状态变化或默认已选确认、连续稳定检测和组合快照取价。
+- [x] 验证 5 个真实样本，其中 2 个为药品；覆盖无 SKU、药品单维度、服装双维度、逐组合观察和药品组合价格变化。
+- [x] 验证药品 ProductAttribute `5g*6袋/盒` 与购买维度 `型号` 严格分离；无 SKU_PANEL 的药品保持 `NOT_OBSERVED`。
+- [ ] 补充三维以上、disabled/unavailable、SKU 图片可靠关联、平台 SKU ID 直接证据及 v1.0.82 真机回归。
+- [ ] 结论保持 `SKU MODEL NEEDS MORE EVIDENCE`；正式 Schema migration、Phase 6B 和其他平台接入继续暂停。

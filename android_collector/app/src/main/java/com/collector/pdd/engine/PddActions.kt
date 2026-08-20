@@ -14,6 +14,8 @@ import com.collector.pdd.service.PasteOverlay
 import com.collector.pdd.ui.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.random.Random
 
 /**
@@ -24,7 +26,44 @@ class PddActions(
     private val log: (String) -> Unit,
     private val config: CollectConfig = CollectConfig(),
 ) {
+    data class SkuPanelCapture(
+        val rawPayload: String,
+        val parserText: String,
+    )
+
+    private data class SkuClickRead(
+        val text: String,
+        val observations: JSONArray,
+    )
+
+    private data class SkuSettledState(
+        val fingerprint: String,
+        val page: String,
+        val stateChanged: Boolean,
+        val selectedDefault: Boolean,
+    )
+
+    /**
+     * Raw SKU contract. `rawName` is evidence, not a normalized category: it may be any
+     * platform label. Business code must use dimensionIndex rather than label vocabulary.
+     */
+    private data class SkuOption(
+        val rawValue: String,
+        val enabled: Boolean,
+        val defaultSelected: Boolean,
+        val evidenceRef: JSONObject,
+    )
+
+    private data class SkuDimension(
+        val dimensionIndex: Int,
+        val rawName: String,
+        val options: List<SkuOption>,
+        val evidenceRef: JSONObject,
+    )
+
     private val pkg = "com.xunmeng.pinduoduo"
+    private val openedCardKeys = linkedSetOf<String>()
+    private var activeSearchKeyword = ""
 
     private fun service(): CollectA11yService =
         CollectA11yService.instance ?: error("请先开启无障碍服务")
@@ -47,6 +86,10 @@ class PddActions(
     }
 
     suspend fun searchKeyword(keyword: String) {
+        if (activeSearchKeyword != keyword) {
+            activeSearchKeyword = keyword
+            openedCardKeys.clear()
+        }
         HumanBehavior.pause(config, "think")
         // 不在首页且也不在搜索输入页时，先回首页
         val onSearchInput = A11yHelper.findTopEditText(service()) != null
@@ -331,6 +374,19 @@ class PddActions(
             .sortedBy { A11yHelper.bounds(it).top }
     }
 
+    /** Pagination must move forward deterministically; random back-scroll is unsuitable here. */
+    private suspend fun scrollListForward(rounds: Int = 1) {
+        repeat(rounds.coerceIn(1, 4)) {
+            humanSwipe(
+                HumanBehavior.jitter(540f, 35f),
+                HumanBehavior.jitter(1500f, 70f),
+                HumanBehavior.jitter(650f, 70f),
+                purpose = "list",
+            )
+            HumanBehavior.pause(config, "action")
+        }
+    }
+
     fun listCards(): List<AccessibilityNodeInfo> = currentProductCards()
 
     /** 页面切换/悬浮窗刚关闭时 root 可能短暂为 null，列表恢复流程必须容忍该窗口。 */
@@ -372,22 +428,34 @@ class PddActions(
             log("列表为空，无法打开第 ${index + 1} 个 page=$page")
             return false to ListCardMeta()
         }
-        if (index >= cards.size) {
-            scrollList(2)
-            cards = listCards()
+        fun keys(): List<String> = cards.indices.map { cardIndex -> cardKey(peekCardMeta(cardIndex), cardIndex) }
+        var chosen = chooseUnseenCardIndex(keys(), openedCardKeys, index)
+        if (chosen == null) {
+            for (round in 0 until 8) {
+                scrollListForward(1)
+                cards = listCardsOrEmpty()
+                chosen = chooseUnseenCardIndex(keys(), openedCardKeys, preferredIndex = -1)
+                if (chosen != null) break
+            }
         }
-        if (index >= cards.size) {
-            log("列表不足 ${index + 1} 个（当前 ${cards.size}）")
+        val selected = chosen
+        if (selected == null || selected !in cards.indices) {
+            log("列表翻页后仍无未采集商品（目标序号 ${index + 1}，当前可见 ${cards.size}）")
             return false to ListCardMeta()
         }
-        val meta = peekCardMeta(index)
-        val ok = A11yHelper.click(listCards().getOrNull(index) ?: cards[index])
+        val meta = peekCardMeta(selected)
+        val ok = A11yHelper.click(listCards().getOrNull(selected) ?: cards[selected])
+        if (ok) openedCardKeys += cardKey(meta, selected)
         HumanBehavior.pause(config, "read")
         log(
-            "进入详情 index=${index + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
+            "进入详情 index=${index + 1} visible=${selected + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
                 "idHint=${meta.itemId.ifBlank { "-" }}"
         )
         return ok to meta
+    }
+
+    private fun cardKey(meta: ListCardMeta, visibleIndex: Int): String = meta.itemId.ifBlank {
+        "${meta.titleHint}|${meta.listPrice ?: "-"}|${meta.imageHint}|$visibleIndex"
     }
 
     fun readPageText(): String = A11yHelper.dumpAllWindows(service())
@@ -422,18 +490,20 @@ class PddActions(
     /**
      * 点底栏打开规格弹层读多规格售价（不提交订单）。
      * 模式A：规格旁直接带 ¥价；
-     * 模式B：逐个点规格，读顶部主价（含「确认款式」里 ¥xx + 已选择:N盒装）或到手价/提交订单价。
+     * 模式B：逐个点击结构化候选，读取选择状态邻近的面板价格。
      */
-    suspend fun openAndReadSkuPrices(): String {
+    suspend fun openAndReadSkuPrices(): SkuPanelCapture? {
         log("======== 开始读取多规格售价 ========")
         HumanBehavior.pause(config, "action")
-        // 详情页本身不能当成规格弹层（标题里常有「1瓶/盒」会误匹配）
+        val beforeSnapshot = captureSkuPanelSnapshot("before_interaction")
+        // Detail page itself is not a selector panel; collect Raw only after a verified panel transition.
         if (looksLikeGoodsDetail() && !isSkuPanel(readPageText())) {
             // ok，准备去点底栏打开
         }
-        if (!openSkuPanel()) {
+        val interactionEntry = openSkuPanel()
+        if (interactionEntry == null) {
             log("未打开规格弹层")
-            return ""
+            return null
         }
         HumanBehavior.sleepMs(500.0, 800.0)
         var panel = readPageText()
@@ -443,37 +513,36 @@ class PddActions(
                 log("误入纯地址下单页，返回详情…")
                 goBackQuiet()
             }
-            return ""
+            return null
         }
+        val openedSnapshot = captureSkuPanelSnapshot("panel_opened")
         // 模式A：文案里已带各规格价
         var inline = DetailReader.buildSkuFromPanel(panel)
         val options = listSkuOptionLabels()
-        // 「感冒用药【1盒】」/ 套餐 1盒 2盒 3盒：价在顶部或提交订单按钮，必须逐个点
-        val packageStyle = options.any { it.first.contains("【") || it.first.contains("[") } ||
-            panel.contains("套餐") ||
-            Regex("""【\s*[一二两三四五六七八九十百\d]+\s*盒\s*】""").containsMatchIn(panel)
+        val dimensions = listSkuDimensions()
+        // Price rows already visible in the panel are retained. Otherwise click only
+        // structurally discovered candidates; no product-field vocabulary controls this branch.
         val inlineCount = inline.split("|").map { it.trim() }.count { it.isNotBlank() }
-        val confirmStylePanel = panel.contains("确认款式") || panel.contains("包装数量") ||
-            panel.contains("一次选多款") ||
-            (panel.contains("已选") && Regex("""\d+盒""").containsMatchIn(panel.replace("\\s+".toRegex(), "")))
-        // 确认款式：选项带「最后N件」时也要强制逐个点，从上方 ¥ / 已选择 取价
         val clickOptions = if (options.size >= 2) options else listSkuOptionLabels()
-        val needClickMode = confirmStylePanel || packageStyle || (
-            clickOptions.size >= 2 && (
-                inlineCount < clickOptions.size ||
-                    panel.contains("到手价") ||
-                    panel.contains("提交订单") ||
-                    panel.contains("一次选多款") ||
-                    (panel.contains("组合") && !Regex("""盒装?[^\n]{0,8}[¥￥]""").containsMatchIn(panel))
-                )
-            )
-        if ((needClickMode && clickOptions.isNotEmpty()) || (inline.isBlank() && clickOptions.size >= 2)) {
-            log(
-                "多规格模式B：逐个点击规格读上方价（共${clickOptions.size}个）" +
-                    "${if (packageStyle) " [套餐型]" else ""}" +
-                    "${if (confirmStylePanel) " [确认款式/包装数量]" else ""}"
-            )
-            val clicked = readSkuPricesByClickingEach(clickOptions)
+        val needClickMode = clickOptions.size >= 2 && inlineCount < clickOptions.size
+        var optionObservations = JSONArray()
+        if (dimensions.isNotEmpty()) {
+            log("规格维度：${dimensions.joinToString(" / ") { "#${it.dimensionIndex}=${it.options.size}" }}")
+            val clickRead = readSkuPricesByClickingCombinations(dimensions)
+            val clicked = clickRead.text
+            optionObservations = clickRead.observations
+            if (clicked.isNotBlank()) {
+                inline = clicked.lines().joinToString(" | ") { line ->
+                    val m = Regex("""^(.+?)\s*[¥￥]\s*(\d+(?:\.\d{1,2})?)\s*$""").find(line.trim())
+                    if (m != null) "${m.groupValues[1].trim()}(售价¥${m.groupValues[2]})" else line
+                }
+                panel += "\n$clicked"
+            }
+        } else if (needClickMode) {
+            log("结构化候选逐项读价（共${clickOptions.size}个）")
+            val clickRead = readSkuPricesByClickingEach(clickOptions)
+            val clicked = clickRead.text
+            optionObservations = clickRead.observations
             if (clicked.isNotBlank()) {
                 inline = DetailReader.buildSkuFromPanel(clicked).ifBlank {
                     // 点击结果已是「名称 ¥价」行，再归一
@@ -492,126 +561,369 @@ class PddActions(
         )
         closeSkuPanel()
         log("======== 多规格读取结束 ========")
-        if (inline.isBlank()) return panel
-        val synthetic = inline.split("|").map { it.trim() }.filter { it.isNotBlank() }.joinToString("\n") { part ->
+        // Parser consumes only panel-derived price rows, never the whole UI dump or detail main price.
+        val parserText = inline.split("|").map { it.trim() }.filter { it.isNotBlank() }.joinToString("\n") { part ->
             val m = Regex("""^(.+?)\(售价¥([\d.]+)\)$""").find(part)
             if (m != null) "${m.groupValues[1]} ¥${m.groupValues[2]}" else part
         }
-        return panel + "\n" + synthetic
+        val raw = JSONObject()
+            .put("schema_version", "pdd-sku-panel-a11y-v1")
+            .put("captured_at_epoch_ms", System.currentTimeMillis())
+            .put("interaction_entry", interactionEntry)
+            .put("before_interaction", beforeSnapshot)
+            .put("panel_opened", openedSnapshot)
+            .put("dimension_inventory", JSONArray(dimensions.map { dimension ->
+                JSONObject()
+                    .put("dimension_index", dimension.dimensionIndex)
+                    .put("raw_name", dimension.rawName)
+                    .put("observation_state", "VALUE")
+                    .put("observed_at_epoch_ms", System.currentTimeMillis())
+                    .put("display", dimension.rawName)
+                    .put("evidence_ref", dimension.evidenceRef)
+                    .put("options", JSONArray(dimension.options.map { option ->
+                        JSONObject()
+                            .put("raw_value", option.rawValue)
+                            .put("observation_state", "VALUE")
+                            .put("observed_at_epoch_ms", System.currentTimeMillis())
+                            .put("display", option.rawValue)
+                            .put("enabled", option.enabled)
+                            .put("disabled", !option.enabled)
+                            .put("default_selected", option.defaultSelected)
+                            .put("media_ref", JSONObject.NULL)
+                            .put("evidence_ref", option.evidenceRef)
+                    }))
+            }))
+            .put("option_observations", optionObservations)
+            .put("raw_panel_text", panel)
+            .put("interaction_guard", JSONObject()
+                .put("order_confirmation_clicked", false)
+                .put("order_submitted", false)
+                .put("payment_started", false))
+        return SkuPanelCapture(raw.toString(), parserText)
+    }
+
+    private fun captureSkuPanelSnapshot(stage: String): JSONObject {
+        val nodes = JSONArray()
+        data class Pending(val node: AccessibilityNodeInfo, val parentIndex: Int)
+        val queue = ArrayDeque<Pending>()
+        A11yHelper.roots(service()).forEach { queue.add(Pending(it, -1)) }
+        while (queue.isNotEmpty() && nodes.length() < 1200) {
+            val (node, parentIndex) = queue.removeFirst()
+            val index = nodes.length()
+            val bounds = A11yHelper.bounds(node)
+            nodes.put(JSONObject()
+                .put("index", index)
+                .put("parent_index", parentIndex)
+                .put("text", node.text?.toString().orEmpty())
+                .put("content_description", node.contentDescription?.toString().orEmpty())
+                .put("class_name", node.className?.toString().orEmpty())
+                .put("view_id", node.viewIdResourceName.orEmpty())
+                .put("clickable", node.isClickable)
+                .put("enabled", node.isEnabled)
+                .put("selected", node.isSelected)
+                .put("checkable", node.isCheckable)
+                .put("checked", node.isChecked)
+                .put("bounds", JSONObject()
+                    .put("left", bounds.left).put("top", bounds.top)
+                    .put("right", bounds.right).put("bottom", bounds.bottom)))
+            for (childIndex in 0 until node.childCount) {
+                node.getChild(childIndex)?.let { queue.add(Pending(it, index)) }
+            }
+        }
+        return JSONObject()
+            .put("stage", stage)
+            .put("captured_at_epoch_ms", System.currentTimeMillis())
+            .put("page_text", readPageText())
+            .put("nodes", nodes)
     }
 
     /**
-     * 规格按钮文案：
-     * - 5盒装 / 10盒装 / 一盒（可带「最后10件」后缀，需剥掉后再认）
-     * - 感冒用药【1盒】/ 感冒用药【5盒】（套餐型）
+     * 仅按可访问性树的结构发现维度：一个非可点击标题之后有两枚以上候选按钮，即为一个维度。
+     * 此处不识别任何商品字段词；标题和值只保留为 raw_name/raw_value。
+     */
+    private fun listSkuDimensions(): List<SkuDimension> {
+        data class NodeLabel(
+            val label: String,
+            val top: Int,
+            val enabled: Boolean,
+            val selected: Boolean,
+            val ref: JSONObject,
+        )
+        val screen = A11yHelper.screenRect(service())
+        val headers = mutableListOf<NodeLabel>()
+        val candidates = mutableListOf<NodeLabel>()
+        for (root in A11yHelper.roots(service())) {
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val text = GenericSkuContract.normalizeLabel(
+                    node.text?.toString() ?: node.contentDescription?.toString().orEmpty(),
+                )
+                val bounds = A11yHelper.bounds(node)
+                val inPanelBody = bounds.top >= (screen.height() * 0.18f).toInt() &&
+                    bounds.bottom <= (screen.height() * 0.91f).toInt()
+                val ref = JSONObject()
+                    .put("text", text)
+                    .put("view_id", node.viewIdResourceName.orEmpty())
+                    .put("bounds", JSONObject().put("left", bounds.left).put("top", bounds.top)
+                        .put("right", bounds.right).put("bottom", bounds.bottom))
+                val clickable = A11yHelper.nearestClickable(node) ?: node
+                if (inPanelBody && clickable.isClickable && GenericSkuContract.isCandidateOption(text)) {
+                    candidates.add(NodeLabel(text, bounds.top, clickable.isEnabled, clickable.isSelected || clickable.isChecked, ref))
+                } else if (inPanelBody && !clickable.isClickable && GenericSkuContract.isCandidateHeader(text)) {
+                    headers.add(NodeLabel(text, bounds.top, node.isEnabled, node.isSelected || node.isChecked, ref))
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        val orderedHeaders = headers.distinctBy { it.label to it.top }.sortedBy { it.top }
+        val result = mutableListOf<SkuDimension>()
+        for ((index, header) in orderedHeaders.withIndex()) {
+            val end = orderedHeaders.getOrNull(index + 1)?.top ?: (screen.height() * 0.91f).toInt()
+            val options = candidates
+                .filter { it.top > header.top && it.top < end }
+                .distinctBy { it.label to it.top }
+                .map { candidate ->
+                    SkuOption(candidate.label, candidate.enabled, candidate.selected, candidate.ref)
+                }
+            // A real dimension needs alternative candidates; one isolated button is ordinary UI.
+            if (options.map { it.rawValue }.distinct().size >= 2) {
+                result += SkuDimension(result.size, header.label, options, header.ref)
+            }
+        }
+        return result
+    }
+
+    /**
+     * 组合事实仅在“点击 → 状态变化 → 连续稳定快照”完成后写入价格。
+     * 主商品价从不回填给未观察到的组合。
+     */
+    private suspend fun readSkuPricesByClickingCombinations(dimensions: List<SkuDimension>): SkuClickRead {
+        val combinations = dimensions.fold(listOf(emptyList<Pair<SkuDimension, SkuOption>>())) { acc, dimension ->
+            acc.flatMap { prefix -> dimension.options.map { option -> prefix + (dimension to option) } }
+        }.take(24)
+        val lines = mutableListOf<String>()
+        val observations = JSONArray()
+        var previousFingerprint = skuPanelStateFingerprint()
+        for (combination in combinations) {
+            var clickSucceeded = true
+            var stateChanged = false
+            var selectedDefault = false
+            var stablePage: String? = null
+            for ((_, option) in combination) {
+                if (!option.enabled) {
+                    clickSucceeded = false
+                    break
+                }
+                // The evidence bounds disambiguate identical labels in different dimensions.
+                val fresh = findSkuOptionNode(option)
+                if (fresh == null || !fresh.isEnabled || !A11yHelper.clickNode(service(), A11yHelper.nearestClickable(fresh) ?: fresh)) {
+                    clickSucceeded = false
+                    break
+                }
+                val settled = awaitSkuPanelStateChangedAndStable(previousFingerprint, option)
+                if (settled == null) {
+                    clickSucceeded = false
+                    break
+                }
+                previousFingerprint = settled.fingerprint
+                stablePage = settled.page
+                stateChanged = stateChanged || settled.stateChanged
+                selectedDefault = selectedDefault || settled.selectedDefault
+            }
+            val page = stablePage ?: readPageText()
+            val selected = Regex("""已(?:选|选择)[:：]?([^\n]{2,160})""").find(page)?.groupValues?.getOrNull(1).orEmpty()
+            val disabled = combination.any { !it.second.enabled }
+            val unavailableText = page.contains("暂时无货") || page.contains("已售罄") || page.contains("不可选")
+            val available = clickSucceeded && (stateChanged || selectedDefault) && !disabled && !unavailableText
+            // Price is a per-combination observation, never an inferred copy of the detail main price.
+            val price = if (available) extractSelectedSkuPrice(page, combination.lastOrNull()?.second?.rawValue.orEmpty()) else null
+            val selectedOptions = JSONArray(combination.map { (dimension, option) ->
+                JSONObject()
+                    .put("dimension_index", dimension.dimensionIndex)
+                    .put("raw_name", dimension.rawName)
+                    .put("raw_value", option.rawValue)
+                    .put("observation_state", "VALUE")
+                    .put("evidence_ref", option.evidenceRef)
+            })
+            val observationState = when {
+                disabled -> "NOT_SUPPORTED"
+                !clickSucceeded || (!stateChanged && !selectedDefault) -> "PARSE_FAILED"
+                else -> "VALUE"
+            }
+            val comboName = combination.joinToString(" / ") { it.second.rawValue }
+            if (available && price != null) lines.add("$comboName ¥${DetailReader.trimPriceNum(price)}")
+            observations.put(JSONObject()
+                .put("selected_options", selectedOptions)
+                .put("selected_text", selected)
+                .put("selected_default", selectedDefault)
+                .put("display", comboName)
+                .put("observation_state", observationState)
+                .put("captured_at_epoch_ms", System.currentTimeMillis())
+                .put("available", if (observationState == "VALUE") available else JSONObject.NULL)
+                .put("disabled", disabled)
+                .put("selected_price", price ?: JSONObject.NULL)
+                .put("original_price", JSONObject.NULL)
+                .put("promotion_price", JSONObject.NULL)
+                .put("stock", JSONObject.NULL)
+                .put("media_ref", JSONObject.NULL)
+                .put("evidence_ref", JSONObject().put("source", "SKU_PANEL").put("snapshot_stage", "combination_selected"))
+                .put("snapshot", captureSkuPanelSnapshot("combination_selected")))
+        }
+        return SkuClickRead(lines.joinToString("\n"), observations)
+    }
+
+    private fun skuPanelStateFingerprint(): String {
+        val selected = mutableListOf<String>()
+        for (root in A11yHelper.roots(service())) {
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                if (node.isSelected || node.isChecked) {
+                    selected += GenericSkuContract.normalizeLabel(
+                        node.text?.toString() ?: node.contentDescription?.toString().orEmpty(),
+                    )
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return (selected.filter { it.isNotBlank() }.sorted().joinToString("|") + "#" + readPageText().hashCode())
+    }
+
+    /** Prefer the exact a11y evidence position over a global text match for duplicate option labels. */
+    private fun findSkuOptionNode(option: SkuOption): AccessibilityNodeInfo? {
+        val expected = option.evidenceRef.optJSONObject("bounds")
+        val expectedTop = expected?.optInt("top") ?: Int.MIN_VALUE
+        val expectedLeft = expected?.optInt("left") ?: Int.MIN_VALUE
+        val matches = mutableListOf<Pair<Int, AccessibilityNodeInfo>>()
+        for (root in A11yHelper.roots(service())) {
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val label = GenericSkuContract.normalizeLabel(
+                    node.text?.toString() ?: node.contentDescription?.toString().orEmpty(),
+                )
+                val target = A11yHelper.nearestClickable(node) ?: node
+                if (label == option.rawValue && target.isClickable) {
+                    val bounds = A11yHelper.bounds(node)
+                    val distance = if (expected == null) 0 else
+                        kotlin.math.abs(bounds.top - expectedTop) + kotlin.math.abs(bounds.left - expectedLeft)
+                    matches += distance to target
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return matches.minByOrNull { it.first }?.second
+    }
+
+    private fun isOptionSelected(option: SkuOption): Boolean {
+        val target = findSkuOptionNode(option) ?: return false
+        return target.isSelected || target.isChecked
+    }
+
+    private suspend fun awaitSkuPanelStateChangedAndStable(
+        previous: String,
+        option: SkuOption,
+    ): SkuSettledState? {
+        var last = previous
+        var stableRounds = 0
+        var changed = false
+        repeat(10) {
+            HumanBehavior.sleepMs(110.0, 180.0)
+            val fingerprint = skuPanelStateFingerprint()
+            val page = readPageText()
+            if (fingerprint != previous) changed = true
+            val selected = isOptionSelected(option)
+            stableRounds = if (fingerprint == last) stableRounds + 1 else 0
+            last = fingerprint
+            // A default option can legitimately remain selected after tapping it; accept only
+            // after the same stable snapshot cadence used for a state-changing selection.
+            if ((changed || selected) && stableRounds >= 2 && isSkuPanel(page)) {
+                return SkuSettledState(fingerprint, page, changed, selected && !changed)
+            }
+        }
+        return null
+    }
+
+    /**
+     * Header discovery can fail on custom layouts. This fallback still uses only generic
+     * interactive-label shape and UI-action exclusion, never a product dimension dictionary.
      */
     private fun listSkuOptionLabels(): List<Pair<String, AccessibilityNodeInfo>> {
         val out = linkedMapOf<String, AccessibilityNodeInfo>()
-        for (r in A11yHelper.roots(service())) {
+        val screen = A11yHelper.screenRect(service())
+        for (root in A11yHelper.roots(service())) {
             val queue = ArrayDeque<AccessibilityNodeInfo>()
-            queue.add(r)
+            queue.add(root)
             while (queue.isNotEmpty()) {
-                val n = queue.removeFirst()
-                val t = (n.text?.toString() ?: "").trim().replace("\\s+".toRegex(), "")
-                val d = (n.contentDescription?.toString() ?: "").trim().replace("\\s+".toRegex(), "")
-                val label = normalizeSkuOptionLabel(t).ifBlank { normalizeSkuOptionLabel(d) }
-                if (label.isNotBlank()) {
-                    val target = A11yHelper.nearestClickable(n) ?: n
-                    out.putIfAbsent(label, target)
+                val node = queue.removeFirst()
+                val label = GenericSkuContract.normalizeLabel(
+                    node.text?.toString() ?: node.contentDescription?.toString().orEmpty(),
+                )
+                val bounds = A11yHelper.bounds(node)
+                val inPanelBody = bounds.top >= (screen.height() * 0.18f).toInt() &&
+                    bounds.bottom <= (screen.height() * 0.91f).toInt()
+                if (inPanelBody && (A11yHelper.nearestClickable(node) ?: node).isClickable && GenericSkuContract.isCandidateOption(label)) {
+                    out.putIfAbsent(label, A11yHelper.nearestClickable(node) ?: node)
                 }
-                for (i in 0 until n.childCount) {
-                    n.getChild(i)?.let { queue.add(it) }
-                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
             }
         }
-        // 整页补扫：包装数量区的「N盒装」（确认款式常见）
-        val page = readPageText().replace("\\s+".toRegex(), "")
-        if (out.size < 2 || page.contains("确认款式") || page.contains("包装数量")) {
-            val names = mutableListOf<String>()
-            Regex("""(\d+盒装)""").findAll(page).forEach { names.add(it.groupValues[1]) }
-            Regex("""([^\n【]{0,24}【[一二两三四五六七八九十百\d]+[盒瓶袋件]】)""")
-                .findAll(page)
-                .forEach { names.add(it.groupValues[1]) }
-            for (rawName in names.distinct()) {
-                val name = normalizeSkuOptionLabel(rawName).ifBlank { rawName }
-                if (!isSkuOptionLabel(name) || out.containsKey(name)) continue
-                val node = A11yHelper.findByTextAllWindows(service(), name, exact = false, clickableOnly = true)
-                    ?: A11yHelper.findByTextAllWindows(service(), name, exact = false, clickableOnly = false)
-                    ?: A11yHelper.findByTextAllWindows(service(), rawName, exact = false, clickableOnly = false)
-                if (node != null) {
-                    out.putIfAbsent(name, A11yHelper.nearestClickable(node) ?: node)
-                }
-            }
-        }
-        log("识别到规格选项: ${out.keys.joinToString(" / ").ifBlank { "(无)" }}")
+        log("识别到结构化规格候选: ${out.keys.joinToString(" / ").ifBlank { "(无)" }}")
         return out.entries.map { it.key to it.value }
     }
 
-    /** 剥掉「最后10件/仅剩x件」等库存尾巴，得到纯规格名「1盒装」 */
-    private fun normalizeSkuOptionLabel(raw: String): String {
-        var t = raw.trim().replace("\\s+".toRegex(), "")
-        if (t.isBlank()) return ""
-        t = t.replace(Regex("""最后\d+件.*$"""), "")
-            .replace(Regex("""仅剩?\d+件.*$"""), "")
-            .replace(Regex("""还剩\d+件.*$"""), "")
-            .replace(Regex("""库存\d+.*$"""), "")
-        // 「1盒装最后10件」剥完后可能仍连在一起时，只取前导规格
-        Regex("""^([一二两三四五六七八九十百\d]+[盒瓶袋件](?:装)?)""").find(t)?.let {
-            if (isSkuOptionLabel(it.groupValues[1])) return it.groupValues[1]
-        }
-        return if (isSkuOptionLabel(t)) t else ""
-    }
-
-    private fun isSkuOptionLabel(raw: String): Boolean {
-        val t = raw.trim().replace("\\s+".toRegex(), "")
-        if (t.length !in 2..48) return false
-        if (t.contains("提交订单") || t.startsWith("已选") || t.contains("包装数量") ||
-            t.contains("一次选多款") || t.contains("到手价") || t.contains("快要抢光") ||
-            t.contains("单独购买") || t.contains("免拼购买") || t.contains("发起拼单") ||
-            t.contains("人选择") || t.contains("%") || t == "确定" || t.contains("确认款式")
-        ) {
-            return false
-        }
-        // 感冒用药【1盒】/ 【2瓶】
-        if (Regex("""^.{0,24}【[一二两三四五六七八九十百\d]+[盒瓶袋件]】$""").matches(t)) return true
-        // 1盒 / 2盒 / 5盒装 / 一盒 / 2瓶（确认款式「包装数量」）
-        if (Regex("""^[一二两三四五六七八九十百\d]+[盒瓶袋件](?:装)?$""").matches(t)) return true
-        if (Regex("""^\d+盒\d+袋$""").matches(t)) return true
-        return false
-    }
-
-    /** 模式B：点每个规格，读上方主价（已选择旁 ¥）/ 到手价 / 提交订单价 */
+    /** Header-free fallback: each result remains a single observed option, never a fabricated combination. */
     private suspend fun readSkuPricesByClickingEach(
         options: List<Pair<String, AccessibilityNodeInfo>>,
-    ): String {
+    ): SkuClickRead {
         val lines = mutableListOf<String>()
+        val observations = JSONArray()
+        var previousFingerprint = skuPanelStateFingerprint()
         for ((name, node) in options.take(12)) {
-            log("点击规格：$name")
-            val short = Regex("""【[一二两三四五六七八九十百\d]+盒】""").find(name)?.value
+            log("点击规格候选：$name")
             val fresh = A11yHelper.findByTextAllWindows(service(), name, exact = false, clickableOnly = true)
                 ?: A11yHelper.findByTextAllWindows(service(), name, exact = false, clickableOnly = false)
-                // 「1盒装最后10件」整段文案
-                ?: A11yHelper.findByTextAllWindows(service(), name + "最后", exact = false, clickableOnly = false)
-                ?: short?.let {
-                    A11yHelper.findByTextAllWindows(service(), it, exact = false, clickableOnly = true)
-                        ?: A11yHelper.findByTextAllWindows(service(), it, exact = false, clickableOnly = false)
-                }
                 ?: node
-            A11yHelper.clickNode(service(), A11yHelper.nearestClickable(fresh) ?: fresh)
-            HumanBehavior.sleepMs(800.0, 1300.0)
-            val page = readPageText()
-            val price = extractSelectedSkuPrice(page, selectedName = name)
+            val clicked = fresh.isEnabled && A11yHelper.clickNode(service(), A11yHelper.nearestClickable(fresh) ?: fresh)
+            val fallbackOption = SkuOption(name, fresh.isEnabled, fresh.isSelected || fresh.isChecked, JSONObject())
+            val settled = if (clicked) awaitSkuPanelStateChangedAndStable(previousFingerprint, fallbackOption) else null
+            if (settled != null) previousFingerprint = settled.fingerprint
+            val page = settled?.page ?: readPageText()
+            val state = if (settled == null) "PARSE_FAILED" else "VALUE"
+            val unavailable = page.contains("暂时无货") || page.contains("已售罄") || page.contains("不可选")
+            val price = if (state == "VALUE" && !unavailable) extractSelectedSkuPrice(page, selectedName = name) else null
+            observations.put(JSONObject()
+                .put("selected_options", JSONArray().put(JSONObject()
+                    .put("dimension_index", JSONObject.NULL)
+                    .put("raw_name", JSONObject.NULL)
+                    .put("raw_value", name)
+                    .put("observation_state", "VALUE")))
+                .put("display", name)
+                .put("selected_default", settled?.selectedDefault ?: false)
+                .put("observation_state", state)
+                .put("captured_at_epoch_ms", System.currentTimeMillis())
+                .put("available", if (state == "VALUE") !unavailable else JSONObject.NULL)
+                .put("disabled", !fresh.isEnabled)
+                .put("selected_price", price ?: JSONObject.NULL)
+                .put("original_price", JSONObject.NULL)
+                .put("promotion_price", JSONObject.NULL)
+                .put("stock", JSONObject.NULL)
+                .put("media_ref", JSONObject.NULL)
+                .put("evidence_ref", JSONObject().put("source", "SKU_PANEL").put("snapshot_stage", "option_selected"))
+                .put("snapshot", captureSkuPanelSnapshot("option_selected")))
             if (price != null) {
                 lines.add("$name ¥${DetailReader.trimPriceNum(price)}")
-                log("规格 $name → 上方价 ¥$price")
+                log("规格候选 $name → 已观察价 ¥$price")
             } else {
-                log("规格 $name 未读到上方价格 preview=${page.replace("\n", " ").take(100)}")
+                log("规格候选 $name 未形成稳定价格观察 state=$state")
             }
-            if (Random.nextDouble() < 0.35) {
-                HumanBehavior.pause(config, "think")
-            }
+            if (Random.nextDouble() < 0.35) HumanBehavior.pause(config, "think")
         }
-        return lines.joinToString("\n")
+        return SkuClickRead(lines.joinToString("\n"), observations)
     }
 
     /**
@@ -656,14 +968,14 @@ class PddActions(
 
     /**
      * 当前选中规格价。
-     * 「确认款式」：券后¥50.9 / 缩略图旁 ¥ + 已选择（价不在选项按钮上）。
+     * 选择面板：券后价 / 缩略图旁价格 / 已选择摘要中的价格可能不在候选按钮上。
      */
     private fun extractSelectedSkuPrice(page: String, selectedName: String = ""): Double? {
         val compact = sanitizeSkuPriceContext(page)
         val nameCompact = selectedName.replace("\\s+".toRegex(), "")
         fun ok(p: Double?) = p != null && p in 0.01..99999.0
 
-        // 确认款式顶栏：优先券后价，其次券前
+        // 面板优惠区：优先券后价，其次券前
         Regex("""券后[价]?[¥￥]?(\d+\.\d{1,2}|\d+)(?![\d])""").find(compact)
             ?.groupValues?.getOrNull(1)?.toDoubleOrNull()?.let { if (ok(it)) return it }
         Regex("""券前[¥￥]?(\d+\.\d{1,2}|\d+)(?![\d])""").find(compact)
@@ -685,21 +997,15 @@ class PddActions(
         if (nameCompact.isNotBlank()) {
             val idx = compact.indexOf("已选")
             if (idx >= 0) {
-                val window = compact.substring(idx, (idx + 48).coerceAtMost(compact.length))
-                val packInWindow = Regex("""\d+盒(?:装)?""").find(window)?.value.orEmpty()
-                if (window.contains(nameCompact) ||
-                    (packInWindow.isNotBlank() &&
-                        (nameCompact.contains(packInWindow) || packInWindow.contains(nameCompact)))
-                ) {
+                val window = compact.substring(idx, (idx + 96).coerceAtMost(compact.length))
+                if (window.contains(nameCompact)) {
                     val before = compact.substring(0, idx).takeLast(80)
                     parseYenPrices(before).lastOrNull()?.let { if (ok(it)) return it }
                 }
             }
         }
 
-        if (compact.contains("已选") || compact.contains("套餐") || compact.contains("确认款式") ||
-            compact.contains("包装数量") || compact.contains("一次选多款")
-        ) {
+        if (compact.contains("已选") || compact.contains("已选择")) {
             val prices = parseYenPrices(compact)
             val prefer = prices.firstOrNull { it != it.toLong().toDouble() && it in 0.5..9999.0 }
                 ?: prices.firstOrNull { it in 0.5..9999.0 }
@@ -708,71 +1014,30 @@ class PddActions(
         return null
     }
 
-    /** 统计弹层里互不相同的「N盒/N盒装」选项数 */
-    private fun countBoxSkuOptions(compact: String): Int =
-        Regex("""\d+盒(?:装)?""").findAll(compact).map { it.value }.distinct().count()
-
     /**
-     * 规格采集弹层。
-     * 用户确认：点击购买后弹出的界面（含「套餐 1盒/2盒…」「已选」「提交订单」，
-     * 即便带「拼多多全程保障」顶栏）都算规格界面。
+     * Panel detection uses only selection state, CTA and repeated visual cards. Product words
+     * are intentionally opaque: they can be Raw labels but never panel-control vocabulary.
      */
     private fun isSkuPanel(text: String): Boolean {
         val t = text.replace("\\s+".toRegex(), "")
-        val boxOpts = countBoxSkuOptions(t)
-        val packageOpts = Regex("""【[一二两三四五六七八九十百\d]+[盒瓶袋件]】""").findAll(t).count()
-
-        // 通用商品规格弹层：口罩等商品使用「颜色/尺码/款式」而不是药品的 N盒装。
-        // 任务 53 的现场同时出现「请选择：颜色」和「选择颜色后，立即支付」。
-        val chooseHeader = Regex("""请选择[:：][^，。\n]{1,16}""").containsMatchIn(t)
-        val payAfterChoose = Regex("""选择[^，。\n]{1,16}后[,，]?立即(?:支付|购买)""").containsMatchIn(t)
-        val genericAttribute = listOf("颜色", "尺码", "规格", "款式", "型号", "数量", "容量", "套餐")
-            .any { attr -> t.contains("请选择：$attr") || t.contains("请选择:$attr") }
-        if (chooseHeader && payAfterChoose) return true
-        if (genericAttribute && t.contains("立即支付")) return true
-
-        // 任务 55 的口罩商品在规格已选中后不再显示「请选择」，而是显示
-        // 「已选 + 型号 + 加减数量 + 0元下单/确认收货后付款」。该组合必须仍被识别为规格弹层，
-        // 否则采图返回时会把弹层当成未知页面，连续 restore_detail 异常后自动终止任务。
-        val selectedHeader = Regex("""已(?:选|选择)[:：][^\n]{2,160}""").containsMatchIn(t)
-        val genericDimension = listOf("型号", "颜色", "尺码", "规格", "款式", "容量", "套餐")
-            .any { t.contains(it) }
-        val quantityControls = t.contains("减少数量") && t.contains("增加数量")
-        val checkoutCta = listOf("0元下单", "确认收货后付款", "提交订单", "立即支付", "立即购买")
-            .any { t.contains(it) }
-        val bracketOptions = Regex("""【[^】]{2,80}】""").findAll(t).map { it.value }.distinct().count()
-        if (selectedHeader && genericDimension && checkoutCta && (quantityControls || bracketOptions >= 2)) {
-            return true
-        }
-
-        // 套餐弹层（截图形态）
-        if (t.contains("套餐") && boxOpts >= 2) return true
-        if (t.contains("一次选多款") && (boxOpts >= 1 || t.contains("提交订单"))) return true
-        if (t.contains("提交订单") && boxOpts >= 2) return true
-        if ((t.contains("已选") || t.contains("已选择")) && boxOpts >= 2) return true
-
-        if (t.contains("确认款式") || t.contains("包装数量")) {
-            return t.contains("¥") || t.contains("￥") || t.contains("确定") || t.contains("提交订单")
-        }
-        if (packageOpts >= 2 && (t.contains("提交订单") || t.contains("到手价") || t.contains("组合") || t.contains("套餐"))) {
-            return true
-        }
-        if (t.contains("到手价") && (boxOpts >= 1 || packageOpts >= 1) &&
-            (t.contains("尺寸") || t.contains("款式") || t.contains("组合") || t.contains("套餐"))
-        ) {
-            return true
-        }
-        // 纯地址下单（无套餐选项）不算规格
         if (looksLikePureAddressCheckout(text)) return false
-        return false
+        val panelCta = GenericSkuContract.hasPanelCta(t)
+        val selectionPrompt = Regex("""(?:请)?选择[:：]?(?!地址|支付|收货)[^\n]{1,80}""").containsMatchIn(t)
+        val selectedSummary = Regex("""已(?:选|选择)[:：]?[^\n]{1,160}""").containsMatchIn(t)
+        val repeatedCards = Regex("""【[^】]{1,80}】""").findAll(t).map { it.value }.distinct().count() >= 2
+        if (selectionPrompt && panelCta) return true
+        if (selectedSummary && panelCta) return true
+        return repeatedCards && (panelCta || t.contains("到手价"))
     }
 
-    /** 仅地址/支付确认、没有任何套餐多盒选项时，才算误入 */
+    /** Address/checkout screen has no observable selection state or repeated option-card structure. */
     private fun looksLikePureAddressCheckout(text: String): Boolean {
         val t = text.replace("\\s+".toRegex(), "")
-        if (t.contains("套餐") || countBoxSkuOptions(t) >= 2 || t.contains("一次选多款")) return false
-        return (t.contains("填写地址") || t.contains("选择地址")) ||
-            (t.contains("拼多多全程保障") && t.contains("提交订单") && countBoxSkuOptions(t) < 2 && !t.contains("套餐"))
+        val addressFlow = t.contains("填写地址") || t.contains("选择地址") || t.contains("收货地址")
+        val selectionState = Regex("""(?:请)?选择[:：]?(?!地址|支付|收货)[^\n]{1,80}""").containsMatchIn(t) ||
+            Regex("""已(?:选|选择)[:：]?[^\n]{1,160}""").containsMatchIn(t)
+        val repeatedCards = Regex("""【[^】]{1,80}】""").findAll(t).map { it.value }.distinct().count() >= 2
+        return addressFlow || (t.contains("拼多多全程保障") && t.contains("提交订单") && !selectionState && !repeatedCards)
     }
 
     /** @deprecated 兼容旧名 */
@@ -786,50 +1051,68 @@ class PddActions(
         A11yHelper.tap(service(), x, y)
     }
 
-    private suspend fun openSkuPanel(): Boolean {
+    private suspend fun openSkuPanel(): String? {
         val before = readPageText()
-        if (isSkuPanel(before)) return true
-        // 仅点击明确的规格选择入口。禁止把购买、拼单、开药按钮当作规格入口，
-        // 也不再用底部随机/坐标点击兜底，确保采集动作不会主动进入下单界面。
-        val buttons = findSkuOpenButtons()
-        if (buttons.isEmpty()) {
-            log("未找到明确规格选择入口，跳过多规格读取（禁止点击购买/下单区域）")
-            return false
-        }
-        for ((lab, node) in buttons) {
+        if (isSkuPanel(before)) return "already_open"
+        for ((lab, node) in findSkuOpenButtons()) {
             log("点击明确规格入口：$lab".take(48))
             A11yHelper.clickNode(service(), A11yHelper.nearestClickable(node) ?: node)
             HumanBehavior.sleepMs(900.0, 1400.0)
-            var page = readPageText()
-            if (isSkuPanel(page)) {
-                log("已打开规格采集弹层")
-                return true
-            }
-            if (looksLikePureAddressCheckout(page)) {
-                log("规格入口异常进入下单页，立即返回并停止本轮规格读取")
+            val page = readPageText()
+            if (isSkuPanel(page)) return "spec_selector:$lab"
+            if (looksLikePureAddressCheckout(page) || !looksLikeGoodsDetail(page)) {
+                log("规格入口未产生规格面板，立即返回并停止本商品交互")
                 goBackQuiet()
                 HumanBehavior.sleepMs(500.0, 850.0)
-                return false
-            }
-            // 任务 56：某些无多规格商品点击「免拼购买/单独购买」会直接离开详情。
-            // 此时旧逻辑仍点击下一枚已失效节点并继续坐标兜底，最终把页面推进到系统空窗口。
-            // 一旦当前页既不是规格弹层也不是商品详情，只允许返回一次；恢复失败就终止本轮读规格。
-            if (!isSkuPanel(page) && !looksLikeGoodsDetail(page)) {
-                log("规格入口点击后已离开商品详情，立即返回并停止继续点击失效入口")
-                goBackQuiet()
-                HumanBehavior.sleepMs(500.0, 850.0)
-                val restored = readPageText()
-                if (isSkuPanel(restored)) return true
-                if (!looksLikeGoodsDetail(restored)) {
-                    log("规格入口返回后仍未恢复商品详情，停止规格入口重试")
-                    return false
-                }
-                log("已返回商品详情，本商品停止继续尝试其他规格入口")
-                return false
+                return null
             }
         }
-        log("明确规格入口未打开弹层，保持商品详情并结束本轮规格读取")
-        return false
+        // 部分真实商品只有底部购买入口才会展示规格面板。只点击入口并验证弹层；
+        // 一旦进入纯地址/订单页立即返回，且永远不点击确认、提交或支付按钮。
+        for ((lab, node) in findSkuPurchaseEntryButtons().take(2)) {
+            log("点击购买入口以触发规格面板：$lab")
+            A11yHelper.clickNode(service(), A11yHelper.nearestClickable(node) ?: node)
+            HumanBehavior.sleepMs(900.0, 1400.0)
+            val page = readPageText()
+            if (isSkuPanel(page)) {
+                log("购买入口已打开规格面板；保持在面板内，不确认订单")
+                return "purchase_entry:$lab"
+            }
+            if (looksLikePureAddressCheckout(page) || !looksLikeGoodsDetail(page)) {
+                log("购买入口未产生规格面板，立即返回并停止本商品交互")
+                goBackQuiet()
+                HumanBehavior.sleepMs(500.0, 850.0)
+                return null
+            }
+        }
+        log("未找到可验证的规格面板入口")
+        return null
+    }
+
+    private fun findSkuPurchaseEntryButtons(): List<Pair<String, AccessibilityNodeInfo>> {
+        val allowed = listOf("立即购买", "免拼购买", "单独购买", "发起拼单", "直接拼成")
+        val forbidden = listOf("提交订单", "确认订单", "立即支付", "确认支付", "去支付", "开药")
+        val screen = A11yHelper.screenRect(service())
+        data class Hit(val score: Int, val label: String, val node: AccessibilityNodeInfo)
+        val hits = mutableListOf<Hit>()
+        for (root in A11yHelper.roots(service())) {
+            val queue = ArrayDeque<AccessibilityNodeInfo>()
+            queue.add(root)
+            while (queue.isNotEmpty()) {
+                val node = queue.removeFirst()
+                val label = ((node.text?.toString() ?: "") + " " +
+                    (node.contentDescription?.toString() ?: "")).replace("\\s+".toRegex(), "").trim()
+                val marker = allowed.firstOrNull { label.contains(it) }
+                if (marker != null && forbidden.none { label.contains(it) }) {
+                    val bounds = A11yHelper.bounds(node)
+                    if (bounds.width() > 0 && bounds.height() > 0 && bounds.top >= (screen.height() * 0.55f).toInt()) {
+                        hits.add(Hit(bounds.top + if (node.isClickable) 10000 else 0, marker, node))
+                    }
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return hits.sortedByDescending { it.score }.distinctBy { it.label }.map { it.label to it.node }
     }
 
     /**
@@ -2476,4 +2759,48 @@ class PddActions(
             HumanBehavior.pause(config, "idle")
         }
     }
+}
+
+internal fun chooseUnseenCardIndex(
+    keys: List<String>,
+    seen: Set<String>,
+    preferredIndex: Int,
+): Int? {
+    if (preferredIndex in keys.indices && keys[preferredIndex] !in seen) return preferredIndex
+    return keys.indices.firstOrNull { keys[it].isNotBlank() && keys[it] !in seen }
+}
+
+
+/** Pure generic helpers; product field names are data, never control flow. */
+internal object GenericSkuContract {
+    const val VALUE = "VALUE"
+    const val NOT_OBSERVED = "NOT_OBSERVED"
+    const val NOT_SUPPORTED = "NOT_SUPPORTED"
+    const val PARSE_FAILED = "PARSE_FAILED"
+
+    // These are UI actions/checkout controls, not product dimension vocabulary.
+    private val actionWords = listOf(
+        "关闭", "返回", "提交订单", "确认订单", "立即支付", "确认支付", "去支付",
+        "单独购买", "立即购买", "免拼购买", "发起拼单", "直接拼成", "增加数量", "减少数量",
+        "支付方式", "收货地址", "活动优惠", "查看", "客服", "分享", "确定",
+    )
+
+    fun normalizeLabel(raw: String): String = raw
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+        .replace(Regex("""\s*(?:最后|仅剩|还剩)\d+件.*$"""), "")
+        .trim()
+
+    fun isCandidateHeader(label: String): Boolean {
+        if (label.length !in 1..32 || label.startsWith("¥") || label.startsWith("￥")) return false
+        return actionWords.none { label.contains(it) } && !label.matches(Regex("""^\d+(?:\.\d+)?$"""))
+    }
+
+    fun isCandidateOption(label: String): Boolean {
+        if (label.length !in 1..64 || label.startsWith("¥") || label.startsWith("￥")) return false
+        if (label.matches(Regex("""^\d+(?:\.\d+)?$""")) || label.contains("%")) return false
+        return actionWords.none { label.contains(it) }
+    }
+
+    fun hasPanelCta(text: String): Boolean = listOf("确定", "立即购买", "立即支付", "提交订单", "0元下单").any(text::contains)
 }

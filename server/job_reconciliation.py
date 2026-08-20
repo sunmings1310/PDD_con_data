@@ -216,7 +216,7 @@ class OracleReconciliationStore:
             """
             SELECT * FROM (
               SELECT j.JOB_ID, j.TASK_ID, j.ACTIVE_ATTEMPT_ID, a.ATTEMPT_NO,
-                     j.MAX_ATTEMPTS, j.STATUS, a.STATUS,
+                     j.MAX_ATTEMPTS, j.STATUS AS JOB_STATUS, a.STATUS AS ATTEMPT_STATUS,
                      CASE WHEN NVL(j.PAUSE_REQUESTED, 0)=1 OR NVL(t.PAUSE_STATE, 'active')='paused'
                           THEN 1 ELSE 0 END AS IS_PAUSED,
                      a.DEVICE_ID, l.LEASE_ID
@@ -397,7 +397,7 @@ class OracleReconciliationStore:
         if not self.cur.fetchone():
             return False
         self.cur.execute(
-            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='success', NEXT_RUN_AT=NULL, UPDATE_TIME=SYSTIMESTAMP
+            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='success', NEXT_RUN_AT=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
                  WHERE JOB_ID=:job_id AND STATUS IN ('pending','retry_wait')
                    AND RESULT_RECEIPT_KEY IS NOT NULL AND RESULT_PRODUCT_ID IS NOT NULL
                    AND EXISTS (SELECT 1 FROM SJZQ_UPLOAD_RECEIPT r
@@ -519,7 +519,7 @@ class OracleReconciliationStore:
         if not self.cur.fetchone(): return False
         self.cur.execute(
             """UPDATE SJZQ_COLLECTION_JOB SET STATUS='dead', ACTIVE_ATTEMPT_ID=NULL,
-                       LEASE_TOKEN_HASH=NULL, LEASE_EXPIRES_AT=NULL, NEXT_RUN_AT=NULL,
+                       LEASE_TOKEN_HASH=NULL, LEASE_EXPIRES_AT=NULL, NEXT_RUN_AT=SYSTIMESTAMP,
                        LAST_ERROR_CLASS='manual_intervention_required', LAST_ERROR_CODE=:reason,
                        UPDATE_TIME=SYSTIMESTAMP
                  WHERE JOB_ID=:job_id AND STATUS IN ('pending','leased','running','retry_wait','paused')""",
@@ -576,7 +576,7 @@ class OracleReconciliationStore:
         self.cur.execute("SELECT TASK_ID FROM SJZQ_TASK WHERE TASK_ID=:id FOR UPDATE", {"id": candidate.task_id})
         if not self.cur.fetchone(): return False
         self.cur.execute(
-            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='pending', NEXT_RUN_AT=NULL, UPDATE_TIME=SYSTIMESTAMP
+            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='pending', NEXT_RUN_AT=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
                  WHERE JOB_ID=:job_id AND STATUS='retry_wait' AND NEXT_RUN_AT <= SYSTIMESTAMP""",
             {"job_id": candidate.job_id},
         )

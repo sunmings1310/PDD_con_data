@@ -10,6 +10,7 @@ logs/*.log
 output_data/*
 !output_data/.gitkeep
 workbench.db
+pdd_system.db
 .idea/
 .vscode/
 server/.env
