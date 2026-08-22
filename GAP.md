@@ -1,5 +1,8 @@
 # 项目审计与 GAP 基线（更新于 2026-08-18）
 
+> **Status: SUPERSEDED AS CURRENT AUTHORITY（2026-08-22）**
+> 本文保留 Phase 1～后续阶段的审计演进证据，其中早期完成度和“下一任务”可能已过期。当前开放缺口见 [`docs/gaps/current.md`](docs/gaps/current.md)，当前状态见 [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)，新工作按 [`WORKFLOW.md`](WORKFLOW.md) 建立 Task。
+
 ## Phase 2 状态更新（2026-08-17）
 
 | GAP | 状态 | 证据 |

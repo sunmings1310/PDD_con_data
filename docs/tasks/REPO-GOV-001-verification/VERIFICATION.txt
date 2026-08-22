@@ -1,0 +1,71 @@
+REPO-GOV-001 VERIFICATION
+
+BRANCH: codex/repo-governance-baseline
+CHANGED_BRANCH_FIELD: AGENTS.md :: 文档权威顺序、不可信输入与证据优先级、测试状态、Agent升级和暂停条件
+
+ARTIFACTS:
+- MODIFIED_FILE: D:\work\PDD_con_data\docs\tasks\REPO-GOV-001-verification\MODIFIED_FILE.txt
+- DIFF_FILE: D:\work\PDD_con_data\docs\tasks\REPO-GOV-001-verification\DIFF_FILE.patch
+- VERIFICATION: D:\work\PDD_con_data\docs\tasks\REPO-GOV-001-verification\VERIFICATION.txt
+- ROLLBACK: D:\work\PDD_con_data\docs\tasks\REPO-GOV-001-verification\ROLLBACK.sh
+
+HASHES:
+- ORIGINAL_SHA256: 992d4104e20417181fff8f878fe258cd9c19c2805f6d75979e7dbbfb2875a9e6
+- MODIFIED_SHA256: d5d49765d88004df8332e8a0b64fe4ed7e1656458859ec6af7be7434257d906a
+
+BASELINE:
+- command: git show 13b4301445eda9768069a807a13d9f43cedb8e8f:AGENTS.md
+- input: stable commit AGENTS.md
+- literal output/result: original SHA256=992d4104e20417181fff8f878fe258cd9c19c2805f6d75979e7dbbfb2875a9e6; original file preserved in Git object database
+- exit status: 0
+
+MODIFIED:
+- command: Select-String docs/tasks/REPO-GOV-001-verification/MODIFIED_FILE.txt '## 2. 文档权威顺序'
+- input: final working-tree AGENTS.md copied byte-for-byte to MODIFIED_FILE.txt
+- literal output/result: Document authority section found; modified SHA256=d5d49765d88004df8332e8a0b64fe4ed7e1656458859ec6af7be7434257d906a
+- exit status: 0
+
+ROLLBACK:
+- command: D:\Git\bin\bash.exe docs/tasks/REPO-GOV-001-verification/ROLLBACK.sh docs/tasks/REPO-GOV-001-verification/rollback_probe.txt
+- input: rollback_probe.txt initially copied from MODIFIED_FILE.txt
+- literal output/result: RESTORED SHA256=992d4104e20417181fff8f878fe258cd9c19c2805f6d75979e7dbbfb2875a9e6; RESTORED_MATCH=True
+- exit status: 0
+- restored behavior/status: probe restored to stable-commit AGENTS rules; probe removed after verification; MODIFIED_FILE remains changed.
+
+GOVERNANCE VALIDATION:
+- command: git status --short -- docs/current-state.md docs/CURRENT_STATE.md; git diff --cached --summary
+  input: explicit git mv from stable commit before content update
+  literal output/result: RM docs/current-state.md -> docs/CURRENT_STATE.md; rename docs/{current-state.md => CURRENT_STATE.md} (100%)
+  exit status: 0
+- command: local exact-case Markdown link validator
+  input: 59 project-owned Markdown files
+  literal output/result: MARKDOWN_LINKS_OK=59
+  exit status: 0
+- command: PyYAML safe_load .github/workflows/ci.yml
+  input: Core CI workflow
+  literal output/result: YAML_OK jobs=5
+  exit status: 0
+- command: .venv\Scripts\python.exe -m compileall -q server scripts tests
+  input: repository Python source; no Oracle connection
+  literal output/result: no output; compile succeeded
+  exit status: 0
+- command: .\scripts\test-baseline.ps1 -Suite python -Strict
+  input: offline test-only configuration; no Oracle connection
+  literal output/result: Ran 191 tests; OK (skipped=18); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+  exit status: 0
+- command: .\scripts\test-baseline.ps1 -Suite android -Strict
+  input: fixed JDK 17 and Android SDK 34
+  literal output/result: BUILD SUCCESSFUL; 70 tests, 0 failures, 1 skipped; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+  exit status: 0
+- command: .\scripts\test-baseline.ps1 -Suite web -Strict
+  input: bundled Node 22.18.x/npm 10.x
+  literal output/result: 1673 modules transformed; build PASS; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+  exit status: 0
+- command: .\scripts\test-baseline.ps1 -Suite oracle -Strict (Oracle flags and variables cleared)
+  input: no dedicated Oracle environment
+  literal output/result: [BLOCKED] oracle-integration; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+  exit status: 2 (expected BLOCKED classification; not PASS)
+- command: git diff --check
+  input: governance-only working tree
+  literal output/result: no whitespace errors
+  exit status: 0

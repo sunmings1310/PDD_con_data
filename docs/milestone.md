@@ -1,5 +1,8 @@
 # 稳定数据采集系统里程碑
 
+> **Status: SUPERSEDED AS CURRENT AUTHORITY（2026-08-22）**
+> 本文保留早期 M0～M5 门禁设计，不再描述当前 Phase。当前产品与状态见 [`../PRODUCT.md`](../PRODUCT.md) 和 [`CURRENT_STATE.md`](CURRENT_STATE.md)，未来阶段见 [`roadmap.md`](roadmap.md)；后续实施必须通过新 Task/ADR 获得授权。
+
 > 制定日期：2026-08-13  
 > 任务来源：`docs/backlog.md`。里程碑按依赖推进，但每个里程碑内部仍按 P0 → P1 → P2 → P3 执行。  
 > 本文只定义范围和门禁，不承诺未经估算的日历日期。

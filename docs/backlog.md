@@ -1,5 +1,14 @@
 # 稳定数据采集系统 Backlog
 
+> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-23）**
+> 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
+
+## Active governance task
+
+| Task | 状态 | 范围 | 下一步 |
+|---|---|---|---|
+| REPO-GOV-001 | REVIEW | 治理文档、AGENTS、模板与 CI；无业务实现 | 独立 Review；维护者批准后才可 merge |
+
 ## 2026-08-20 商品数据一致性 P0
 
 - [x] 冻结 `platform_title`、`canonical_name`、`product_attribute_spec`、`sku_dimensions`、`sku_combinations` 语义。
@@ -16,7 +25,7 @@
 
 > 2026-08-16 全面审计基线：[`../GAP.md`](../GAP.md)。本轮未实施业务重构或数据库迁移。
 >
-> Phase 1 已于 2026-08-17 完成验收。Phase 2 已完成实现与验收：Task/Job/Attempt/Lease/Checkpoint、原子领取、恢复、Pause/Resume、reconciliation、Android 生命周期恢复和 18 项故障矩阵均已进入统一门禁。验收报告：[`tasks/phase2-acceptance.md`](tasks/phase2-acceptance.md)。等待批准后再进入 Phase 3。
+> 历史说明：Phase 1～Phase 6A 的当前验收状态已由后续工作更新，统一以 [`CURRENT_STATE.md`](CURRENT_STATE.md) 为准。本段以下早期 Phase 记录仅保留来源，不表示“等待进入 Phase 3”。
 
 ## Phase 1 执行记录（2026-08-16）
 
@@ -27,8 +36,8 @@
 | T006 完整测试基线 | DONE | 固定 Python 3.10、Node 22.18、JDK 17.0.20、Gradle 8.4、SDK 34；统一 `scripts/test-baseline.ps1` 严格区分 PASS/FAIL/BLOCKED | Python 60、Oracle 8、Android JVM 36、Web build 全部 PASS；严格入口 exit=0 |
 | Phase 1 数据契约 ADR | DONE | Product、ProductSnapshot、Task、Job、Attempt、商品/快照身份、幂等与完成不变量 | `docs/decisions/phase1-success-data-contract.md` |
 
-> 制定日期：2026-08-13  
-> 依据：`docs/gap-analysis.md` 与当前代码。  
+> 制定日期：2026-08-13
+> 依据：`docs/gap-analysis.md` 与当前代码。
 > 排序规则：P0 → P1 → P2 → P3；同优先级按依赖顺序排列。每项都指向现有代码模块，不以“建设平台”“优化架构”等不可验收表述作为任务。
 
 > 2026-08-13：已完成客户讨论材料 `docs/customer/enterprise-management-proposal.md`，用于确认企业层、三级账号体系、数据隔离、商品数据模式、分阶段能力与客户决策事项；不代表多企业功能已进入实施或成为既定需求。
@@ -397,7 +406,7 @@
 ### BL-305 文档与运行手册收口
 
 - **状态/里程碑**：TODO / M0-M5
-- **代码模块**：根/Android/Web README、`docs/architecture.md`、`docs/current-state.md`、`docs/issues.md`、`docs/decisions/`、待建 runbook。
+- **代码模块**：根/Android/Web README、`docs/architecture.md`、`docs/CURRENT_STATE.md`、`docs/issues.md`、`docs/decisions/`、待建 runbook。
 - **任务**：随每阶段更新架构、配置、部署、schema、状态机、告警、故障处理和回滚文档；处理 mojibake 需有正确原文证据。
 - **验收**：新成员可按文档构建/启动；值班人员可按 runbook 处理已定义告警；README 与当前入口/版本一致。
 - **依赖/风险**：贯穿全程；没有正确语义来源时乱码保持 UNKNOWN，不猜测修复。

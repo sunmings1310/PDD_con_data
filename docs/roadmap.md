@@ -1,8 +1,18 @@
 # 稳定数据采集系统升级路线图
 
-> 制定日期：2026-08-13  
-> 依据：`docs/gap-analysis.md`、`docs/current-state.md`、`docs/architecture.md`、`docs/issues.md`  
-> 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。  
+> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-23）**
+> 本文是未来阶段的权威入口，但路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前产品、实现和开放缺口分别见 [`../PRODUCT.md`](../PRODUCT.md)、[`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
+
+## 当前未来阶段边界
+
+1. 当前稳定能力到 Phase 6A；REPO-GOV-001 只建立治理基线。
+2. Phase 6B、第二平台 Collector 和 SKU/ProductAttribute 业务实现尚未获准，不得由本文旧条目直接启动。
+3. 下一业务阶段必须先关闭对应产品/证据门禁，创建 Task/ADR，并经用户批准。
+4. 下文 2026-08-13 的 M0～M5 内容作为历史路线来源保留；其中已完成状态与旧优先级不覆盖 `CURRENT_STATE.md` 和当前 backlog。
+
+> 制定日期：2026-08-13
+> 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`
+> 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。
 > 本文是实施路线图，不包含本阶段代码修改。尚未由运行环境或业务确认的事项标记为 **UNKNOWN**。
 
 ## 0. 执行优先级索引
