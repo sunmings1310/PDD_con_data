@@ -13,6 +13,7 @@ from server.tenant import require_tenant_perms
 from server.db import get_conn, rows_as_dicts
 from server.schemas import ApiOk
 from server.services import clob_to_str
+from server.product_contract import effective_price, effective_price_sql
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -40,7 +41,13 @@ def _sku_rows(raw_json, raw_text: str) -> list[tuple[str, float]]:
             if not isinstance(item, dict):
                 continue
             spec = str(item.get("spec") or item.get("name") or item.get("sku_name") or "")
-            price = next((_number(item.get(k)) for k in ("deal_price", "normal_price", "price", "group_price") if _number(item.get(k)) is not None), None)
+            price = _number(effective_price({
+                "single_purchase_price": item.get("single_purchase_price", item.get("deal_price")),
+                "detail_price": item.get("detail_price", item.get("normal_price", item.get("price"))),
+                "group_price": item.get("group_price"),
+                "list_price": item.get("list_price"),
+                "original_price": item.get("original_price"),
+            }))
             if spec and price is not None:
                 rows.append((spec, price))
     if not rows:
@@ -66,7 +73,7 @@ def overview(
 ):
     with get_conn() as conn:
         cur = conn.cursor()
-        base = "NVL(DEAL_PRICE, NVL(DISPLAY_PRICE, PRICE))"
+        base = effective_price_sql()
         clauses = ["PLATFORM_CODE=:platform", "NVL(IS_DELETED,0)=0", "NVL(LIBRARY_STATUS,'saved')='saved'",
                    "ENTERPRISE_ID=:enterprise_id", "WORKSPACE_ID=:workspace_id"]
         params: dict = {"platform": platform_code, **tenant.binds}

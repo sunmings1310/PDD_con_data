@@ -100,6 +100,8 @@ def _sku_value(source: Any) -> tuple[Any, str | None]:
             return None, "SKU_INVALID_JSON"
     if not isinstance(parsed, (list, dict)):
         return None, "SKU_INVALID_STRUCTURE"
+    if not parsed:
+        return None, None
     rows = parsed if isinstance(parsed, list) else list(parsed.values())
     for row in rows:
         if not isinstance(row, Mapping):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from server.task_state import TaskItemStatus, TaskStatus
 
 
@@ -160,6 +160,7 @@ class ProductUploadIn(BaseModel):
     field_sources: dict[str, str] = Field(default_factory=dict)
     parser_version: Optional[str] = Field(default=None, max_length=64)
     quality_rules_version: Optional[str] = Field(default=None, max_length=64)
+    raw_capture: Optional[dict[str, Any]] = None
 
 
 class ProductOut(BaseModel):
@@ -185,6 +186,115 @@ class ProductOut(BaseModel):
     pick_tag: Optional[str] = None
     collect_time: Optional[datetime] = None
     images: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ProductIdentityDTO(BaseModel):
+    product_id: int
+    platform_code: str
+    platform_product_id: Optional[str] = None
+    master_product_id: Optional[int] = None
+    enterprise_product_id: Optional[int] = None
+    source_url: Optional[str] = None
+
+
+class StableProfileDTO(BaseModel):
+    platform_title: Optional[str] = None
+    canonical_name: Optional[str] = None
+    brand: Optional[str] = None
+    product_attribute_spec: Optional[str] = None
+    approval_number: Optional[str] = None
+    manufacturer: Optional[str] = None
+    dosage_form: Optional[str] = None
+    category: Optional[str] = None
+    expiry: Optional[str] = None
+    attributes: list[dict[str, str]] = Field(default_factory=list)
+
+
+class ObservationDTO(BaseModel):
+    snapshot_id: Optional[int] = None
+    observed_at: Optional[Any] = None
+    list_price: Optional[float] = None
+    detail_price: Optional[float] = None
+    single_purchase_price: Optional[float] = None
+    group_price: Optional[float] = None
+    original_price: Optional[float] = None
+    effective_price: Optional[float] = None
+    sales: Optional[int] = None
+    shop_sales: Optional[int] = None
+    comment_count: Optional[int] = None
+    promotion: Optional[str] = None
+    availability: Optional[str] = None
+    shop_name: Optional[str] = None
+    shop_id: Optional[str] = None
+    source: str
+
+
+class SkuDTO(BaseModel):
+    sku_dimensions: list[dict[str, Any]] = Field(default_factory=list)
+    sku_dimensions_state: str
+    sku_combinations: list[dict[str, Any]] = Field(default_factory=list)
+    source: str
+
+
+class ProvenanceDTO(BaseModel):
+    status: str
+    reason: Optional[str] = None
+    raw_id: Optional[int] = None
+    snapshot_id: Optional[int] = None
+    field_sources: dict[str, Any] = Field(default_factory=dict)
+    parser_version: Optional[str] = None
+    quality_rules_version: Optional[str] = None
+
+
+class SnapshotDTO(ObservationDTO):
+    """Immutable observation projection; no write model exists by design."""
+
+
+class ProductDetailDTO(BaseModel):
+    identity: ProductIdentityDTO
+    stable_profile: StableProfileDTO
+    latest_observation: SnapshotDTO
+    sku: SkuDTO
+    media: list[dict[str, Any]] = Field(default_factory=list)
+    provenance: ProvenanceDTO
+    quality: dict[str, Any]
+    capture_context: dict[str, Any]
+
+
+class ProductEditDTO(BaseModel):
+    product_id: int
+    scope: str = "library"
+    platform_title: Optional[str] = None
+    canonical_name: Optional[str] = None
+    brand: Optional[str] = None
+    product_attribute_spec: Optional[str] = None
+    approval_number: Optional[str] = None
+    manufacturer: Optional[str] = None
+    dosage_form: Optional[str] = None
+    category: Optional[str] = None
+    expiry: Optional[str] = None
+
+
+class CaptureEditDTO(ProductEditDTO):
+    scope: str = "capture"
+
+
+class ProductEditRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    platform_title: Optional[str] = None
+    canonical_name: Optional[str] = None
+    brand: Optional[str] = None
+    product_attribute_spec: Optional[str] = None
+    approval_number: Optional[str] = None
+    manufacturer: Optional[str] = None
+    dosage_form: Optional[str] = None
+    category: Optional[str] = None
+    expiry: Optional[str] = None
+
+
+class CaptureResultDTO(ProductDetailDTO):
+    """Full collection result; capture_context distinguishes draft/saved state."""
 
 
 class ApiOk(BaseModel):

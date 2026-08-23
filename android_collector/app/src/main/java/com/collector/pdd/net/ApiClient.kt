@@ -3,6 +3,7 @@ package com.collector.pdd.net
 import android.os.Build
 import com.collector.pdd.data.ProductEntity
 import com.collector.pdd.data.OutboxEntity
+import com.collector.pdd.data.OutboxPayload
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedOutputStream
@@ -300,44 +301,17 @@ class ApiClient(private val prefs: ServerPrefs) {
 
     @Deprecated("Phase 1 remote tasks must use persistent outbox uploadProductEvent")
     fun uploadProduct(remoteTaskId: Long?, product: ProductEntity, taskItemId: Long? = null): Long? {
-        val body = JSONObject()
+        // Legacy synchronous delivery delegates to the same authoritative field
+        // mapper as durable outbox delivery.  Only transport metadata is added here.
+        val body = OutboxPayload.product(product, prefs.platformCode)
             .put("device_key", prefs.deviceKey)
-            .put("platform_code", prefs.platformCode)
-            .put("keyword", product.keyword)
-            .put("item_id", product.itemId)
-            .put("sell_name", product.sellName)
-            .put("product_name", product.productName)
-            .put("brand", product.brand)
-            .put("shop_name", product.shopName)
-            .put("shop_id", product.shopId)
-            .put("spec", product.spec)
-            .put("sku_prices_text", product.skuPricesText)
-            .put("sku_prices", product.skuPrices)
-            .put("dosage_form", product.dosageForm)
-            .put("approval_no", product.approvalNo)
-            .put("manufacturer", product.manufacturer)
-            .put("expiry", product.expiry)
-            .put("category", product.category)
-            .put("coupon_info", product.couponInfo)
-            .put("item_url", product.itemUrl)
-            .put("pick_tag", product.pickTag)
-            .put("spec_list", product.specList)
-            .put("sales_num", product.salesNum)
-            .put("shop_sales_num", product.shopSalesNum)
-            .put("comment_num", product.commentNum)
         if (remoteTaskId != null) body.put("task_id", remoteTaskId)
         if (taskItemId != null) body.put("task_item_id", taskItemId)
-        product.price?.let { body.put("price", it) }
-        product.displayPrice?.let { body.put("display_price", it) }
-        product.groupPrice?.let { body.put("group_price", it) }
-        product.dealPrice?.let { body.put("deal_price", it) }
-        product.originalPrice?.let { body.put("original_price", it) }
 
-        val urls = JSONArray()
         val files = mutableListOf<File>()
         product.mainImages.split("|").map { it.trim() }.filter { it.isNotEmpty() }.forEach { p ->
             when {
-                p.startsWith("http://") || p.startsWith("https://") -> urls.put(p)
+                p.startsWith("http://") || p.startsWith("https://") -> Unit
                 p.startsWith("file://") -> files.add(File(p.removePrefix("file://")))
                 else -> {
                     val f = File(p)
@@ -345,7 +319,8 @@ class ApiClient(private val prefs: ServerPrefs) {
                 }
             }
         }
-        body.put("image_urls", urls)
+        body.remove("local_image_paths")
+        body.remove("local_image_count")
         val res = postJson("/api/products/upload", body)
         if (!res.optBoolean("ok", false)) return null
         val productId = res.optJSONObject("data")?.optLong("product_id") ?: return null

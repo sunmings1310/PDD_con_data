@@ -16,11 +16,11 @@ object DetailReader {
     private val timeFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
     private val knownLabels = listOf(
-        "\u54c1\u724c", "\u53d1\u8d27\u5730", "\u836f\u54c1\u901a\u7528\u540d", "\u901a\u7528\u540d\u79f0", "\u5546\u54c1\u540d\u79f0",
-        "\u836f\u54c1\u89c4\u683c", "\u89c4\u683c", "\u4ea7\u54c1\u5242\u578b", "\u5242\u578b", "\u4f7f\u7528\u5242\u91cf",
+        "\u54c1\u724c", "\u53d1\u8d27\u5730", "\u836f\u54c1\u901a\u7528\u540d", "\u901a\u7528\u540d\u79f0", "\u5546\u54c1\u540d\u79f0", "\u4ea7\u54c1\u540d\u79f0",
+        "\u836f\u54c1\u89c4\u683c", "\u89c4\u683c", "\u89c4\u683c\u7c7b\u578b", "\u4ea7\u54c1\u5242\u578b", "\u5242\u578b", "\u4f7f\u7528\u5242\u91cf",
         "\u6279\u51c6\u6587\u53f7", "\u56fd\u836f\u51c6\u5b57", "\u836f\u54c1\u5206\u7c7b", "\u6709\u6548\u671f", "\u4fdd\u8d28\u671f",
-        "\u836f\u54c1\u7c7b\u522b", "\u7c7b\u76ee", "\u751f\u4ea7\u4f01\u4e1a", "\u751f\u4ea7\u5382\u5bb6", "\u7528\u6cd5",
-        "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba", "\u5236\u9020\u5546", "\u67e5\u770b\u5168\u90e8", "\u5546\u54c1\u53c2\u6570", "\u5546\u54c1\u8be6\u60c5",
+        "\u836f\u54c1\u7c7b\u522b", "\u7c7b\u76ee", "\u751f\u4ea7\u4f01\u4e1a", "\u751f\u4ea7\u4f01\u4e1a\u540d\u79f0", "\u751f\u4ea7\u5382\u5bb6", "\u751f\u4ea7\u5382\u5bb6\u540d\u79f0", "\u7528\u6cd5",
+        "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba", "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba\u540d\u79f0", "\u5236\u9020\u5546", "\u5316\u5986\u54c1\u6279\u51c6\u6587\u53f7", "\u67e5\u770b\u5168\u90e8", "\u5546\u54c1\u53c2\u6570", "\u5546\u54c1\u8be6\u60c5",
     )
 
     private val junkValues = setOf(
@@ -49,7 +49,7 @@ object DetailReader {
 
         var brand = cleanField(labelValue(prefer, listOf("\u54c1\u724c")))
         var productName = cleanField(
-            labelValue(prefer, listOf("\u836f\u54c1\u901a\u7528\u540d", "\u901a\u7528\u540d\u79f0", "\u5546\u54c1\u540d\u79f0")),
+            labelValue(prefer, listOf("\u836f\u54c1\u901a\u7528\u540d", "\u901a\u7528\u540d\u79f0", "\u5546\u54c1\u540d\u79f0", "\u4ea7\u54c1\u540d\u79f0")),
         )
         var spec = cleanField(labelValue(prefer, listOf("\u836f\u54c1\u89c4\u683c", "\u89c4\u683c")))
         val dosage = cleanField(labelValue(prefer, listOf("\u4ea7\u54c1\u5242\u578b", "\u5242\u578b")))
@@ -60,20 +60,26 @@ object DetailReader {
         val manufacturer = cleanField(
             labelValue(
                 prefer,
-                listOf("\u751f\u4ea7\u4f01\u4e1a", "\u751f\u4ea7\u5382\u5bb6", "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba", "\u5236\u9020\u5546", "\u5382\u5bb6"),
+                listOf("\u751f\u4ea7\u4f01\u4e1a\u540d\u79f0", "\u751f\u4ea7\u5382\u5bb6\u540d\u79f0", "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba\u540d\u79f0", "\u751f\u4ea7\u4f01\u4e1a", "\u751f\u4ea7\u5382\u5bb6", "\u4e0a\u5e02\u8bb8\u53ef\u6301\u6709\u4eba", "\u5236\u9020\u5546", "\u5382\u5bb6"),
             ),
         )
         val approval = cleanApproval(
             Regex("""\u56fd\u836f\u51c6\u5b57[A-Za-z]?\u5b57?[A-Za-z]?\d+""").find(prefer)?.value.orEmpty()
-                .ifBlank { labelValue(prefer, listOf("\u6279\u51c6\u6587\u53f7", "\u56fd\u836f\u51c6\u5b57")) },
+                .ifBlank { labelValue(prefer, listOf("\u6279\u51c6\u6587\u53f7", "\u56fd\u836f\u51c6\u5b57", "\u5316\u5986\u54c1\u6279\u51c6\u6587\u53f7")) },
         )
 
         if (brand.isBlank()) {
             brand = cleanField(Regex("""\u3014([^\u3015]{1,20})\u3015""").find(prefer)?.groupValues?.getOrNull(1).orEmpty())
         }
-        if (spec.isBlank()) spec = extractSpec(prefer)
+        if (spec.isBlank()) {
+            val productEvidence = prefer.lines()
+                .filterNot { Regex("""^[2345]G$""", RegexOption.IGNORE_CASE).matches(it.trim()) }
+                .joinToString("\n")
+            spec = extractSpec(productEvidence)
+        }
+        if (Regex("""^[2345]G$""", RegexOption.IGNORE_CASE).matches(spec)) spec = ""
 
-        val sellName = buildSellName(prefer, brand, productName, spec, keyword)
+        val sellName = buildSellName(text, brand, productName, spec, keyword)
         if (productName.isBlank()) productName = sellName
 
         val shopName = extractShopName(prefer)
@@ -112,13 +118,14 @@ object DetailReader {
             ?: Regex("""(?:\u65d7\u8230\u5e97|\u4e13\u8425\u5e97|\u5927\u836f\u623f|\u836f\u623f)[^\n]{0,40}\u5df2\u62fc\s*([\d.]+[\u4e07]?\+?)""")
                 .find(text)?.groupValues?.getOrNull(1)
 
-        val commentNum = Regex("""(?:\u8bc4\u4ef7|\u5546\u54c1\u8bc4\u4ef7|\u5168\u90e8\u8bc4\u4ef7|\u6240\u5c5e\u5e97\u94fa\u8bc4\u4ef7)\s*[（(]?\s*([\d.]+[\u4e07]?\+?)""")
+        val commentRaw = Regex("""(?:\u8bc4\u4ef7|\u5546\u54c1\u8bc4\u4ef7|\u5168\u90e8\u8bc4\u4ef7|\u6240\u5c5e\u5e97\u94fa\u8bc4\u4ef7)\s*[（(]?\s*([\d.]+[\u4e07]?\+?)""")
             .find(text)?.groupValues?.getOrNull(1)
-            ?.let { parseSalesNum(it) } ?: 0
+            ?: Regex("""([\d.]+[\u4e07]?\+?)\s*\u4eba\u8bc4\u4ef7""").find(text)?.groupValues?.getOrNull(1)
+        val commentNum = commentRaw?.let { parseSalesNum(it) } ?: 0
 
         val couponInfo = extractCoupon(text)
+        // DETAIL 中的标题/主价组合不能冒充独立 SKU 事实；只有真实打开的 SKU panel 才产出 SKU。
         val skuText = buildSkuFromPanel(skuPanelText)
-            .ifBlank { buildSkuPricesText(text, compact, displayPrice) }
 
         val itemId = itemIdHint.ifBlank {
             Regex("""goods_id[=:\\\"'/]+(\d{8,})""", RegexOption.IGNORE_CASE)
@@ -182,10 +189,15 @@ object DetailReader {
             specList = specList,
             fieldSources = JSONObject()
                 .put("name", "detail_text")
+                .put("product_name", if (productName.isBlank()) "none" else "detail_text")
+                .put("brand", if (brand.isBlank()) "none" else "detail_text")
+                .put("spec", if (spec.isBlank()) "none" else "detail_text")
+                .put("manufacturer", if (manufacturer.isBlank()) "none" else "detail_text")
+                .put("comment_num", if (commentRaw == null) "none" else "detail_text")
                 .put("item_id", if (itemIdHint.isNotBlank()) "list_card" else "detail_text")
                 .put("item_url", if (urlHint.isNotBlank()) "share_link" else "derived")
                 .put("price", if (listPrice != null) "list_card" else "detail_text")
-                .put("sku", if (skuPanelText.isNotBlank()) "sku_panel" else "detail_text")
+                .put("sku", if (skuPanelText.isNotBlank()) "sku_panel" else "none")
                 .put("sales_num", if (productSales.isNullOrBlank()) "none" else "detail_text")
                 .put("shop", "detail_text")
                 .toString(),
@@ -298,10 +310,13 @@ object DetailReader {
         spec: String,
         keyword: String,
     ): String {
+        val fromPage = extractSellName(text)
+        val pageMatchesIdentity = productName.isBlank() ||
+            (productName.length >= 2 && fromPage.contains(productName, ignoreCase = true)) ||
+            (brand.length >= 2 && fromPage.contains(brand, ignoreCase = true))
+        if (fromPage.isNotBlank() && !junkValues.contains(fromPage) && pageMatchesIdentity) return fromPage
         val composed = listOf(brand, productName, spec).filter { it.isNotBlank() }.joinToString(" ").trim()
         if (composed.length >= 4) return composed.take(120)
-        val fromPage = extractSellName(text)
-        if (fromPage.isNotBlank() && !junkValues.contains(fromPage)) return fromPage
         return keyword.take(80)
     }
 
@@ -371,14 +386,10 @@ object DetailReader {
     private fun labelValue(text: String, labels: List<String>): String {
         val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
         for (label in labels) {
-            val same = Regex("""^$label[\s:：\uFF1A]+(.+)$""", RegexOption.MULTILINE).find(text)
+            val escaped = Regex.escape(label)
+            val same = Regex("""^$escaped[\s:：\uFF1A]+(.+)$""", RegexOption.MULTILINE).find(text)
             if (same != null) {
                 val v = sanitizeValue(same.groupValues[1])
-                if (v.isNotBlank()) return v
-            }
-            val glued = Regex("""$label([\u4e00-\u9fffA-Za-z0-9][^\n]{0,40})""").find(text)
-            if (glued != null) {
-                val v = sanitizeValue(glued.groupValues[1])
                 if (v.isNotBlank()) return v
             }
             for (i in lines.indices) {
@@ -393,7 +404,7 @@ object DetailReader {
                     if (v.isNotBlank()) return v
                 }
             }
-            val m = Regex("""$label[\s\n:\uFF1A]+([^\n]{1,80})""").find(text)
+            val m = Regex("""(?:^|\n)$escaped[\s\n:\uFF1A]+([^\n]{1,80})""").find(text)
             if (m != null) {
                 val v = sanitizeValue(m.groupValues[1])
                 if (v.isNotBlank()) return v
@@ -406,6 +417,11 @@ object DetailReader {
         var v = raw.trim().replace(Regex("""^[:\uFF1A\s>\uFF1E]+"""), "")
         v = v.split(Regex("""\s*(?:\u67e5\u770b\u5168\u90e8|\u5546\u54c1\u53c2\u6570|\u8fdb\u5e97)"""))[0].trim()
         if (v.isBlank() || v.length > 80) return ""
+        // 系统状态栏节点可能插入属性标签和值之间；网络制式不是商品规格证据。
+        if (Regex("""^[2345]G$""", RegexOption.IGNORE_CASE).matches(v) ||
+            Regex("""^(?:上午|下午|晚上)?\d{1,2}:\d{2}$""").matches(v) ||
+            Regex("""^\d{1,3}%$""").matches(v)
+        ) return ""
         if (knownLabels.any { it == v }) return ""
         if (junkValues.contains(v)) return ""
         return v
@@ -520,7 +536,9 @@ object DetailReader {
     fun buildSkuFromPanel(panelText: String): String {
         if (panelText.isBlank()) return ""
         // 「最后2件」/「2件9.9折」勿误伤价格末位（¥23件9.9折→¥2）
-        val cleaned = panelText.replace("\\s+".toRegex(), " ")
+        val cleaned = panelText.lines().joinToString("\n") { line ->
+            line.replace(Regex("""[\t ]+"""), " ").trim()
+        }
             .replace(Regex("""([¥￥]\d+\.\d{1,2})(\d{1,2})件\d+(?:\.\d+)?折"""), "$1")
             .replace(Regex("""([¥￥]\d+)(\d{1,2})件\d+(?:\.\d+)?折"""), "$1")
             .replace(Regex("""([¥￥]\d+\.\d?)(\d)最后\2件"""), "$1")
@@ -567,11 +585,14 @@ object DetailReader {
         return n.take(80)
     }
 
+    /** Panel values are opaque platform text. Keep them without mapping value vocabulary to business fields. */
     private fun looksLikeSkuName(name: String): Boolean {
-        if (name.length < 2 || name.length > 80) return false
-        if (name.contains("提交订单") || name.contains("单独购买") || name.contains("免拼购买")) return false
-        return name.contains("盒") || name.contains("袋") || name.contains("件") ||
-            name.contains("装") || name.contains("【")
+        if (name.length < 1 || name.length > 80 || name.startsWith("¥") || name.startsWith("￥")) return false
+        val uiActions = listOf("提交订单", "确认订单", "单独购买", "立即购买", "免拼购买", "支付", "收货地址", "增加数量", "减少数量")
+        if (uiActions.any(name::contains) || name.contains("%")) return false
+        // A slash represents an observed multi-dimension selection; other values are accepted
+        // only when they were paired with a price in SKU_PANEL text by the collector.
+        return !name.matches(Regex("""^\d+(?:\.\d+)?$"""))
     }
 
     private fun buildSkuPricesText(text: String, compact: String, display: Double?): String {
@@ -619,7 +640,9 @@ object DetailReader {
             val m = Regex("""^(.+?)\(售价¥([\d.]+)\)$""").find(p)
                 ?: Regex("""^(.+?)\(\u552e\u4ef7\u00a5([\d.]+)\)$""").find(p)
             val obj = JSONObject()
-            obj.put("sku_id", "")
+            // Accessibility 面板通常只暴露规格文案/价格，不生成虚假的平台 SKU ID。
+            obj.put("sku_id", JSONObject.NULL)
+            obj.put("evidence_source", "SKU_PANEL")
             if (m != null) {
                 obj.put("spec", m.groupValues[1].trim())
                 obj.put("normal_price", m.groupValues[2].toDoubleOrNull() ?: JSONObject.NULL)

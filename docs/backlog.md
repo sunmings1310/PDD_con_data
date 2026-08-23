@@ -1,5 +1,15 @@
 # 稳定数据采集系统 Backlog
 
+## Accepted Business Baseline split（2026-08-23）
+
+- [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
+- [x] 纳入 Raw Capture 基础保存、脱敏、hash、manifest、server persistence 与 offline replay。
+- [x] 纳入 Product Consistency P0、Canonical Read/Edit DTO、稳定字段编辑白名单与动态事实不可编辑策略。
+- [x] 默认 PDD 正常采集路径不打开 SKU Panel、不点击购买入口、不遍历 combinations，并有负向 JVM gate。
+- [ ] Generic SKU runtime、SKU_PANEL 自动交互、正式 SKU Schema、P1 与 Phase 6B 明确排除；需独立证据、ADR 与批准。
+
+拆分清单与证据见 [`tasks/BASELINE-SPLIT-001.md`](tasks/BASELINE-SPLIT-001.md)。
+
 > 2026-08-16 全面审计基线：[`../GAP.md`](../GAP.md)。本轮未实施业务重构或数据库迁移。
 >
 > Phase 1 已于 2026-08-17 完成验收。Phase 2 已完成实现与验收：Task/Job/Attempt/Lease/Checkpoint、原子领取、恢复、Pause/Resume、reconciliation、Android 生命周期恢复和 18 项故障矩阵均已进入统一门禁。验收报告：[`tasks/phase2-acceptance.md`](tasks/phase2-acceptance.md)。等待批准后再进入 Phase 3。

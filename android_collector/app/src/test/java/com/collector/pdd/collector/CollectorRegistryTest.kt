@@ -55,7 +55,8 @@ class CollectorRegistryTest {
             urlHint = request.urlHint,
         )
         val after = collector.normalizeForCompatibility(request)
-        assertEquals(before, after)
+        // Parsing compatibility excludes the observation timestamp, which is generated per call.
+        assertEquals(before.copy(updateTime = after.updateTime), after)
 
         val beforeQuality = ProductQualityGate.apply(page, before)
         val afterQuality = collector.applyQualityForCompatibility(page, after)

@@ -248,3 +248,15 @@ flowchart LR
 `server/management_queries.py` 是只读管理查询层，`server/routers/management.py` 只负责鉴权、参数边界和响应包装。该查询层直接读取 Phase 2/3 权威事实，不参与采集写事务，也不改变 Product Snapshot、Quarantine 或 Job Event。
 
 Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间线和 Task Trace。增长列表统一使用服务端 `page/limit/total`；页面必须显示 loading、error、empty，并通过稳定 ID 在 Task、Job、Attempt、Product 和 Quarantine 之间导航。详细语义见 `docs/decisions/phase4-management-observability.md`。
+
+## Accepted Raw Capture foundation
+
+Android PDD Collector 在正常详情采集内生成受控 `RawSource`，当前默认来源包括 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED 和 OTHER。Outbox 在上传前执行敏感字段过滤，并携带 capture identity、source metadata 和 parser/collector version。服务端 `server.raw_capture` 校验 capture、source size/hash/reference 后保存到被 Git 忽略的 `server/data/raw-captures/`；Raw persistence 不改变 Product/Snapshot identity 和 receipt 事务语义。
+
+`SKU_PANEL` 可以作为 Raw source type 被存储和兼容读取，但 accepted baseline 的默认 PDD 详情流程不打开购买入口、不主动打开 SKU Panel，也不遍历 SKU combinations。Raw replay 只读取已保存证据，不访问平台、不回写 Raw 或 Product/Snapshot。
+
+## Accepted Product canonical contract
+
+`server/product_contract.py` 定义稳定字段名与五种价格语义；`server/product_read_model.py` 将 legacy 与 strict 数据映射为统一 Detail/Capture/Snapshot 读取模型。普通编辑只接受稳定资料，动态价格、销量、SKU observations、Raw 和 Snapshot 不可由普通 PUT 覆盖。Web 的 Product List 与 Task Detail 编辑窗口均先读取 scope 对应的 Edit DTO，不复制列表行作为编辑事实。
+
+正式 ProductAttribute、SKU Dimension/Combination/SkuSnapshot Schema 不属于本基线，未执行相关 migration。完整语义见 `docs/decisions/2026-08-20-product-field-semantics-p0.md`。

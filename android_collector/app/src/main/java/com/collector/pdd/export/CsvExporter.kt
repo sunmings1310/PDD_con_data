@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.collector.pdd.data.ProductEntity
+import org.json.JSONObject
 import java.io.File
 import java.nio.charset.Charset
 import java.time.LocalDateTime
@@ -25,9 +26,12 @@ object CsvExporter {
         "拼单价" to { p -> p.groupPrice?.toString().orEmpty() },
         "单独购买价" to { p -> p.dealPrice?.toString().orEmpty() },
         "原价" to { p -> p.originalPrice?.toString().orEmpty() },
-        "销量" to { p -> p.salesNum.toString() },
-        "店铺销量" to { p -> p.shopSalesNum.toString() },
-        "评价数" to { p -> p.commentNum.toString() },
+        "销量" to { p -> p.salesNum?.toString().orEmpty() },
+        "店铺销量" to { p -> p.shopSalesNum?.toString().orEmpty() },
+        "评价数" to { p ->
+            val source = runCatching { JSONObject(p.fieldSources).optString("comment_num") }.getOrDefault("")
+            if (source == "none") "" else p.commentNum.toString()
+        },
         "规格" to { p -> p.spec },
         "多规格价格" to { p -> p.skuPricesText },
         "多规格价格JSON" to { p -> p.skuPrices },

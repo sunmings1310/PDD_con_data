@@ -581,9 +581,19 @@ class TaskEngine(
             if (remoteTask == null) {
                 CollectorApp.instance.database.productDao().insert(product)
             } else {
-                val payload = OutboxPayload.product(product, config.platformCode)
                 val outboxId = "p-$remoteTask-${UUID.randomUUID()}"
-                val remoteItemId = target?.remoteItemId?.takeIf { target.requiresMatch }
+                val captureId = "cap-$remoteTask-${UUID.randomUUID()}"
+                val payload = OutboxPayload.product(
+                    product,
+                    config.platformCode,
+                    captureId = captureId,
+                    rawSources = collected.raw.sources,
+                )
+                // Match jobs bind the matched result; ordinary multi-product jobs bind the
+                // first canonical result so server completion can finalize the TaskItem.
+                val remoteItemId = target?.remoteItemId?.takeIf {
+                    target.requiresMatch || pickTag == "default_top_1"
+                }
                 val event = OutboxEntity(
                     outboxId = outboxId,
                     eventType = "product",

@@ -63,6 +63,17 @@ data class RawResult(
     val fieldSources: String = "{}",
     val parserVersion: String = "",
     val capabilities: CollectorCapabilities? = null,
+    /** 原始业务证据按采集阶段分组；上传前仍会执行最小敏感字段过滤。 */
+    val sources: List<RawSource> = emptyList(),
+)
+
+data class RawSource(
+    val type: String,
+    val sourceIdentifier: String,
+    val capturedAtEpochMs: Long,
+    val contentType: String = "text/plain; charset=utf-8",
+    val schemaHint: String = "pdd-a11y-v1",
+    val payload: String,
 )
 
 internal data class DetailParseRequest(
