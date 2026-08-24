@@ -20,9 +20,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("capture_id")
     parser.add_argument("--root", type=Path)
+    parser.add_argument("--enterprise-id", type=int)
+    parser.add_argument("--workspace-id", type=int)
+    parser.add_argument("--version", default="original", help="original, latest_safe, or a derived_capture_id")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = replay_capture(args.capture_id, root=args.root)
+    result = replay_capture(
+        args.capture_id,
+        root=args.root,
+        enterprise_id=args.enterprise_id,
+        workspace_id=args.workspace_id,
+        version=args.version,
+    )
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

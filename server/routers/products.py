@@ -63,6 +63,24 @@ def _image_root() -> Path:
     return p
 
 
+def _raw_capture_result(manifest: dict) -> dict[str, str]:
+    capture_id = str(manifest["capture_id"])
+    return {
+        "capture_id": capture_id,
+        "evidence_ref": f"raw-capture:{capture_id}",
+        "manifest_ref": f"raw-capture:{capture_id}:manifest",
+    }
+
+
+def _public_product_result(result: dict) -> dict:
+    public = dict(result)
+    public.pop("capture_manifest", None)
+    capture_id = public.get("capture_id")
+    if capture_id:
+        public.update(_raw_capture_result({"capture_id": capture_id}))
+    return public
+
+
 def _product_payload_hash(body: ProductUploadIn) -> str:
     payload = body.model_dump(mode="json")
     payload.pop("idempotency_key", None)
@@ -96,7 +114,7 @@ def _receipt_ack(receipt, key: str, message: str = "already uploaded") -> ApiOk:
     return ApiOk(
         message=message,
         data={
-            **receipt["result"],
+            **_public_product_result(receipt["result"]),
             "product_id": receipt["product_id"],
             "idempotency_key": key,
             "acknowledged": receipt["status"] == "acked",
@@ -148,11 +166,7 @@ def _business_dedup_ack(cur, body: ProductUploadIn, device: dict, payload_sha256
     }
     if body.raw_capture:
         capture_manifest = persist_raw_capture(body, device)
-        result.update({
-            "capture_id": capture_manifest["capture_id"],
-            "capture_manifest": str((Path(settings.image_dir).parent / "raw-captures" /
-                                     capture_manifest["capture_id"] / "manifest.json").resolve()),
-        })
+        result.update(_raw_capture_result(capture_manifest))
     cur.execute(
         """
         INSERT INTO SJZQ_UPLOAD_RECEIPT (
@@ -290,6 +304,9 @@ def upload_product(body: ProductUploadIn):
                     except QuotaExceeded as exc:
                         conn.rollback()
                         return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
+                    except RawCaptureError as exc:
+                        conn.rollback()
+                        return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
                     if deduplicated is not None:
                         return deduplicated
                 if body.task_item_id:
@@ -513,12 +530,9 @@ def upload_product(body: ProductUploadIn):
             try:
                 capture_manifest = persist_raw_capture(body, device)
             except RawCaptureError as exc:
-                raise StateConflict("RAW_CAPTURE_INVALID", "invalid", str(exc)) from exc
-            result.update({
-                "capture_id": capture_manifest["capture_id"],
-                "capture_manifest": str((Path(settings.image_dir).parent / "raw-captures" /
-                                         capture_manifest["capture_id"] / "manifest.json").resolve()),
-            })
+                conn.rollback()
+                return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
+            result.update(_raw_capture_result(capture_manifest))
         if observation is not None:
             result.update({
                 "master_product_id": observation.master_product_id,
@@ -1112,4 +1126,5 @@ def save_products(body: dict, request: Request, user=Depends(require_perms("data
 
 @router.get("/media-info/ping")
 def media_ping():
-    return ApiOk(data={"image_dir": str(_image_root())})
+    _image_root()
+    return ApiOk(data={"storage_backend": "local-media", "status": "ready"})
