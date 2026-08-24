@@ -2,6 +2,10 @@
 
 本仓库包含四个交付组件：PyQt6 桌面采集端、FastAPI 中控服务、Vue 管理端和 Android 采集 Agent。完整工具链、外部依赖和首次部署说明见 [`docs/development-environment.md`](docs/development-environment.md)。
 
+## 治理入口
+
+开始开发或 Review 前依次阅读：[`PRODUCT.md`](PRODUCT.md)、[`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)、[`WORKFLOW.md`](WORKFLOW.md) 和 [`AGENTS.md`](AGENTS.md)。历史 roadmap/GAP/backlog/issues/milestone 保留为证据，不单独授权当前实现。
+
 ## 环境基线
 
 | 组件 | 支持版本 |

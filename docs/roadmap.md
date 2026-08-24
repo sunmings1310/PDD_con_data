@@ -1,8 +1,18 @@
 # 稳定数据采集系统升级路线图
 
-> 制定日期：2026-08-13  
-> 依据：`docs/gap-analysis.md`、`docs/current-state.md`、`docs/architecture.md`、`docs/issues.md`  
-> 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。  
+> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-25）**
+> 本文是未来阶段的权威入口，但路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前产品、实现和开放缺口分别见 [`../PRODUCT.md`](../PRODUCT.md)、[`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
+
+## 当前未来阶段边界
+
+1. Accepted Business Baseline 已通过 PR #2 进入 `main@02234f2`，当前稳定能力到 Phase 6A。
+2. `REPO-GOV-ALIGN-001` 只对齐治理基线，不改变业务路线。
+3. Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台均为 NOT STARTED。
+4. 下一业务阶段必须创建 Task/ADR、满足对应证据门禁并经 Product Owner 批准；下文旧 M0～M5 条目不构成授权。
+
+> 制定日期：2026-08-13
+> 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`
+> 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。
 > 本文是实施路线图，不包含本阶段代码修改。尚未由运行环境或业务确认的事项标记为 **UNKNOWN**。
 
 ## 0. 执行优先级索引
@@ -595,7 +605,7 @@ T001 已消除最初的依赖与工具链阻断：`requirements.txt` 已补齐�
 - PDD 通过 before/after、真实 Oracle Product/Snapshot/Quality/Quarantine/Diff/idempotency compatibility。
 - Phase 1～6A exhaustive Oracle：`40/40 PASS`，无 skip；全量严格入口：`PASS=4 FAIL=0 BLOCKED=0`。
 - 核心 Task/Job/Quality/Tenant/Quota 层不依赖 PDD 原始响应或平台条件链。
-- Phase 6B：**UNBLOCKED / NOT STARTED**。本记录不授权或启动 JD、淘宝、1688 等第二平台实现。
+- Phase 6B：**NOT STARTED**。本记录不授权或启动 JD、淘宝、1688 等第二平台实现，启动仍需 Product Owner 明确批准。
 # Phase 4 执行状态（2026-08-17）
 
 # Phase 5.5 企业化硬化执行状态（2026-08-17）

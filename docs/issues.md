@@ -1,5 +1,8 @@
 # 当前问题、潜在 Bug 与技术债务
 
+> **Status: HISTORICAL / SUPERSEDED AS CURRENT AUTHORITY（2026-08-25）**
+> 本文保留早期审计问题及其历史证据，部分问题已由后续阶段关闭。当前开放缺口以 [`gaps/current.md`](gaps/current.md) 为准，当前实现以 [`CURRENT_STATE.md`](CURRENT_STATE.md) 为准；不能仅凭本文旧条目实施。
+
 > 分级：P0 阻断/数据或凭据高风险；P1 高优先级；P2 中优先级；P3 低优先级。  
 > “潜在”表示静态证据明确但尚未完成对应运行场景复现；无法确认的信息标为 **UNKNOWN**。
 
