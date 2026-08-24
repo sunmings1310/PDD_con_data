@@ -35,7 +35,7 @@ BACKLOG → READY → IN_PROGRESS → TEST → REVIEW
 | Independent Review | 对固定 Head 独立检查范围、不变量、测试、风险和回滚 | Head 未移动、Dev 自检与适用门禁完成 | `ACCEPT`、`CHANGES_REQUIRED` 或 `BLOCKED` |
 | E2E | 从已 merge 的 main 或明确发布候选执行 Task 定义的端到端场景 | MERGED，环境、账号/设备和步骤明确 | 可复现 E2E 证据交给 Control；不替代 Product Owner 的 release 批准 |
 
-Control 在已批准 Task 范围内可自动推进调查、拆解、分支/worktree、Dev 调度、`IN_PROGRESS → TEST → REVIEW → CHANGES_REQUIRED` 循环、测试修复、证据整理、Review `ACCEPT` 后的 Draft PR，以及不涉及生产操作的已定义 E2E。以下动作必须等待 Product Owner：新增或改变产品行为/优先级、Generic SKU/P1/Phase 6B 启动、破坏性迁移或数据删除/回填、生产操作、真实账号/密钥/人工验证、明显不同的产品方案、merge 和 release。
+Control 在已批准 Task 范围内可自动推进调查、拆解、分支/worktree、Dev 调度、`IN_PROGRESS → TEST → REVIEW → CHANGES_REQUIRED` 循环、测试修复、证据整理，以及不涉及生产操作的已定义 E2E。Review `ACCEPT` 后，Control 默认可自动创建或更新 Draft PR；如果当前 Task 的 Stop Condition 或 Human Decision Points 明确禁止 PR 或要求另行批准，则以该 Task-specific override 为准并停止。以下动作必须等待 Product Owner：新增或改变产品行为/优先级、Generic SKU/P1/Phase 6B 启动、破坏性迁移或数据删除/回填、生产操作、真实账号/密钥/人工验证、明显不同的产品方案、merge 和 release。
 
 唯一维护责任：Product Owner 批准 `PRODUCT.md` 与 roadmap 优先级；Control 唯一维护 `docs/backlog.md` 状态、分支分配、PR 元数据和 `docs/CURRENT_STATE.md`；Dev/Reviewer/E2E 只向 Task 写各自证据，Control 负责同步状态；架构作者提出 ADR，Accepted 状态仍需相应人工批准。
 
@@ -83,7 +83,7 @@ git diff --check
 ## 7. Oracle Gate 与真机 Gate
 
 - 不依赖真实 Oracle 的 PR 核心门禁由 CI 执行；Oracle 是独立外部门禁。
-- 涉及 migration、tenant、transaction、Lease/幂等或 Oracle 方言的 Task，在最终验收前必须在隔离、可写、可清理的 Oracle 测试环境实际运行；缺环境时状态为 `BLOCKED` 或 `SKIPPED`。
+- 涉及 migration、tenant、transaction、Lease/幂等或 Oracle 方言的 Task，在最终验收前必须在隔离、可写、可清理的 Oracle 测试环境实际运行。Task 或 CI 差异分类明确判定 Oracle 不适用时才可记为 `SKIPPED`；Oracle Gate 为 Required/启用但缺少环境或参数时必须输出 `BLOCKED` 并失败，绝不能记为 `PASS` 或 `SKIPPED`。
 - Schema/migration 必须版本化、可重入并附恢复说明；破坏性迁移、已有数据删除/回填必须先获人工批准。
 - 涉及 Android 生命周期、系统 kill/force-stop、Doze、网络恢复、真实 App 页面或设备行为时必须执行真机 Gate；无设备不能以 JVM 测试替代并宣称 PASS。
 

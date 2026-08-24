@@ -28,7 +28,7 @@
 | Oracle |  |  |  | PASS/FAIL/BLOCKED/SKIPPED |
 | Real device |  |  |  | PASS/FAIL/BLOCKED/SKIPPED |
 
-`BLOCKED`/`SKIPPED` 不得写为 `PASS`。Oracle 未配置时，本 PR 不声明 Oracle PASS。
+`BLOCKED`/`SKIPPED` 不得写为 `PASS`。只有明确不适用的 Oracle Gate 才可 `SKIPPED`；Required/启用但未配置时必须记为 `BLOCKED`。
 
 ## Oracle Status
 

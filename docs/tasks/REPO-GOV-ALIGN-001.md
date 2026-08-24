@@ -63,22 +63,24 @@ None。此任务不改变产品或架构语义。
 - [x] `WORKFLOW.md` 只有一处角色/交接/Control/责任矩阵；
 - [x] `AGENTS.md` 只增加精简子模型路由并引用 Workflow；
 - [x] 历史 GAP/issues/milestone 只增加状态和权威链接；
-- [ ] Independent Review 对固定 Head 给出结论。
+- [x] 首轮 Independent Review 给出 `CHANGES_REQUIRED`，所有 P1/P2 finding 已完成最小修复并等待复审；
+- [ ] Independent Review 对新的固定 Head 给出最终结论。
 
 ## Test Plan
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Markdown links | `python -c <repository-relative link validator>` | 60 Markdown files | 所有 repository-relative 链接存在 | `MARKDOWN_LINKS=PASS` | 0 | PASS |
-| YAML/CI | `python -c <PyYAML + required jobs/static assertions>` | `.github/workflows/ci.yml` | YAML 可解析；5 个 jobs、Oracle 外部门禁和 reconciliation 测试存在 | `YAML_PARSE=PASS`; `CI_STATIC=PASS` | 0 | PASS |
+| Markdown links | CI 内嵌 repository-relative link validator | 59 Markdown files | 所有 repository-relative 链接存在 | `MARKDOWN_FILES=59`; `MARKDOWN_LINKS=PASS` | 0 | PASS |
+| YAML/CI | `python -c <PyYAML + review-finding assertions>` | `.github/workflows/ci.yml` | YAML 可解析；6 个 jobs、完整 diff range、Android wrapper 与 Oracle 语义存在 | `YAML_PARSE=PASS`; `CI_STATIC=PASS` | 0 | PASS |
 | Rename | `git diff --cached --summary`；`git ls-files docs/current-state.md docs/CURRENT_STATE.md` | rename-only commit | 100% 大小写 rename；只保留 uppercase | `rename ... (100%)`; `docs/CURRENT_STATE.md` | 0 | PASS |
-| Scope/static | `python -c <changed-path allowlist>` | `origin/main...worktree` | 无业务/Schema/测试断言修改 | `SCOPE_STATIC=PASS` | 0 | PASS |
-| Whitespace | `git diff --check origin/main` | worktree | 无错误 | no output | 0 | PASS |
+| Scope/static | `git diff --name-only origin/main...HEAD` + allowlist | 25 changed paths（大小写 rename 计两个路径） | 无业务/Schema/测试断言修改 | `CHANGED_FILES=25`; `SCOPE_STATIC=PASS` | 0 | PASS |
+| Android wrapper | inspect wrapper JAR | `android_collector/gradle/wrapper/gradle-wrapper.jar` | Hosted Ubuntu 可调用 wrapper main | `WRAPPER_MAIN_PRESENT=True`；实际 JVM tests 以后续 Hosted run 为准 | 0 | PASS |
+| Whitespace | `git diff --check origin/main...HEAD` | fixed Head | 无错误 | no output | 0 | PASS |
 
 ## Oracle Gate
 
 - Required：No
-- Reason：只修改治理文档、模板和 CI；CI 保留独立 Oracle 外部门禁，缺少环境不得冒充 PASS。
+- Reason：只修改治理文档、模板和 CI；`oracle-scope` 必须显式分类为不适用后才 `SKIPPED`。若分类为 Required/启用而缺参数，Oracle job 输出 `BLOCKED` 并 exit 2。
 
 ## Real-device Gate
 
@@ -94,7 +96,7 @@ None。此任务不改变产品或架构语义。
 
 ## Human Decision Points
 
-- Independent Review 完成后，创建 PR 和 merge 仍需 Product Owner 明确批准。
+- 通用规则允许 Review `ACCEPT` 后由 Control 自动创建 Draft PR；本 Task 明确禁止创建 PR并要求停止，构成 Task-specific override。后续如需 PR 必须由新的明确用户指令授权；merge 与 release 始终需要 Product Owner 明确批准。
 
 ## Stop Condition
 

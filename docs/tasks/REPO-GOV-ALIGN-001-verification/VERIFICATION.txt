@@ -3,7 +3,7 @@ DATE=2026-08-25
 BRANCH=codex/repo-governance-mainline
 BASELINE=main@02234f2fd50d4b4afeceec6ff782d0151016887d
 OLD_GOVERNANCE_SOURCE=28addc917706904bf84252cb1e1cbff01c75aa3d
-CHANGED_FIELD=WORKFLOW.md Product Owner/Control/Dev/Independent Review/E2E role and Control boundary matrix
+CHANGED_FIELD=WORKFLOW.md Product Owner/Control/Dev/Independent Review/E2E role, Control boundary, and Task-specific Draft PR override
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\MODIFIED_FILE.txt
@@ -13,7 +13,7 @@ ROLLBACK=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-
 
 HASHES
 ORIGINAL_SHA256=07cece9a5d2431ce052bd8ae9383f6d128aa23828edc1fe495f46296bb8935f5
-MODIFIED_SHA256=ba509ce695b96a9374b1746bb04be1d9ef191204e3ce8690b440d0256b42f85f
+MODIFIED_SHA256=524e4adcca6f7f3351124d8de52d98f4a3819555ec127caffdf9e4192f6efafe
 
 BASELINE
 COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','28addc917706904bf84252cb1e1cbff01c75aa3d:WORKFLOW.md'],text=True,encoding='utf-8'); roles=['Product Owner','Control','Independent Review']; print('BASELINE_ROLE_MATRIX=' + ('present' if all(x in s for x in roles) else 'absent'))"
@@ -23,50 +23,57 @@ EXIT_STATUS=0
 RESULT=PASS (baseline absence reproduced)
 
 MODIFIED
-COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/REPO-GOV-ALIGN-001-verification/MODIFIED_FILE.txt').read_text(encoding='utf-8'); roles=['Product Owner','Control','Dev','Independent Review','E2E']; print('MODIFIED_ROLE_MATRIX=' + ('present' if all(x in s for x in roles) else 'absent'))"
-INPUT=MODIFIED_FILE.txt copied from aligned WORKFLOW.md
+COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/REPO-GOV-ALIGN-001-verification/MODIFIED_FILE.txt').read_text(encoding='utf-8'); required=['Product Owner','Control','Dev','Independent Review','E2E','Task-specific override']; print('MODIFIED_ROLE_MATRIX=' + ('present' if all(x in s for x in required) else 'absent'))"
+INPUT=MODIFIED_FILE.txt copied from review-fixed WORKFLOW.md
 LITERAL_OUTPUT=MODIFIED_ROLE_MATRIX=present
 EXIT_STATUS=0
-RESULT=PASS (role and Control matrix present)
+RESULT=PASS (single role matrix and Draft PR override present)
 
 ROLLBACK
-COMMAND=D:\Git\bin\bash.exe docs/tasks/REPO-GOV-ALIGN-001-verification/ROLLBACK.sh <REPO_ROOT>/docs/tasks/REPO-GOV-ALIGN-001-verification/rollback_probe.txt
-INPUT=another copy of MODIFIED_FILE.txt
+COMMAND=D:\Git\bin\bash.exe docs/tasks/REPO-GOV-ALIGN-001-verification/ROLLBACK.sh <ABS_REPO_ROOT>/docs/tasks/REPO-GOV-ALIGN-001-verification/rollback_probe.txt
+INPUT=another copy of MODIFIED_FILE.txt at an absolute path under the repository root
 LITERAL_OUTPUT=ROLLBACK_RESULT=restored_old_governance_workflow
 LITERAL_OUTPUT=RESTORED_SHA256=07cece9a5d2431ce052bd8ae9383f6d128aa23828edc1fe495f46296bb8935f5
 LITERAL_OUTPUT=ROLLBACK_EXIT=0
 LITERAL_OUTPUT=ROLLBACK_MATCH=yes
 EXIT_STATUS=0
 RESULT=PASS
-RESTORED_BEHAVIOR_STATUS=the probe again reports BASELINE_ROLE_MATRIX=absent and exactly matches the original SHA-256; the real MODIFIED_FILE.txt remains changed
+RESTORED_BEHAVIOR_STATUS=the probe exactly matches the original SHA-256; the real MODIFIED_FILE.txt remains changed with SHA-256 524e4adcca6f7f3351124d8de52d98f4a3819555ec127caffdf9e4192f6efafe
 
 GOVERNANCE_GATES
-MARKDOWN_COMMAND=python -c <repository-relative Markdown link validator>
-MARKDOWN_INPUT=60 Markdown files
-MARKDOWN_OUTPUT=MARKDOWN_LINKS=PASS
+MARKDOWN_COMMAND=the exact repository-relative Markdown validator embedded in .github/workflows/ci.yml
+MARKDOWN_INPUT=59 Markdown files in root, docs recursively, and module/.github top level
+MARKDOWN_OUTPUT=MARKDOWN_FILES=59; MARKDOWN_LINKS_CHECKED=75; MARKDOWN_LINKS=PASS
 MARKDOWN_EXIT=0
 
-YAML_COMMAND=python -c <PyYAML workflow parser>
+YAML_COMMAND=python -c <PyYAML workflow parser and review-finding assertions>
 YAML_INPUT=.github/workflows/ci.yml
 YAML_OUTPUT=YAML_FILES=1; YAML_PARSE=PASS
 YAML_EXIT=0
 
-CI_STATIC_COMMAND=python -c <required jobs, Oracle external gate, reconciliation integration assertions>
-CI_STATIC_OUTPUT=CI_JOBS=android-jvm,governance,oracle-integration,python-offline,web-build; CI_STATIC=PASS
+CI_STATIC_COMMAND=python -c <six required jobs, full-history diff range, wrapper main, Oracle applicability/BLOCKED assertions>
+CI_STATIC_OUTPUT=CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build; CI_STATIC=PASS
 CI_STATIC_EXIT=0
 
-RENAME_COMMAND=git diff --cached --summary
-RENAME_OUTPUT=rename docs/{current-state.md => CURRENT_STATE.md} (100%)
+ANDROID_WRAPPER_COMMAND=python -c <inspect android_collector/gradle/wrapper/gradle-wrapper.jar>
+ANDROID_WRAPPER_INPUT=android_collector/gradle/wrapper/gradle-wrapper.jar
+ANDROID_WRAPPER_OUTPUT=WRAPPER_MAIN_PRESENT=True
+ANDROID_WRAPPER_EXIT=0
+ANDROID_HOSTED_COMMAND=java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
+ANDROID_HOSTED_STATUS=to be reported from the fixed Head hosted run; not represented as local PASS
+
+RENAME_COMMAND=git show --summary e1ed4cb59551e6b97511c2daf8755cdba4bd95f2; git ls-files docs/current-state.md docs/CURRENT_STATE.md
+RENAME_OUTPUT=rename docs/{current-state.md => CURRENT_STATE.md} (100%); docs/CURRENT_STATE.md
 RENAME_EXIT=0
 RENAME_COMMIT=e1ed4cb59551e6b97511c2daf8755cdba4bd95f2
 
-SCOPE_COMMAND=python -c <changed-path governance allowlist>
-SCOPE_OUTPUT=CHANGED_FILES=24; SCOPE_STATIC=PASS
+SCOPE_COMMAND=git diff --name-only origin/main...HEAD plus governance allowlist assertion
+SCOPE_OUTPUT=CHANGED_FILES=25; SCOPE_STATIC=PASS
 SCOPE_EXIT=0
 
-DIFF_CHECK_COMMAND=git diff --check origin/main
+DIFF_CHECK_COMMAND=git diff --check origin/main...HEAD
 DIFF_CHECK_OUTPUT=<no output>
 DIFF_CHECK_EXIT=0
 
-ORACLE_STATUS=NOT_REQUIRED (governance-only change); CI keeps Oracle as an independent external gate and never treats missing environment as PASS
+ORACLE_STATUS=SKIPPED only after oracle-scope explicitly classifies this governance-only change set as not applicable; a Required/explicitly enabled gate with missing inputs outputs BLOCKED and exits 2
 REAL_DEVICE_STATUS=NOT_REQUIRED (no Android business or lifecycle change)

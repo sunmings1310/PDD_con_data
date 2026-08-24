@@ -108,4 +108,4 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 4. 文档没有第二套状态账本或固定 Agent 池；
 5. Markdown、YAML/CI、大小写 rename 和 `git diff --check` 的实际证据可复现。
 
-Review 前不创建 PR；Review `ACCEPT` 后仍需 Product Owner 明确批准后才能进入 PR/merge。
+通用规则允许 Control 在 Review `ACCEPT` 后自动创建 Draft PR，但本 Task 的 Stop Condition 明确禁止创建 PR，构成 Task-specific override；因此本轮 Review 后仍停止。merge 与 release 在所有情况下都必须等待 Product Owner 明确批准。

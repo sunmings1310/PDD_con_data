@@ -55,7 +55,7 @@
 - 运行 `git diff --check`；
 - 按 [`WORKFLOW.md`](WORKFLOW.md) 完成 Review、回滚和文档证据。
 
-CI 只覆盖不依赖真实 Oracle 的核心门禁。涉及 migration、tenant、transaction 或 Oracle 方言时，最终验收必须实际运行隔离 Oracle；无环境时明确 `BLOCKED`/`SKIPPED`。
+CI 默认覆盖不依赖真实 Oracle 的核心门禁。涉及 migration、tenant、transaction 或 Oracle 方言时，最终验收必须实际运行隔离 Oracle；明确不适用时才可 `SKIPPED`，Required/启用但缺环境时必须为 `BLOCKED`，不得冒充 `PASS`。
 
 ## 6. Git、Agent 与 Review
 
