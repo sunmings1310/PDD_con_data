@@ -81,6 +81,17 @@ interface OutboxDao {
     )
     suspend fun markRetry(id: String, nextAttemptAt: Long, error: String)
 
+    @Query(
+        "UPDATE upload_outbox SET payloadJson=:payloadJson, state='retry', " +
+            "nextAttemptAt=:nextAttemptAt, lastError='' " +
+            "WHERE outboxId=:id AND eventType='finish' AND jobId IS NULL AND state!='acked'"
+    )
+    suspend fun requeueLegacyFinishForCancellation(
+        id: String,
+        payloadJson: String,
+        nextAttemptAt: Long,
+    ): Int
+
     @Query("UPDATE upload_outbox SET state='rejected', attemptCount=attemptCount+1, lastError=:error WHERE outboxId=:id")
     suspend fun markRejected(id: String, error: String)
 
@@ -113,6 +124,9 @@ interface OutboxDao {
 
     @Query("SELECT * FROM upload_outbox WHERE jobId=:jobId AND attemptId=:attemptId ORDER BY createdAt ASC")
     suspend fun listForAttempt(jobId: Long, attemptId: Long): List<OutboxEntity>
+
+    @Query("SELECT * FROM upload_outbox WHERE jobId=:jobId AND eventType='product' ORDER BY createdAt ASC")
+    suspend fun listProductsForJob(jobId: Long): List<OutboxEntity>
 
     @Query("UPDATE upload_outbox SET jobId=:jobId, attemptId=:attemptId, leaseToken=:leaseToken, workerId=:workerId, traceId=:traceId, checkpointVersion=:checkpointVersion WHERE outboxId=:outboxId")
     suspend fun bindLease(

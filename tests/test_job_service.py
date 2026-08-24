@@ -124,6 +124,29 @@ class JobServiceTest(unittest.TestCase):
         receipt_queries = [params["key"] for sql, params in cur.calls if "SJZQ_UPLOAD_RECEIPT" in sql]
         self.assertEqual(receipt_queries, ["receipt-first", "receipt-second"])
 
+    def test_complete_allows_unmatched_ordinary_item_to_use_canonical_receipt(self):
+        cur = FakeCursor()
+        running_job = dict(self.job, status="running", item_id=91)
+        running_attempt = dict(self.attempt, status="running")
+        original_execute = cur.execute
+
+        def execute(sql, params=None):
+            original_execute(sql, params)
+            if "SELECT PRODUCT_ID,TARGET_SPEC" in " ".join(sql.split()):
+                cur._row = (None, None, None, None, None)
+
+        cur.execute = execute
+        with patch.object(svc, "_complete_replay", return_value=False), \
+             patch.object(svc, "_context", return_value=(running_job, running_attempt)), \
+             patch.object(svc, "_aggregate_task_from_jobs", return_value=None), \
+             patch.object(svc, "next_id", return_value=50):
+            result = svc.complete(
+                cur, device_id=7, job_id=21, attempt_id=31, worker_id="worker-a",
+                lease_token="x" * 43, result_receipt_key="receipt-first",
+            )
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(any("SET STATUS='succeeded',PRODUCT_ID" in sql for sql, _ in cur.calls))
+
     def test_fail_uses_bounded_transient_retry_and_permanent_failure(self):
         running_job = dict(self.job, status="running")
         running_attempt = dict(self.attempt, status="running")
