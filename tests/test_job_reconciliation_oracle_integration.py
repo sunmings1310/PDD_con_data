@@ -233,12 +233,25 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
             self._event_scope(int(due["job_id"]), "RETRY_WAIT_ELAPSED"),
         )
 
-    def test_mark_confirmed_result_success_preserves_receipt_checkpoint_and_idempotency(self):
-        fixture = self._new_job("A")
-        product_id = self._seq("SJZQ_SEQ_PRODUCT")
-        checkpoint_id = self._seq("SJZQ_SEQ_COLLECTION_CHECKPOINT")
-        receipt_key = f"receipt-{self.tag}"
+    def test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent(self):
+        fixture = self._running_job("A")
+        other = self._new_job("B")
         checkpoint_key = f"checkpoint-{self.tag}"
+        checkpoint_result = job_service.checkpoint(
+            self.cur,
+            device_id=int(fixture["device_id"]),
+            job_id=int(fixture["job_id"]),
+            attempt_id=int(fixture["attempt_id"]),
+            worker_id=str(fixture["worker_id"]),
+            lease_token=str(fixture["lease_token"]),
+            version=1,
+            idempotency_key=checkpoint_key,
+            payload={"confirmed_slots": [f"{self.tag}|default_top_1"]},
+        )
+        self.assertEqual({"version": 1, "idempotent": False}, checkpoint_result)
+
+        product_id = self._seq("SJZQ_SEQ_PRODUCT")
+        receipt_key = f"receipt-{self.tag}"
         self.cur.execute(
             """INSERT INTO SJZQ_PRODUCT
                  (PRODUCT_ID,TASK_ID,DEVICE_ID,PLATFORM_CODE,ITEM_ID,PRODUCT_NAME,PRICE,
@@ -270,54 +283,205 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
                 "workspace_id": fixture["workspace_id"],
             },
         )
+
+        # Model a historical write tear after the real Attempt completed and its
+        # checkpoint/result were durable, but before Job/TaskItem/Task aggregate
+        # completion.  The Attempt is a real acquired/started row and remains an
+        # immutable successful history record; the checkpoint is its linkage.
         self.cur.execute(
-            """INSERT INTO SJZQ_COLLECTION_CHECKPOINT
-                 (CHECKPOINT_ID,JOB_ID,ATTEMPT_ID,VERSION,IDEMPOTENCY_KEY,PAYLOAD_SHA256,
-                  PAYLOAD_JSON,ENTERPRISE_ID,WORKSPACE_ID)
-               VALUES (:checkpoint_id,:job_id,NULL,1,:key,RPAD('b',64,'b'),'{}',
-                       :enterprise_id,:workspace_id)""",
+            """UPDATE SJZQ_COLLECTION_ATTEMPT
+                  SET STATUS='success',FINISHED_AT=SYSTIMESTAMP,FINAL_CHECKPOINT_VERSION=1
+                WHERE ATTEMPT_ID=:attempt_id AND JOB_ID=:job_id AND STATUS='running'""",
             {
-                "checkpoint_id": checkpoint_id,
+                "attempt_id": fixture["attempt_id"],
                 "job_id": fixture["job_id"],
-                "key": checkpoint_key,
-                "enterprise_id": fixture["enterprise_id"],
-                "workspace_id": fixture["workspace_id"],
             },
         )
+        self.assertEqual(1, self.cur.rowcount)
+        self.cur.execute(
+            """UPDATE SJZQ_COLLECTION_LEASE
+                  SET STATUS='released',RELEASED_AT=SYSTIMESTAMP,
+                      RELEASE_REASON='HISTORICAL_CONFIRMED_RESULT'
+                WHERE ATTEMPT_ID=:attempt_id AND STATUS='active'""",
+            {"attempt_id": fixture["attempt_id"]},
+        )
+        self.assertEqual(1, self.cur.rowcount)
         self.cur.execute(
             """UPDATE SJZQ_COLLECTION_JOB
                   SET STATUS='retry_wait',NEXT_RUN_AT=SYSTIMESTAMP,
-                      CHECKPOINT_VERSION=1,CHECKPOINT_JSON='{}',
+                      ACTIVE_ATTEMPT_ID=NULL,LEASE_TOKEN_HASH=NULL,LEASE_EXPIRES_AT=NULL,DEVICE_ID=NULL,
                       RESULT_RECEIPT_KEY=:receipt_key,RESULT_PRODUCT_ID=:product_id
                 WHERE JOB_ID=:job_id""",
             {"receipt_key": receipt_key, "product_id": product_id, "job_id": fixture["job_id"]},
         )
+        self.cur.execute(
+            """UPDATE SJZQ_DEVICE
+                  SET ACTIVE_JOB_ID=NULL,ACTIVE_ATTEMPT_ID=NULL,CURRENT_TASK_ID=NULL
+                WHERE DEVICE_ID=:device_id""",
+            {"device_id": fixture["device_id"]},
+        )
+
+        self.cur.execute(
+            """SELECT CHECKPOINT_ID,ATTEMPT_ID,VERSION
+                 FROM SJZQ_COLLECTION_CHECKPOINT
+                WHERE JOB_ID=:job_id AND IDEMPOTENCY_KEY=:key""",
+            {"job_id": fixture["job_id"], "key": checkpoint_key},
+        )
+        checkpoint_before = tuple(int(value) for value in self.cur.fetchone())
+        checkpoint_id = checkpoint_before[0]
+        self.assertEqual((checkpoint_id, fixture["attempt_id"], 1), checkpoint_before)
+        self.cur.execute(
+            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
+            {"item_id": fixture["item_id"]},
+        )
+        item_before = self.cur.fetchone()
+        self.assertEqual(("running", None), (str(item_before[0]).lower(), item_before[1]))
+
         store = OracleReconciliationStore(self.cur)
         candidate = next(
             item for item in store.confirmed_result_without_success(limit=1000)
             if item.job_id == fixture["job_id"]
         )
+        self.assertEqual(fixture["attempt_id"], candidate.attempt_id)
+        self.assertEqual(fixture["device_id"], candidate.device_id)
         self.assertTrue(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
-        self.assertFalse(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
 
         self.cur.execute(
             """SELECT STATUS,RESULT_RECEIPT_KEY,RESULT_PRODUCT_ID,CHECKPOINT_VERSION,
-                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
+                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END,
+                      ACTIVE_ATTEMPT_ID,LEASE_TOKEN_HASH,DEVICE_ID
                  FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id""",
             {"job_id": fixture["job_id"]},
         )
         row = self.cur.fetchone()
-        self.assertEqual(("success", receipt_key, product_id, 1, 1),
-                         (str(row[0]).lower(), str(row[1]), int(row[2]), int(row[3]), int(row[4])))
-        self.cur.execute(
-            "SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE CHECKPOINT_ID=:id AND JOB_ID=:job_id",
-            {"id": checkpoint_id, "job_id": fixture["job_id"]},
+        self.assertEqual(
+            ("success", receipt_key, product_id, 1, 1, None, None, None),
+            (str(row[0]).lower(), str(row[1]), int(row[2]), int(row[3]), int(row[4]), row[5], row[6], row[7]),
         )
-        self.assertEqual(1, int(self.cur.fetchone()[0]))
+        self.cur.execute(
+            """SELECT a.JOB_ID,j.TASK_ID,a.DEVICE_ID,a.WORKER_ID,a.STATUS,
+                      CASE WHEN a.FINISHED_AT IS NOT NULL THEN 1 ELSE 0 END,
+                      a.FINAL_CHECKPOINT_VERSION,a.ATTEMPT_NO
+                 FROM SJZQ_COLLECTION_ATTEMPT a
+                 JOIN SJZQ_COLLECTION_JOB j ON j.JOB_ID=a.JOB_ID
+                WHERE a.ATTEMPT_ID=:attempt_id""",
+            {"attempt_id": fixture["attempt_id"]},
+        )
+        attempt_row = self.cur.fetchone()
+        self.assertEqual(
+            (
+                fixture["job_id"], fixture["task_id"], fixture["device_id"], fixture["worker_id"],
+                "success", 1, 1, 1,
+            ),
+            (
+                int(attempt_row[0]), int(attempt_row[1]), int(attempt_row[2]), str(attempt_row[3]),
+                str(attempt_row[4]).lower(), int(attempt_row[5]),
+                int(attempt_row[6]), int(attempt_row[7]),
+            ),
+        )
+        self.cur.execute(
+            """SELECT CHECKPOINT_ID,JOB_ID,ATTEMPT_ID,VERSION,IDEMPOTENCY_KEY
+                 FROM SJZQ_COLLECTION_CHECKPOINT WHERE CHECKPOINT_ID=:id""",
+            {"id": checkpoint_id},
+        )
+        checkpoint_after = self.cur.fetchone()
+        self.assertEqual(
+            (checkpoint_id, fixture["job_id"], fixture["attempt_id"], 1, checkpoint_key),
+            (
+                int(checkpoint_after[0]), int(checkpoint_after[1]), int(checkpoint_after[2]),
+                int(checkpoint_after[3]), str(checkpoint_after[4]),
+            ),
+        )
+        self.cur.execute(
+            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
+            {"item_id": fixture["item_id"]},
+        )
+        item_row = self.cur.fetchone()
+        self.assertEqual(("succeeded", product_id), (str(item_row[0]).lower(), int(item_row[1])))
+        self.cur.execute(
+            """SELECT STATUS,SUCCESS_COUNT,FAIL_COUNT,
+                      CASE WHEN END_TIME IS NOT NULL THEN 1 ELSE 0 END
+                 FROM SJZQ_TASK WHERE TASK_ID=:task_id""",
+            {"task_id": fixture["task_id"]},
+        )
+        task_row = self.cur.fetchone()
+        self.assertEqual(("succeeded", 1, 0, 1),
+                         (str(task_row[0]).lower(), int(task_row[1]), int(task_row[2]), int(task_row[3])))
+        self.cur.execute(
+            """SELECT r.TASK_ID,r.DEVICE_ID,r.PRODUCT_ID,r.STATUS,p.TASK_ID,p.DEVICE_ID
+                 FROM SJZQ_UPLOAD_RECEIPT r
+                 JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=r.PRODUCT_ID
+                WHERE r.IDEMPOTENCY_KEY=:key""",
+            {"key": receipt_key},
+        )
+        receipt_row = self.cur.fetchone()
+        self.assertEqual(
+            (fixture["task_id"], fixture["device_id"], product_id, "acked",
+             fixture["task_id"], fixture["device_id"]),
+            (int(receipt_row[0]), int(receipt_row[1]), int(receipt_row[2]), str(receipt_row[3]).lower(),
+             int(receipt_row[4]), int(receipt_row[5])),
+        )
         self.assertEqual(
             (1, fixture["enterprise_id"], fixture["workspace_id"]),
             self._event_scope(int(fixture["job_id"]), "RESULT_RECEIPT_REPAIRED"),
         )
+
+        self.cur.execute(
+            """SELECT (SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:job_id),
+                      (SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID=:job_id),
+                      (SELECT COUNT(*) FROM SJZQ_UPLOAD_RECEIPT WHERE IDEMPOTENCY_KEY=:receipt_key),
+                      (SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:product_id),
+                      (SELECT COUNT(*) FROM SJZQ_JOB_EVENT
+                        WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED')
+                 FROM DUAL""",
+            {"job_id": fixture["job_id"], "receipt_key": receipt_key, "product_id": product_id},
+        )
+        counts_after_first = tuple(int(value) for value in self.cur.fetchone())
+        self.assertEqual((1, 1, 1, 1, 1), counts_after_first)
+
+        self.assertFalse(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
+        self.cur.execute(
+            """SELECT (SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:job_id),
+                      (SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID=:job_id),
+                      (SELECT COUNT(*) FROM SJZQ_UPLOAD_RECEIPT WHERE IDEMPOTENCY_KEY=:receipt_key),
+                      (SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:product_id),
+                      (SELECT COUNT(*) FROM SJZQ_JOB_EVENT
+                        WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED')
+                 FROM DUAL""",
+            {"job_id": fixture["job_id"], "receipt_key": receipt_key, "product_id": product_id},
+        )
+        self.assertEqual(counts_after_first, tuple(int(value) for value in self.cur.fetchone()))
+        self.cur.execute(
+            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
+            {"item_id": fixture["item_id"]},
+        )
+        item_after_second = self.cur.fetchone()
+        self.assertEqual(("succeeded", product_id),
+                         (str(item_after_second[0]).lower(), int(item_after_second[1])))
+        self.cur.execute(
+            "SELECT STATUS,SUCCESS_COUNT,FAIL_COUNT FROM SJZQ_TASK WHERE TASK_ID=:task_id",
+            {"task_id": fixture["task_id"]},
+        )
+        task_after_second = self.cur.fetchone()
+        self.assertEqual(("succeeded", 1, 0),
+                         (str(task_after_second[0]).lower(), int(task_after_second[1]), int(task_after_second[2])))
+        self.cur.execute(
+            """SELECT t.STATUS,i.STATUS,j.STATUS,t.SUCCESS_COUNT,t.FAIL_COUNT
+                 FROM SJZQ_TASK t
+                 JOIN SJZQ_TASK_ITEM i ON i.TASK_ID=t.TASK_ID
+                 JOIN SJZQ_COLLECTION_JOB j ON j.TASK_ID=t.TASK_ID
+                WHERE t.TASK_ID=:task_id""",
+            {"task_id": other["task_id"]},
+        )
+        other_row = self.cur.fetchone()
+        self.assertEqual(("pending", "pending", "pending", 0, 0),
+                         (str(other_row[0]).lower(), str(other_row[1]).lower(), str(other_row[2]).lower(),
+                          int(other_row[3]), int(other_row[4])))
+        self.cur.execute(
+            "SELECT COUNT(*) FROM SJZQ_JOB_EVENT WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED'",
+            {"job_id": other["job_id"]},
+        )
+        self.assertEqual(0, int(self.cur.fetchone()[0]))
 
     def test_mark_job_dead_reclaims_attempt_lease_and_preserves_other_tenant(self):
         broken = self._running_job("A")

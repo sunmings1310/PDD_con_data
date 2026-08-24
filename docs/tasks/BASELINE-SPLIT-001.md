@@ -1,6 +1,6 @@
 # BASELINE-SPLIT-001：Accepted Business Baseline Split Manifest
 
-- Status：READY FOR FINAL RE-REVIEW / PR REMAINS DRAFT
+- Status：READY FOR FINAL REVIEW / PR REMAINS DRAFT
 - Date：2026-08-24
 - Base：`origin/main@a3d499594b2bd2bf52a43e31ca6440f63b9a8cd6`
 - Source evidence：`90b53658af5bf1e1f0488aaeb520e59887c8c91b`、`13b4301445eda9768069a807a13d9f43cedb8e8f`
@@ -100,6 +100,7 @@
 | 6：通用 RawSource 带 PDD schema 默认值 | RESOLVED | 平台中立 Contract + PDD 显式 Adapter provenance | `CollectorContract.kt` nullable default；`PddCollector.kt` 显式 `pdd-a11y-v1` | 防止未来 Adapter 继承错误 provenance | generic default null + PDD detail sources explicit |
 | 7：41 项 strict Oracle 未执行恢复后的 reconciliation compatibility | RESOLVED | 静态检查继续作为 `STATIC COMPAT CHECK`；另增 `REAL ORACLE INTEGRATION` | `tests/test_job_reconciliation_oracle_integration.py`、`scripts/test-baseline.ps1`、`server/job_reconciliation.py` tenant event 最小修复 | 第二次独立 Review 指出的唯一 merge-blocking P1；旧 41/41 不再被描述为该路径的真实 Oracle 证据 | 5 项真实 Oracle 数据/连接/生产方法测试进入 strict gate；旧 41 + 新 5 = 46 |
 | 8：Review verification artifact 含机器绝对路径 | RESOLVED | 历史删除证据保留语义并脱敏 | `BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch` 使用 `<REPO_ROOT>` / `<GIT_BIN>`；verification 修正分类 | 该 finding 为 artifact 历史证据，不是 runtime/API 泄漏 | machine-specific path=0；negative test/ADR sentinel >0；runtime exposure=0 |
+| 9：`mark_confirmed_result_success` 的真实 Oracle fixture 缺少真实 Attempt、Checkpoint→Attempt、canonical Product binding 与 Task aggregate | RESOLVED | `REQUIRED_SUPPORT` 生命周期恢复证据补全；完整 fixture 暴露并关闭最小生产缺口 | `tests/test_job_reconciliation_oracle_integration.py` 使用真实 acquire/start Attempt #1 和生产 `checkpoint()`；`server/job_reconciliation.py` 从 Checkpoint 恢复历史 Attempt、校验 receipt/product/tenant、绑定 TaskItem 并调用权威聚合 | 第三次 Review 指出的最后一个 merge-blocking P1；Attempt 保持既有 `success` 不可变终态，不创建新 Attempt | 初始 test-only 运行 `FAIL`（`AssertionError: 477 != None`）；最小修复后 targeted 1/1、模块 5/5、strict Oracle 46/46 PASS；二次真实 Oracle 调用无重复对象/计数 |
 
 Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU Panel 自动打开和 combination traversal 未随 lifecycle 修复恢复；`PddActionsSkuContractTest.kt` 仍排除。Legacy SKU JSON/text 兼容读取及 `SKU_PANEL` 类型表达能力仅用于已存在数据，不会激活默认运行时。
 
@@ -112,13 +113,17 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU 
 | Raw immutability/identity targeted | `python -m unittest -v tests.test_raw_capture` | `Ran 8 tests in 0.250s ... OK` | 0 | PASS |
 | Product P0 Python targeted | `python -m unittest -v tests.test_product_consistency_p0` | `Ran 5 tests ... OK` | 0 | PASS |
 | Android behavior/lifecycle targeted | `gradlew testDebugUnitTest --no-daemon` + 5 class filters | `BUILD SUCCESSFUL in 8s`; 18 tests, 0 failures, 0 skipped | 0 | PASS |
-| Python full | `python scripts/run_python_unit_tests.py` | `Ran 195 tests in 0.392s ... OK (skipped=23)` | 0 | PASS |
+| Confirmed-result lifecycle targeted | `python -m unittest -v tests.test_job_reconciliation_oracle_integration.OracleReconciliationIntegrationTest.test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent`；输入：隔离可写 Oracle test schema、全部 opt-in flags=1 | `Ran 1 test in 4.583s ... OK`；Real Oracle=YES、Production Method=YES、Attempt=REAL、Checkpoint binding/canonical Product binding/Task aggregate/idempotency/tenant isolation=PASS | 0 | PASS |
+| Reconciliation real Oracle module | `python -m unittest -v tests.test_job_reconciliation_oracle_integration`；输入：同上 | `Ran 5 tests in 20.846s ... OK`；skipped=0 | 0 | PASS |
+| Reconciliation static/module targeted | `python -m unittest -v tests.test_job_reconciliation tests.test_job_reconciliation_oracle_compat` | `Ran 12 tests in 0.008s ... OK` | 0 | PASS |
+| Python full | `python scripts/run_python_unit_tests.py` | `Ran 195 tests in 0.352s ... OK (skipped=23)` | 0 | PASS |
+| Python strict | `scripts/test-baseline.ps1 -Suite python -Strict` | `Ran 195 tests in 0.351s ... OK (skipped=23)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Python compile | `python -m compileall -q server scripts tests` | no output | 0 | PASS |
-| Android JVM full | `gradlew testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 11s`; 70 tests, 0 failures, 0 errors, 1 skipped | 0 | PASS |
-| Web production | `npm run build` | `1673 modules transformed`; `built in 763ms` | 0 | PASS |
+| Android JVM strict | `scripts/test-baseline.ps1 -Suite android -Strict` | `BUILD SUCCESSFUL in 8s`; XML：70 tests, 0 failures, 0 errors, 1 skipped；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Web production strict | `scripts/test-baseline.ps1 -Suite web -Strict` | `1673 modules transformed`; `built in 563ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Oracle reconciliation static | `python -m unittest -v tests.test_job_reconciliation_oracle_compat` | `Ran 4 tests in 0.005s ... OK`；仅为 `STATIC COMPAT CHECK`，不计真实 Oracle integration | 0 | PASS |
 | Oracle reconciliation real integration | strict gate 内执行 `tests/test_job_reconciliation_oracle_integration.py`；输入：既有隔离、可写、事务回滚 Oracle test schema | 5/5 PASS：`expired_leases`、`promote_due_retry`、`mark_confirmed_result_success`、`mark_job_dead`、`nonretryable fail / NEXT_RUN_AT`；skipped=0 | 0 | PASS |
-| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | 旧 count 41 + 新增真实 Oracle cases 5 = `Ran 46 tests in 155.464s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`；Oracle suite skipped=0 | 0 | PASS |
+| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | 旧 count 41 + 真实 Oracle reconciliation cases 5 = `Ran 46 tests in 171.804s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`；Oracle suite skipped=0 | 0 | PASS |
 | Golden Sample | `python scripts/product_consistency_p0.py` | product `985843042423`; `result=PASS`; 10 legacy SKU combinations; 8 media | 0 | PASS |
 | Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + auxiliary production source scan | behavior tests 3/3 PASS；purchase/panel/combination=0；SKU_PANEL=0；DETAIL/parse/legacy SKU read PASS；Generic runtime names 0 | 0 | PASS |
 | Security | changed-scope secret/raw/DB/artifact/large-file/absolute-path scan | no secret、Raw payload、DB、build artifact or changed file >1 MiB；current artifact/file machine-specific path=0；git diff 中 machine-specific path=5，全部是移除旧路径的 historical deleted lines；其他 absolute-path matches 仅为 negative test/ADR sentinel；runtime/API exposure=0 | 0 | PASS |
@@ -128,7 +133,7 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU 
 
 Python full 的 23 个 skip（含 5 个 opt-in reconciliation integration）和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle strict gate 已另行实际执行 46 项并通过，无 skip。
 
-本次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh)。原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
+本次第三次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-003-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-003-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-003-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-003-verification/ROLLBACK.sh)。此前 Review 与原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
 
 ## 8. Sol Review
 
@@ -141,6 +146,7 @@ Python full 的 23 个 skip（含 5 个 opt-in reconciliation integration）和 
 7. Original Raw、identity/content hash 和 Manifest 在 resanitize 前后逐字节不变；Derived 版本可独立验证和 replay。
 8. 逐项复核 13b production hunks；恢复仅覆盖既有 Accepted lifecycle，不包含 Generic SKU、P1 或 Phase 6B。
 9. 第二次 Review 指出的 reconciliation Oracle evidence 缺口由 5 项真实 integration cases 关闭；旧 41 项结果只代表当时集合，当前 strict gate 为 46/46。
+10. 第三次 Review 证明其中 `mark_confirmed_result_success` fixture 仍不完整；本次用真实 Attempt #1、绑定该 Attempt 的生产 Checkpoint、confirmed Receipt/Product、TaskItem canonical binding、Task aggregate、Tenant A/B 和二次调用，完成最后一个定向门禁；完整 fixture 首先失败并暴露生产恢复遗漏，最小修复后全部通过。
 
 ## 9. Rollback
 

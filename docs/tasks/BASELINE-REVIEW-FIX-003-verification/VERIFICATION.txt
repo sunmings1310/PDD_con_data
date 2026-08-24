@@ -1,0 +1,81 @@
+BASELINE-REVIEW-FIX-003 VERIFICATION
+Date: 2026-08-24
+Branch: codex/accepted-business-baseline
+Baseline commit: c02bcd545fc9e1241fa7c09540f5fe783da6106f
+Changed branch/field: confirmed-result reconciliation lifecycle; historical Attempt recovery, Checkpoint-to-Attempt validation, canonical TaskItem.PRODUCT_ID binding, Task aggregate and idempotency.
+
+ARTIFACTS (repo-relative)
+1. docs/tasks/BASELINE-REVIEW-FIX-003-verification/MODIFIED_FILE.py
+2. docs/tasks/BASELINE-REVIEW-FIX-003-verification/DIFF_FILE.patch
+3. docs/tasks/BASELINE-REVIEW-FIX-003-verification/VERIFICATION.txt
+4. docs/tasks/BASELINE-REVIEW-FIX-003-verification/ROLLBACK.sh
+
+HASHES
+Original server/job_reconciliation.py SHA-256:
+31afdfdc0c688a6ab204245b1dfd7b820ebe6c9b4f5ee2d1bbdf0cd658b900f9
+Modified server/job_reconciliation.py / MODIFIED_FILE.py SHA-256:
+82a81c0c01db3e0c3360c1e37eadda1ae4e9ca08ca50c3fa8a034a11dbe48357
+
+BASELINE (test-only fixture, before production correction)
+Command:
+python -m unittest -v tests.test_job_reconciliation_oracle_integration.OracleReconciliationIntegrationTest.test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent
+Input:
+Existing isolated writable Oracle test schema; real Task -> TaskItem -> Job -> acquired/started Attempt #1 -> production checkpoint -> acked Receipt/Product. Attempt was completed as the historical immutable success record while Job remained retry_wait to reproduce the write tear. All Oracle opt-in flags were enabled; credentials came from a local ignored environment file and are not recorded here.
+Literal output/result:
+AssertionError: 477 != None
+Ran 1 test in 3.439s
+FAILED (failures=1)
+Exit status: 1
+Observed behavior/status:
+confirmed_result_without_success() returned no historical Attempt because ACTIVE_ATTEMPT_ID had been cleared; reconciliation therefore could not prove or complete the Attempt/Checkpoint/TaskItem/Task lifecycle.
+
+MODIFIED
+Command:
+python -m unittest -v tests.test_job_reconciliation_oracle_integration.OracleReconciliationIntegrationTest.test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent
+Input:
+The same real Oracle lifecycle fixture and production OracleReconciliationStore method after the minimal lifecycle correction.
+Literal output/result:
+Ran 1 test in 4.583s
+OK
+Exit status: 0
+Observed behavior/status:
+Real Oracle=YES; Production Method=YES; Attempt=REAL; Checkpoint Attempt Binding=PASS; Attempt terminal/finished/linkage=PASS; canonical TaskItem.PRODUCT_ID binding=PASS; Job/Receipt/Result=PASS; Task aggregate=PASS; second invocation/idempotency=PASS; Tenant A/B isolation and event identity=PASS. The existing successful Attempt and Checkpoint remained unchanged, and no second Attempt, Checkpoint, Receipt, Product or repair event was created.
+
+ROLLBACK (tested on a separate copy; MODIFIED_FILE.py remained modified)
+Command:
+$gitExe=(Get-Command git).Source; $bashExe=Join-Path (Split-Path (Split-Path $gitExe -Parent) -Parent) 'bin\bash.exe'; & $bashExe 'docs/tasks/BASELINE-REVIEW-FIX-003-verification/ROLLBACK.sh' 'docs/tasks/BASELINE-REVIEW-FIX-003-verification/rollback_probe.py'
+Input:
+rollback_probe.py was a byte-for-byte copy of MODIFIED_FILE.py with SHA-256 82a81c0c01db3e0c3360c1e37eadda1ae4e9ca08ca50c3fa8a034a11dbe48357.
+Literal output/result:
+target=docs/tasks/BASELINE-REVIEW-FIX-003-verification/rollback_probe.py
+before_sha256=82a81c0c01db3e0c3360c1e37eadda1ae4e9ca08ca50c3fa8a034a11dbe48357
+after_sha256=31afdfdc0c688a6ab204245b1dfd7b820ebe6c9b4f5ee2d1bbdf0cd658b900f9
+expected_sha256=31afdfdc0c688a6ab204245b1dfd7b820ebe6c9b4f5ee2d1bbdf0cd658b900f9
+result=RESTORED
+exit_status=0
+Exit status: 0
+Restored behavior/status:
+The separate probe was restored byte-for-byte to baseline commit c02bcd5. MODIFIED_FILE.py retained SHA-256 82a81c0c01db3e0c3360c1e37eadda1ae4e9ca08ca50c3fa8a034a11dbe48357. The temporary probe was removed after verification.
+
+REGRESSION RESULTS
+1. python -m unittest -v tests.test_job_reconciliation_oracle_integration
+   Ran 5 tests in 20.846s; OK; skipped=0; exit=0; PASS.
+2. python -m unittest -v tests.test_job_reconciliation tests.test_job_reconciliation_oracle_compat
+   Ran 12 tests in 0.008s; OK; exit=0; PASS.
+3. scripts/test-baseline.ps1 -Suite oracle -Strict
+   Ran 46 tests in 171.804s; OK; skipped=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+4. python scripts/run_python_unit_tests.py
+   Ran 195 tests in 0.352s; OK (skipped=23); exit=0; PASS. Opt-in Oracle tests were separately executed by gate 3 and were not counted as Oracle PASS when skipped here.
+5. scripts/test-baseline.ps1 -Suite python -Strict
+   Ran 195 tests in 0.351s; OK (skipped=23); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+6. python -m compileall -q server scripts tests
+   no output; exit=0; PASS.
+7. scripts/test-baseline.ps1 -Suite android -Strict
+   BUILD SUCCESSFUL in 8s; XML 70 tests, failures=0, errors=0, skipped=1; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+8. scripts/test-baseline.ps1 -Suite web -Strict
+   1673 modules transformed; built in 563ms; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+9. git diff --check
+   no whitespace errors; exit=0; PASS.
+
+SCOPE / DATA CHECK
+Changed production scope is limited to server/job_reconciliation.py. The test change is limited to tests/test_job_reconciliation_oracle_integration.py. No Generic SKU, SKU_PANEL interaction, Raw Capture contract, Product P0, Phase 6A contract, P1 or Phase 6B implementation is included. No credential, token, raw capture payload, local database, build output or file larger than 1 MiB is included.
