@@ -248,10 +248,12 @@ class OracleReconciliationStore:
                   ON (target.EVENT_KEY=source.EVENT_KEY)
                WHEN NOT MATCHED THEN INSERT
                  (EVENT_ID, EVENT_KEY, TASK_ID, JOB_ID, ATTEMPT_ID, EVENT_TYPE, OLD_STATUS, NEW_STATUS,
-                  ERROR_CODE, DETAIL_JSON, CREATE_TIME)
+                  ERROR_CODE, DETAIL_JSON, CREATE_TIME, ENTERPRISE_ID, WORKSPACE_ID)
                VALUES
                  (SJZQ_SEQ_JOB_EVENT.NEXTVAL, :event_key, :task_id, :job_id, :attempt_id, :event, :old, :new,
-                  :error_code, :detail, SYSTIMESTAMP)""",
+                  :error_code, :detail, SYSTIMESTAMP,
+                  (SELECT ENTERPRISE_ID FROM SJZQ_TASK WHERE TASK_ID=:task_id),
+                  (SELECT WORKSPACE_ID FROM SJZQ_TASK WHERE TASK_ID=:task_id))""",
             {"event_key": event_key, "task_id": task_id, "job_id": job_id, "attempt_id": attempt_id,
              "event": event, "old": old, "new": new, "error_code": error_code, "detail": detail[:2000]},
         )

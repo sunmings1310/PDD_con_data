@@ -1,0 +1,85 @@
+BASELINE-REVIEW-FIX-002 verification
+
+Branch: codex/accepted-business-baseline
+Base: main@a3d499594b2bd2bf52a43e31ca6440f63b9a8cd6
+Task baseline: d290abbe4b14937462e93e9a731452c08f7d0148
+Scope: Oracle reconciliation/lifecycle compatibility gate plus verification-artifact path redaction only.
+
+ARTIFACTS (repository-relative)
+1. docs/tasks/BASELINE-REVIEW-FIX-002-verification/MODIFIED_FILE.ps1
+2. docs/tasks/BASELINE-REVIEW-FIX-002-verification/DIFF_FILE.patch
+3. docs/tasks/BASELINE-REVIEW-FIX-002-verification/VERIFICATION.txt
+4. docs/tasks/BASELINE-REVIEW-FIX-002-verification/ROLLBACK.sh (executable)
+
+BASELINE
+Command: git show d290abbe4b14937462e93e9a731452c08f7d0148:scripts/test-baseline.ps1 > <TEMP>/baseline.ps1 && sha256sum <TEMP>/baseline.ps1
+Input: scripts/test-baseline.ps1 at task baseline commit
+Literal result: 27da00a3856dcc7c551af11f0c7f8a55882ceb1ec780fcdf71bd1f0811b2d6e0  <TEMP>/baseline.ps1
+Exit status: 0
+
+MODIFIED
+Command: sha256sum scripts/test-baseline.ps1
+Input: working-tree scripts/test-baseline.ps1 with the real Oracle integration module in the strict suite
+Literal result: fdae6cb6fccf52a931cd24634ea857095ff0062506e56e3eabc53bbe96b837b7  scripts/test-baseline.ps1
+Exit status: 0
+Restored/changed behavior: -Suite oracle -Strict now executes tests/test_job_reconciliation_oracle_integration.py.
+
+ROLLBACK
+Command: <GIT_BIN>/bash docs/tasks/BASELINE-REVIEW-FIX-002-verification/ROLLBACK.sh docs/tasks/BASELINE-REVIEW-FIX-002-verification/rollback_probe.ps1
+Input: a separate probe copy; MODIFIED_FILE.ps1 remains changed
+Literal result: ROLLBACK restored scripts/test-baseline.ps1 sha256=27da00a3856dcc7c551af11f0c7f8a55882ceb1ec780fcdf71bd1f0811b2d6e0 target=docs/tasks/BASELINE-REVIEW-FIX-002-verification/rollback_probe.ps1
+Exit status: 0
+Restored behavior/status: the probe has the task-baseline 41-test strict Oracle module list; the working tree and MODIFIED_FILE.ps1 retain the new 46-test gate.
+
+STATIC COMPAT CHECK
+Command: python -m unittest -v tests.test_job_reconciliation_oracle_compat
+Input: source/static regression only; no Oracle claim
+Literal output/result: Ran 4 tests in 0.005s; OK
+Exit status: 0 / PASS
+
+REAL ORACLE TARGETED
+Command: python -m unittest -v tests.test_job_reconciliation_oracle_integration
+Input: isolated writable Oracle test schema; T003 Oracle variables configured; T003_ORACLE_TEST_ENABLED=1
+Literal output/result: Ran 5 tests in 18.648s; OK; skipped=0
+Exit status: 0 / PASS
+Cases: expired_leases; promote_due_retry; mark_confirmed_result_success; mark_job_dead; nonretryable fail / NEXT_RUN_AT NOT NULL compatibility.
+
+STRICT ORACLE FINAL
+Command: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-baseline.ps1 -Suite oracle -Strict
+Input: isolated writable Oracle test schema; T003_ORACLE_TEST_ENABLED=1, PHASE5_ORACLE_TEST_ENABLED=1, PHASE55_ORACLE_TEST_ENABLED=1, PHASE6A_ORACLE_TEST_ENABLED=1
+Literal output/result: Ran 46 tests in 155.464s; OK; [PASS] oracle-integration: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; skipped=0
+Exit status: 0 / PASS
+Count delta: prior strict set 41 + 5 real reconciliation integration cases = 46.
+Diagnostic history: an earlier full run encountered transient ORA-00054 in the pre-existing Phase55 migration test; that exact test then passed alone (Ran 1 test in 6.175s, exit=0), and the complete clean rerun above passed 46/46.
+
+FULL REGRESSION
+Command: python scripts/run_python_unit_tests.py
+Literal output/result: Ran 195 tests in 0.392s; OK (skipped=23)
+Exit status: 0 / PASS (the five opt-in Oracle tests were separately executed in the strict gate with skipped=0)
+
+Command: android_collector/gradlew.bat testDebugUnitTest --no-daemon
+Literal output/result: BUILD SUCCESSFUL in 8s; XML: tests=70 failures=0 errors=0 skipped=1
+Exit status: 0 / PASS
+
+Command: npm run build (working directory web)
+Literal output/result: 1673 modules transformed; built in 763ms
+Exit status: 0 / PASS
+
+Command: python -m compileall -q server scripts tests
+Literal output/result: no output
+Exit status: 0 / PASS
+
+Command: git diff --check
+Literal output/result: no whitespace errors (line-ending conversion warnings only)
+Exit status: 0 / PASS
+
+BOUNDARY / SECURITY
+Command: changed-scope name/diff scan against d290abbe4b14937462e93e9a731452c08f7d0148
+Literal output/result: Generic SKU production diff matches=0; Product P0/Raw identity/Phase 6A production changes=0; secret/raw payload/local DB/build artifact/changed file >1 MiB findings=0.
+Exit status: 0 / PASS
+
+Command: machine-specific path scan of current artifact contents and git diff from d290abbe4b14937462e93e9a731452c08f7d0148
+Literal output/result: current artifact/file matches=0; git diff matches=5, all five are historical deleted lines that remove the old machine paths; explicit negative test/ADR sentinels remain non-machine-specific; runtime/API exposure=0.
+Exit status: 0 / PASS
+
+Production fix observed by real Oracle execution: reconciliation events now persist ENTERPRISE_ID and WORKSPACE_ID from SJZQ_TASK instead of relying on legacy defaults. Cross-enterprise assertions passed for the affected reconciliation paths.

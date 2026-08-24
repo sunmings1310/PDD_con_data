@@ -1,0 +1,553 @@
+diff --git a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch
+index 11f6970..4277e7c 100644
+--- a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch
++++ b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch
+@@ -1509,16 +1509,16 @@ index fab02e2..3a7d74d 100644
+ --- a/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+ +++ b/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+ @@ -7,4 +7,4 @@ ARTIFACTS:
+--- MODIFIED_FILE: <REPO_ROOT>\docs\tasks\BASELINE-SPLIT-001-verification\MODIFIED_FILE.kt
+--- DIFF_FILE: <REPO_ROOT>\docs\tasks\BASELINE-SPLIT-001-verification\DIFF_FILE.patch
+--- VERIFICATION: <REPO_ROOT>\docs\tasks\BASELINE-SPLIT-001-verification\VERIFICATION.txt
+--- ROLLBACK: <REPO_ROOT>\docs\tasks\BASELINE-SPLIT-001-verification\ROLLBACK.sh
++-- MODIFIED_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
++-- DIFF_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
++-- VERIFICATION: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
++-- ROLLBACK: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
+ +- MODIFIED_FILE: docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+ +- DIFF_FILE: docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
+ +- VERIFICATION: docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+ +- ROLLBACK: docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
+ @@ -29 +29 @@ ROLLBACK:
+--- command: <GIT_BIN>/bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
++-- command: <GIT_BIN>/bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+ +- command: bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+ diff --git a/docs/tasks/BASELINE-SPLIT-001.md b/docs/tasks/BASELINE-SPLIT-001.md
+ index a23ba9c..3a424fb 100644
+diff --git a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
+index 9a7210d..9a59b1a 100644
+--- a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
++++ b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
+@@ -42,7 +42,7 @@ TESTS:
+ - Golden Sample 985843042423: result=PASS; sku_combination_count=10; media_count=8; exit 0
+ - Generic SKU behavior gate: 3 tests, 0 failures; purchase/panel/combination=0; SKU_PANEL=0; DETAIL/parser/legacy SKU read PASS; exit 0
+ - Security: no changed secret, Raw payload, DB, build artifact, leaked API path, or changed file larger than 1 MiB; exit 0
+-- Repository-wide absolute-path scan true pre-existing findings: `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents; unchanged and outside this Review fix. Changed-scope matches are negative ADR/test sentinels only.
++- Absolute-path scan matches > 0: negative ADR/test sentinels plus historical deleted-line evidence in `DIFF_FILE.patch`; runtime/API exposure=0. Machine-specific deleted paths in the submitted artifact are redacted as `<REPO_ROOT>` / `<GIT_BIN>`. Repository-wide pre-existing findings remain `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents.
+ - git diff --check 246f181..HEAD (pre-commit equivalent working-tree check): no whitespace errors; exit 0
+
+ RESTORED STATUS:
+diff --git a/docs/tasks/BASELINE-SPLIT-001.md b/docs/tasks/BASELINE-SPLIT-001.md
+index 3a424fb..f0d398c 100644
+--- a/docs/tasks/BASELINE-SPLIT-001.md
++++ b/docs/tasks/BASELINE-SPLIT-001.md
+@@ -1,6 +1,6 @@
+ # BASELINE-SPLIT-001：Accepted Business Baseline Split Manifest
+
+-- Status：READY FOR RE-REVIEW / PR REMAINS DRAFT
++- Status：READY FOR FINAL RE-REVIEW / PR REMAINS DRAFT
+ - Date：2026-08-24
+ - Base：`origin/main@a3d499594b2bd2bf52a43e31ca6440f63b9a8cd6`
+ - Source evidence：`90b53658af5bf1e1f0488aaeb520e59887c8c91b`、`13b4301445eda9768069a807a13d9f43cedb8e8f`
+@@ -47,7 +47,7 @@
+ | `server/routers/reports.py`：Effective Price | ACCEPTED_PRODUCT_P0 | Yes | Report 不建立第二套价格优先级 | Product P0 tests |
+ | `server/data_quality.py`：空 SKU collection 为未观察 | REQUIRED_SUPPORT | Yes | Quality 与 Android 空值语义一致 | Raw/data-quality tests |
+ | `server/job_service.py`：普通 item/canonical receipt 与 `NEXT_RUN_AT` hunks | REQUIRED_SUPPORT | Yes | 普通 TaskItem canonical binding 与 Oracle NOT NULL 兼容已验收 | Phase 2、Backlog、job service tests |
+-| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT hunks | REQUIRED_SUPPORT | Yes | 修复真实 Oracle duplicate column alias 与 NOT NULL compatibility | reconciliation compatibility ×4、Oracle gate |
++| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT/tenant event hunks | REQUIRED_SUPPORT | Yes | 修复真实 Oracle duplicate column alias、NOT NULL compatibility 与 reconciliation event tenant identity | static compatibility ×4、real Oracle integration ×5、Oracle gate |
+ | `server/routers/tasks.py`：tenant pull 与 late cancel ACK hunks | REQUIRED_SUPPORT | Yes | Phase 5.5 租户边界及取消后 durable outbox 释放已验收 | tenant pull、late cancel tests |
+ | `web/ProductList.vue`：Canonical fields + Edit DTO | ACCEPTED_PRODUCT_P0 | Yes | Library 编辑不复制列表动态事实 | Web build、P0 contract |
+ | `web/TaskDetail.vue`：Capture Edit DTO | ACCEPTED_PRODUCT_P0 | Yes | Capture 编辑与 Library 使用同一 stable policy | Web build、P0 contract |
+@@ -98,6 +98,8 @@
+ | 4：no-SKU 核心门禁仅做源码扫描 | RESOLVED | `REQUIRED_SUPPORT` 行为门禁 | `PddDetailPorts.kt` Spy/Fake seam；TaskEngine → Registry → PDD detail 实际调用路径 | Generic SKU 始终 `NOT ACCEPTED` | purchase/panel/combination=0，SKU_PANEL=0，DETAIL/parse/legacy read 正常；源码扫描仅辅助 |
+ | 5：绝对路径泄露 | RESOLVED | `ACCEPTED_RAW` API 边界修复 | `routers/products.py` opaque evidence/manifest refs；旧 receipt 输出清洗；verification 使用 repo-relative 路径 | 物理存储路径不是业务 identity | API/receipt/media ping + changed-scope absolute-path scan |
+ | 6：通用 RawSource 带 PDD schema 默认值 | RESOLVED | 平台中立 Contract + PDD 显式 Adapter provenance | `CollectorContract.kt` nullable default；`PddCollector.kt` 显式 `pdd-a11y-v1` | 防止未来 Adapter 继承错误 provenance | generic default null + PDD detail sources explicit |
++| 7：41 项 strict Oracle 未执行恢复后的 reconciliation compatibility | RESOLVED | 静态检查继续作为 `STATIC COMPAT CHECK`；另增 `REAL ORACLE INTEGRATION` | `tests/test_job_reconciliation_oracle_integration.py`、`scripts/test-baseline.ps1`、`server/job_reconciliation.py` tenant event 最小修复 | 第二次独立 Review 指出的唯一 merge-blocking P1；旧 41/41 不再被描述为该路径的真实 Oracle 证据 | 5 项真实 Oracle 数据/连接/生产方法测试进入 strict gate；旧 41 + 新 5 = 46 |
++| 8：Review verification artifact 含机器绝对路径 | RESOLVED | 历史删除证据保留语义并脱敏 | `BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch` 使用 `<REPO_ROOT>` / `<GIT_BIN>`；verification 修正分类 | 该 finding 为 artifact 历史证据，不是 runtime/API 泄漏 | machine-specific path=0；negative test/ADR sentinel >0；runtime exposure=0 |
+
+ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU Panel 自动打开和 combination traversal 未随 lifecycle 修复恢复；`PddActionsSkuContractTest.kt` 仍排除。Legacy SKU JSON/text 兼容读取及 `SKU_PANEL` 类型表达能力仅用于已存在数据，不会激活默认运行时。
+
+@@ -110,19 +112,21 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU
+ | Raw immutability/identity targeted | `python -m unittest -v tests.test_raw_capture` | `Ran 8 tests in 0.250s ... OK` | 0 | PASS |
+ | Product P0 Python targeted | `python -m unittest -v tests.test_product_consistency_p0` | `Ran 5 tests ... OK` | 0 | PASS |
+ | Android behavior/lifecycle targeted | `gradlew testDebugUnitTest --no-daemon` + 5 class filters | `BUILD SUCCESSFUL in 8s`; 18 tests, 0 failures, 0 skipped | 0 | PASS |
+-| Python full | `python scripts/run_python_unit_tests.py` | `Ran 190 tests in 0.365s ... OK (skipped=18)` | 0 | PASS |
++| Python full | `python scripts/run_python_unit_tests.py` | `Ran 195 tests in 0.392s ... OK (skipped=23)` | 0 | PASS |
+ | Python compile | `python -m compileall -q server scripts tests` | no output | 0 | PASS |
+ | Android JVM full | `gradlew testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 11s`; 70 tests, 0 failures, 0 errors, 1 skipped | 0 | PASS |
+-| Web production | `npm ci && npm run build` | `1673 modules transformed`; `built in 7.38s` | 0 | PASS |
+-| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | `Ran 41 tests in 126.094s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Web production | `npm run build` | `1673 modules transformed`; `built in 763ms` | 0 | PASS |
++| Oracle reconciliation static | `python -m unittest -v tests.test_job_reconciliation_oracle_compat` | `Ran 4 tests in 0.005s ... OK`；仅为 `STATIC COMPAT CHECK`，不计真实 Oracle integration | 0 | PASS |
++| Oracle reconciliation real integration | strict gate 内执行 `tests/test_job_reconciliation_oracle_integration.py`；输入：既有隔离、可写、事务回滚 Oracle test schema | 5/5 PASS：`expired_leases`、`promote_due_retry`、`mark_confirmed_result_success`、`mark_job_dead`、`nonretryable fail / NEXT_RUN_AT`；skipped=0 | 0 | PASS |
++| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | 旧 count 41 + 新增真实 Oracle cases 5 = `Ran 46 tests in 155.464s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`；Oracle suite skipped=0 | 0 | PASS |
+ | Golden Sample | `python scripts/product_consistency_p0.py` | product `985843042423`; `result=PASS`; 10 legacy SKU combinations; 8 media | 0 | PASS |
+ | Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + auxiliary production source scan | behavior tests 3/3 PASS；purchase/panel/combination=0；SKU_PANEL=0；DETAIL/parse/legacy SKU read PASS；Generic runtime names 0 | 0 | PASS |
+-| Security | changed-scope secret/raw/DB/artifact/large-file/absolute-path scan | no secret、Raw payload、DB、build artifact or changed file >1 MiB；absolute-path matches only negative test/ADR sentinel，API returned path=0。全仓真实既有 findings 为 `.path_ok`、`install-adb.ps1`、`config.json::_output_dir_abs`、`image_filter.py` fallback 与 Historical verification 文档；本 Task 不改其运行语义 | 0 | PASS |
++| Security | changed-scope secret/raw/DB/artifact/large-file/absolute-path scan | no secret、Raw payload、DB、build artifact or changed file >1 MiB；current artifact/file machine-specific path=0；git diff 中 machine-specific path=5，全部是移除旧路径的 historical deleted lines；其他 absolute-path matches 仅为 negative test/ADR sentinel；runtime/API exposure=0 | 0 | PASS |
+ | Diff | `git diff --check 246f181..HEAD`（提交前等价检查工作树） | no whitespace errors | 0 | PASS |
+
+-测试数量解释：Python `13b4301` 191 - 实验 Schema/Generic SKU 6 = Accepted 185；原 Split 误排除 7 后为 178；本次恢复 7 并新增 Raw review tests 5，最终 190。Android `13b4301` 70 - Generic SKU tests 3 = Accepted 67；加 Split 专用 no-SKU gate 2，误排除 7 后为 62；恢复 7 且行为 gate 从 2 扩为 3，最终 70。没有为了数量恢复 Generic SKU 测试。
++测试数量解释：Python `13b4301` 191 - 实验 Schema/Generic SKU 6 = Accepted 185；原 Split 误排除 7 后为 178；第一次 Review 修复恢复 7 并新增 Raw review tests 5 得 190；本次再增 5 个 opt-in 真实 Oracle reconciliation cases，full discovery 为 195，strict Oracle 实际执行它们时不 skip。Android `13b4301` 70 - Generic SKU tests 3 = Accepted 67；加 Split 专用 no-SKU gate 2，误排除 7 后为 62；恢复 7 且行为 gate 从 2 扩为 3，最终 70。没有为了数量恢复 Generic SKU 测试。
+
+-Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle 已另行实际执行 41 项并通过，无 skip。
++Python full 的 23 个 skip（含 5 个 opt-in reconciliation integration）和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle strict gate 已另行实际执行 46 项并通过，无 skip。
+
+ 本次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh)。原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
+
+@@ -136,6 +140,7 @@ Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PAS
+ 6. 恢复 7 项 Python 与 7 项 Android Accepted 非 SKU coverage；no-SKU 核心证明升级为行为测试，源码扫描仅作辅助。
+ 7. Original Raw、identity/content hash 和 Manifest 在 resanitize 前后逐字节不变；Derived 版本可独立验证和 replay。
+ 8. 逐项复核 13b production hunks；恢复仅覆盖既有 Accepted lifecycle，不包含 Generic SKU、P1 或 Phase 6B。
++9. 第二次 Review 指出的 reconciliation Oracle evidence 缺口由 5 项真实 integration cases 关闭；旧 41 项结果只代表当时集合，当前 strict gate 为 46/46。
+
+ ## 9. Rollback
+
+diff --git a/scripts/test-baseline.ps1 b/scripts/test-baseline.ps1
+index 3444793..bf2d574 100644
+--- a/scripts/test-baseline.ps1
++++ b/scripts/test-baseline.ps1
+@@ -111,6 +111,7 @@ if (Should-Run 'oracle') {
+             'tests/test_task_state_r2_oracle.py',
+             'tests/test_phase2_schema_contract.py',
+             'tests/test_job_service.py',
++            'tests/test_job_reconciliation_oracle_integration.py',
+             'tests/test_phase2_route_oracle.py',
+             'tests/test_phase3_oracle.py',
+             'tests/test_phase5_oracle.py',
+diff --git a/server/job_reconciliation.py b/server/job_reconciliation.py
+index e3fb472..20f78a0 100644
+--- a/server/job_reconciliation.py
++++ b/server/job_reconciliation.py
+@@ -248,10 +248,12 @@ class OracleReconciliationStore:
+                   ON (target.EVENT_KEY=source.EVENT_KEY)
+                WHEN NOT MATCHED THEN INSERT
+                  (EVENT_ID, EVENT_KEY, TASK_ID, JOB_ID, ATTEMPT_ID, EVENT_TYPE, OLD_STATUS, NEW_STATUS,
+-                  ERROR_CODE, DETAIL_JSON, CREATE_TIME)
++                  ERROR_CODE, DETAIL_JSON, CREATE_TIME, ENTERPRISE_ID, WORKSPACE_ID)
+                VALUES
+                  (SJZQ_SEQ_JOB_EVENT.NEXTVAL, :event_key, :task_id, :job_id, :attempt_id, :event, :old, :new,
+-                  :error_code, :detail, SYSTIMESTAMP)""",
++                  :error_code, :detail, SYSTIMESTAMP,
++                  (SELECT ENTERPRISE_ID FROM SJZQ_TASK WHERE TASK_ID=:task_id),
++                  (SELECT WORKSPACE_ID FROM SJZQ_TASK WHERE TASK_ID=:task_id))""",
+             {"event_key": event_key, "task_id": task_id, "job_id": job_id, "attempt_id": attempt_id,
+              "event": event, "old": old, "new": new, "error_code": error_code, "detail": detail[:2000]},
+         )
+diff --git a/tests/test_job_reconciliation_oracle_integration.py b/tests/test_job_reconciliation_oracle_integration.py
+new file mode 100644
+index 0000000..9a5b32d
+--- /dev/null
++++ b/tests/test_job_reconciliation_oracle_integration.py
+@@ -0,0 +1,411 @@
++"""Real Oracle coverage for restored reconciliation compatibility paths."""
++from __future__ import annotations
++
++from datetime import datetime, timezone
++import os
++import unittest
++import uuid
++
++import oracledb
++
++os.environ.setdefault("APP_ENV", "test")
++os.environ.setdefault("ORACLE_HOST", "127.0.0.1")
++os.environ.setdefault("ORACLE_PORT", "1521")
++os.environ.setdefault("ORACLE_SERVICE", "TEST")
++os.environ.setdefault("ORACLE_USER", "TEST")
++os.environ.setdefault("ORACLE_PASSWORD", "test-password")
++os.environ.setdefault("JWT_SECRET", "Test-only-JWT-secret-32-characters!")
++
++from server import job_service
++from server.job_reconciliation import JobInconsistency, OracleReconciliationStore
++
++
++CONFIGURED = os.getenv("T003_ORACLE_TEST_ENABLED") == "1" and all(
++    os.getenv(name) for name in ("T003_ORACLE_DSN", "T003_ORACLE_USER", "T003_ORACLE_PASSWORD")
++)
++
++
++@unittest.skipUnless(CONFIGURED, "BLOCKED_BY_ENVIRONMENT: isolated Oracle test schema not configured")
++class OracleReconciliationIntegrationTest(unittest.TestCase):
++    """Execute production reconciliation SQL against the isolated Oracle schema."""
++
++    def setUp(self):
++        self.conn = oracledb.connect(
++            dsn=os.environ["T003_ORACLE_DSN"],
++            user=os.environ["T003_ORACLE_USER"],
++            password=os.environ["T003_ORACLE_PASSWORD"],
++        )
++        self.cur = self.conn.cursor()
++        self.tag = "RECON-" + uuid.uuid4().hex[:12]
++        self.scopes = {
++            "A": self._create_scope("A"),
++            "B": self._create_scope("B"),
++        }
++
++    def tearDown(self):
++        self.conn.rollback()
++        self.conn.close()
++
++    def _seq(self, name: str) -> int:
++        self.cur.execute(f"SELECT {name}.NEXTVAL FROM DUAL")
++        return int(self.cur.fetchone()[0])
++
++    def _create_scope(self, label: str) -> dict[str, int]:
++        enterprise_id = self._seq("SJZQ_SEQ_ENTERPRISE")
++        workspace_id = self._seq("SJZQ_SEQ_WORKSPACE")
++        device_id = self._seq("SJZQ_SEQ_DEVICE")
++        code = f"{self.tag}-{label}".lower()
++        self.cur.execute(
++            """INSERT INTO SJZQ_ENTERPRISE
++                 (ENTERPRISE_ID,ENTERPRISE_CODE,ENTERPRISE_NAME,STATUS)
++               VALUES (:id,:code,:name,'active')""",
++            {"id": enterprise_id, "code": code, "name": code},
++        )
++        self.cur.execute(
++            """INSERT INTO SJZQ_WORKSPACE
++                 (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME,STATUS)
++               VALUES (:workspace_id,:enterprise_id,:code,:name,'active')""",
++            {
++                "workspace_id": workspace_id,
++                "enterprise_id": enterprise_id,
++                "code": code,
++                "name": code,
++            },
++        )
++        self.cur.execute(
++            """INSERT INTO SJZQ_DEVICE
++                 (DEVICE_ID,DEVICE_KEY,DEVICE_NAME,PLATFORM_CODE,STATUS,CURRENT_TASK_ID,
++                  KEYWORD_RUN_COUNT,ACTIVE_JOB_ID,ACTIVE_ATTEMPT_ID,ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:device_id,:device_key,:device_name,'pinduoduo','online',NULL,0,NULL,NULL,
++                       :enterprise_id,:workspace_id)""",
++            {
++                "device_id": device_id,
++                "device_key": code,
++                "device_name": code,
++                "enterprise_id": enterprise_id,
++                "workspace_id": workspace_id,
++            },
++        )
++        return {
++            "enterprise_id": enterprise_id,
++            "workspace_id": workspace_id,
++            "device_id": device_id,
++        }
++
++    def _new_job(self, label: str) -> dict[str, int]:
++        scope = self.scopes[label]
++        task_id = self._seq("SJZQ_SEQ_TASK")
++        item_id = self._seq("SJZQ_SEQ_TASK_ITEM")
++        name = f"{self.tag}-{label}-{task_id}"
++        self.cur.execute(
++            """INSERT INTO SJZQ_TASK
++                 (TASK_ID,TASK_NAME,TASK_TYPE,PLATFORM_CODE,STATUS,PRIORITY,TARGET_COUNT,
++                  SUCCESS_COUNT,FAIL_COUNT,REVIEW_STATUS,PAUSE_STATE,ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:task_id,:name,'collect','pinduoduo','pending',1,1,0,0,'approved','active',
++                       :enterprise_id,:workspace_id)""",
++            {
++                "task_id": task_id,
++                "name": name,
++                "enterprise_id": scope["enterprise_id"],
++                "workspace_id": scope["workspace_id"],
++            },
++        )
++        self.cur.execute(
++            """INSERT INTO SJZQ_TASK_ITEM
++                 (ITEM_ID,TASK_ID,ROW_INDEX,KEYWORD,STATUS,ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:item_id,:task_id,1,:keyword,'pending',:enterprise_id,:workspace_id)""",
++            {
++                "item_id": item_id,
++                "task_id": task_id,
++                "keyword": name,
++                "enterprise_id": scope["enterprise_id"],
++                "workspace_id": scope["workspace_id"],
++            },
++        )
++        jobs = job_service.create_jobs_for_task(self.cur, task_id=task_id)
++        self.assertEqual(1, len(jobs))
++        return {**scope, "task_id": task_id, "item_id": item_id, "job_id": jobs[0]}
++
++    def _running_job(self, label: str) -> dict[str, object]:
++        fixture = self._new_job(label)
++        lease = job_service.acquire(
++            self.cur,
++            device_id=int(fixture["device_id"]),
++            worker_id=f"recon-worker-{label}",
++        )
++        self.assertIsNotNone(lease)
++        assert lease is not None
++        job_service.start(
++            self.cur,
++            device_id=int(fixture["device_id"]),
++            job_id=lease["job_id"],
++            attempt_id=lease["attempt_id"],
++            worker_id=f"recon-worker-{label}",
++            lease_token=lease["lease_token"],
++        )
++        return {**fixture, **lease, "worker_id": f"recon-worker-{label}"}
++
++    def _event_scope(self, job_id: int, event_type: str) -> tuple[int, int, int]:
++        self.cur.execute(
++            """SELECT COUNT(*),MIN(ENTERPRISE_ID),MIN(WORKSPACE_ID)
++                 FROM SJZQ_JOB_EVENT WHERE JOB_ID=:job_id AND EVENT_TYPE=:event_type""",
++            {"job_id": job_id, "event_type": event_type},
++        )
++        row = self.cur.fetchone()
++        return int(row[0]), int(row[1]), int(row[2])
++
++    def test_expired_leases_executes_real_alias_mapping_and_tenant_identity(self):
++        expired = self._running_job("A")
++        future = self._running_job("B")
++        for table in ("SJZQ_COLLECTION_JOB", "SJZQ_COLLECTION_ATTEMPT"):
++            key = "JOB_ID" if table.endswith("JOB") else "ATTEMPT_ID"
++            value = expired["job_id"] if key == "JOB_ID" else expired["attempt_id"]
++            self.cur.execute(
++                f"""UPDATE {table}
++                        SET LEASED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(120,'SECOND'),
++                            LEASE_EXPIRES_AT=SYSTIMESTAMP-NUMTODSINTERVAL(60,'SECOND')
++                      WHERE {key}=:id""",
++                {"id": value},
++            )
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_LEASE
++                  SET LEASED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(120,'SECOND'),
++                      LEASE_EXPIRES_AT=SYSTIMESTAMP-NUMTODSINTERVAL(60,'SECOND')
++                WHERE ATTEMPT_ID=:attempt_id""",
++            {"attempt_id": expired["attempt_id"]},
++        )
++
++        candidates = OracleReconciliationStore(self.cur).expired_leases(limit=1000)
++        matched = [item for item in candidates if item.job_id == expired["job_id"]]
++        self.assertEqual(1, len(matched))
++        self.assertEqual(expired["task_id"], matched[0].task_id)
++        self.assertEqual(expired["attempt_id"], matched[0].attempt_id)
++        self.assertEqual("running", matched[0].job_status)
++        self.assertEqual("running", matched[0].attempt_status)
++        self.assertNotIn(future["job_id"], {item.job_id for item in candidates})
++        self.cur.execute(
++            """SELECT j.ENTERPRISE_ID,j.WORKSPACE_ID,a.ENTERPRISE_ID,a.WORKSPACE_ID,
++                      l.ENTERPRISE_ID,l.WORKSPACE_ID
++                 FROM SJZQ_COLLECTION_JOB j
++                 JOIN SJZQ_COLLECTION_ATTEMPT a ON a.ATTEMPT_ID=j.ACTIVE_ATTEMPT_ID
++                 JOIN SJZQ_COLLECTION_LEASE l ON l.ATTEMPT_ID=a.ATTEMPT_ID
++                WHERE j.JOB_ID=:job_id""",
++            {"job_id": expired["job_id"]},
++        )
++        self.assertEqual(
++            (expired["enterprise_id"], expired["workspace_id"]) * 3,
++            tuple(int(value) for value in self.cur.fetchone()),
++        )
++
++    def test_promote_due_retry_preserves_next_run_at_and_other_tenant(self):
++        due = self._new_job("A")
++        future = self._new_job("B")
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='retry_wait',
++                      NEXT_RUN_AT=SYSTIMESTAMP-NUMTODSINTERVAL(1,'SECOND')
++                WHERE JOB_ID=:job_id""",
++            {"job_id": due["job_id"]},
++        )
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='retry_wait',
++                      NEXT_RUN_AT=SYSTIMESTAMP+NUMTODSINTERVAL(300,'SECOND')
++                WHERE JOB_ID=:job_id""",
++            {"job_id": future["job_id"]},
++        )
++        store = OracleReconciliationStore(self.cur)
++        candidates = store.due_retry_jobs(limit=1000)
++        candidate = next(item for item in candidates if item.job_id == due["job_id"])
++        self.assertNotIn(future["job_id"], {item.job_id for item in candidates})
++        self.assertTrue(store.promote_due_retry(candidate, now=datetime.now(timezone.utc)))
++        self.assertFalse(store.promote_due_retry(candidate, now=datetime.now(timezone.utc)))
++
++        self.cur.execute(
++            """SELECT STATUS,CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
++                 FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id""",
++            {"job_id": due["job_id"]},
++        )
++        row = self.cur.fetchone()
++        self.assertEqual(("pending", 1), (str(row[0]).lower(), int(row[1])))
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": future["job_id"]})
++        self.assertEqual("retry_wait", str(self.cur.fetchone()[0]).lower())
++        self.assertEqual(
++            (1, due["enterprise_id"], due["workspace_id"]),
++            self._event_scope(int(due["job_id"]), "RETRY_WAIT_ELAPSED"),
++        )
++
++    def test_mark_confirmed_result_success_preserves_receipt_checkpoint_and_idempotency(self):
++        fixture = self._new_job("A")
++        product_id = self._seq("SJZQ_SEQ_PRODUCT")
++        checkpoint_id = self._seq("SJZQ_SEQ_COLLECTION_CHECKPOINT")
++        receipt_key = f"receipt-{self.tag}"
++        checkpoint_key = f"checkpoint-{self.tag}"
++        self.cur.execute(
++            """INSERT INTO SJZQ_PRODUCT
++                 (PRODUCT_ID,TASK_ID,DEVICE_ID,PLATFORM_CODE,ITEM_ID,PRODUCT_NAME,PRICE,
++                  ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:product_id,:task_id,:device_id,'pinduoduo',:item_id,:name,9.9,
++                       :enterprise_id,:workspace_id)""",
++            {
++                "product_id": product_id,
++                "task_id": fixture["task_id"],
++                "device_id": fixture["device_id"],
++                "item_id": self.tag,
++                "name": self.tag,
++                "enterprise_id": fixture["enterprise_id"],
++                "workspace_id": fixture["workspace_id"],
++            },
++        )
++        self.cur.execute(
++            """INSERT INTO SJZQ_UPLOAD_RECEIPT
++                 (IDEMPOTENCY_KEY,TASK_ID,DEVICE_ID,OP_TYPE,PAYLOAD_SHA256,PRODUCT_ID,
++                  RESULT_JSON,STATUS,ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:key,:task_id,:device_id,'product',RPAD('a',64,'a'),:product_id,
++                       '{}','acked',:enterprise_id,:workspace_id)""",
++            {
++                "key": receipt_key,
++                "task_id": fixture["task_id"],
++                "device_id": fixture["device_id"],
++                "product_id": product_id,
++                "enterprise_id": fixture["enterprise_id"],
++                "workspace_id": fixture["workspace_id"],
++            },
++        )
++        self.cur.execute(
++            """INSERT INTO SJZQ_COLLECTION_CHECKPOINT
++                 (CHECKPOINT_ID,JOB_ID,ATTEMPT_ID,VERSION,IDEMPOTENCY_KEY,PAYLOAD_SHA256,
++                  PAYLOAD_JSON,ENTERPRISE_ID,WORKSPACE_ID)
++               VALUES (:checkpoint_id,:job_id,NULL,1,:key,RPAD('b',64,'b'),'{}',
++                       :enterprise_id,:workspace_id)""",
++            {
++                "checkpoint_id": checkpoint_id,
++                "job_id": fixture["job_id"],
++                "key": checkpoint_key,
++                "enterprise_id": fixture["enterprise_id"],
++                "workspace_id": fixture["workspace_id"],
++            },
++        )
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_JOB
++                  SET STATUS='retry_wait',NEXT_RUN_AT=SYSTIMESTAMP,
++                      CHECKPOINT_VERSION=1,CHECKPOINT_JSON='{}',
++                      RESULT_RECEIPT_KEY=:receipt_key,RESULT_PRODUCT_ID=:product_id
++                WHERE JOB_ID=:job_id""",
++            {"receipt_key": receipt_key, "product_id": product_id, "job_id": fixture["job_id"]},
++        )
++        store = OracleReconciliationStore(self.cur)
++        candidate = next(
++            item for item in store.confirmed_result_without_success(limit=1000)
++            if item.job_id == fixture["job_id"]
++        )
++        self.assertTrue(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
++        self.assertFalse(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
++
++        self.cur.execute(
++            """SELECT STATUS,RESULT_RECEIPT_KEY,RESULT_PRODUCT_ID,CHECKPOINT_VERSION,
++                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
++                 FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id""",
++            {"job_id": fixture["job_id"]},
++        )
++        row = self.cur.fetchone()
++        self.assertEqual(("success", receipt_key, product_id, 1, 1),
++                         (str(row[0]).lower(), str(row[1]), int(row[2]), int(row[3]), int(row[4])))
++        self.cur.execute(
++            "SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE CHECKPOINT_ID=:id AND JOB_ID=:job_id",
++            {"id": checkpoint_id, "job_id": fixture["job_id"]},
++        )
++        self.assertEqual(1, int(self.cur.fetchone()[0]))
++        self.assertEqual(
++            (1, fixture["enterprise_id"], fixture["workspace_id"]),
++            self._event_scope(int(fixture["job_id"]), "RESULT_RECEIPT_REPAIRED"),
++        )
++
++    def test_mark_job_dead_reclaims_attempt_lease_and_preserves_other_tenant(self):
++        broken = self._running_job("A")
++        other = self._running_job("B")
++        self.cur.execute(
++            "UPDATE SJZQ_COLLECTION_JOB SET LEASE_TOKEN_HASH=NULL WHERE JOB_ID=:job_id",
++            {"job_id": broken["job_id"]},
++        )
++        store = OracleReconciliationStore(self.cur)
++        candidate = next(
++            item for item in store.invalid_job_leases(limit=1000)
++            if item.job_id == broken["job_id"]
++        )
++        self.assertTrue(store.mark_job_dead(
++            candidate,
++            reason="REAL_ORACLE_INVALID_LEASE",
++            now=datetime.now(timezone.utc),
++        ))
++        self.assertFalse(store.mark_job_dead(
++            candidate,
++            reason="REAL_ORACLE_INVALID_LEASE",
++            now=datetime.now(timezone.utc),
++        ))
++
++        self.cur.execute(
++            """SELECT STATUS,ACTIVE_ATTEMPT_ID,LEASE_TOKEN_HASH,LEASE_EXPIRES_AT,
++                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
++                 FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id""",
++            {"job_id": broken["job_id"]},
++        )
++        row = self.cur.fetchone()
++        self.assertEqual(("dead", None, None, None, 1),
++                         (str(row[0]).lower(), row[1], row[2], row[3], int(row[4])))
++        self.cur.execute(
++            "SELECT STATUS FROM SJZQ_COLLECTION_ATTEMPT WHERE ATTEMPT_ID=:id",
++            {"id": broken["attempt_id"]},
++        )
++        self.assertEqual("reclaimed", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute(
++            "SELECT STATUS FROM SJZQ_COLLECTION_LEASE WHERE ATTEMPT_ID=:id",
++            {"id": broken["attempt_id"]},
++        )
++        self.assertEqual("reclaimed", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": other["job_id"]})
++        self.assertEqual("running", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": broken["task_id"]})
++        self.assertEqual("running", str(self.cur.fetchone()[0]).lower())
++        self.assertEqual(
++            (1, broken["enterprise_id"], broken["workspace_id"]),
++            self._event_scope(int(broken["job_id"]), "RECONCILIATION_MANUAL_REQUIRED"),
++        )
++
++    def test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint(self):
++        failed = self._running_job("A")
++        other = self._running_job("B")
++        result = job_service.fail(
++            self.cur,
++            device_id=int(failed["device_id"]),
++            job_id=int(failed["job_id"]),
++            attempt_id=int(failed["attempt_id"]),
++            worker_id=str(failed["worker_id"]),
++            lease_token=str(failed["lease_token"]),
++            error_class="permanent",
++            error_code="REAL_ORACLE_NONRETRYABLE",
++        )
++        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)
++        self.cur.execute(
++            """SELECT STATUS,CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
++                 FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id""",
++            {"job_id": failed["job_id"]},
++        )
++        row = self.cur.fetchone()
++        self.assertEqual(("failed", 1), (str(row[0]).lower(), int(row[1])))
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_ATTEMPT WHERE ATTEMPT_ID=:id",
++                         {"id": failed["attempt_id"]})
++        self.assertEqual("failed", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_LEASE WHERE ATTEMPT_ID=:id",
++                         {"id": failed["attempt_id"]})
++        self.assertEqual("released", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": failed["task_id"]})
++        self.assertEqual("failed", str(self.cur.fetchone()[0]).lower())
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": other["job_id"]})
++        self.assertEqual("running", str(self.cur.fetchone()[0]).lower())
++        self.assertEqual(
++            (1, failed["enterprise_id"], failed["workspace_id"]),
++            self._event_scope(int(failed["job_id"]), "job_failed"),
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()

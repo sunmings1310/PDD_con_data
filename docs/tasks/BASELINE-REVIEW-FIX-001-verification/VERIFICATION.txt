@@ -42,7 +42,7 @@ TESTS:
 - Golden Sample 985843042423: result=PASS; sku_combination_count=10; media_count=8; exit 0
 - Generic SKU behavior gate: 3 tests, 0 failures; purchase/panel/combination=0; SKU_PANEL=0; DETAIL/parser/legacy SKU read PASS; exit 0
 - Security: no changed secret, Raw payload, DB, build artifact, leaked API path, or changed file larger than 1 MiB; exit 0
-- Repository-wide absolute-path scan true pre-existing findings: `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents; unchanged and outside this Review fix. Changed-scope matches are negative ADR/test sentinels only.
+- Absolute-path scan matches > 0: negative ADR/test sentinels plus historical deleted-line evidence in `DIFF_FILE.patch`; runtime/API exposure=0. Machine-specific deleted paths in the submitted artifact are redacted as `<REPO_ROOT>` / `<GIT_BIN>`. Repository-wide pre-existing findings remain `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents.
 - git diff --check 246f181..HEAD (pre-commit equivalent working-tree check): no whitespace errors; exit 0
 
 RESTORED STATUS:

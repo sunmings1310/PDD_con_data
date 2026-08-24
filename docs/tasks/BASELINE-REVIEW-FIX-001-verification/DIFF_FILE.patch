@@ -1509,16 +1509,16 @@ index fab02e2..3a7d74d 100644
 --- a/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
 @@ -7,4 +7,4 @@ ARTIFACTS:
--- MODIFIED_FILE: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\MODIFIED_FILE.kt
--- DIFF_FILE: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\DIFF_FILE.patch
--- VERIFICATION: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\VERIFICATION.txt
--- ROLLBACK: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\ROLLBACK.sh
+-- MODIFIED_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+-- DIFF_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
+-- VERIFICATION: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+-- ROLLBACK: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
 +- MODIFIED_FILE: docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
 +- DIFF_FILE: docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
 +- VERIFICATION: docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
 +- ROLLBACK: docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
 @@ -29 +29 @@ ROLLBACK:
--- command: D:\Git\bin\bash.exe docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+-- command: <GIT_BIN>/bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
 +- command: bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
 diff --git a/docs/tasks/BASELINE-SPLIT-001.md b/docs/tasks/BASELINE-SPLIT-001.md
 index a23ba9c..3a424fb 100644
