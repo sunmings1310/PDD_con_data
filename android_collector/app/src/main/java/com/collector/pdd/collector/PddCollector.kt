@@ -2,7 +2,6 @@ package com.collector.pdd.collector
 
 import com.collector.pdd.data.CollectConfig
 import com.collector.pdd.data.ProductEntity
-import com.collector.pdd.engine.GoodsLinkResolver
 import com.collector.pdd.engine.AccessGuard
 import com.collector.pdd.engine.AccessIssueType
 import com.collector.pdd.engine.PddActions
@@ -48,6 +47,11 @@ class PddCollector : Collector {
         product: ProductEntity,
     ): Pair<ProductEntity, QualityDecision> = PddDetailCollector.applyQuality(pageText, product)
 
+    internal fun createDetailTestSession(
+        actions: PddDetailActions,
+        links: PddDetailLinks,
+    ): CollectorSession = PddDetailTestSession(PddDetailRuntime(actions, links))
+
     override fun mapError(platformError: String): SystemCollectorError = mapPddError(platformError)
 }
 
@@ -86,19 +90,33 @@ private object PddSearchCollector : SearchCollector {
     }
 }
 
-private data class PddResolvedLink(
-    val platformProductId: String = "",
-    val itemUrl: String = "",
-    val images: List<String> = emptyList(),
-    val title: String = "",
-    val rejected: Boolean = false,
-    val rejectReason: String = "",
+private fun pddRawSource(
+    type: String,
+    sourceIdentifier: String,
+    capturedAtEpochMs: Long,
+    contentType: String = "text/plain; charset=utf-8",
+    payload: String,
+): RawSource = RawSource(
+    type = type,
+    sourceIdentifier = sourceIdentifier,
+    capturedAtEpochMs = capturedAtEpochMs,
+    contentType = contentType,
+    schemaHint = "pdd-a11y-v1",
+    payload = payload,
 )
 
 private object PddDetailCollector : DetailCollector {
     override suspend fun collect(session: CollectorSession, request: DetailCollectionRequest): DetailCollectionResult {
-        val actions = (session as? PddCollectorSession)?.actions
-            ?: throw CollectorException(SystemCollectorError.CAPABILITY_NOT_SUPPORTED, "PDD detail requires PDD session")
+        val runtime = when (session) {
+            is PddCollectorSession -> PddDetailRuntime(PddDetailActionAdapter(session.actions), PddDetailLinkAdapter)
+            is PddDetailTestSession -> session.runtime
+            else -> throw CollectorException(
+                SystemCollectorError.CAPABILITY_NOT_SUPPORTED,
+                "PDD detail requires PDD session",
+            )
+        }
+        val actions = runtime.actions
+        val links = runtime.links
         val log = request.log
         val searchCapturedAt = System.currentTimeMillis()
         val searchPageText = actions.readPageText()
@@ -112,7 +130,7 @@ private object PddDetailCollector : DetailCollector {
         }
         detect(actions.readPageText())?.let { throw it }
 
-        HumanBehavior.sleepMs(900.0, 1600.0)
+        actions.pause(900.0, 1600.0)
         val probeImages = actions.tryProbeMainImage(listMeta.itemId, alreadyAtTop = true)
         if (!actions.ensureOnGoodsDetail(request.openIndex)) {
             val page = actions.readPageText()
@@ -124,7 +142,7 @@ private object PddDetailCollector : DetailCollector {
             )
         }
 
-        HumanBehavior.sleepMs(350.0, 800.0)
+        actions.pause(350.0, 800.0)
         var priceText = actions.readPageText()
         var shopSalesText = ""
         var paramsText = ""
@@ -170,20 +188,20 @@ private object PddDetailCollector : DetailCollector {
         )
 
         var shareId = share.goodsId
-            .ifBlank { extractProductId(share.url) }
-            .ifBlank { extractProductId(share.raw) }
+            .ifBlank { links.extractProductId(share.url) }
+            .ifBlank { links.extractProductId(share.raw) }
         var shareUrl = when {
             share.url.isNotBlank() -> share.url
-            shareId.isNotBlank() -> buildProductUrl(shareId)
-            else -> extractProductUrls(share.raw).firstOrNull().orEmpty()
+            shareId.isNotBlank() -> links.buildProductUrl(shareId)
+            else -> links.extractProductUrls(share.raw).firstOrNull().orEmpty()
         }
         if (shareId.isBlank() && (shareUrl.contains("ps=", true) || shareUrl.contains("goods1.html", true) || share.raw.contains("ps=", true))) {
             log("检测到 ps= 分享链，正在展开…")
-            val expanded = runCatching { withContext(Dispatchers.IO) { expandShareLink(shareUrl.ifBlank { share.raw }) } }
+            val expanded = runCatching { withContext(Dispatchers.IO) { links.expandShareLink(shareUrl.ifBlank { share.raw }) } }
                 .onFailure { log("ps= 展开失败: ${it.message}") }.getOrDefault(PddResolvedLink())
             if (expanded.platformProductId.isNotBlank()) {
                 shareId = expanded.platformProductId
-                shareUrl = expanded.itemUrl.ifBlank { buildProductUrl(shareId) }
+                shareUrl = expanded.itemUrl.ifBlank { links.buildProductUrl(shareId) }
                 log("ps= 展开成功 id=$shareId")
             } else if (expanded.itemUrl.isNotBlank() && shareUrl.isBlank()) shareUrl = expanded.itemUrl
         }
@@ -195,7 +213,10 @@ private object PddDetailCollector : DetailCollector {
         val expectTokens = listOf(request.keyword, product.productName, product.brand, product.sellName)
             .flatMap { it.split(" ", "　", "/", "·", ",") }.map(String::trim).filter { it.length >= 2 }.distinct()
         val resolved = runCatching {
-            resolveLink(share.raw.take(4000), shareUrl.ifBlank { product.itemUrl }, shareId.ifBlank { product.itemId }, expectTokens)
+            links.resolveLink(
+                share.raw.take(4000), shareUrl.ifBlank { product.itemUrl },
+                shareId.ifBlank { product.itemId }, expectTokens,
+            )
         }.onFailure { log("网络解析跳过: ${it.message}") }.getOrDefault(PddResolvedLink())
         if (resolved.rejected && resolved.itemUrl.isBlank() && resolved.platformProductId.isBlank()) {
             log("网络补图跳过（防串号）: ${resolved.rejectReason}")
@@ -204,7 +225,7 @@ private object PddDetailCollector : DetailCollector {
             if (idOk) {
                 product = product.copy(
                     itemId = resolved.platformProductId,
-                    itemUrl = resolved.itemUrl.ifBlank { buildProductUrl(resolved.platformProductId) },
+                    itemUrl = resolved.itemUrl.ifBlank { links.buildProductUrl(resolved.platformProductId) },
                     mainImages = resolved.images.takeIf { it.isNotEmpty() }?.joinToString("|") ?: product.mainImages,
                 )
             } else if (resolved.images.isNotEmpty() && product.mainImages.isBlank()) {
@@ -218,16 +239,20 @@ private object PddDetailCollector : DetailCollector {
         val localImages = buildList {
             if (listMeta.imageHint.isNotBlank()) add(listMeta.imageHint)
             addAll(probeImages); addAll(share.images); addAll(harvest.images)
-        }.filter(::isProductImageUrl).distinct()
+        }.filter(links::isProductImageUrl).distinct()
         if (product.mainImages.isBlank() && localImages.isNotEmpty()) product = product.copy(mainImages = localImages.joinToString("|"))
         if (product.mainImages.isNotBlank()) {
-            product = product.copy(mainImages = product.mainImages.split("|").filter(::isProductImageUrl).distinct().joinToString("|"))
+            product = product.copy(
+                mainImages = product.mainImages.split("|").filter(links::isProductImageUrl).distinct().joinToString("|"),
+            )
         }
-        if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) product = product.copy(itemUrl = buildProductUrl(product.itemId))
+        if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) {
+            product = product.copy(itemUrl = links.buildProductUrl(product.itemId))
+        }
         val (checked, quality) = applyQuality(pageText, product)
         val capturedAt = System.currentTimeMillis()
         val sources = buildList {
-            add(RawSource(
+            add(pddRawSource(
                 type = "SEARCH",
                 sourceIdentifier = "search-card:${request.openIndex}",
                 capturedAtEpochMs = searchCapturedAt,
@@ -242,20 +267,20 @@ private object PddDetailCollector : DetailCollector {
                     .put("page_text", searchPageText)
                     .toString(),
             ))
-            add(RawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
-            if (shopSalesText.isNotBlank()) add(RawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
+            add(pddRawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
+            if (shopSalesText.isNotBlank()) add(pddRawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
             if (checked.couponInfo.isNotBlank()) {
-                add(RawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
+                add(pddRawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
             }
             val media = (localImages + checked.mainImages.split("|").filter(String::isNotBlank)).distinct()
-            if (media.isNotEmpty()) add(RawSource(
+            if (media.isNotEmpty()) add(pddRawSource(
                 "MEDIA", "product-media", capturedAt, contentType = "application/json",
                 payload = JSONObject().put("items", JSONArray(media.mapIndexed { index, url ->
                     JSONObject().put("url", url).put("type", "image").put("order", index)
                 })).toString(),
             ))
             if (harvest.blob.isNotBlank() || harvest.urls.isNotEmpty() || share.raw.isNotBlank()) {
-                add(RawSource(
+                add(pddRawSource(
                     "EMBEDDED", "accessibility-harvest", capturedAt, contentType = "application/json",
                     payload = JSONObject()
                         .put("goods_id", harvest.goodsId)
@@ -267,7 +292,7 @@ private object PddDetailCollector : DetailCollector {
                         .toString(),
                 ))
             }
-            if (paramsText.isNotBlank()) add(RawSource("OTHER", "product-params", capturedAt, payload = paramsText))
+            if (paramsText.isNotBlank()) add(pddRawSource("OTHER", "product-params", capturedAt, payload = paramsText))
         }
         return DetailCollectionResult(
             product = checked,
@@ -334,27 +359,6 @@ private object PddDetailCollector : DetailCollector {
         )
     }
 
-    private fun extractProductId(value: String): String = GoodsLinkResolver.extractGoodsId(value)
-    private fun buildProductUrl(platformProductId: String): String = GoodsLinkResolver.buildGoodsUrl(platformProductId)
-    private fun extractProductUrls(value: String): List<String> = GoodsLinkResolver.extractGoodsUrls(value)
-    private suspend fun expandShareLink(value: String): PddResolvedLink = GoodsLinkResolver.expandShareLink(value).asAdapterResult()
-    private suspend fun resolveLink(
-        rawShare: String,
-        hintUrl: String,
-        hintProductId: String,
-        expectTokens: List<String>,
-    ): PddResolvedLink = GoodsLinkResolver.resolve(rawShare, hintUrl, hintProductId, expectTokens).asAdapterResult()
-
-    private fun isProductImageUrl(value: String): Boolean = GoodsLinkResolver.isProductImageUrl(value)
-
-    private fun GoodsLinkResolver.Resolved.asAdapterResult() = PddResolvedLink(
-        platformProductId = goodsId,
-        itemUrl = itemUrl,
-        images = images,
-        title = title,
-        rejected = rejected,
-        rejectReason = rejectReason,
-    )
 }
 
 private class PddCollectorSession(val actions: PddActions) : CollectorSession {

@@ -4,10 +4,10 @@ BRANCH: codex/accepted-business-baseline
 CHANGED_BRANCH_FIELD: PddCollector.kt :: accepted RawSource emission with default SKU_PANEL runtime disabled
 
 ARTIFACTS:
-- MODIFIED_FILE: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\MODIFIED_FILE.kt
-- DIFF_FILE: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\DIFF_FILE.patch
-- VERIFICATION: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\VERIFICATION.txt
-- ROLLBACK: D:\work\PDD_con_data_accepted_baseline\docs\tasks\BASELINE-SPLIT-001-verification\ROLLBACK.sh
+- MODIFIED_FILE: docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+- DIFF_FILE: docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
+- VERIFICATION: docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+- ROLLBACK: docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
 
 HASHES:
 - ORIGINAL_90B_PDDCOLLECTOR_SHA256: ba765b28dd865c950c9051339c15b87517458428643d9d5471d22edf902c2859
@@ -26,7 +26,7 @@ MODIFIED:
 - exit status: 0
 
 ROLLBACK:
-- command: D:\Git\bin\bash.exe docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+- command: bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
 - input: probe initially copied from MODIFIED_FILE.kt
 - literal output/result: restored SHA256=ba765b28dd865c950c9051339c15b87517458428643d9d5471d22edf902c2859; RESTORED_MATCH=True
 - exit status: 0

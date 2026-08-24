@@ -37,6 +37,12 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.UUID
 
+internal suspend fun collectDetailThroughRegistry(
+    platformCode: String,
+    session: CollectorSession,
+    request: DetailCollectionRequest,
+) = CollectorRegistry.require(platformCode).collectDetail(session, request)
+
 class TaskEngine(
     private val log: (String) -> Unit,
     private val onProductCollected: (suspend (localTaskId: Long, outboxId: String, product: ProductEntity, remoteItemId: Long?) -> Unit)? = null,
@@ -524,7 +530,8 @@ class TaskEngine(
         config: CollectConfig,
     ): Boolean {
         return try {
-            val collected = collector.collectDetail(
+            val collected = collectDetailThroughRegistry(
+                collector.platform,
                 actions,
                 DetailCollectionRequest(keyword, pickTag, openIndex, log),
             )

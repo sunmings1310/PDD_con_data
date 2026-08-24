@@ -1,7 +1,7 @@
 # BASELINE-SPLIT-001：Accepted Business Baseline Split Manifest
 
-- Status：ACCEPTED / READY FOR DRAFT PR
-- Date：2026-08-23
+- Status：READY FOR RE-REVIEW / PR REMAINS DRAFT
+- Date：2026-08-24
 - Base：`origin/main@a3d499594b2bd2bf52a43e31ca6440f63b9a8cd6`
 - Source evidence：`90b53658af5bf1e1f0488aaeb520e59887c8c91b`、`13b4301445eda9768069a807a13d9f43cedb8e8f`
 - Integration branch：`codex/accepted-business-baseline`
@@ -29,9 +29,10 @@
 | `parser/DetailReader.kt`：完整标题、参数 label 边界、manufacturer/spec 修正 | ACCEPTED_PRODUCT_P0 | Yes | Golden Sample 与 Canonical 语义必需 | DetailReader/P0 tests |
 | `parser/DetailReader.kt`：历史 SKU text 兼容读取、空 sku id 不伪造 | ACCEPTED_PRODUCT_P0 | Yes | 读取历史 SKU 不启用采集交互 | DetailReader tests |
 | `parser/ProductQualityGate.kt`：空 SKU array 为 missing warning | REQUIRED_SUPPORT | Yes | 空集合不伪装为已观察 SKU | Raw/Product quality tests |
-| `engine/PddActions.kt`：13b pagination、SKU_PANEL、dynamic dimension、combination hunks | EXPERIMENTAL_SKU | No | 保留 Phase 6A 的 90b 实现；不引入 13b Generic SKU runtime | source scan、negative JVM gate |
-| `data/Dao.kt`：legacy finish requeue、cross-attempt product query | REQUIRED_SUPPORT | No | 属于另一个生命周期恢复变更，不是本次 Raw/P0 最小依赖 | 原 13b branch 保留证据 |
-| `net/AgentCoordinator.kt`：engine retry、legacy finish、checkpoint direct finish、cross-attempt receipt | REQUIRED_SUPPORT | No | 与本次四项能力无直接依赖，避免夹带生命周期行为变化 | 原 13b branch 保留证据 |
+| `engine/PddActions.kt`：virtual-list pagination / unseen card selection | REQUIRED_SUPPORT | Yes | 1.0.75 已验收非 SKU 生命周期能力；恢复确定性前向翻页和去重 | Backlog 1.0.75、`PddPaginationTest` |
+| `engine/PddActions.kt`：SKU_PANEL、dynamic dimension、combination hunks | EXPERIMENTAL_SKU | No | 不引入 13b Generic SKU runtime | behavior JVM gate + auxiliary source scan |
+| `data/Dao.kt`：legacy finish requeue、cross-attempt product query | REQUIRED_SUPPORT | Yes | 1.0.73～1.0.75 已验收恢复/跨 Attempt receipt 行为 | `LegacyFinishRecoveryTest`、`JobRecoveryPolicyTest` |
+| `net/AgentCoordinator.kt`：engine retry、legacy finish、checkpoint direct finish、cross-attempt receipt、retry_wait reacquire | REQUIRED_SUPPORT | Yes | 已有真机 E2E/Backlog 证据，Split 误排除 | recovery/pagination/legacy finish JVM tests |
 | `app/build.gradle.kts`：1.0.82 version bump | INVESTIGATION_ONLY | No | 对应真机 Generic SKU 调查制品版本 | 原 13b branch 保留证据 |
 
 ## 3. Server/Web production hunks
@@ -45,9 +46,9 @@
 | `server/product_read_model.py` | ACCEPTED_PRODUCT_P0 | Yes | Legacy/strict Canonical Read Model | Product P0 + Golden Sample |
 | `server/routers/reports.py`：Effective Price | ACCEPTED_PRODUCT_P0 | Yes | Report 不建立第二套价格优先级 | Product P0 tests |
 | `server/data_quality.py`：空 SKU collection 为未观察 | REQUIRED_SUPPORT | Yes | Quality 与 Android 空值语义一致 | Raw/data-quality tests |
-| `server/job_service.py`：普通 item/canonical receipt 与 `NEXT_RUN_AT` hunks | REQUIRED_SUPPORT | No | 不属于本次最小 Product/Raw split；90b 的已验收完成语义保持不变 | Phase 2/full regression |
-| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT hunks | REQUIRED_SUPPORT | No | Oracle 兼容修复不由本 Task扩 scope | Phase 6A 90b Oracle baseline |
-| `server/routers/tasks.py`：tenant pull 与 late cancel ACK hunks | REQUIRED_SUPPORT | No | 不夹带 Task 生命周期/租户路由行为变化 | 原 13b branch 保留证据 |
+| `server/job_service.py`：普通 item/canonical receipt 与 `NEXT_RUN_AT` hunks | REQUIRED_SUPPORT | Yes | 普通 TaskItem canonical binding 与 Oracle NOT NULL 兼容已验收 | Phase 2、Backlog、job service tests |
+| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT hunks | REQUIRED_SUPPORT | Yes | 修复真实 Oracle duplicate column alias 与 NOT NULL compatibility | reconciliation compatibility ×4、Oracle gate |
+| `server/routers/tasks.py`：tenant pull 与 late cancel ACK hunks | REQUIRED_SUPPORT | Yes | Phase 5.5 租户边界及取消后 durable outbox 释放已验收 | tenant pull、late cancel tests |
 | `web/ProductList.vue`：Canonical fields + Edit DTO | ACCEPTED_PRODUCT_P0 | Yes | Library 编辑不复制列表动态事实 | Web build、P0 contract |
 | `web/TaskDetail.vue`：Capture Edit DTO | ACCEPTED_PRODUCT_P0 | Yes | Capture 编辑与 Library 使用同一 stable policy | Web build、P0 contract |
 
@@ -69,8 +70,12 @@
 | Field Observation / Generic SKU ADR | EXPERIMENTAL_SKU | No | Proposed/验证冻结，不是 Accepted | source ADR status |
 | `schema_discovery.py`、`sku_panel_discovery.py`、`generic_sku_validation.py` | INVESTIGATION_ONLY | No | 专项调查工具，不进入 accepted baseline | 原 13b branch 保留 |
 | schema/generic/SKU discovery tests | INVESTIGATION_ONLY | No | 验证未验收调查工具 | 原 13b branch 保留 |
-| `PddActionsSkuContractTest.kt`、`PddPaginationTest.kt` | EXPERIMENTAL_SKU / INVESTIGATION_ONLY | No | 依赖未纳入的 13b runtime/pagination hunks | negative gate replaces SKU runtime assertion |
-| Job recovery、legacy finish、Oracle compatibility test hunks | REQUIRED_SUPPORT | No | 对应未纳入的生命周期/Oracle兼容 hunk，不降低既有断言 | 90b/full regression retained |
+| `PddActionsSkuContractTest.kt` | EXPERIMENTAL_SKU | No | 依赖未纳入的 13b Generic SKU runtime | behavior gate replaces Generic SKU runtime assertion |
+| `PddPaginationTest.kt` | REQUIRED_SUPPORT | Yes | virtual list 前向翻页与 unseen card 选择 | 2 JVM tests |
+| `LegacyFinishRecoveryTest.kt` | REQUIRED_SUPPORT | Yes | late cancel requeue 与 JSON null target compatibility | 2 JVM tests |
+| `JobRecoveryPolicyTest.kt` 新增 recovery tests | REQUIRED_SUPPORT | Yes | cross-attempt receipt、engine retry、checkpoint direct completion | 3 JVM tests |
+| Oracle compatibility / canonical receipt / tenant pull / late cancel tests | REQUIRED_SUPPORT | Yes | 对应恢复的 Accepted lifecycle 生产语义 | Python 非 SKU 7 tests |
+| `2026-08-24-raw-capture-identity-immutability.md` | ACCEPTED_RAW | Yes | 冻结 Raw tenant identity、strict idempotency 与 Derived 不可变合同 | Raw behavior tests |
 
 ## 5. Explicit exclusions
 
@@ -82,38 +87,57 @@
 
 保留 `RawSource(type="SKU_PANEL")` 的通用表达能力和历史 SKU JSON 读取，不等于启用采集交互。
 
-## 6. Verification record
+## 6. Independent Review Corrections
+
+| Reviewer Finding | Status | Corrected Classification | Restored / Fixed Files and Hunks | Acceptance Evidence | Tests |
+|---|---|---|---|---|---|
+| 1：Accepted 非 SKU 生命周期能力被误排除 | RESOLVED | `REQUIRED_SUPPORT / No` → `REQUIRED_SUPPORT / Yes` | `AgentCoordinator.kt`、`Dao.kt`、`PddActions.kt` pagination；`job_service.py`、`job_reconciliation.py`、`routers/tasks.py` | Backlog 1.0.73～1.0.75、Phase 2/5.5/6A 既有验收与 source `13b4301` | lifecycle/recovery targeted、full、isolated Oracle |
+| 1A：Accepted 非 SKU 测试数量下降 | RESOLVED | 非 SKU coverage 恢复；Generic SKU tests 继续排除 | Python reconciliation ×4、canonical receipt ×1、tenant pull ×1、late cancel ×1；Android pagination ×2、legacy finish ×2、recovery ×3 | 每个测试均对应上一行恢复的生产语义 | Python/Android targeted + full |
+| 2：Raw resanitize 原地覆盖 | RESOLVED | `ACCEPTED_RAW` 不变量强化 | `server/raw_capture.py` Derived/Resanitized version；replay 显式 original/derived | Accepted Raw evidence 需要可审计、可重放、不可变 | original bytes/hash/manifest 不变 + derived replay |
+| 3：capture_id 未租户绑定且弱幂等 | RESOLVED | `ACCEPTED_RAW` 身份合同冻结 | Tenant/Workspace 路径、identity/content hashes、`RAW_CAPTURE_CONFLICT`、Accepted ADR | Enterprise/Workspace 隔离及 Raw provenance 不变量 | retry/conflict/cross-tenant/cross-workspace/product/attempt/device/content |
+| 4：no-SKU 核心门禁仅做源码扫描 | RESOLVED | `REQUIRED_SUPPORT` 行为门禁 | `PddDetailPorts.kt` Spy/Fake seam；TaskEngine → Registry → PDD detail 实际调用路径 | Generic SKU 始终 `NOT ACCEPTED` | purchase/panel/combination=0，SKU_PANEL=0，DETAIL/parse/legacy read 正常；源码扫描仅辅助 |
+| 5：绝对路径泄露 | RESOLVED | `ACCEPTED_RAW` API 边界修复 | `routers/products.py` opaque evidence/manifest refs；旧 receipt 输出清洗；verification 使用 repo-relative 路径 | 物理存储路径不是业务 identity | API/receipt/media ping + changed-scope absolute-path scan |
+| 6：通用 RawSource 带 PDD schema 默认值 | RESOLVED | 平台中立 Contract + PDD 显式 Adapter provenance | `CollectorContract.kt` nullable default；`PddCollector.kt` 显式 `pdd-a11y-v1` | 防止未来 Adapter 继承错误 provenance | generic default null + PDD detail sources explicit |
+
+Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU Panel 自动打开和 combination traversal 未随 lifecycle 修复恢复；`PddActionsSkuContractTest.kt` 仍排除。Legacy SKU JSON/text 兼容读取及 `SKU_PANEL` 类型表达能力仅用于已存在数据，不会激活默认运行时。
+
+## 7. Verification record
 
 | Gate | Exact command / input | Literal result | Exit | Status |
 |---|---|---|---:|---|
+| Lifecycle/reconciliation Python targeted | `python -m unittest -v tests.test_job_reconciliation_oracle_compat`；`tests.test_job_service`；`tests.test_phase55_enterprise_hardening`；`tests.test_task_state_r1` | `Ran 4 tests ... OK`；`Ran 10 tests ... OK (skipped=2)`；`Ran 6 tests ... OK`；`Ran 15 tests ... OK` | 0 | PASS |
 | Phase 6A Python targeted | `python -m unittest -v tests.test_phase6a_collectors` | `Ran 4 tests ... OK` | 0 | PASS |
-| Raw + Product P0 Python targeted | `python -m unittest -v tests.test_raw_capture tests.test_product_consistency_p0` | `Ran 8 tests ... OK` | 0 | PASS |
-| Android targeted | Collector/Raw/Detail/negative gate filters | `BUILD SUCCESSFUL in 35s` | 0 | PASS |
-| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | `Ran 178 tests ... OK (skipped=18)` | 0 | PASS |
+| Raw immutability/identity targeted | `python -m unittest -v tests.test_raw_capture` | `Ran 8 tests in 0.250s ... OK` | 0 | PASS |
+| Product P0 Python targeted | `python -m unittest -v tests.test_product_consistency_p0` | `Ran 5 tests ... OK` | 0 | PASS |
+| Android behavior/lifecycle targeted | `gradlew testDebugUnitTest --no-daemon` + 5 class filters | `BUILD SUCCESSFUL in 8s`; 18 tests, 0 failures, 0 skipped | 0 | PASS |
+| Python full | `python scripts/run_python_unit_tests.py` | `Ran 190 tests in 0.365s ... OK (skipped=18)` | 0 | PASS |
 | Python compile | `python -m compileall -q server scripts tests` | no output | 0 | PASS |
-| Android JVM full | `testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 13s`; 62 tests, 0 failures, 1 skipped | 0 | PASS |
-| Web production | `npm ci && npm run build` | `1673 modules transformed`; built in 4.64s | 0 | PASS |
-| Oracle Phase 1～6A | strict isolated Oracle gate | `Ran 40 tests in 116.520s ... OK`; `PASS=1 FAIL=0 BLOCKED=0` | 0 | PASS |
+| Android JVM full | `gradlew testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 11s`; 70 tests, 0 failures, 0 errors, 1 skipped | 0 | PASS |
+| Web production | `npm ci && npm run build` | `1673 modules transformed`; `built in 7.38s` | 0 | PASS |
+| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | `Ran 41 tests in 126.094s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Golden Sample | `python scripts/product_consistency_p0.py` | product `985843042423`; `result=PASS`; 10 legacy SKU combinations; 8 media | 0 | PASS |
-| Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + production source scan | default detail has no SKU call/source; Generic runtime names absent; only unused 90b capability definition remains | 0 | PASS |
-| Security | tracked-path/secret/DSN/absolute-path/large-file scan | 0 findings; no changed file >1 MiB | 0 | PASS |
-| Diff | `git diff --check origin/main` | no whitespace errors | 0 | PASS |
+| Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + auxiliary production source scan | behavior tests 3/3 PASS；purchase/panel/combination=0；SKU_PANEL=0；DETAIL/parse/legacy SKU read PASS；Generic runtime names 0 | 0 | PASS |
+| Security | changed-scope secret/raw/DB/artifact/large-file/absolute-path scan | no secret、Raw payload、DB、build artifact or changed file >1 MiB；absolute-path matches only negative test/ADR sentinel，API returned path=0。全仓真实既有 findings 为 `.path_ok`、`install-adb.ps1`、`config.json::_output_dir_abs`、`image_filter.py` fallback 与 Historical verification 文档；本 Task 不改其运行语义 | 0 | PASS |
+| Diff | `git diff --check 246f181..HEAD`（提交前等价检查工作树） | no whitespace errors | 0 | PASS |
 
-Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle 已单独实际执行并通过。
+测试数量解释：Python `13b4301` 191 - 实验 Schema/Generic SKU 6 = Accepted 185；原 Split 误排除 7 后为 178；本次恢复 7 并新增 Raw review tests 5，最终 190。Android `13b4301` 70 - Generic SKU tests 3 = Accepted 67；加 Split 专用 no-SKU gate 2，误排除 7 后为 62；恢复 7 且行为 gate 从 2 扩为 3，最终 70。没有为了数量恢复 Generic SKU 测试。
 
-可复现修改/回滚制品：[`MODIFIED_FILE.kt`](BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt)、[`DIFF_FILE.patch`](BASELINE-SPLIT-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-SPLIT-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-SPLIT-001-verification/ROLLBACK.sh)。
+Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle 已另行实际执行 41 项并通过，无 skip。
 
-## 7. Sol Review
+本次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh)。原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
+
+## 8. Sol Review
 
 1. Phase 6A commit 完整保留；targeted 与 Oracle compatibility 通过。
 2. RawSource、sanitization、manifest、server persistence、offline replay 和 durable upload 链完整。
 3. Product P0 的 Canonical fields、五价、Read/Edit DTO、immutable policy、Web 编辑边界与 Golden Sample 完整。
 4. 默认 `PddDetailCollector` 不引用 `openAndReadSkuPrices()`，不生成主动 `SKU_PANEL` source；13b Generic runtime 名称和 combination traversal 未进入分支。
 5. Collector Contract 仅增加 Raw sources，不改变 Registry/Capability/Quality 完成语义。
-6. 未删除或放宽既有测试断言；新增负向 gate。未纳入的实验测试随实验实现一起保留在 source branch。
-7. 逐项复核 13b production hunks；没有发现 Accepted Raw/Product P0 的遗漏依赖。
+6. 恢复 7 项 Python 与 7 项 Android Accepted 非 SKU coverage；no-SKU 核心证明升级为行为测试，源码扫描仅作辅助。
+7. Original Raw、identity/content hash 和 Manifest 在 resanitize 前后逐字节不变；Derived 版本可独立验证和 replay。
+8. 逐项复核 13b production hunks；恢复仅覆盖既有 Accepted lifecycle，不包含 Generic SKU、P1 或 Phase 6B。
 
-## 8. Rollback
+## 9. Rollback
 
 - 分支整体回滚：删除未 merge 的 `codex/accepted-business-baseline` 分支，不影响 source branches；
 - commit 回滚：按本分支新增 commit 逆序 `git revert`；

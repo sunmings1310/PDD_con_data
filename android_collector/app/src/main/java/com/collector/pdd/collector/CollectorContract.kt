@@ -72,7 +72,7 @@ data class RawSource(
     val sourceIdentifier: String,
     val capturedAtEpochMs: Long,
     val contentType: String = "text/plain; charset=utf-8",
-    val schemaHint: String = "pdd-a11y-v1",
+    val schemaHint: String? = null,
     val payload: String,
 )
 
