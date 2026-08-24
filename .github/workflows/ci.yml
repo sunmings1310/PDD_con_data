@@ -134,7 +134,19 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
       - working-directory: android_collector
-        run: java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon; then
+              exit 0
+            fi
+            if [[ "$attempt" == "3" ]]; then
+              echo "Android JVM tests failed after $attempt attempts"
+              exit 1
+            fi
+            echo "Android JVM test attempt $attempt failed; retrying dependency resolution"
+            sleep $((attempt * 15))
+          done
 
   oracle-scope:
     name: Oracle gate applicability
