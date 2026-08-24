@@ -1,0 +1,49 @@
+BASELINE-SPLIT-001 VERIFICATION
+
+BRANCH: codex/accepted-business-baseline
+CHANGED_BRANCH_FIELD: PddCollector.kt :: accepted RawSource emission with default SKU_PANEL runtime disabled
+
+ARTIFACTS:
+- MODIFIED_FILE: docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+- DIFF_FILE: docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
+- VERIFICATION: docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+- ROLLBACK: docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
+
+HASHES:
+- ORIGINAL_90B_PDDCOLLECTOR_SHA256: ba765b28dd865c950c9051339c15b87517458428643d9d5471d22edf902c2859
+- MODIFIED_SHA256: c19006fc159ba8dd1fcf72ee120d71ff5dc57794cc3ff855f3656e4cff33a04d
+
+BASELINE:
+- command: git show 90b53658af5bf1e1f0488aaeb520e59887c8c91b:android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
+- input: accepted Phase 6A PddCollector
+- literal output/result: SHA256=ba765b28dd865c950c9051339c15b87517458428643d9d5471d22edf902c2859
+- exit status: 0
+
+MODIFIED:
+- command: rg 'listOf\("params", "shop_sales", "human"\)' docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+- input: final accepted baseline PddCollector copied byte-for-byte
+- literal output/result: default steps are params/shop_sales/human; no openAndReadSkuPrices caller; SHA256=c19006fc159ba8dd1fcf72ee120d71ff5dc57794cc3ff855f3656e4cff33a04d
+- exit status: 0
+
+ROLLBACK:
+- command: bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+- input: probe initially copied from MODIFIED_FILE.kt
+- literal output/result: restored SHA256=ba765b28dd865c950c9051339c15b87517458428643d9d5471d22edf902c2859; RESTORED_MATCH=True
+- exit status: 0
+- restored behavior/status: probe restored to accepted Phase 6A implementation; probe removed; MODIFIED_FILE remains split/changed.
+
+TESTS:
+- Phase 6A targeted: Ran 4 tests; OK; exit 0
+- Raw/Product P0 targeted: Ran 8 tests; OK; exit 0
+- Android targeted: BUILD SUCCESSFUL in 35s; exit 0
+- Python full: Ran 178 tests; OK (skipped=18); exit 0
+- Python compile: no output; exit 0
+- Android full: BUILD SUCCESSFUL in 13s; 62 tests, 0 failures, 1 skipped; exit 0
+- Web production build: 1673 modules transformed; built in 4.64s; exit 0
+- Oracle isolated Phase 1-6A: Ran 40 tests in 116.520s; OK; exit 0
+- Golden Sample 985843042423: result=PASS; exit 0
+- git diff --check origin/main: no whitespace errors; exit 0
+
+RESTORED STATUS:
+- Source branches 13b4301 and governance 28addc9 remain unchanged.
+- Integration branch retains accepted Raw/Product P0 changes and excludes default Generic SKU runtime.

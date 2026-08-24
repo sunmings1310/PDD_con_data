@@ -1,0 +1,52 @@
+BASELINE-REVIEW-FIX-001 VERIFICATION
+
+BRANCH: codex/accepted-business-baseline
+CHANGED_BRANCH_FIELD: server/raw_capture.py :: original Raw evidence is immutable; resanitize creates tenant-bound derived evidence with strict identity/content conflict detection
+
+ARTIFACTS:
+- MODIFIED_FILE: docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
+- DIFF_FILE: docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch
+- VERIFICATION: docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
+- ROLLBACK: docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh
+
+BASELINE:
+- command: git show 246f18114c6ab647051229a186c33e76d2fbe671:server/raw_capture.py | sha256sum
+- input: PR #2 review source baseline Raw Capture module
+- literal output/result: SHA256=052497f29254e20fe06cf580cfc822bdb4413b50d55d64df0db382b438d8a1e5
+- exit status: 0
+
+MODIFIED:
+- command: sha256sum docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
+- input: final review-fixed server/raw_capture.py copied byte-for-byte
+- literal output/result: SHA256=69d05a23f09355d3d42c22f22f58b419f8ca7e347e1c2a08f22e75bfe66fdd93; original evidence remains immutable; derived evidence and strict tenant/content identity are active
+- exit status: 0
+
+ROLLBACK:
+- command: bash docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh docs/tasks/BASELINE-REVIEW-FIX-001-verification/rollback_probe.py
+- input: probe initially copied from MODIFIED_FILE.py
+- literal output/result: RESTORED_SHA256=052497f29254e20fe06cf580cfc822bdb4413b50d55d64df0db382b438d8a1e5; RESTORED_MATCH=True
+- exit status: 0
+- restored behavior/status: probe restored to 246f181 Raw Capture behavior; probe removed; MODIFIED_FILE remains review-fixed.
+
+TESTS:
+- lifecycle/reconciliation targeted: Python 4 + 10 + 6 + 15 tests; OK (2 opt-in Oracle skips only in targeted unit command); exit 0
+- Raw immutability/tenant/idempotency targeted: Ran 8 tests in 0.250s; OK; exit 0
+- Product P0 targeted: Ran 5 tests; OK; exit 0
+- Phase 6A targeted: Ran 4 tests; OK; exit 0
+- Android behavior/lifecycle targeted: BUILD SUCCESSFUL in 8s; 18 tests, 0 failures, 0 skipped; exit 0
+- Python full: Ran 190 tests in 0.365s; OK (skipped=18); exit 0
+- Python compile: no output; exit 0
+- Android full: BUILD SUCCESSFUL in 11s; 70 tests, 0 failures, 0 errors, 1 skipped; exit 0
+- Web production: 1673 modules transformed; built in 7.38s; exit 0
+- Oracle isolated Phase 1-6A: Ran 41 tests in 126.094s; OK; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit 0
+- Golden Sample 985843042423: result=PASS; sku_combination_count=10; media_count=8; exit 0
+- Generic SKU behavior gate: 3 tests, 0 failures; purchase/panel/combination=0; SKU_PANEL=0; DETAIL/parser/legacy SKU read PASS; exit 0
+- Security: no changed secret, Raw payload, DB, build artifact, leaked API path, or changed file larger than 1 MiB; exit 0
+- Absolute-path scan matches > 0: negative ADR/test sentinels plus historical deleted-line evidence in `DIFF_FILE.patch`; runtime/API exposure=0. Machine-specific deleted paths in the submitted artifact are redacted as `<REPO_ROOT>` / `<GIT_BIN>`. Repository-wide pre-existing findings remain `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents.
+- git diff --check 246f181..HEAD (pre-commit equivalent working-tree check): no whitespace errors; exit 0
+
+RESTORED STATUS:
+- Accepted non-SKU lifecycle semantics and coverage are restored.
+- Original Raw bytes/hash/manifest are immutable and tenant/workspace isolated.
+- Product P0 and Phase 6A remain passing.
+- Generic SKU, P1, and Phase 6B remain not started.

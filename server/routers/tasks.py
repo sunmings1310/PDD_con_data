@@ -740,6 +740,8 @@ def pull_task(device_key: str, platform_code: str | None = None):
             SELECT TASK_ID FROM SJZQ_TASK
              WHERE STATUS = 'pending'
                AND NVL(REVIEW_STATUS, 'approved') = 'approved'
+               AND ENTERPRISE_ID = :enterprise_id
+               AND WORKSPACE_ID = :workspace_id
                AND NOT EXISTS (
                      SELECT 1 FROM SJZQ_COLLECTION_JOB j
                       WHERE j.TASK_ID=SJZQ_TASK.TASK_ID
@@ -755,6 +757,8 @@ def pull_task(device_key: str, platform_code: str | None = None):
             {
                 "did": device["device_id"],
                 "plat": platform_code or device.get("platform_code"),
+                "enterprise_id": device["enterprise_id"],
+                "workspace_id": device["workspace_id"],
             },
         )
         row = cur.fetchone()
@@ -765,6 +769,8 @@ def pull_task(device_key: str, platform_code: str | None = None):
                 SELECT TASK_ID FROM SJZQ_TASK
                  WHERE STATUS = 'pending'
                    AND NVL(REVIEW_STATUS, 'approved') = 'approved'
+                   AND ENTERPRISE_ID = :enterprise_id
+                   AND WORKSPACE_ID = :workspace_id
                    AND NOT EXISTS (
                          SELECT 1 FROM SJZQ_COLLECTION_JOB j
                           WHERE j.TASK_ID=SJZQ_TASK.TASK_ID
@@ -776,6 +782,8 @@ def pull_task(device_key: str, platform_code: str | None = None):
                 {
                     "did": device["device_id"],
                     "plat": platform_code or device.get("platform_code"),
+                    "enterprise_id": device["enterprise_id"],
+                    "workspace_id": device["workspace_id"],
                 },
             )
             row = cur.fetchone()
@@ -1050,6 +1058,15 @@ def task_finish(body: TaskFinishIn):
                 current = task_status(terminal_task["status"])
                 repeated = (
                     (requested != "complete" and current.value == requested)
+                    # A server-side cancel is authoritative.  A late Agent
+                    # terminal callback may still carry its pre-cancel local
+                    # outcome; acknowledge it as cancelled so the durable
+                    # outbox can release the stale remote assignment without
+                    # changing the business result to success.
+                    or (
+                        current == TaskStatus.CANCELLED
+                        and requested in {"failed", "cancelled", "timed_out"}
+                    )
                     or (requested == "complete" and current in {
                         TaskStatus.SUCCEEDED, TaskStatus.PARTIALLY_SUCCEEDED
                     })

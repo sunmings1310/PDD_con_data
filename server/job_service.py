@@ -372,12 +372,20 @@ def complete(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_i
         raise JobProtocolError("RESULT_PRODUCT_MISMATCH", "result product is absent from receipt manifest")
     canonical_product_id = int(result_product_id) if result_product_id is not None else receipts[manifest_keys[0]]
     if job.get("item_id") is not None:
-        cur.execute("SELECT PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id AND TASK_ID=:task_id",
+        cur.execute("""SELECT PRODUCT_ID,TARGET_SPEC,TARGET_APPROVAL,TARGET_NAME,TARGET_MANUFACTURER
+                         FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id AND TASK_ID=:task_id""",
                     {"item_id": job["item_id"], "task_id": job["task_id"]})
         item = cur.fetchone()
-        if not item or item[0] is None or int(item[0]) not in receipts.values():
+        if not item:
             raise JobProtocolError("RESULT_ITEM_MISMATCH", "job item product is absent from receipt manifest")
-        canonical_product_id = int(item[0])
+        prebound_product_id = int(item[0]) if item[0] is not None else None
+        requires_prebound = any(str(value or "").strip() for value in item[1:])
+        if requires_prebound and (prebound_product_id is None or prebound_product_id not in receipts.values()):
+            raise JobProtocolError("RESULT_ITEM_MISMATCH", "matched job item product is absent from receipt manifest")
+        if prebound_product_id is not None:
+            if prebound_product_id not in receipts.values():
+                raise JobProtocolError("RESULT_ITEM_MISMATCH", "job item product is absent from receipt manifest")
+            canonical_product_id = prebound_product_id
     canonical_key = next(key for key in manifest_keys if receipts[key] == canonical_product_id)
     try:
         validate_job_transition(job["status"], JobStatus.SUCCESS)
@@ -407,7 +415,7 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
     except JobStateConflict as exc:
         raise JobProtocolError(exc.code,str(exc),job["status"]) from exc
     cur.execute("UPDATE SJZQ_COLLECTION_ATTEMPT SET STATUS='failed',FINISHED_AT=SYSTIMESTAMP,ERROR_CLASS=:class,ERROR_CODE=:code,ERROR_MESSAGE=:message,RETRYABLE=:retryable,RETRY_DELAY_SECONDS=:delay WHERE ATTEMPT_ID=:id", {"class":category.value,"code":error_code[:128],"message":error_message[:2000],"retryable":int(decision.retryable),"delay":int(decision.delay_seconds or 0),"id":attempt_id})
-    cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE NULL END,
+    cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE SYSTIMESTAMP END,
       LAST_ERROR_CLASS=:class,LAST_ERROR_CODE=:code,LAST_ERROR_MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE JOB_ID=:job_id AND ACTIVE_ATTEMPT_ID=:attempt_id""", {"status":decision.target.value,"retryable":int(decision.retryable),"delay":int(decision.delay_seconds or 0),"class":category.value,"code":error_code[:128],"message":error_message[:2000],"job_id":job_id,"attempt_id":attempt_id})
     _finish_lease(cur,job,attempt,device_id=device_id,reason=f"failed:{category.value}")
     if decision.target.value in {"failed", "quarantined", "dead"} and job.get("item_id") is not None:

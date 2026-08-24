@@ -1,0 +1,428 @@
+diff --git a/docs/tasks/BASELINE-SPLIT-001.md b/docs/tasks/BASELINE-SPLIT-001.md
+index f0d398cdc477c3b265abe9db4e8bc4cc4484e600..455fe8332c8abb4b9a761a752af235d111682d14 100644
+--- a/docs/tasks/BASELINE-SPLIT-001.md
++++ b/docs/tasks/BASELINE-SPLIT-001.md
+@@ -3 +3 @@
+-- Status：READY FOR FINAL RE-REVIEW / PR REMAINS DRAFT
++- Status：READY FOR FINAL REVIEW / PR REMAINS DRAFT
+@@ -102,0 +103 @@
++| 9：`mark_confirmed_result_success` 的真实 Oracle fixture 缺少真实 Attempt、Checkpoint→Attempt、canonical Product binding 与 Task aggregate | RESOLVED | `REQUIRED_SUPPORT` 生命周期恢复证据补全；完整 fixture 暴露并关闭最小生产缺口 | `tests/test_job_reconciliation_oracle_integration.py` 使用真实 acquire/start Attempt #1 和生产 `checkpoint()`；`server/job_reconciliation.py` 从 Checkpoint 恢复历史 Attempt、校验 receipt/product/tenant、绑定 TaskItem 并调用权威聚合 | 第三次 Review 指出的最后一个 merge-blocking P1；Attempt 保持既有 `success` 不可变终态，不创建新 Attempt | 初始 test-only 运行 `FAIL`（`AssertionError: 477 != None`）；最小修复后 targeted 1/1、模块 5/5、strict Oracle 46/46 PASS；二次真实 Oracle 调用无重复对象/计数 |
+@@ -115 +116,5 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU
+-| Python full | `python scripts/run_python_unit_tests.py` | `Ran 195 tests in 0.392s ... OK (skipped=23)` | 0 | PASS |
++| Confirmed-result lifecycle targeted | `python -m unittest -v tests.test_job_reconciliation_oracle_integration.OracleReconciliationIntegrationTest.test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent`；输入：隔离可写 Oracle test schema、全部 opt-in flags=1 | `Ran 1 test in 4.583s ... OK`；Real Oracle=YES、Production Method=YES、Attempt=REAL、Checkpoint binding/canonical Product binding/Task aggregate/idempotency/tenant isolation=PASS | 0 | PASS |
++| Reconciliation real Oracle module | `python -m unittest -v tests.test_job_reconciliation_oracle_integration`；输入：同上 | `Ran 5 tests in 20.846s ... OK`；skipped=0 | 0 | PASS |
++| Reconciliation static/module targeted | `python -m unittest -v tests.test_job_reconciliation tests.test_job_reconciliation_oracle_compat` | `Ran 12 tests in 0.008s ... OK` | 0 | PASS |
++| Python full | `python scripts/run_python_unit_tests.py` | `Ran 195 tests in 0.352s ... OK (skipped=23)` | 0 | PASS |
++| Python strict | `scripts/test-baseline.ps1 -Suite python -Strict` | `Ran 195 tests in 0.351s ... OK (skipped=23)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+@@ -117,2 +122,2 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU
+-| Android JVM full | `gradlew testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 11s`; 70 tests, 0 failures, 0 errors, 1 skipped | 0 | PASS |
+-| Web production | `npm run build` | `1673 modules transformed`; `built in 763ms` | 0 | PASS |
++| Android JVM strict | `scripts/test-baseline.ps1 -Suite android -Strict` | `BUILD SUCCESSFUL in 8s`; XML：70 tests, 0 failures, 0 errors, 1 skipped；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Web production strict | `scripts/test-baseline.ps1 -Suite web -Strict` | `1673 modules transformed`; `built in 563ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+@@ -121 +126 @@ Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU
+-| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | 旧 count 41 + 新增真实 Oracle cases 5 = `Ran 46 tests in 155.464s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`；Oracle suite skipped=0 | 0 | PASS |
++| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | 旧 count 41 + 真实 Oracle reconciliation cases 5 = `Ran 46 tests in 171.804s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`；Oracle suite skipped=0 | 0 | PASS |
+@@ -131 +136 @@ Python full 的 23 个 skip（含 5 个 opt-in reconciliation integration）和
+-本次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh)。原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
++本次第三次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-003-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-003-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-003-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-003-verification/ROLLBACK.sh)。此前 Review 与原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
+@@ -143,0 +149 @@ Python full 的 23 个 skip（含 5 个 opt-in reconciliation integration）和
++10. 第三次 Review 证明其中 `mark_confirmed_result_success` fixture 仍不完整；本次用真实 Attempt #1、绑定该 Attempt 的生产 Checkpoint、confirmed Receipt/Product、TaskItem canonical binding、Task aggregate、Tenant A/B 和二次调用，完成最后一个定向门禁；完整 fixture 首先失败并暴露生产恢复遗漏，最小修复后全部通过。
+diff --git a/server/job_reconciliation.py b/server/job_reconciliation.py
+index 20f78a0f203e21db261247ab4206bc4d472461f1..9010602e0d488322f6fc00d499eb9101d40a86ce 100644
+--- a/server/job_reconciliation.py
++++ b/server/job_reconciliation.py
+@@ -382 +382,14 @@ class OracleReconciliationStore:
+-                 SELECT j.JOB_ID, j.TASK_ID, j.ACTIVE_ATTEMPT_ID
++                 SELECT j.JOB_ID, j.TASK_ID,
++                        NVL(j.ACTIVE_ATTEMPT_ID,
++                            (SELECT c.ATTEMPT_ID
++                               FROM SJZQ_COLLECTION_CHECKPOINT c
++                              WHERE c.JOB_ID=j.JOB_ID
++                                AND c.VERSION=j.CHECKPOINT_VERSION)) AS RESULT_ATTEMPT_ID,
++                        (SELECT a.DEVICE_ID
++                           FROM SJZQ_COLLECTION_ATTEMPT a
++                          WHERE a.ATTEMPT_ID=NVL(
++                              j.ACTIVE_ATTEMPT_ID,
++                              (SELECT c.ATTEMPT_ID
++                                 FROM SJZQ_COLLECTION_CHECKPOINT c
++                                WHERE c.JOB_ID=j.JOB_ID
++                                  AND c.VERSION=j.CHECKPOINT_VERSION))) AS RESULT_DEVICE_ID
+@@ -395 +408,8 @@ class OracleReconciliationStore:
+-        return [JobInconsistency(int(r[0]), int(r[1]), int(r[2]) if r[2] is not None else None) for r in self._rows(self.cur)]
++        return [
++            JobInconsistency(
++                int(r[0]), int(r[1]),
++                int(r[2]) if r[2] is not None else None,
++                int(r[3]) if r[3] is not None else None,
++            )
++            for r in self._rows(self.cur)
++        ]
+@@ -397,0 +418,7 @@ class OracleReconciliationStore:
++        if candidate.device_id is not None:
++            self.cur.execute(
++                "SELECT DEVICE_ID FROM SJZQ_DEVICE WHERE DEVICE_ID=:device_id FOR UPDATE",
++                {"device_id": candidate.device_id},
++            )
++            if not self.cur.fetchone():
++                return False
+@@ -402 +429,98 @@ class OracleReconciliationStore:
+-            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='success', NEXT_RUN_AT=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
++            """SELECT TASK_ID,TASK_ITEM_ID,ACTIVE_ATTEMPT_ID,CHECKPOINT_VERSION,
++                      RESULT_RECEIPT_KEY,RESULT_PRODUCT_ID,STATUS,ENTERPRISE_ID,WORKSPACE_ID
++                 FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:job_id FOR UPDATE""",
++            {"job_id": candidate.job_id},
++        )
++        job = self.cur.fetchone()
++        if not job or int(job[0]) != candidate.task_id or str(job[6]).lower() not in {"pending", "retry_wait"}:
++            return False
++        item_id = int(job[1]) if job[1] is not None else None
++        active_attempt_id = int(job[2]) if job[2] is not None else None
++        checkpoint_version = int(job[3] or 0)
++        receipt_key = str(job[4] or "")
++        product_id = int(job[5]) if job[5] is not None else None
++        enterprise_id = int(job[7])
++        workspace_id = int(job[8])
++        attempt_id = candidate.attempt_id or active_attempt_id
++
++        attempt_device_id = None
++        if attempt_id is not None:
++            self.cur.execute(
++                """SELECT JOB_ID,STATUS,DEVICE_ID,FINAL_CHECKPOINT_VERSION,ENTERPRISE_ID,WORKSPACE_ID
++                     FROM SJZQ_COLLECTION_ATTEMPT
++                    WHERE ATTEMPT_ID=:attempt_id FOR UPDATE""",
++                {"attempt_id": attempt_id},
++            )
++            attempt = self.cur.fetchone()
++            if (
++                not attempt
++                or int(attempt[0]) != candidate.job_id
++                or str(attempt[1]).lower() != "success"
++                or (
++                    candidate.device_id is not None
++                    and (attempt[2] is None or int(attempt[2]) != candidate.device_id)
++                )
++                or int(attempt[4]) != enterprise_id
++                or int(attempt[5]) != workspace_id
++                or (
++                    checkpoint_version > 0
++                    and (attempt[3] is None or int(attempt[3]) != checkpoint_version)
++                )
++            ):
++                return False
++            attempt_device_id = int(attempt[2]) if attempt[2] is not None else None
++            if checkpoint_version > 0:
++                self.cur.execute(
++                    """SELECT 1 FROM SJZQ_COLLECTION_CHECKPOINT
++                        WHERE JOB_ID=:job_id AND ATTEMPT_ID=:attempt_id AND VERSION=:version""",
++                    {"job_id": candidate.job_id, "attempt_id": attempt_id, "version": checkpoint_version},
++                )
++                if not self.cur.fetchone():
++                    return False
++
++        if not receipt_key or product_id is None:
++            return False
++        self.cur.execute(
++            """SELECT 1 FROM SJZQ_UPLOAD_RECEIPT r
++                 JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=r.PRODUCT_ID
++                                    AND p.TASK_ID=r.TASK_ID
++                WHERE r.IDEMPOTENCY_KEY=:receipt_key AND r.STATUS='acked' AND r.OP_TYPE='product'
++                  AND r.TASK_ID=:task_id AND r.PRODUCT_ID=:product_id
++                  AND r.ENTERPRISE_ID=:enterprise_id AND r.WORKSPACE_ID=:workspace_id
++                  AND p.ENTERPRISE_ID=:enterprise_id AND p.WORKSPACE_ID=:workspace_id""",
++            {
++                "receipt_key": receipt_key,
++                "task_id": candidate.task_id,
++                "product_id": product_id,
++                "enterprise_id": enterprise_id,
++                "workspace_id": workspace_id,
++            },
++        )
++        if not self.cur.fetchone():
++            return False
++
++        if item_id is not None:
++            self.cur.execute(
++                """SELECT STATUS,PRODUCT_ID,ENTERPRISE_ID,WORKSPACE_ID
++                     FROM SJZQ_TASK_ITEM
++                    WHERE ITEM_ID=:item_id AND TASK_ID=:task_id FOR UPDATE""",
++                {"item_id": item_id, "task_id": candidate.task_id},
++            )
++            item = self.cur.fetchone()
++            if not item:
++                return False
++            item_status = str(item[0]).lower()
++            item_product_id = int(item[1]) if item[1] is not None else None
++            if (
++                int(item[2]) != enterprise_id
++                or int(item[3]) != workspace_id
++                or item_status not in {"pending", "running", "succeeded"}
++                or (item_product_id is not None and item_product_id != product_id)
++            ):
++                return False
++
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_JOB
++                   SET STATUS='success', NEXT_RUN_AT=SYSTIMESTAMP,
++                       ACTIVE_ATTEMPT_ID=NULL, LEASE_TOKEN_HASH=NULL,
++                       LEASE_EXPIRES_AT=NULL, DEVICE_ID=NULL, UPDATE_TIME=SYSTIMESTAMP
+@@ -413,0 +538,33 @@ class OracleReconciliationStore:
++        if attempt_id is not None:
++            self.cur.execute(
++                """UPDATE SJZQ_COLLECTION_LEASE
++                      SET STATUS='released',RELEASED_AT=NVL(RELEASED_AT,SYSTIMESTAMP),
++                          RELEASE_REASON=NVL(RELEASE_REASON,'CONFIRMED_RESULT_REPAIRED')
++                    WHERE JOB_ID=:job_id AND ATTEMPT_ID=:attempt_id AND STATUS='active'""",
++                {"job_id": candidate.job_id, "attempt_id": attempt_id},
++            )
++        if attempt_device_id is not None:
++            self.cur.execute(
++                """UPDATE SJZQ_DEVICE
++                      SET ACTIVE_JOB_ID=NULL,ACTIVE_ATTEMPT_ID=NULL,CURRENT_TASK_ID=NULL,
++                          STATUS=CASE WHEN STATUS='offline' THEN STATUS ELSE 'online' END,
++                          UPDATE_TIME=SYSTIMESTAMP
++                    WHERE DEVICE_ID=:device_id
++                      AND (ACTIVE_JOB_ID=:job_id OR ACTIVE_ATTEMPT_ID=:attempt_id)""",
++                {"device_id": attempt_device_id, "job_id": candidate.job_id, "attempt_id": attempt_id},
++            )
++        if item_id is not None:
++            self.cur.execute(
++                """UPDATE SJZQ_TASK_ITEM
++                      SET STATUS='succeeded',PRODUCT_ID=:product_id,UPDATE_TIME=SYSTIMESTAMP
++                    WHERE ITEM_ID=:item_id AND TASK_ID=:task_id
++                      AND STATUS IN ('pending','running','succeeded')
++                      AND (PRODUCT_ID IS NULL OR PRODUCT_ID=:product_id)""",
++                {
++                    "product_id": product_id,
++                    "item_id": item_id,
++                    "task_id": candidate.task_id,
++                },
++            )
++        from server.job_service import _aggregate_task_from_jobs
++        _aggregate_task_from_jobs(self.cur, candidate.task_id)
+diff --git a/tests/test_job_reconciliation_oracle_integration.py b/tests/test_job_reconciliation_oracle_integration.py
+index 9a5b32df0594a54cc1345c210727aa3e7468078e..84ae550287561c6c2daa51cd0aa9095bb72704af 100644
+--- a/tests/test_job_reconciliation_oracle_integration.py
++++ b/tests/test_job_reconciliation_oracle_integration.py
+@@ -236,2 +236,17 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-    def test_mark_confirmed_result_success_preserves_receipt_checkpoint_and_idempotency(self):
+-        fixture = self._new_job("A")
++    def test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent(self):
++        fixture = self._running_job("A")
++        other = self._new_job("B")
++        checkpoint_key = f"checkpoint-{self.tag}"
++        checkpoint_result = job_service.checkpoint(
++            self.cur,
++            device_id=int(fixture["device_id"]),
++            job_id=int(fixture["job_id"]),
++            attempt_id=int(fixture["attempt_id"]),
++            worker_id=str(fixture["worker_id"]),
++            lease_token=str(fixture["lease_token"]),
++            version=1,
++            idempotency_key=checkpoint_key,
++            payload={"confirmed_slots": [f"{self.tag}|default_top_1"]},
++        )
++        self.assertEqual({"version": 1, "idempotent": False}, checkpoint_result)
++
+@@ -239 +253,0 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-        checkpoint_id = self._seq("SJZQ_SEQ_COLLECTION_CHECKPOINT")
+@@ -241 +254,0 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-        checkpoint_key = f"checkpoint-{self.tag}"
+@@ -272,0 +286,5 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
++
++        # Model a historical write tear after the real Attempt completed and its
++        # checkpoint/result were durable, but before Job/TaskItem/Task aggregate
++        # completion.  The Attempt is a real acquired/started row and remains an
++        # immutable successful history record; the checkpoint is its linkage.
+@@ -274,5 +292,3 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-            """INSERT INTO SJZQ_COLLECTION_CHECKPOINT
+-                 (CHECKPOINT_ID,JOB_ID,ATTEMPT_ID,VERSION,IDEMPOTENCY_KEY,PAYLOAD_SHA256,
+-                  PAYLOAD_JSON,ENTERPRISE_ID,WORKSPACE_ID)
+-               VALUES (:checkpoint_id,:job_id,NULL,1,:key,RPAD('b',64,'b'),'{}',
+-                       :enterprise_id,:workspace_id)""",
++            """UPDATE SJZQ_COLLECTION_ATTEMPT
++                  SET STATUS='success',FINISHED_AT=SYSTIMESTAMP,FINAL_CHECKPOINT_VERSION=1
++                WHERE ATTEMPT_ID=:attempt_id AND JOB_ID=:job_id AND STATUS='running'""",
+@@ -280 +296 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-                "checkpoint_id": checkpoint_id,
++                "attempt_id": fixture["attempt_id"],
+@@ -282,3 +297,0 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-                "key": checkpoint_key,
+-                "enterprise_id": fixture["enterprise_id"],
+-                "workspace_id": fixture["workspace_id"],
+@@ -286,0 +300,9 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
++        self.assertEqual(1, self.cur.rowcount)
++        self.cur.execute(
++            """UPDATE SJZQ_COLLECTION_LEASE
++                  SET STATUS='released',RELEASED_AT=SYSTIMESTAMP,
++                      RELEASE_REASON='HISTORICAL_CONFIRMED_RESULT'
++                WHERE ATTEMPT_ID=:attempt_id AND STATUS='active'""",
++            {"attempt_id": fixture["attempt_id"]},
++        )
++        self.assertEqual(1, self.cur.rowcount)
+@@ -290 +312 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-                      CHECKPOINT_VERSION=1,CHECKPOINT_JSON='{}',
++                      ACTIVE_ATTEMPT_ID=NULL,LEASE_TOKEN_HASH=NULL,LEASE_EXPIRES_AT=NULL,DEVICE_ID=NULL,
+@@ -294,0 +317,23 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
++        self.cur.execute(
++            """UPDATE SJZQ_DEVICE
++                  SET ACTIVE_JOB_ID=NULL,ACTIVE_ATTEMPT_ID=NULL,CURRENT_TASK_ID=NULL
++                WHERE DEVICE_ID=:device_id""",
++            {"device_id": fixture["device_id"]},
++        )
++
++        self.cur.execute(
++            """SELECT CHECKPOINT_ID,ATTEMPT_ID,VERSION
++                 FROM SJZQ_COLLECTION_CHECKPOINT
++                WHERE JOB_ID=:job_id AND IDEMPOTENCY_KEY=:key""",
++            {"job_id": fixture["job_id"], "key": checkpoint_key},
++        )
++        checkpoint_before = tuple(int(value) for value in self.cur.fetchone())
++        checkpoint_id = checkpoint_before[0]
++        self.assertEqual((checkpoint_id, fixture["attempt_id"], 1), checkpoint_before)
++        self.cur.execute(
++            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
++            {"item_id": fixture["item_id"]},
++        )
++        item_before = self.cur.fetchone()
++        self.assertEqual(("running", None), (str(item_before[0]).lower(), item_before[1]))
++
+@@ -299,0 +345,2 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
++        self.assertEqual(fixture["attempt_id"], candidate.attempt_id)
++        self.assertEqual(fixture["device_id"], candidate.device_id)
+@@ -301 +347,0 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-        self.assertFalse(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
+@@ -305 +351,2 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END
++                      CASE WHEN NEXT_RUN_AT IS NOT NULL THEN 1 ELSE 0 END,
++                      ACTIVE_ATTEMPT_ID,LEASE_TOKEN_HASH,DEVICE_ID
+@@ -310,2 +357,4 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-        self.assertEqual(("success", receipt_key, product_id, 1, 1),
+-                         (str(row[0]).lower(), str(row[1]), int(row[2]), int(row[3]), int(row[4])))
++        self.assertEqual(
++            ("success", receipt_key, product_id, 1, 1, None, None, None),
++            (str(row[0]).lower(), str(row[1]), int(row[2]), int(row[3]), int(row[4]), row[5], row[6], row[7]),
++        )
+@@ -313,2 +362,61 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-            "SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE CHECKPOINT_ID=:id AND JOB_ID=:job_id",
+-            {"id": checkpoint_id, "job_id": fixture["job_id"]},
++            """SELECT a.JOB_ID,j.TASK_ID,a.DEVICE_ID,a.WORKER_ID,a.STATUS,
++                      CASE WHEN a.FINISHED_AT IS NOT NULL THEN 1 ELSE 0 END,
++                      a.FINAL_CHECKPOINT_VERSION,a.ATTEMPT_NO
++                 FROM SJZQ_COLLECTION_ATTEMPT a
++                 JOIN SJZQ_COLLECTION_JOB j ON j.JOB_ID=a.JOB_ID
++                WHERE a.ATTEMPT_ID=:attempt_id""",
++            {"attempt_id": fixture["attempt_id"]},
++        )
++        attempt_row = self.cur.fetchone()
++        self.assertEqual(
++            (
++                fixture["job_id"], fixture["task_id"], fixture["device_id"], fixture["worker_id"],
++                "success", 1, 1, 1,
++            ),
++            (
++                int(attempt_row[0]), int(attempt_row[1]), int(attempt_row[2]), str(attempt_row[3]),
++                str(attempt_row[4]).lower(), int(attempt_row[5]),
++                int(attempt_row[6]), int(attempt_row[7]),
++            ),
++        )
++        self.cur.execute(
++            """SELECT CHECKPOINT_ID,JOB_ID,ATTEMPT_ID,VERSION,IDEMPOTENCY_KEY
++                 FROM SJZQ_COLLECTION_CHECKPOINT WHERE CHECKPOINT_ID=:id""",
++            {"id": checkpoint_id},
++        )
++        checkpoint_after = self.cur.fetchone()
++        self.assertEqual(
++            (checkpoint_id, fixture["job_id"], fixture["attempt_id"], 1, checkpoint_key),
++            (
++                int(checkpoint_after[0]), int(checkpoint_after[1]), int(checkpoint_after[2]),
++                int(checkpoint_after[3]), str(checkpoint_after[4]),
++            ),
++        )
++        self.cur.execute(
++            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
++            {"item_id": fixture["item_id"]},
++        )
++        item_row = self.cur.fetchone()
++        self.assertEqual(("succeeded", product_id), (str(item_row[0]).lower(), int(item_row[1])))
++        self.cur.execute(
++            """SELECT STATUS,SUCCESS_COUNT,FAIL_COUNT,
++                      CASE WHEN END_TIME IS NOT NULL THEN 1 ELSE 0 END
++                 FROM SJZQ_TASK WHERE TASK_ID=:task_id""",
++            {"task_id": fixture["task_id"]},
++        )
++        task_row = self.cur.fetchone()
++        self.assertEqual(("succeeded", 1, 0, 1),
++                         (str(task_row[0]).lower(), int(task_row[1]), int(task_row[2]), int(task_row[3])))
++        self.cur.execute(
++            """SELECT r.TASK_ID,r.DEVICE_ID,r.PRODUCT_ID,r.STATUS,p.TASK_ID,p.DEVICE_ID
++                 FROM SJZQ_UPLOAD_RECEIPT r
++                 JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=r.PRODUCT_ID
++                WHERE r.IDEMPOTENCY_KEY=:key""",
++            {"key": receipt_key},
++        )
++        receipt_row = self.cur.fetchone()
++        self.assertEqual(
++            (fixture["task_id"], fixture["device_id"], product_id, "acked",
++             fixture["task_id"], fixture["device_id"]),
++            (int(receipt_row[0]), int(receipt_row[1]), int(receipt_row[2]), str(receipt_row[3]).lower(),
++             int(receipt_row[4]), int(receipt_row[5])),
+@@ -316 +423,0 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
+-        self.assertEqual(1, int(self.cur.fetchone()[0]))
+@@ -321,0 +429,57 @@ class OracleReconciliationIntegrationTest(unittest.TestCase):
++        self.cur.execute(
++            """SELECT (SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:job_id),
++                      (SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID=:job_id),
++                      (SELECT COUNT(*) FROM SJZQ_UPLOAD_RECEIPT WHERE IDEMPOTENCY_KEY=:receipt_key),
++                      (SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:product_id),
++                      (SELECT COUNT(*) FROM SJZQ_JOB_EVENT
++                        WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED')
++                 FROM DUAL""",
++            {"job_id": fixture["job_id"], "receipt_key": receipt_key, "product_id": product_id},
++        )
++        counts_after_first = tuple(int(value) for value in self.cur.fetchone())
++        self.assertEqual((1, 1, 1, 1, 1), counts_after_first)
++
++        self.assertFalse(store.mark_confirmed_result_success(candidate, now=datetime.now(timezone.utc)))
++        self.cur.execute(
++            """SELECT (SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:job_id),
++                      (SELECT COUNT(*) FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID=:job_id),
++                      (SELECT COUNT(*) FROM SJZQ_UPLOAD_RECEIPT WHERE IDEMPOTENCY_KEY=:receipt_key),
++                      (SELECT COUNT(*) FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:product_id),
++                      (SELECT COUNT(*) FROM SJZQ_JOB_EVENT
++                        WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED')
++                 FROM DUAL""",
++            {"job_id": fixture["job_id"], "receipt_key": receipt_key, "product_id": product_id},
++        )
++        self.assertEqual(counts_after_first, tuple(int(value) for value in self.cur.fetchone()))
++        self.cur.execute(
++            "SELECT STATUS,PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id",
++            {"item_id": fixture["item_id"]},
++        )
++        item_after_second = self.cur.fetchone()
++        self.assertEqual(("succeeded", product_id),
++                         (str(item_after_second[0]).lower(), int(item_after_second[1])))
++        self.cur.execute(
++            "SELECT STATUS,SUCCESS_COUNT,FAIL_COUNT FROM SJZQ_TASK WHERE TASK_ID=:task_id",
++            {"task_id": fixture["task_id"]},
++        )
++        task_after_second = self.cur.fetchone()
++        self.assertEqual(("succeeded", 1, 0),
++                         (str(task_after_second[0]).lower(), int(task_after_second[1]), int(task_after_second[2])))
++        self.cur.execute(
++            """SELECT t.STATUS,i.STATUS,j.STATUS,t.SUCCESS_COUNT,t.FAIL_COUNT
++                 FROM SJZQ_TASK t
++                 JOIN SJZQ_TASK_ITEM i ON i.TASK_ID=t.TASK_ID
++                 JOIN SJZQ_COLLECTION_JOB j ON j.TASK_ID=t.TASK_ID
++                WHERE t.TASK_ID=:task_id""",
++            {"task_id": other["task_id"]},
++        )
++        other_row = self.cur.fetchone()
++        self.assertEqual(("pending", "pending", "pending", 0, 0),
++                         (str(other_row[0]).lower(), str(other_row[1]).lower(), str(other_row[2]).lower(),
++                          int(other_row[3]), int(other_row[4])))
++        self.cur.execute(
++            "SELECT COUNT(*) FROM SJZQ_JOB_EVENT WHERE JOB_ID=:job_id AND EVENT_TYPE='RESULT_RECEIPT_REPAIRED'",
++            {"job_id": other["job_id"]},
++        )
++        self.assertEqual(0, int(self.cur.fetchone()[0]))
++

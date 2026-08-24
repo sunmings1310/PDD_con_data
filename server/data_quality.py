@@ -9,6 +9,8 @@ import json
 import math
 from typing import Any, Mapping
 
+from server.collectors import DynamicField, PlatformIdentity, collector_registry
+
 
 QUALITY_RULES_VERSION = "phase3-1"
 MAX_PRICE = Decimal("10000000")
@@ -98,6 +100,8 @@ def _sku_value(source: Any) -> tuple[Any, str | None]:
             return None, "SKU_INVALID_JSON"
     if not isinstance(parsed, (list, dict)):
         return None, "SKU_INVALID_STRUCTURE"
+    if not parsed:
+        return None, None
     rows = parsed if isinstance(parsed, list) else list(parsed.values())
     for row in rows:
         if not isinstance(row, Mapping):
@@ -129,14 +133,20 @@ def evaluate(source: Any, *, quality_rules_version: str = QUALITY_RULES_VERSION)
         errors.append(f"PARSE_{supplied_parse.upper()}")
 
     platform = str(_value(source, "platform_code", "") or "").strip().lower()
+    collector = collector_registry.get(platform) if platform else None
     item_id = str(_value(source, "item_id", "") or "").strip()
     title = str(_value(source, "sell_name", "") or _value(source, "product_name", "") or "").strip()
     if not platform:
         missing.append("platform_code")
     if not item_id:
         missing.append("platform_product_id")
-    elif platform == "pinduoduo" and not item_id.isdigit():
-        errors.append("IDENTITY_INVALID")
+    elif platform:
+        if collector is None:
+            errors.append("PLATFORM_NOT_SUPPORTED")
+        elif not collector.validate_identity(
+            PlatformIdentity(platform=platform, platform_product_id=item_id)
+        ):
+            errors.append("IDENTITY_INVALID")
     if not title:
         missing.append("title")
     if not parser_version:
@@ -165,16 +175,18 @@ def evaluate(source: Any, *, quality_rules_version: str = QUALITY_RULES_VERSION)
             warnings.append("original_price_below_current")
 
     sales = _value(source, "sales_num")
-    if sales is None:
-        warnings.append("sales_missing")
-    elif isinstance(sales, bool) or not isinstance(sales, int) or sales < 0:
-        errors.append("SALES_INVALID")
+    if collector is not None and DynamicField.SALES in collector.capabilities.dynamic_fields:
+        if sales is None:
+            warnings.append("sales_missing")
+        elif isinstance(sales, bool) or not isinstance(sales, int) or sales < 0:
+            errors.append("SALES_INVALID")
 
     sku, sku_error = _sku_value(source)
-    if sku_error:
-        errors.append(sku_error)
-    elif sku is None:
-        warnings.append("sku_missing")
+    if collector is not None and DynamicField.SKU_PRICE in collector.capabilities.dynamic_fields:
+        if sku_error:
+            errors.append(sku_error)
+        elif sku is None:
+            warnings.append("sku_missing")
 
     sources = normalize_sources(_value(source, "field_sources", {}) or {})
     required_sources = {"item_id", "price", "title"}

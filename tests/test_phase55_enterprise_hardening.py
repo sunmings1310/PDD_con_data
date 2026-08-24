@@ -132,6 +132,14 @@ class Phase55EnterpriseHardeningTest(unittest.TestCase):
         self.assertNotIn('app.mount("/media"', main)
         self.assertIn("verify_media_signature", main)
 
+    def test_legacy_device_pull_is_scoped_to_enrolled_tenant(self):
+        source = Path("server/routers/tasks.py").read_text(encoding="utf-8")
+        pull_source = source[source.index("def pull_task("):source.index("def task_progress(")]
+        self.assertEqual(2, pull_source.count("AND ENTERPRISE_ID = :enterprise_id"))
+        self.assertEqual(2, pull_source.count("AND WORKSPACE_ID = :workspace_id"))
+        self.assertEqual(2, pull_source.count('"enterprise_id": device["enterprise_id"]'))
+        self.assertEqual(2, pull_source.count('"workspace_id": device["workspace_id"]'))
+
     def test_migration_declares_usage_reservation_ledger_and_enrollment(self):
         names = {name for name, _ in P55_TABLES}
         self.assertEqual(names, {"SJZQ_DEVICE_ENROLL_TOKEN", "SJZQ_QUOTA_USAGE",

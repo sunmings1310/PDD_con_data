@@ -1,0 +1,77 @@
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt b/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
+index ad41b3a..e45d30e 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
+@@ -13,0 +14,2 @@ import kotlinx.coroutines.withContext
++import org.json.JSONArray
++import org.json.JSONObject
+@@ -100,0 +103,2 @@ private object PddDetailCollector : DetailCollector {
++        val searchCapturedAt = System.currentTimeMillis()
++        val searchPageText = actions.readPageText()
+@@ -126 +129,0 @@ private object PddDetailCollector : DetailCollector {
+-        var skuPanelText = ""
+@@ -128 +131,4 @@ private object PddDetailCollector : DetailCollector {
+-        val midSteps = listOf("sku", "params", "shop_sales", "human")
++        // Accepted baseline deliberately excludes automatic SKU panel interaction.
++        // SKU_PANEL remains a representable RawSource type, but normal collection
++        // must not open purchase controls or enumerate combinations.
++        val midSteps = listOf("params", "shop_sales", "human")
+@@ -133,6 +138,0 @@ private object PddDetailCollector : DetailCollector {
+-                "sku" -> {
+-                    skuPanelText = runCatching { actions.openAndReadSkuPrices() }
+-                        .onFailure { log("多规格读取失败: ${it.message}") }.getOrDefault("")
+-                    if (!actions.ensureOnGoodsDetail(request.openIndex)) log("读规格后已离开详情，尝试恢复失败")
+-                    priceText += "\n" + actions.readPageText()
+-                }
+@@ -164 +163,0 @@ private object PddDetailCollector : DetailCollector {
+-            if (skuPanelText.isNotBlank()) append("\n---多规格售价---\n").append(skuPanelText)
+@@ -169 +168 @@ private object PddDetailCollector : DetailCollector {
+-                harvest.mallId, emptyList(), "", skuPanelText,
++                harvest.mallId, emptyList(), "", "",
+@@ -228,0 +228,44 @@ private object PddDetailCollector : DetailCollector {
++        val capturedAt = System.currentTimeMillis()
++        val sources = buildList {
++            add(RawSource(
++                type = "SEARCH",
++                sourceIdentifier = "search-card:${request.openIndex}",
++                capturedAtEpochMs = searchCapturedAt,
++                contentType = "application/json",
++                payload = JSONObject()
++                    .put("keyword", request.keyword)
++                    .put("open_index", request.openIndex)
++                    .put("list_price", listMeta.listPrice ?: JSONObject.NULL)
++                    .put("item_id_hint", listMeta.itemId)
++                    .put("title_hint", listMeta.titleHint)
++                    .put("image_hint", listMeta.imageHint)
++                    .put("page_text", searchPageText)
++                    .toString(),
++            ))
++            add(RawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
++            if (shopSalesText.isNotBlank()) add(RawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
++            if (checked.couponInfo.isNotBlank()) {
++                add(RawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
++            }
++            val media = (localImages + checked.mainImages.split("|").filter(String::isNotBlank)).distinct()
++            if (media.isNotEmpty()) add(RawSource(
++                "MEDIA", "product-media", capturedAt, contentType = "application/json",
++                payload = JSONObject().put("items", JSONArray(media.mapIndexed { index, url ->
++                    JSONObject().put("url", url).put("type", "image").put("order", index)
++                })).toString(),
++            ))
++            if (harvest.blob.isNotBlank() || harvest.urls.isNotEmpty() || share.raw.isNotBlank()) {
++                add(RawSource(
++                    "EMBEDDED", "accessibility-harvest", capturedAt, contentType = "application/json",
++                    payload = JSONObject()
++                        .put("goods_id", harvest.goodsId)
++                        .put("mall_id", harvest.mallId)
++                        .put("urls", JSONArray(harvest.urls))
++                        .put("images", JSONArray(harvest.images))
++                        .put("blob", harvest.blob)
++                        .put("share", share.raw)
++                        .toString(),
++                ))
++            }
++            if (paramsText.isNotBlank()) add(RawSource("OTHER", "product-params", capturedAt, payload = paramsText))
++        }
+@@ -246,0 +290 @@ private object PddDetailCollector : DetailCollector {
++                sources = sources,

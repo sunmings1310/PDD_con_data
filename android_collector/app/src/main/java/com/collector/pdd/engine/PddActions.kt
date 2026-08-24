@@ -25,6 +25,8 @@ class PddActions(
     private val config: CollectConfig = CollectConfig(),
 ) {
     private val pkg = "com.xunmeng.pinduoduo"
+    private val openedCardKeys = linkedSetOf<String>()
+    private var activeSearchKeyword = ""
 
     private fun service(): CollectA11yService =
         CollectA11yService.instance ?: error("请先开启无障碍服务")
@@ -47,6 +49,10 @@ class PddActions(
     }
 
     suspend fun searchKeyword(keyword: String) {
+        if (activeSearchKeyword != keyword) {
+            activeSearchKeyword = keyword
+            openedCardKeys.clear()
+        }
         HumanBehavior.pause(config, "think")
         // 不在首页且也不在搜索输入页时，先回首页
         val onSearchInput = A11yHelper.findTopEditText(service()) != null
@@ -319,6 +325,19 @@ class PddActions(
         )
     }
 
+    /** Virtualized result lists must move forward deterministically. */
+    private suspend fun scrollListForward(rounds: Int = 1) {
+        repeat(rounds.coerceIn(1, 4)) {
+            humanSwipe(
+                HumanBehavior.jitter(540f, 35f),
+                HumanBehavior.jitter(1500f, 70f),
+                HumanBehavior.jitter(650f, 70f),
+                purpose = "list",
+            )
+            HumanBehavior.pause(config, "action")
+        }
+    }
+
     private fun currentProductCards(): List<AccessibilityNodeInfo> {
         val roots = A11yHelper.roots(service()).filter {
             it.packageName?.toString() == pkg
@@ -372,22 +391,36 @@ class PddActions(
             log("列表为空，无法打开第 ${index + 1} 个 page=$page")
             return false to ListCardMeta()
         }
-        if (index >= cards.size) {
-            scrollList(2)
-            cards = listCards()
+        fun keys(): List<String> = cards.indices.map { visibleIndex ->
+            cardKey(peekCardMeta(visibleIndex), visibleIndex)
         }
-        if (index >= cards.size) {
-            log("列表不足 ${index + 1} 个（当前 ${cards.size}）")
+        var chosen = chooseUnseenCardIndex(keys(), openedCardKeys, index)
+        if (chosen == null) {
+            for (round in 0 until 8) {
+                scrollListForward(1)
+                cards = listCardsOrEmpty()
+                chosen = chooseUnseenCardIndex(keys(), openedCardKeys, preferredIndex = -1)
+                if (chosen != null) break
+            }
+        }
+        val selected = chosen
+        if (selected == null || selected !in cards.indices) {
+            log("列表翻页后仍无未采集商品（目标序号 ${index + 1}，当前可见 ${cards.size}）")
             return false to ListCardMeta()
         }
-        val meta = peekCardMeta(index)
-        val ok = A11yHelper.click(listCards().getOrNull(index) ?: cards[index])
+        val meta = peekCardMeta(selected)
+        val ok = A11yHelper.click(listCards().getOrNull(selected) ?: cards[selected])
+        if (ok) openedCardKeys += cardKey(meta, selected)
         HumanBehavior.pause(config, "read")
         log(
-            "进入详情 index=${index + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
+            "进入详情 index=${index + 1} visible=${selected + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
                 "idHint=${meta.itemId.ifBlank { "-" }}"
         )
         return ok to meta
+    }
+
+    private fun cardKey(meta: ListCardMeta, visibleIndex: Int): String = meta.itemId.ifBlank {
+        "${meta.titleHint}|${meta.listPrice ?: "-"}|${meta.imageHint}|$visibleIndex"
     }
 
     fun readPageText(): String = A11yHelper.dumpAllWindows(service())
@@ -2476,4 +2509,13 @@ class PddActions(
             HumanBehavior.pause(config, "idle")
         }
     }
+}
+
+internal fun chooseUnseenCardIndex(
+    keys: List<String>,
+    seen: Set<String>,
+    preferredIndex: Int,
+): Int? {
+    if (preferredIndex in keys.indices && keys[preferredIndex] !in seen) return preferredIndex
+    return keys.indices.firstOrNull { keys[it].isNotBlank() && keys[it] !in seen }
 }

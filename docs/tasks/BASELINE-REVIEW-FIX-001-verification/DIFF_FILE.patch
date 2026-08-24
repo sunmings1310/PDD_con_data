@@ -1,0 +1,2421 @@
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/collector/CollectorContract.kt b/android_collector/app/src/main/java/com/collector/pdd/collector/CollectorContract.kt
+index 1fe35ef..b040d9e 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/collector/CollectorContract.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/collector/CollectorContract.kt
+@@ -75 +75 @@ data class RawSource(
+-    val schemaHint: String = "pdd-a11y-v1",
++    val schemaHint: String? = null,
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt b/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
+index e45d30e..2fb0ab8 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/collector/PddCollector.kt
+@@ -5 +4,0 @@ import com.collector.pdd.data.ProductEntity
+-import com.collector.pdd.engine.GoodsLinkResolver
+@@ -50,0 +50,5 @@ class PddCollector : Collector {
++    internal fun createDetailTestSession(
++        actions: PddDetailActions,
++        links: PddDetailLinks,
++    ): CollectorSession = PddDetailTestSession(PddDetailRuntime(actions, links))
++
+@@ -89,7 +93,13 @@ private object PddSearchCollector : SearchCollector {
+-private data class PddResolvedLink(
+-    val platformProductId: String = "",
+-    val itemUrl: String = "",
+-    val images: List<String> = emptyList(),
+-    val title: String = "",
+-    val rejected: Boolean = false,
+-    val rejectReason: String = "",
++private fun pddRawSource(
++    type: String,
++    sourceIdentifier: String,
++    capturedAtEpochMs: Long,
++    contentType: String = "text/plain; charset=utf-8",
++    payload: String,
++): RawSource = RawSource(
++    type = type,
++    sourceIdentifier = sourceIdentifier,
++    capturedAtEpochMs = capturedAtEpochMs,
++    contentType = contentType,
++    schemaHint = "pdd-a11y-v1",
++    payload = payload,
+@@ -100,2 +110,10 @@ private object PddDetailCollector : DetailCollector {
+-        val actions = (session as? PddCollectorSession)?.actions
+-            ?: throw CollectorException(SystemCollectorError.CAPABILITY_NOT_SUPPORTED, "PDD detail requires PDD session")
++        val runtime = when (session) {
++            is PddCollectorSession -> PddDetailRuntime(PddDetailActionAdapter(session.actions), PddDetailLinkAdapter)
++            is PddDetailTestSession -> session.runtime
++            else -> throw CollectorException(
++                SystemCollectorError.CAPABILITY_NOT_SUPPORTED,
++                "PDD detail requires PDD session",
++            )
++        }
++        val actions = runtime.actions
++        val links = runtime.links
+@@ -115 +133 @@ private object PddDetailCollector : DetailCollector {
+-        HumanBehavior.sleepMs(900.0, 1600.0)
++        actions.pause(900.0, 1600.0)
+@@ -127 +145 @@ private object PddDetailCollector : DetailCollector {
+-        HumanBehavior.sleepMs(350.0, 800.0)
++        actions.pause(350.0, 800.0)
+@@ -173,2 +191,2 @@ private object PddDetailCollector : DetailCollector {
+-            .ifBlank { extractProductId(share.url) }
+-            .ifBlank { extractProductId(share.raw) }
++            .ifBlank { links.extractProductId(share.url) }
++            .ifBlank { links.extractProductId(share.raw) }
+@@ -177,2 +195,2 @@ private object PddDetailCollector : DetailCollector {
+-            shareId.isNotBlank() -> buildProductUrl(shareId)
+-            else -> extractProductUrls(share.raw).firstOrNull().orEmpty()
++            shareId.isNotBlank() -> links.buildProductUrl(shareId)
++            else -> links.extractProductUrls(share.raw).firstOrNull().orEmpty()
+@@ -182 +200 @@ private object PddDetailCollector : DetailCollector {
+-            val expanded = runCatching { withContext(Dispatchers.IO) { expandShareLink(shareUrl.ifBlank { share.raw }) } }
++            val expanded = runCatching { withContext(Dispatchers.IO) { links.expandShareLink(shareUrl.ifBlank { share.raw }) } }
+@@ -186 +204 @@ private object PddDetailCollector : DetailCollector {
+-                shareUrl = expanded.itemUrl.ifBlank { buildProductUrl(shareId) }
++                shareUrl = expanded.itemUrl.ifBlank { links.buildProductUrl(shareId) }
+@@ -198 +216,4 @@ private object PddDetailCollector : DetailCollector {
+-            resolveLink(share.raw.take(4000), shareUrl.ifBlank { product.itemUrl }, shareId.ifBlank { product.itemId }, expectTokens)
++            links.resolveLink(
++                share.raw.take(4000), shareUrl.ifBlank { product.itemUrl },
++                shareId.ifBlank { product.itemId }, expectTokens,
++            )
+@@ -207 +228 @@ private object PddDetailCollector : DetailCollector {
+-                    itemUrl = resolved.itemUrl.ifBlank { buildProductUrl(resolved.platformProductId) },
++                    itemUrl = resolved.itemUrl.ifBlank { links.buildProductUrl(resolved.platformProductId) },
+@@ -221 +242 @@ private object PddDetailCollector : DetailCollector {
+-        }.filter(::isProductImageUrl).distinct()
++        }.filter(links::isProductImageUrl).distinct()
+@@ -224 +245,6 @@ private object PddDetailCollector : DetailCollector {
+-            product = product.copy(mainImages = product.mainImages.split("|").filter(::isProductImageUrl).distinct().joinToString("|"))
++            product = product.copy(
++                mainImages = product.mainImages.split("|").filter(links::isProductImageUrl).distinct().joinToString("|"),
++            )
++        }
++        if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) {
++            product = product.copy(itemUrl = links.buildProductUrl(product.itemId))
+@@ -226 +251,0 @@ private object PddDetailCollector : DetailCollector {
+-        if (product.itemId.isNotBlank() && product.itemUrl.isBlank()) product = product.copy(itemUrl = buildProductUrl(product.itemId))
+@@ -230 +255 @@ private object PddDetailCollector : DetailCollector {
+-            add(RawSource(
++            add(pddRawSource(
+@@ -245,2 +270,2 @@ private object PddDetailCollector : DetailCollector {
+-            add(RawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
+-            if (shopSalesText.isNotBlank()) add(RawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
++            add(pddRawSource("DETAIL", "goods-detail", capturedAt, payload = pageText))
++            if (shopSalesText.isNotBlank()) add(pddRawSource("SHOP", "shop-sales", capturedAt, payload = shopSalesText))
+@@ -248 +273 @@ private object PddDetailCollector : DetailCollector {
+-                add(RawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
++                add(pddRawSource("PROMOTION", "detail-promotion", capturedAt, payload = pageText))
+@@ -251 +276 @@ private object PddDetailCollector : DetailCollector {
+-            if (media.isNotEmpty()) add(RawSource(
++            if (media.isNotEmpty()) add(pddRawSource(
+@@ -258 +283 @@ private object PddDetailCollector : DetailCollector {
+-                add(RawSource(
++                add(pddRawSource(
+@@ -270 +295 @@ private object PddDetailCollector : DetailCollector {
+-            if (paramsText.isNotBlank()) add(RawSource("OTHER", "product-params", capturedAt, payload = paramsText))
++            if (paramsText.isNotBlank()) add(pddRawSource("OTHER", "product-params", capturedAt, payload = paramsText))
+@@ -337,21 +361,0 @@ private object PddDetailCollector : DetailCollector {
+-    private fun extractProductId(value: String): String = GoodsLinkResolver.extractGoodsId(value)
+-    private fun buildProductUrl(platformProductId: String): String = GoodsLinkResolver.buildGoodsUrl(platformProductId)
+-    private fun extractProductUrls(value: String): List<String> = GoodsLinkResolver.extractGoodsUrls(value)
+-    private suspend fun expandShareLink(value: String): PddResolvedLink = GoodsLinkResolver.expandShareLink(value).asAdapterResult()
+-    private suspend fun resolveLink(
+-        rawShare: String,
+-        hintUrl: String,
+-        hintProductId: String,
+-        expectTokens: List<String>,
+-    ): PddResolvedLink = GoodsLinkResolver.resolve(rawShare, hintUrl, hintProductId, expectTokens).asAdapterResult()
+-
+-    private fun isProductImageUrl(value: String): Boolean = GoodsLinkResolver.isProductImageUrl(value)
+-
+-    private fun GoodsLinkResolver.Resolved.asAdapterResult() = PddResolvedLink(
+-        platformProductId = goodsId,
+-        itemUrl = itemUrl,
+-        images = images,
+-        title = title,
+-        rejected = rejected,
+-        rejectReason = rejectReason,
+-    )
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/collector/PddDetailPorts.kt b/android_collector/app/src/main/java/com/collector/pdd/collector/PddDetailPorts.kt
+new file mode 100644
+index 0000000..d84d5b7
+--- /dev/null
++++ b/android_collector/app/src/main/java/com/collector/pdd/collector/PddDetailPorts.kt
+@@ -0,0 +1,106 @@
++package com.collector.pdd.collector
++
++import com.collector.pdd.engine.GoodsLinkResolver
++import com.collector.pdd.engine.HumanBehavior
++import com.collector.pdd.engine.ListCardMeta
++import com.collector.pdd.engine.PddActions
++import com.collector.pdd.service.A11yHelper
++
++/** Narrow behavior seam used by the accepted detail flow and its no-SKU runtime gate. */
++internal interface PddDetailActions {
++    fun readPageText(): String
++    suspend fun openCardAt(index: Int): Pair<Boolean, ListCardMeta>
++    suspend fun tryProbeMainImage(goodsId: String, alreadyAtTop: Boolean): List<String>
++    suspend fun ensureOnGoodsDetail(openIndex: Int): Boolean
++    suspend fun randomBridgeHuman(scene: String)
++    suspend fun openAndReadProductParams(): String
++    /** Legacy Phase 6A capability; accepted default detail flow must never invoke it. */
++    suspend fun openAndReadSkuPrices(): String
++    suspend fun peekShopSalesText(): String
++    suspend fun maybeDetailHumanGestures()
++    fun looksLikeGoodsDetail(): Boolean
++    suspend fun tryCaptureShareLink(): PddActions.ShareCapture
++    fun harvestPage(): A11yHelper.Harvest
++    suspend fun pause(minMs: Double, maxMs: Double)
++}
++
++internal class PddDetailActionAdapter(private val delegate: PddActions) : PddDetailActions {
++    override fun readPageText(): String = delegate.readPageText()
++    override suspend fun openCardAt(index: Int) = delegate.openCardAt(index)
++    override suspend fun tryProbeMainImage(goodsId: String, alreadyAtTop: Boolean) =
++        delegate.tryProbeMainImage(goodsId, alreadyAtTop)
++    override suspend fun ensureOnGoodsDetail(openIndex: Int) = delegate.ensureOnGoodsDetail(openIndex)
++    override suspend fun randomBridgeHuman(scene: String) = delegate.randomBridgeHuman(scene)
++    override suspend fun openAndReadProductParams() = delegate.openAndReadProductParams()
++    override suspend fun openAndReadSkuPrices() = delegate.openAndReadSkuPrices()
++    override suspend fun peekShopSalesText() = delegate.peekShopSalesText()
++    override suspend fun maybeDetailHumanGestures() = delegate.maybeDetailHumanGestures()
++    override fun looksLikeGoodsDetail() = delegate.looksLikeGoodsDetail()
++    override suspend fun tryCaptureShareLink() = delegate.tryCaptureShareLink()
++    override fun harvestPage() = delegate.harvestPage()
++    override suspend fun pause(minMs: Double, maxMs: Double) {
++        HumanBehavior.sleepMs(minMs, maxMs)
++    }
++}
++
++internal data class PddResolvedLink(
++    val platformProductId: String = "",
++    val itemUrl: String = "",
++    val images: List<String> = emptyList(),
++    val title: String = "",
++    val rejected: Boolean = false,
++    val rejectReason: String = "",
++)
++
++internal interface PddDetailLinks {
++    fun extractProductId(value: String): String
++    fun buildProductUrl(platformProductId: String): String
++    fun extractProductUrls(value: String): List<String>
++    suspend fun expandShareLink(value: String): PddResolvedLink
++    suspend fun resolveLink(
++        rawShare: String,
++        hintUrl: String,
++        hintProductId: String,
++        expectTokens: List<String>,
++    ): PddResolvedLink
++    fun isProductImageUrl(value: String): Boolean
++}
++
++internal object PddDetailLinkAdapter : PddDetailLinks {
++    override fun extractProductId(value: String) = GoodsLinkResolver.extractGoodsId(value)
++    override fun buildProductUrl(platformProductId: String) = GoodsLinkResolver.buildGoodsUrl(platformProductId)
++    override fun extractProductUrls(value: String) = GoodsLinkResolver.extractGoodsUrls(value)
++    override suspend fun expandShareLink(value: String) = GoodsLinkResolver.expandShareLink(value).toPortResult()
++    override suspend fun resolveLink(
++        rawShare: String,
++        hintUrl: String,
++        hintProductId: String,
++        expectTokens: List<String>,
++    ) = GoodsLinkResolver.resolve(rawShare, hintUrl, hintProductId, expectTokens).toPortResult()
++    override fun isProductImageUrl(value: String) = GoodsLinkResolver.isProductImageUrl(value)
++
++    private fun GoodsLinkResolver.Resolved.toPortResult() = PddResolvedLink(
++        platformProductId = goodsId,
++        itemUrl = itemUrl,
++        images = images,
++        title = title,
++        rejected = rejected,
++        rejectReason = rejectReason,
++    )
++}
++
++internal data class PddDetailRuntime(
++    val actions: PddDetailActions,
++    val links: PddDetailLinks,
++)
++
++internal class PddDetailTestSession(
++    val runtime: PddDetailRuntime,
++) : CollectorSession {
++    override suspend fun start() = Unit
++    override suspend fun browseCandidate(position: Int, readMinMs: Long, readMaxMs: Long) = false
++    override suspend fun betweenKeywords() = Unit
++    override suspend fun reset() = Unit
++    override suspend fun finish() = Unit
++    override suspend fun betweenItems() = Unit
++}
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/data/Dao.kt b/android_collector/app/src/main/java/com/collector/pdd/data/Dao.kt
+index daa54fe..d05e28a 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/data/Dao.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/data/Dao.kt
+@@ -83,0 +84,11 @@ interface OutboxDao {
++    @Query(
++        "UPDATE upload_outbox SET payloadJson=:payloadJson, state='retry', " +
++            "nextAttemptAt=:nextAttemptAt, lastError='' " +
++            "WHERE outboxId=:id AND eventType='finish' AND jobId IS NULL AND state!='acked'"
++    )
++    suspend fun requeueLegacyFinishForCancellation(
++        id: String,
++        payloadJson: String,
++        nextAttemptAt: Long,
++    ): Int
++
+@@ -115,0 +127,3 @@ interface OutboxDao {
++
++    @Query("SELECT * FROM upload_outbox WHERE jobId=:jobId AND eventType='product' ORDER BY createdAt ASC")
++    suspend fun listProductsForJob(jobId: Long): List<OutboxEntity>
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/engine/PddActions.kt b/android_collector/app/src/main/java/com/collector/pdd/engine/PddActions.kt
+index 751dd69..541b0bc 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/engine/PddActions.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/engine/PddActions.kt
+@@ -27,0 +28,2 @@ class PddActions(
++    private val openedCardKeys = linkedSetOf<String>()
++    private var activeSearchKeyword = ""
+@@ -49,0 +52,4 @@ class PddActions(
++        if (activeSearchKeyword != keyword) {
++            activeSearchKeyword = keyword
++            openedCardKeys.clear()
++        }
+@@ -321,0 +328,13 @@ class PddActions(
++    /** Virtualized result lists must move forward deterministically. */
++    private suspend fun scrollListForward(rounds: Int = 1) {
++        repeat(rounds.coerceIn(1, 4)) {
++            humanSwipe(
++                HumanBehavior.jitter(540f, 35f),
++                HumanBehavior.jitter(1500f, 70f),
++                HumanBehavior.jitter(650f, 70f),
++                purpose = "list",
++            )
++            HumanBehavior.pause(config, "action")
++        }
++    }
++
+@@ -375,3 +394,11 @@ class PddActions(
+-        if (index >= cards.size) {
+-            scrollList(2)
+-            cards = listCards()
++        fun keys(): List<String> = cards.indices.map { visibleIndex ->
++            cardKey(peekCardMeta(visibleIndex), visibleIndex)
++        }
++        var chosen = chooseUnseenCardIndex(keys(), openedCardKeys, index)
++        if (chosen == null) {
++            for (round in 0 until 8) {
++                scrollListForward(1)
++                cards = listCardsOrEmpty()
++                chosen = chooseUnseenCardIndex(keys(), openedCardKeys, preferredIndex = -1)
++                if (chosen != null) break
++            }
+@@ -379,2 +406,3 @@ class PddActions(
+-        if (index >= cards.size) {
+-            log("列表不足 ${index + 1} 个（当前 ${cards.size}）")
++        val selected = chosen
++        if (selected == null || selected !in cards.indices) {
++            log("列表翻页后仍无未采集商品（目标序号 ${index + 1}，当前可见 ${cards.size}）")
+@@ -383,2 +411,3 @@ class PddActions(
+-        val meta = peekCardMeta(index)
+-        val ok = A11yHelper.click(listCards().getOrNull(index) ?: cards[index])
++        val meta = peekCardMeta(selected)
++        val ok = A11yHelper.click(listCards().getOrNull(selected) ?: cards[selected])
++        if (ok) openedCardKeys += cardKey(meta, selected)
+@@ -387 +416 @@ class PddActions(
+-            "进入详情 index=${index + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
++            "进入详情 index=${index + 1} visible=${selected + 1} ok=$ok listPrice=${meta.listPrice ?: "-"} " +
+@@ -392,0 +422,4 @@ class PddActions(
++    private fun cardKey(meta: ListCardMeta, visibleIndex: Int): String = meta.itemId.ifBlank {
++        "${meta.titleHint}|${meta.listPrice ?: "-"}|${meta.imageHint}|$visibleIndex"
++    }
++
+@@ -2479,0 +2513,9 @@ class PddActions(
++
++internal fun chooseUnseenCardIndex(
++    keys: List<String>,
++    seen: Set<String>,
++    preferredIndex: Int,
++): Int? {
++    if (preferredIndex in keys.indices && keys[preferredIndex] !in seen) return preferredIndex
++    return keys.indices.firstOrNull { keys[it].isNotBlank() && keys[it] !in seen }
++}
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
+index 045afc1..d316525 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
+@@ -39,0 +40,6 @@ import java.util.UUID
++internal suspend fun collectDetailThroughRegistry(
++    platformCode: String,
++    session: CollectorSession,
++    request: DetailCollectionRequest,
++) = CollectorRegistry.require(platformCode).collectDetail(session, request)
++
+@@ -527 +533,2 @@ class TaskEngine(
+-            val collected = collector.collectDetail(
++            val collected = collectDetailThroughRegistry(
++                collector.platform,
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
+index 45eb1e9..3e2affe 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
+@@ -44,0 +45 @@ class AgentCoordinator(
++    private var lastEngineRecoveryAttemptAt = 0L
+@@ -229,0 +231,14 @@ class AgentCoordinator(
++            val now = System.currentTimeMillis()
++            val terminalExists = CollectorApp.instance.database.outboxDao()
++                .get("job-terminal-${job.jobId}-${job.attemptId}") != null
++            if (shouldRetryRecoveredEngine(
++                    engineRunning = engine.isRunning(),
++                    terminalExists = terminalExists,
++                    now = now,
++                    lastAttemptAt = lastEngineRecoveryAttemptAt,
++                )
++            ) {
++                lastEngineRecoveryAttemptAt = now
++                log("Job 引擎未运行，重试恢复 #${job.jobId}/${job.attemptId}")
++                startEngineForJob(job)
++            }
+@@ -275 +290 @@ class AgentCoordinator(
+-        if (!engine.isRunning() && remoteTaskId == null && activeJob == null) {
++        if (!engine.isRunning() && activeJob == null) {
+@@ -405 +419,0 @@ class AgentCoordinator(
+-        if (dao.get(finishId) != null) return
+@@ -410,0 +425,11 @@ class AgentCoordinator(
++        val existing = dao.get(finishId)
++        if (existing != null) {
++            if (shouldRequeueLegacyFinishForCancellation(existing, status)) {
++                dao.requeueLegacyFinishForCancellation(
++                    finishId,
++                    payload.toString(),
++                    System.currentTimeMillis(),
++                )
++            }
++            return
++        }
+@@ -553,2 +578,6 @@ class AgentCoordinator(
+-                        val products = dao.listForAttempt(identity.jobId, identity.attemptId)
+-                        if (products.any { it.eventType == "product" && it.state !in setOf("acked", "rejected") }) {
++                        val attemptEvents = dao.listForAttempt(identity.jobId, identity.attemptId)
++                        val products = confirmedJobProducts(
++                            identity.payload.optJSONObject("_checkpoint"),
++                            dao.listProductsForJob(identity.jobId),
++                        )
++                        if (products.any { it.state !in setOf("acked", "rejected") }) {
+@@ -557 +586 @@ class AgentCoordinator(
+-                        if (products.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
++                        if (attemptEvents.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
+@@ -560,2 +589,2 @@ class AgentCoordinator(
+-                        val rejected = products.filter { it.eventType == "product" && it.state == "rejected" }
+-                        val receipts = products.filter { it.eventType == "product" && it.state == "acked" }
++                        val rejected = products.filter { it.state == "rejected" }
++                        val receipts = products.filter { it.state == "acked" }
+@@ -729,0 +759,7 @@ class AgentCoordinator(
++        if (checkpointCoversCollectWork(cfg)) {
++            log("Checkpoint 已覆盖全部采集槽位，直接提交 Job 完成 #${identity.jobId}")
++            enqueueJobCheckpoint(identity, TaskStatusMapping.COMPLETE)
++            enqueueJobTerminal(identity, TaskStatusMapping.COMPLETE)
++            flushOutbox()
++            return
++        }
+@@ -891,4 +927,4 @@ class AgentCoordinator(
+-                val approval = item.optString("target_approval").trim()
+-                val name = item.optString("target_name").trim()
+-                val spec = item.optString("target_spec").trim()
+-                val manufacturer = item.optString("target_manufacturer").trim()
++                val approval = optionalJsonText(item, "target_approval")
++                val name = optionalJsonText(item, "target_name")
++                val spec = optionalJsonText(item, "target_spec")
++                val manufacturer = optionalJsonText(item, "target_manufacturer")
+@@ -929,0 +966,53 @@ class AgentCoordinator(
++internal fun shouldRequeueLegacyFinishForCancellation(event: OutboxEntity, status: String): Boolean =
++    status == "cancelled" && event.eventType == "finish" && event.jobId == null && event.state != "acked"
++
++internal fun optionalJsonText(source: JSONObject, key: String): String {
++    if (!source.has(key) || source.isNull(key)) return ""
++    return source.optString(key, "").trim().takeUnless { it.equals("null", ignoreCase = true) }.orEmpty()
++}
++
++/** Select the server-confirmed Job receipts across attempts using the durable checkpoint slots. */
++internal fun confirmedJobProducts(
++    checkpoint: JSONObject?,
++    jobProducts: List<OutboxEntity>,
++): List<OutboxEntity> {
++    val slots = buildSet {
++        checkpoint?.optJSONArray("confirmed_slots")?.let { values ->
++            for (index in 0 until values.length()) {
++                values.optString(index).takeIf { it.isNotBlank() }?.let(::add)
++            }
++        }
++    }
++    if (slots.isEmpty()) return emptyList()
++    return jobProducts.filter { event ->
++        val product = runCatching { JSONObject(event.payloadJson) }.getOrNull() ?: return@filter false
++        val keyword = product.optString("keyword")
++        val pickTag = product.optString("pick_tag")
++        keyword.isNotBlank() && pickTag.isNotBlank() && "$keyword|$pickTag" in slots
++    }
++}
++
++internal fun shouldRetryRecoveredEngine(
++    engineRunning: Boolean,
++    terminalExists: Boolean,
++    now: Long,
++    lastAttemptAt: Long,
++): Boolean = !engineRunning && !terminalExists && now - lastAttemptAt >= 15_000L
++
++/** Ordinary collection can finish without reopening PDD when every required slot is ACKed. */
++internal fun checkpointCoversCollectWork(config: CollectConfig): Boolean {
++    if (config.taskType != "collect" || config.confirmedSlots.isEmpty()) return false
++    if (config.targets.any { it.requiresMatch }) return false
++    val keywords = config.targets.takeIf { it.isNotEmpty() }?.map { it.keyword } ?: config.keywords
++    return keywords.all { keyword ->
++        val required = buildSet {
++            for (index in 1..config.maxDetailPerKeyword.coerceAtLeast(1)) {
++                add("$keyword|default_top_$index")
++            }
++            if (config.enablePriceSort) add("$keyword|price_asc_first")
++            if (config.enableSalesSort) add("$keyword|sales_desc_first")
++        }
++        config.confirmedSlots.containsAll(required)
++    }
++}
++
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/collector/AcceptedBaselineNoSkuRuntimeTest.kt b/android_collector/app/src/test/java/com/collector/pdd/collector/AcceptedBaselineNoSkuRuntimeTest.kt
+index 9492f44..49177e5 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/collector/AcceptedBaselineNoSkuRuntimeTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/collector/AcceptedBaselineNoSkuRuntimeTest.kt
+@@ -2,0 +3,7 @@ package com.collector.pdd.collector
++import com.collector.pdd.engine.ListCardMeta
++import com.collector.pdd.engine.PddActions
++import com.collector.pdd.engine.collectDetailThroughRegistry
++import com.collector.pdd.service.A11yHelper
++import kotlinx.coroutines.runBlocking
++import org.json.JSONArray
++import org.junit.Assert.assertEquals
+@@ -3,0 +11 @@ import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNotNull
+@@ -10,7 +18,10 @@ class AcceptedBaselineNoSkuRuntimeTest {
+-    fun defaultDetailCollectionDoesNotEnterSkuPurchaseFlow() {
+-        val source = File(
+-            "src/main/java/com/collector/pdd/collector/PddCollector.kt",
+-        ).readText()
+-        val detailFlow = source.substring(
+-            source.indexOf("private object PddDetailCollector"),
+-            source.indexOf("private class PddCollectorSession"),
++    fun taskEngineRegistryPddDetailBehaviorKeepsSkuInteractionDisabled() = runBlocking {
++        val actions = SpyDetailActions()
++        val links = FakeDetailLinks()
++        val collector = CollectorRegistry.require("pinduoduo") as PddCollector
++        val session = collector.createDetailTestSession(actions, links)
++
++        val result = collectDetailThroughRegistry(
++            "pinduoduo",
++            session,
++            DetailCollectionRequest("感冒灵", "default_top_1", 0) {},
+@@ -19,4 +30,28 @@ class AcceptedBaselineNoSkuRuntimeTest {
+-        assertFalse(detailFlow.contains("openAndReadSkuPrices("))
+-        assertFalse(detailFlow.contains("purchase-or-selector-panel"))
+-        assertFalse(detailFlow.contains("listOf(\"sku\""))
+-        assertTrue(detailFlow.contains("listOf(\"params\", \"shop_sales\", \"human\")"))
++        assertNotNull(result.product)
++        assertTrue(result.quality?.accepted == true)
++        assertEquals(0, actions.purchaseEntryActions)
++        assertEquals(0, actions.openSkuPanelActions)
++        assertEquals(0, actions.combinationSelectionActions)
++        assertEquals(0, result.raw.sources.count { it.type == "SKU_PANEL" })
++        assertTrue(result.raw.sources.any { it.type == "DETAIL" })
++        assertTrue(result.raw.sources.all { it.schemaHint == "pdd-a11y-v1" })
++        assertFalse(actions.calls.any { call ->
++            call.contains("purchase", ignoreCase = true) ||
++                call.contains("sku", ignoreCase = true) ||
++                call.contains("combination", ignoreCase = true)
++        })
++
++        val legacyRead = collector.normalizeForCompatibility(
++            DetailParseRequest(
++                pageText = actions.page,
++                keyword = "感冒灵",
++                pickTag = "default_top_1",
++                itemIdHint = "12345678",
++                skuPanelText = """
++                    包装选择
++                    1盒 ¥9.90
++                    2盒 ¥18.00
++                """.trimIndent(),
++            ),
++        )
++        assertEquals(2, JSONArray(legacyRead.skuPrices).length())
+@@ -26,4 +61,4 @@ class AcceptedBaselineNoSkuRuntimeTest {
+-    fun genericSkuInvestigationRuntimeIsAbsent() {
+-        val actions = File(
+-            "src/main/java/com/collector/pdd/engine/PddActions.kt",
+-        ).readText()
++    fun genericRawSourceDoesNotInheritPddSchema() {
++        val generic = RawSource("DETAIL", "generic-detail", 1L, payload = "raw")
++        assertEquals(null, generic.schemaHint)
++    }
+@@ -30,0 +66,3 @@ class AcceptedBaselineNoSkuRuntimeTest {
++    @Test
++    fun sourceScanRemainsAuxiliaryDefenseOnly() {
++        val actions = File("src/main/java/com/collector/pdd/engine/PddActions.kt").readText()
+@@ -35,0 +74,96 @@ class AcceptedBaselineNoSkuRuntimeTest {
++
++private class SpyDetailActions : PddDetailActions {
++    val calls = mutableListOf<String>()
++    var purchaseEntryActions = 0
++    var openSkuPanelActions = 0
++    var combinationSelectionActions = 0
++    val page = """
++        商品详情
++        测试牌 感冒灵颗粒 正品家庭装
++        ￥9.90
++        已拼100件
++        goods_id=12345678
++        立即购买
++    """.trimIndent()
++
++    private fun called(name: String) {
++        calls += name
++    }
++
++    override fun readPageText(): String {
++        called("read_detail")
++        return page
++    }
++
++    override suspend fun openCardAt(index: Int): Pair<Boolean, ListCardMeta> {
++        called("open_card")
++        return true to ListCardMeta(listPrice = 9.90, itemId = "12345678", titleHint = "测试牌 感冒灵颗粒")
++    }
++
++    override suspend fun tryProbeMainImage(goodsId: String, alreadyAtTop: Boolean): List<String> {
++        called("probe_media")
++        return emptyList()
++    }
++
++    override suspend fun ensureOnGoodsDetail(openIndex: Int): Boolean {
++        called("ensure_detail")
++        return true
++    }
++
++    override suspend fun randomBridgeHuman(scene: String) = called("human_bridge")
++
++    override suspend fun openAndReadProductParams(): String {
++        called("read_params")
++        return "品牌\n测试牌"
++    }
++
++    override suspend fun openAndReadSkuPrices(): String {
++        called("open_sku_purchase_panel_and_select_combination")
++        purchaseEntryActions += 1
++        openSkuPanelActions += 1
++        combinationSelectionActions += 1
++        return ""
++    }
++
++    override suspend fun peekShopSalesText(): String {
++        called("read_shop_sales")
++        return ""
++    }
++
++    override suspend fun maybeDetailHumanGestures() = called("detail_human")
++
++    override fun looksLikeGoodsDetail(): Boolean {
++        called("is_detail")
++        return true
++    }
++
++    override suspend fun tryCaptureShareLink(): PddActions.ShareCapture {
++        called("capture_share")
++        return PddActions.ShareCapture(goodsId = "12345678")
++    }
++
++    override fun harvestPage(): A11yHelper.Harvest {
++        called("harvest_detail")
++        return A11yHelper.Harvest(goodsId = "12345678")
++    }
++
++    override suspend fun pause(minMs: Double, maxMs: Double) = called("pause")
++}
++
++private class FakeDetailLinks : PddDetailLinks {
++    override fun extractProductId(value: String) = "12345678"
++    override fun buildProductUrl(platformProductId: String) =
++        "https://mobile.yangkeduo.com/goods.html?goods_id=$platformProductId"
++    override fun extractProductUrls(value: String) = emptyList<String>()
++    override suspend fun expandShareLink(value: String) = PddResolvedLink(platformProductId = "12345678")
++    override suspend fun resolveLink(
++        rawShare: String,
++        hintUrl: String,
++        hintProductId: String,
++        expectTokens: List<String>,
++    ) = PddResolvedLink(
++        platformProductId = "12345678",
++        itemUrl = buildProductUrl("12345678"),
++    )
++    override fun isProductImageUrl(value: String) = false
++}
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt b/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
+index ef4ef40..f5cbd00 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
+@@ -31 +31,3 @@ class OutboxPayloadRawCaptureTest {
+-        val detail = capture.getJSONArray("sources").getJSONObject(0).getString("payload")
++        val detailSource = capture.getJSONArray("sources").getJSONObject(0)
++        val detail = detailSource.getString("payload")
++        assertFalse(detailSource.has("schema_hint"))
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/PddPaginationTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/PddPaginationTest.kt
+new file mode 100644
+index 0000000..754184c
+--- /dev/null
++++ b/android_collector/app/src/test/java/com/collector/pdd/engine/PddPaginationTest.kt
+@@ -0,0 +1,17 @@
++package com.collector.pdd.engine
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class PddPaginationTest {
++    @Test
++    fun choosesPreferredVisibleCardBeforePagination() {
++        assertEquals(2, chooseUnseenCardIndex(listOf("a", "b", "c"), emptySet(), 2))
++    }
++
++    @Test
++    fun choosesFirstUnseenCardAfterVirtualListScroll() {
++        assertEquals(1, chooseUnseenCardIndex(listOf("c", "d", "e"), setOf("a", "b", "c"), -1))
++        assertEquals(null, chooseUnseenCardIndex(listOf("a", "b"), setOf("a", "b"), -1))
++    }
++}
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
+index 714a6f8..3ff93fd 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
+@@ -2,0 +3,3 @@ package com.collector.pdd.net
++import com.collector.pdd.data.OutboxEntity
++import com.collector.pdd.data.CollectConfig
++import com.collector.pdd.data.CollectTarget
+@@ -3,0 +7,2 @@ import org.junit.Assert.assertEquals
++import org.json.JSONArray
++import org.json.JSONObject
+@@ -44,0 +50,52 @@ class JobRecoveryPolicyTest {
++
++    @Test
++    fun resumedAttemptUsesConfirmedReceiptsFromEarlierAttemptOfSameJob() {
++        val oldReceipt = OutboxEntity(
++            outboxId = "receipt-old-attempt",
++            eventType = "product",
++            remoteTaskId = 1122,
++            payloadJson = JSONObject().put("keyword", "牙膏").put("pick_tag", "slot-1").toString(),
++            state = "acked",
++            jobId = 320,
++            attemptId = 328,
++        )
++        val unrelated = oldReceipt.copy(
++            outboxId = "receipt-unrelated",
++            payloadJson = JSONObject().put("keyword", "牙膏").put("pick_tag", "slot-2").toString(),
++        )
++        val checkpoint = JSONObject().put("confirmed_slots", JSONArray().put("牙膏|slot-1"))
++
++        assertEquals(
++            listOf("receipt-old-attempt"),
++            confirmedJobProducts(checkpoint, listOf(oldReceipt, unrelated)).map { it.outboxId },
++        )
++    }
++
++    @Test
++    fun recoveredJobRetriesEngineAfterAccessibilityBecomesAvailable() {
++        assertEquals(true, shouldRetryRecoveredEngine(false, false, 20_000, 0))
++        assertEquals(false, shouldRetryRecoveredEngine(true, false, 20_000, 0))
++        assertEquals(false, shouldRetryRecoveredEngine(false, true, 20_000, 0))
++        assertEquals(false, shouldRetryRecoveredEngine(false, false, 20_000, 10_000))
++    }
++
++    @Test
++    fun fullyConfirmedOrdinaryCollectionCompletesWithoutReopeningPlatform() {
++        val config = CollectConfig(
++            keywords = listOf("牙膏"),
++            maxDetailPerKeyword = 2,
++            confirmedSlots = setOf("牙膏|default_top_1", "牙膏|default_top_2"),
++        )
++        assertEquals(true, checkpointCoversCollectWork(config))
++        assertEquals(false, checkpointCoversCollectWork(config.copy(confirmedSlots = setOf("牙膏|default_top_1"))))
++        assertEquals(
++            false,
++            checkpointCoversCollectWork(
++                config.copy(
++                    targets = listOf(
++                        CollectTarget(keyword = "牙膏", targetApproval = "国药准字", targetSpec = "100g"),
++                    ),
++                ),
++            ),
++        )
++    }
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/LegacyFinishRecoveryTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/LegacyFinishRecoveryTest.kt
+new file mode 100644
+index 0000000..eef80a6
+--- /dev/null
++++ b/android_collector/app/src/test/java/com/collector/pdd/net/LegacyFinishRecoveryTest.kt
+@@ -0,0 +1,42 @@
++package com.collector.pdd.net
++
++import com.collector.pdd.data.OutboxEntity
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.json.JSONObject
++
++class LegacyFinishRecoveryTest {
++    @Test
++    fun cancelledAbortRequeuesOnlyUnackedLegacyFinish() {
++        val stuck = OutboxEntity(
++            outboxId = "finish-677-0",
++            eventType = "finish",
++            remoteTaskId = 677,
++            payloadJson = "{}",
++            state = "retry",
++            nextAttemptAt = Long.MAX_VALUE,
++        )
++        assertTrue(shouldRequeueLegacyFinishForCancellation(stuck, "cancelled"))
++        assertFalse(shouldRequeueLegacyFinishForCancellation(stuck, "failed"))
++        assertFalse(shouldRequeueLegacyFinishForCancellation(stuck.copy(state = "acked"), "cancelled"))
++        assertFalse(
++            shouldRequeueLegacyFinishForCancellation(
++                stuck.copy(jobId = 1, attemptId = 1),
++                "cancelled",
++            )
++        )
++    }
++
++    @Test
++    fun jsonNullTargetFieldsRemainOptionalInsteadOfBecomingMatchCriteria() {
++        val item = JSONObject()
++            .put("target_approval", JSONObject.NULL)
++            .put("target_name", "null")
++            .put("target_spec", "  ")
++        assertTrue(optionalJsonText(item, "target_approval").isEmpty())
++        assertTrue(optionalJsonText(item, "target_name").isEmpty())
++        assertTrue(optionalJsonText(item, "target_spec").isEmpty())
++        assertTrue(optionalJsonText(item, "target_manufacturer").isEmpty())
++    }
++}
+diff --git a/docs/architecture.md b/docs/architecture.md
+index aed1b0d..98b6714 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -254 +254,5 @@ Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间
+-Android PDD Collector 在正常详情采集内生成受控 `RawSource`，当前默认来源包括 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED 和 OTHER。Outbox 在上传前执行敏感字段过滤，并携带 capture identity、source metadata 和 parser/collector version。服务端 `server.raw_capture` 校验 capture、source size/hash/reference 后保存到被 Git 忽略的 `server/data/raw-captures/`；Raw persistence 不改变 Product/Snapshot identity 和 receipt 事务语义。
++Android PDD Collector 在正常详情采集内生成受控 `RawSource`，当前默认来源包括 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED 和 OTHER。通用 `RawSource.schemaHint` 默认为空，PDD Adapter 对自身来源显式写入 `pdd-a11y-v1`，未来 Adapter 不会继承 PDD provenance。Outbox 在上传前执行敏感字段过滤，并携带 capture identity、source metadata 和 parser/collector version。
++
++服务端 `server.raw_capture` 以 Enterprise/Workspace 隔离新 Capture 的内部目录，并用 Tenant、平台商品、Task/Job/Attempt/Device、capture id、source inventory/content hashes 共同校验严格幂等。同租户同内容 retry 返回原 Manifest；身份或内容不一致返回 `RAW_CAPTURE_CONFLICT`。API 只返回 opaque evidence/manifest reference，不返回服务器 resolved path。完整合同见 `docs/decisions/2026-08-24-raw-capture-identity-immutability.md`。
++
++Original Raw 的 bytes、SHA-256、Inventory 和 Manifest 永久不可变。重新脱敏创建带 original hashes、filter version、reason 和 derived hashes 的 `derived_resanitized` 版本；Offline Replay 显式选择 Original 或 Derived。Raw persistence 不改变 Product/Snapshot identity 和 receipt 事务语义。
+diff --git a/docs/decisions/2026-08-24-raw-capture-identity-immutability.md b/docs/decisions/2026-08-24-raw-capture-identity-immutability.md
+new file mode 100644
+index 0000000..264ebea
+--- /dev/null
++++ b/docs/decisions/2026-08-24-raw-capture-identity-immutability.md
+@@ -0,0 +1,46 @@
++# ADR：Raw Capture 身份、租户隔离与不可变派生
++
++- 状态：Accepted
++- 日期：2026-08-24
++- 任务：`BASELINE-REVIEW-FIX-001`
++- 范围：Accepted Raw Evidence baseline；不包含 Generic SKU、P1 Schema 或 Phase 6B
++
++## 决策
++
++Raw Capture 的逻辑身份由以下字段共同约束：
++
++`enterprise_id + workspace_id + platform + platform_product_id + task_id + job_id + attempt_id + device_id + capture_id + source inventory/content hashes`
++
++`capture_id` 是客户端稳定请求标识，但不是全局路径或单独的业务身份。新 Capture 的内部存储按 Enterprise/Workspace 隔离；外部 DTO 只暴露 `capture_id`、`evidence_ref` 和 `manifest_ref` 等 opaque reference，不暴露服务器文件系统路径。
++
++同一 Enterprise/Workspace 下再次写入同一 `capture_id` 时：
++
++- identity hash 与 content hash 都相同：返回原 Manifest，视为幂等重放；
++- 任一 identity 字段、Source Inventory、Source Content 或派生上传内容不同：返回 `RAW_CAPTURE_CONFLICT`，不得静默复用旧证据。
++
++不同 Enterprise 或 Workspace 可以使用相同 `capture_id`，但各自存储、校验和重放，查询不得跨租户搜索命中。
++
++## 不可变性
++
++首次持久化后的 Original Evidence 永久不可变：
++
++- Source bytes、原 SHA-256、Product Upload bytes、Field Inventory 和 Original Manifest 均不得原地改写；
++- 重新脱敏或过滤升级必须创建 `derived_resanitized` 版本；
++- Derived Manifest 必须记录 original capture、original manifest/source hashes、derived id、filter version、created_at、derived hashes 和 derivation reason；
++- Offline Replay 必须显式选择 `original`、具体 derived id 或 `latest_safe`，不得用派生结果冒充 Original。
++
++Legacy 平铺 Capture 仅由显式、不带租户参数的本地离线工具兼容读取；新租户 Capture 不按 `capture_id` 递归搜索，避免跨租户碰撞。
++
++## 错误与 API
++
++- 身份或内容冲突：`RAW_CAPTURE_CONFLICT`；
++- 格式、缺少租户键、Hash 校验或敏感过滤失败：`RAW_CAPTURE_INVALID`；
++- API 不返回 `D:\...`、`/home/...` 或其他 resolved path；物理目录不进入业务 Identity。
++
++## 验证
++
++`tests/test_raw_capture.py` 覆盖同租户同内容 retry、payload/product/task/job/attempt/device 冲突、跨 Enterprise/Workspace 隔离、Original/Derived Replay、Original bytes/hash/manifest 不变和 opaque API reference。
++
++## 非目标
++
++本 ADR 不启用 SKU_PANEL 交互，不引入 ProductAttribute/SKU/SkuSnapshot Oracle Schema，不回填历史数据，也不进入 Phase 6B。
+diff --git a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
+new file mode 100644
+index 0000000..7a6432b
+--- /dev/null
++++ b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
+@@ -0,0 +1,557 @@
++"""Immutable, credential-minimized Raw Product Capture storage and offline replay."""
++
++from __future__ import annotations
++
++from datetime import datetime, timezone
++import hashlib
++import json
++import os
++from pathlib import Path
++import re
++import shutil
++import tempfile
++from typing import Any, Mapping
++
++from server.config import DATA_DIR
++from server.data_quality import evaluate, normalized_snapshot
++
++SOURCE_TYPES = {"SEARCH", "DETAIL", "SKU", "SKU_PANEL", "SHOP", "PROMOTION", "MEDIA", "EMBEDDED", "OTHER"}
++CAPTURE_ID_RE = re.compile(r"^cap-[A-Za-z0-9][A-Za-z0-9._-]{7,127}$")
++DERIVED_ID_RE = re.compile(r"^cap-[A-Za-z0-9][A-Za-z0-9._-]{7,191}$")
++FILTER_VERSION = "raw-sanitize-v2"
++SENSITIVE_KEY_RE = re.compile(
++    r"(?i)^(?:cookie|set-cookie|authorization|proxy-authorization|lease_token|device_key|"
++    r"session(?:_token)?|access_token|refresh_token|password|credential)$"
++)
++SENSITIVE_TEXT_RE = re.compile(
++    r"(?im)^(?:cookie|set-cookie|authorization|proxy-authorization|lease[_-]?token|device[_-]?key|"
++    r"session[_-]?token|access[_-]?token|refresh[_-]?token|password|credential)\s*[:=].*$"
++)
++SENSITIVE_QUERY_RE = re.compile(
++    r"(?i)([?&](?:token|access_token|auth|authorization|session|device_key|lease_token)=)[^&#\s]+"
++)
++PERSONAL_TEXT_RE = re.compile(
++    r"(?im)^(?:.*1\d{2}\*{4}\d{4}.*|.*(?:\d+栋|\d+幢|\d+单元|\d+室|\d+号).*|"
++    r".*(?:微信|支付宝|银行卡)支付.*)$"
++)
++UNRELATED_SYSTEM_UI_RE = re.compile(
++    r"(?im)^(?:.*通知[:：].*|.*(?:短信同步|通话记录同步|设备备份失败).*|"
++    r".*com\.android\.systemui:id/.*|.*联机工具通知.*|.*手机信号.*|.*电池电量.*|"
++    r"蓝牙开启。?|(?:上午|下午|晚上)?\d{1,2}:\d{2}|[345]G)\s*$"
++)
++
++PARSER_FIELDS = {
++    "platform_code", "keyword", "item_id", "sell_name", "product_name", "brand", "shop_name", "shop_id",
++    "price", "display_price", "group_price", "deal_price", "original_price", "sales_num",
++    "shop_sales_num", "comment_num", "spec", "sku_prices_text", "sku_prices", "dosage_form",
++    "approval_no", "manufacturer", "expiry", "category", "coupon_info", "item_url", "pick_tag",
++    "spec_list", "image_urls", "parse_status", "page_status", "quality_status", "field_sources",
++    "parser_version", "quality_rules_version",
++}
++PERSISTED_FIELDS = PARSER_FIELDS - {"image_urls"}
++
++
++class RawCaptureError(ValueError):
++    def __init__(self, message: str, *, code: str = "RAW_CAPTURE_INVALID"):
++        super().__init__(message)
++        self.code = code
++
++
++def capture_root() -> Path:
++    return Path(os.environ.get("RAW_CAPTURE_DIR") or (DATA_DIR / "raw-captures"))
++
++
++def _positive_id(value: Any, name: str) -> int:
++    try:
++        parsed = int(value)
++    except (TypeError, ValueError) as exc:
++        raise RawCaptureError(f"{name} is required") from exc
++    if parsed <= 0:
++        raise RawCaptureError(f"{name} must be positive")
++    return parsed
++
++
++def _tenant_capture_dir(base: Path, enterprise_id: int, workspace_id: int, capture_id: str) -> Path:
++    return base / f"enterprise-{enterprise_id}" / f"workspace-{workspace_id}" / capture_id
++
++
++def _resolve_capture_dir(
++    capture_id: str,
++    *,
++    root: Path | None,
++    enterprise_id: int | None,
++    workspace_id: int | None,
++) -> Path:
++    base = (root or capture_root()).resolve()
++    if (enterprise_id is None) != (workspace_id is None):
++        raise RawCaptureError("enterprise_id and workspace_id must be provided together")
++    if enterprise_id is not None and workspace_id is not None:
++        return _tenant_capture_dir(
++            base,
++            _positive_id(enterprise_id, "enterprise_id"),
++            _positive_id(workspace_id, "workspace_id"),
++            capture_id,
++        )
++    # Explicit legacy-only fallback. New tenant captures are never searched by capture_id.
++    return base / capture_id
++
++
++def _iso(epoch_ms: Any = None) -> str:
++    try:
++        value = float(epoch_ms) / 1000 if epoch_ms is not None else datetime.now(timezone.utc).timestamp()
++    except (TypeError, ValueError):
++        value = datetime.now(timezone.utc).timestamp()
++    return datetime.fromtimestamp(value, tz=timezone.utc).isoformat().replace("+00:00", "Z")
++
++
++def sanitize(value: Any) -> Any:
++    if isinstance(value, Mapping):
++        return {
++            str(key): "<redacted>" if SENSITIVE_KEY_RE.match(str(key)) else sanitize(item)
++            for key, item in value.items()
++        }
++    if isinstance(value, list):
++        return [sanitize(item) for item in value]
++    if isinstance(value, str):
++        result = SENSITIVE_QUERY_RE.sub(r"\1<redacted>", SENSITIVE_TEXT_RE.sub("<redacted-sensitive-line>", value))
++        result = PERSONAL_TEXT_RE.sub("<redacted-personal-line>", result)
++        result = UNRELATED_SYSTEM_UI_RE.sub("", result)
++        return re.sub(r"\n{3,}", "\n\n", result)
++    return value
++
++
++def _json_bytes(value: Any) -> bytes:
++    return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
++
++
++def _sha(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def _source_extension(content_type: str) -> str:
++    return ".json" if "json" in content_type.lower() else ".txt"
++
++
++def _capture_identity(
++    body: Any,
++    device: Mapping[str, Any],
++    *,
++    capture_id: str,
++    platform: str,
++    product_id: str,
++) -> dict[str, Any]:
++    return {
++        "capture_id": capture_id,
++        "enterprise_id": _positive_id(device.get("enterprise_id"), "enterprise_id"),
++        "workspace_id": _positive_id(device.get("workspace_id"), "workspace_id"),
++        "platform": platform,
++        "platform_product_id": product_id,
++        "task_id": getattr(body, "task_id", None),
++        "job_id": getattr(body, "job_id", None),
++        "attempt_id": getattr(body, "attempt_id", None),
++        "device_id": _positive_id(device.get("device_id"), "device_id"),
++    }
++
++
++def _upload_bytes(body: Any) -> bytes:
++    upload = sanitize(body.model_dump(mode="json") if hasattr(body, "model_dump") else dict(body))
++    for field in ("raw_capture", "device_key", "lease_token", "idempotency_key", "worker_id"):
++        upload.pop(field, None)
++    return _json_bytes(upload)
++
++
++def _manifest_contract(manifest: Mapping[str, Any]) -> tuple[str, str]:
++    return str(manifest.get("identity_sha256") or ""), str(manifest.get("content_sha256") or "")
++
++
++def _raise_capture_conflict(capture_id: str) -> None:
++    raise RawCaptureError(
++        f"capture_id identity or content conflict: {capture_id}",
++        code="RAW_CAPTURE_CONFLICT",
++    )
++
++
++def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | None = None) -> dict[str, Any] | None:
++    raw_input = getattr(body, "raw_capture", None)
++    if not raw_input:
++        return None
++    raw = sanitize(dict(raw_input))
++    capture_id = str(raw.get("capture_id") or "")
++    if not CAPTURE_ID_RE.fullmatch(capture_id):
++        raise RawCaptureError("invalid capture_id")
++    platform = str(raw.get("platform") or getattr(body, "platform_code", "") or "").lower()
++    product_id = str(raw.get("platform_product_id") or getattr(body, "item_id", "") or "")
++    if platform != str(getattr(body, "platform_code", "") or "").lower() or product_id != str(getattr(body, "item_id", "") or ""):
++        raise RawCaptureError("raw capture product identity mismatch")
++    sources = raw.get("sources")
++    if not isinstance(sources, list) or not sources:
++        raise RawCaptureError("raw capture sources are required")
++
++    identity = _capture_identity(body, device, capture_id=capture_id, platform=platform, product_id=product_id)
++    base = (root or capture_root()).resolve()
++    target = _tenant_capture_dir(base, identity["enterprise_id"], identity["workspace_id"], capture_id)
++    target.parent.mkdir(parents=True, exist_ok=True)
++    temp = Path(tempfile.mkdtemp(prefix=f".{capture_id}-", dir=target.parent))
++    manifest_sources: list[dict[str, Any]] = []
++    try:
++        source_dir = temp / "sources"
++        source_dir.mkdir()
++        for index, source in enumerate(sources, start=1):
++            if not isinstance(source, Mapping):
++                raise RawCaptureError("raw capture source must be an object")
++            source_type = str(source.get("type") or "").upper()
++            if source_type not in SOURCE_TYPES:
++                raise RawCaptureError(f"unsupported raw source type: {source_type}")
++            content_type = str(source.get("content_type") or "text/plain; charset=utf-8")[:128]
++            payload = sanitize(str(source.get("payload") or ""))
++            original_content_type = content_type
++            parse_status = "captured"
++            extension = _source_extension(content_type)
++            if extension == ".json":
++                try:
++                    payload_object = json.loads(payload)
++                except json.JSONDecodeError:
++                    extension = ".txt"
++                    content_type = "text/plain; charset=utf-8"
++                    parse_status = "invalid_json_preserved_as_text"
++                    data = (payload + ("" if payload.endswith("\n") else "\n")).encode("utf-8")
++                else:
++                    data = _json_bytes(payload_object)
++            else:
++                data = (payload + ("" if payload.endswith("\n") else "\n")).encode("utf-8")
++            filename = f"{index:02d}_{source_type}{extension}"
++            (source_dir / filename).write_bytes(data)
++            manifest_sources.append({
++                "type": source_type,
++                "source_identifier": str(source.get("source_identifier") or "")[:256],
++                "captured_at": (
++                    _iso(source.get("captured_at_epoch_ms") or raw.get("collected_at_epoch_ms"))
++                    if source.get("captured_at_epoch_ms") is not None or raw.get("collected_at_epoch_ms") is not None
++                    else None
++                ),
++                "size": len(data),
++                "sha256": _sha(data),
++                "storage_reference": f"sources/{filename}",
++                "content_type": content_type,
++                "declared_content_type": original_content_type,
++                "schema_hint": str(source.get("schema_hint") or "")[:128] or None,
++                "parse_status": parse_status,
++            })
++
++        upload_bytes = _upload_bytes(body)
++        parsed_dir = temp / "parsed"
++        parsed_dir.mkdir()
++        (parsed_dir / "product_upload.json").write_bytes(upload_bytes)
++        source_inventory_sha256 = _sha(_json_bytes(manifest_sources))
++        identity_sha256 = _sha(_json_bytes(identity))
++        content_sha256 = _sha(_json_bytes({
++            "source_inventory_sha256": source_inventory_sha256,
++            "product_upload_sha256": _sha(upload_bytes),
++        }))
++        manifest = {
++            **identity,
++            "identity_contract_version": "raw-capture-identity-v1",
++            "identity_sha256": identity_sha256,
++            "source_inventory_sha256": source_inventory_sha256,
++            "content_sha256": content_sha256,
++            "captured_at": _iso(raw.get("collected_at_epoch_ms")),
++            "collector_version": str(raw.get("collector_version") or "unknown")[:64],
++            "parser_version": str(raw.get("parser_version") or getattr(body, "parser_version", "unknown"))[:64],
++            "sources": manifest_sources,
++            "product_upload": {
++                "storage_reference": "parsed/product_upload.json",
++                "size": len(upload_bytes),
++                "sha256": _sha(upload_bytes),
++            },
++            "sensitive_data_filter": {
++                "version": FILTER_VERSION,
++                "excluded": ["Cookie", "Authorization", "session/access/refresh token", "lease_token", "device_key", "password/credential"],
++                "mode": "key and line filtering plus sensitive URL query redaction",
++            },
++        }
++        inventory = build_field_inventory(temp, manifest)
++        (temp / "field-inventory.json").write_bytes(_json_bytes(inventory))
++        manifest["field_inventory"] = "field-inventory.json"
++        (temp / "manifest.json").write_bytes(_json_bytes(manifest))
++
++        if target.exists():
++            existing = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
++            if _manifest_contract(existing) != (identity_sha256, content_sha256):
++                _raise_capture_conflict(capture_id)
++            return existing
++        try:
++            temp.rename(target)
++        except FileExistsError:
++            existing = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
++            if _manifest_contract(existing) != (identity_sha256, content_sha256):
++                _raise_capture_conflict(capture_id)
++            return existing
++        return manifest
++    finally:
++        if temp.exists():
++            shutil.rmtree(temp, ignore_errors=True)
++
++
++def _walk(value: Any, path: str = "$"):
++    if isinstance(value, Mapping):
++        for key, item in value.items():
++            yield from _walk(item, f"{path}.{key}")
++    elif isinstance(value, list):
++        for index, item in enumerate(value[:20]):
++            yield from _walk(item, f"{path}[{index}]")
++    else:
++        yield path, type(value).__name__, value
++
++
++def build_field_inventory(capture_dir: Path, manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
++    rows: list[dict[str, Any]] = []
++    for source in manifest["sources"]:
++        path = capture_dir / source["storage_reference"]
++        if path.suffix == ".json":
++            value = json.loads(path.read_text(encoding="utf-8"))
++            fields = _walk(value)
++        else:
++            value = path.read_text(encoding="utf-8")
++            fields = [("$", "str", value)]
++        for field_path, kind, example in fields:
++            top = field_path.removeprefix("$.").split(".", 1)[0].split("[", 1)[0]
++            used = top in PARSER_FIELDS
++            rows.append({
++                "field_path": field_path,
++                "type": kind,
++                "source": source["type"],
++                "example": str(example)[:160],
++                "parser_used": used,
++                "currently_persisted_business_field": top in PERSISTED_FIELDS,
++                "raw_persisted": True,
++                "potential_business_value": source["type"] in {"DETAIL", "SKU", "SHOP", "PROMOTION", "MEDIA", "EMBEDDED"},
++            })
++    return rows
++
++
++def _select_evidence_dir(original: Path, version: str) -> tuple[Path, str]:
++    if version == "original":
++        return original, "original"
++    derived_root = original / "derived"
++    if version == "latest_safe":
++        candidates = sorted(
++            (path for path in derived_root.iterdir() if path.is_dir()),
++            key=lambda path: path.name,
++        ) if derived_root.is_dir() else []
++        if not candidates:
++            raise RawCaptureError("no derived evidence is available")
++        return candidates[-1], candidates[-1].name
++    if not DERIVED_ID_RE.fullmatch(version):
++        raise RawCaptureError("invalid derived evidence version")
++    return derived_root / version, version
++
++
++def verify_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    version: str = "original",
++) -> dict[str, Any]:
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    directory, selected_version = _select_evidence_dir(original, version)
++    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
++    verified: list[str] = []
++    combined = ""
++    for source in manifest["sources"]:
++        path = directory / source["storage_reference"]
++        data = path.read_bytes()
++        if len(data) != source["size"] or _sha(data) != source["sha256"]:
++            raise RawCaptureError(f"source verification failed: {path.name}")
++        if path.suffix == ".json":
++            json.loads(data)
++        combined += data.decode("utf-8", errors="replace")
++        verified.append(source["type"])
++    upload_ref = manifest["product_upload"]
++    upload_data = (directory / upload_ref["storage_reference"]).read_bytes()
++    if _sha(upload_data) != upload_ref["sha256"]:
++        raise RawCaptureError("product upload hash mismatch")
++    json.loads(upload_data)
++    if (SENSITIVE_TEXT_RE.search(combined) or UNRELATED_SYSTEM_UI_RE.search(combined)
++            or re.search(r'"(?:device_key|lease_token)"\s*:', upload_data.decode("utf-8"), re.I)):
++        raise RawCaptureError("sensitive credential marker found")
++    return {
++        "capture_id": capture_id,
++        "evidence_version": selected_version,
++        "verified_sources": verified,
++        "hashes_valid": True,
++        "json_deserializable": True,
++        "sensitive_credentials_found": False,
++    }
++
++
++def resanitize_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    filter_version: str = FILTER_VERSION,
++    reason: str = "sensitive-data-filter-upgrade",
++) -> dict[str, Any]:
++    """Create a derived safe version without changing original evidence bytes or manifest."""
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    original_manifest_path = original / "manifest.json"
++    original_manifest_bytes = original_manifest_path.read_bytes()
++    manifest = json.loads(original_manifest_bytes)
++    original_file_hashes = {
++        source["storage_reference"]: _sha((original / source["storage_reference"]).read_bytes())
++        for source in manifest["sources"]
++    }
++    upload_reference = manifest["product_upload"]["storage_reference"]
++    original_file_hashes[upload_reference] = _sha((original / upload_reference).read_bytes())
++    verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++
++    created_at = _iso()
++    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
++    version_seed = _sha(_json_bytes({
++        "capture_id": capture_id,
++        "filter_version": filter_version,
++        "created_at": created_at,
++        "reason": reason,
++    }))[:12]
++    derived_id = f"{capture_id}.resanitized.{stamp}.{version_seed}"
++    derived_root = original / "derived"
++    derived_root.mkdir(exist_ok=True)
++    target = derived_root / derived_id
++    temp = Path(tempfile.mkdtemp(prefix=f".{derived_id}-", dir=derived_root))
++    try:
++        (temp / "sources").mkdir()
++        derived_sources: list[dict[str, Any]] = []
++        for source in manifest["sources"]:
++            source_path = original / source["storage_reference"]
++            target_path = temp / source["storage_reference"]
++            target_path.parent.mkdir(parents=True, exist_ok=True)
++            if source_path.suffix == ".json":
++                data = _json_bytes(sanitize(json.loads(source_path.read_text(encoding="utf-8"))))
++            else:
++                filtered = sanitize(source_path.read_text(encoding="utf-8"))
++                data = (filtered + ("" if filtered.endswith("\n") else "\n")).encode("utf-8")
++            target_path.write_bytes(data)
++            derived_sources.append({**source, "size": len(data), "sha256": _sha(data)})
++
++        source_upload = original / upload_reference
++        derived_upload = temp / upload_reference
++        derived_upload.parent.mkdir(parents=True, exist_ok=True)
++        upload_data = _json_bytes(sanitize(json.loads(source_upload.read_text(encoding="utf-8"))))
++        derived_upload.write_bytes(upload_data)
++        derived_manifest = {
++            **{key: value for key, value in manifest.items() if key not in {
++                "sources", "product_upload", "field_inventory", "sensitive_data_filter",
++            }},
++            "evidence_kind": "derived_resanitized",
++            "derived_capture_id": derived_id,
++            "original_capture_id": capture_id,
++            "original_manifest_sha256": _sha(original_manifest_bytes),
++            "original_source_hashes": original_file_hashes,
++            "filter_version": str(filter_version)[:128],
++            "created_at": created_at,
++            "derivation_reason": str(reason)[:512],
++            "sources": derived_sources,
++            "product_upload": {
++                **manifest["product_upload"],
++                "size": len(upload_data),
++                "sha256": _sha(upload_data),
++            },
++            "sensitive_data_filter": {
++                **manifest.get("sensitive_data_filter", {}),
++                "version": str(filter_version)[:128],
++                "applied_at": created_at,
++            },
++        }
++        derived_manifest["source_inventory_sha256"] = _sha(_json_bytes(derived_sources))
++        derived_manifest["content_sha256"] = _sha(_json_bytes({
++            "source_inventory_sha256": derived_manifest["source_inventory_sha256"],
++            "product_upload_sha256": derived_manifest["product_upload"]["sha256"],
++        }))
++        inventory = build_field_inventory(temp, derived_manifest)
++        (temp / "field-inventory.json").write_bytes(_json_bytes(inventory))
++        derived_manifest["field_inventory"] = "field-inventory.json"
++        (temp / "manifest.json").write_bytes(_json_bytes(derived_manifest))
++        temp.rename(target)
++    finally:
++        if temp.exists():
++            shutil.rmtree(temp, ignore_errors=True)
++
++    if original_manifest_path.read_bytes() != original_manifest_bytes:
++        raise RawCaptureError("original manifest changed during derivation")
++    for reference, expected_hash in original_file_hashes.items():
++        if _sha((original / reference).read_bytes()) != expected_hash:
++            raise RawCaptureError("original evidence changed during derivation")
++    verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++        version=derived_id,
++    )
++    return derived_manifest
++
++
++def replay_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    version: str = "original",
++) -> dict[str, Any]:
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    directory, selected_version = _select_evidence_dir(original, version)
++    verify = verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++        version=selected_version,
++    )
++    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
++    upload = json.loads((directory / manifest["product_upload"]["storage_reference"]).read_text(encoding="utf-8"))
++    parsed = {field: upload.get(field) for field in PARSER_FIELDS if field in upload}
++    decision = evaluate(parsed)
++    normalized = normalized_snapshot(parsed, decision)
++    return {
++        "mode": "dry-run-analysis",
++        "network_access": False,
++        "capture_id": capture_id,
++        "evidence_version": selected_version,
++        "derived": selected_version != "original",
++        "parser": {"version": parsed.get("parser_version"), "result": parsed},
++        "normalizer": normalized,
++        "quality_gate": {
++            "accepted": decision.accepted,
++            "page_status": decision.page_status,
++            "parse_status": decision.parse_status,
++            "quality_status": decision.quality_status,
++            "missing_fields": list(decision.missing_fields),
++            "errors": list(decision.error_codes),
++            "warnings": list(decision.warnings),
++        },
++        "verification": verify,
++    }
+diff --git a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh
+new file mode 100644
+index 0000000..6ec1a40
+--- /dev/null
++++ b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh
+@@ -0,0 +1,14 @@
++#!/usr/bin/env bash
++set -euo pipefail
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
++TARGET="${1:?usage: ROLLBACK.sh TARGET_COPY}"
++BASELINE="246f18114c6ab647051229a186c33e76d2fbe671"
++git -C "$ROOT" show "$BASELINE:server/raw_capture.py" > "$TARGET"
++ACTUAL="$(sha256sum "$TARGET" | awk '{print $1}')"
++EXPECTED="052497f29254e20fe06cf580cfc822bdb4413b50d55d64df0db382b438d8a1e5"
++printf 'RESTORED_SHA256=%s\n' "$ACTUAL"
++if [[ "$ACTUAL" != "$EXPECTED" ]]; then
++  printf 'RESTORED_MATCH=False\n'
++  exit 1
++fi
++printf 'RESTORED_MATCH=True\n'
+diff --git a/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
+new file mode 100644
+index 0000000..9a7210d
+--- /dev/null
++++ b/docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
+@@ -0,0 +1,52 @@
++BASELINE-REVIEW-FIX-001 VERIFICATION
++
++BRANCH: codex/accepted-business-baseline
++CHANGED_BRANCH_FIELD: server/raw_capture.py :: original Raw evidence is immutable; resanitize creates tenant-bound derived evidence with strict identity/content conflict detection
++
++ARTIFACTS:
++- MODIFIED_FILE: docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
++- DIFF_FILE: docs/tasks/BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch
++- VERIFICATION: docs/tasks/BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt
++- ROLLBACK: docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh
++
++BASELINE:
++- command: git show 246f18114c6ab647051229a186c33e76d2fbe671:server/raw_capture.py | sha256sum
++- input: PR #2 review source baseline Raw Capture module
++- literal output/result: SHA256=052497f29254e20fe06cf580cfc822bdb4413b50d55d64df0db382b438d8a1e5
++- exit status: 0
++
++MODIFIED:
++- command: sha256sum docs/tasks/BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py
++- input: final review-fixed server/raw_capture.py copied byte-for-byte
++- literal output/result: SHA256=69d05a23f09355d3d42c22f22f58b419f8ca7e347e1c2a08f22e75bfe66fdd93; original evidence remains immutable; derived evidence and strict tenant/content identity are active
++- exit status: 0
++
++ROLLBACK:
++- command: bash docs/tasks/BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh docs/tasks/BASELINE-REVIEW-FIX-001-verification/rollback_probe.py
++- input: probe initially copied from MODIFIED_FILE.py
++- literal output/result: RESTORED_SHA256=052497f29254e20fe06cf580cfc822bdb4413b50d55d64df0db382b438d8a1e5; RESTORED_MATCH=True
++- exit status: 0
++- restored behavior/status: probe restored to 246f181 Raw Capture behavior; probe removed; MODIFIED_FILE remains review-fixed.
++
++TESTS:
++- lifecycle/reconciliation targeted: Python 4 + 10 + 6 + 15 tests; OK (2 opt-in Oracle skips only in targeted unit command); exit 0
++- Raw immutability/tenant/idempotency targeted: Ran 8 tests in 0.250s; OK; exit 0
++- Product P0 targeted: Ran 5 tests; OK; exit 0
++- Phase 6A targeted: Ran 4 tests; OK; exit 0
++- Android behavior/lifecycle targeted: BUILD SUCCESSFUL in 8s; 18 tests, 0 failures, 0 skipped; exit 0
++- Python full: Ran 190 tests in 0.365s; OK (skipped=18); exit 0
++- Python compile: no output; exit 0
++- Android full: BUILD SUCCESSFUL in 11s; 70 tests, 0 failures, 0 errors, 1 skipped; exit 0
++- Web production: 1673 modules transformed; built in 7.38s; exit 0
++- Oracle isolated Phase 1-6A: Ran 41 tests in 126.094s; OK; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit 0
++- Golden Sample 985843042423: result=PASS; sku_combination_count=10; media_count=8; exit 0
++- Generic SKU behavior gate: 3 tests, 0 failures; purchase/panel/combination=0; SKU_PANEL=0; DETAIL/parser/legacy SKU read PASS; exit 0
++- Security: no changed secret, Raw payload, DB, build artifact, leaked API path, or changed file larger than 1 MiB; exit 0
++- Repository-wide absolute-path scan true pre-existing findings: `.path_ok`, `android_collector/install-adb.ps1`, `config.json::_output_dir_abs`, `server/image_filter.py` Tesseract fallbacks, plus Historical verification documents; unchanged and outside this Review fix. Changed-scope matches are negative ADR/test sentinels only.
++- git diff --check 246f181..HEAD (pre-commit equivalent working-tree check): no whitespace errors; exit 0
++
++RESTORED STATUS:
++- Accepted non-SKU lifecycle semantics and coverage are restored.
++- Original Raw bytes/hash/manifest are immutable and tenant/workspace isolated.
++- Product P0 and Phase 6A remain passing.
++- Generic SKU, P1, and Phase 6B remain not started.
+diff --git a/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt b/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+index fab02e2..3a7d74d 100644
+--- a/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
++++ b/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+@@ -7,4 +7,4 @@ ARTIFACTS:
+-- MODIFIED_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
+-- DIFF_FILE: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
+-- VERIFICATION: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
+-- ROLLBACK: <REPO_ROOT>/docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
++- MODIFIED_FILE: docs/tasks/BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt
++- DIFF_FILE: docs/tasks/BASELINE-SPLIT-001-verification/DIFF_FILE.patch
++- VERIFICATION: docs/tasks/BASELINE-SPLIT-001-verification/VERIFICATION.txt
++- ROLLBACK: docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh
+@@ -29 +29 @@ ROLLBACK:
+-- command: <GIT_BIN>/bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
++- command: bash docs/tasks/BASELINE-SPLIT-001-verification/ROLLBACK.sh docs/tasks/BASELINE-SPLIT-001-verification/rollback_probe.kt
+diff --git a/docs/tasks/BASELINE-SPLIT-001.md b/docs/tasks/BASELINE-SPLIT-001.md
+index a23ba9c..3a424fb 100644
+--- a/docs/tasks/BASELINE-SPLIT-001.md
++++ b/docs/tasks/BASELINE-SPLIT-001.md
+@@ -3,2 +3,2 @@
+-- Status：ACCEPTED / READY FOR DRAFT PR
+-- Date：2026-08-23
++- Status：READY FOR RE-REVIEW / PR REMAINS DRAFT
++- Date：2026-08-24
+@@ -32,3 +32,4 @@
+-| `engine/PddActions.kt`：13b pagination、SKU_PANEL、dynamic dimension、combination hunks | EXPERIMENTAL_SKU | No | 保留 Phase 6A 的 90b 实现；不引入 13b Generic SKU runtime | source scan、negative JVM gate |
+-| `data/Dao.kt`：legacy finish requeue、cross-attempt product query | REQUIRED_SUPPORT | No | 属于另一个生命周期恢复变更，不是本次 Raw/P0 最小依赖 | 原 13b branch 保留证据 |
+-| `net/AgentCoordinator.kt`：engine retry、legacy finish、checkpoint direct finish、cross-attempt receipt | REQUIRED_SUPPORT | No | 与本次四项能力无直接依赖，避免夹带生命周期行为变化 | 原 13b branch 保留证据 |
++| `engine/PddActions.kt`：virtual-list pagination / unseen card selection | REQUIRED_SUPPORT | Yes | 1.0.75 已验收非 SKU 生命周期能力；恢复确定性前向翻页和去重 | Backlog 1.0.75、`PddPaginationTest` |
++| `engine/PddActions.kt`：SKU_PANEL、dynamic dimension、combination hunks | EXPERIMENTAL_SKU | No | 不引入 13b Generic SKU runtime | behavior JVM gate + auxiliary source scan |
++| `data/Dao.kt`：legacy finish requeue、cross-attempt product query | REQUIRED_SUPPORT | Yes | 1.0.73～1.0.75 已验收恢复/跨 Attempt receipt 行为 | `LegacyFinishRecoveryTest`、`JobRecoveryPolicyTest` |
++| `net/AgentCoordinator.kt`：engine retry、legacy finish、checkpoint direct finish、cross-attempt receipt、retry_wait reacquire | REQUIRED_SUPPORT | Yes | 已有真机 E2E/Backlog 证据，Split 误排除 | recovery/pagination/legacy finish JVM tests |
+@@ -48,3 +49,3 @@
+-| `server/job_service.py`：普通 item/canonical receipt 与 `NEXT_RUN_AT` hunks | REQUIRED_SUPPORT | No | 不属于本次最小 Product/Raw split；90b 的已验收完成语义保持不变 | Phase 2/full regression |
+-| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT hunks | REQUIRED_SUPPORT | No | Oracle 兼容修复不由本 Task扩 scope | Phase 6A 90b Oracle baseline |
+-| `server/routers/tasks.py`：tenant pull 与 late cancel ACK hunks | REQUIRED_SUPPORT | No | 不夹带 Task 生命周期/租户路由行为变化 | 原 13b branch 保留证据 |
++| `server/job_service.py`：普通 item/canonical receipt 与 `NEXT_RUN_AT` hunks | REQUIRED_SUPPORT | Yes | 普通 TaskItem canonical binding 与 Oracle NOT NULL 兼容已验收 | Phase 2、Backlog、job service tests |
++| `server/job_reconciliation.py`：Oracle alias/NEXT_RUN_AT hunks | REQUIRED_SUPPORT | Yes | 修复真实 Oracle duplicate column alias 与 NOT NULL compatibility | reconciliation compatibility ×4、Oracle gate |
++| `server/routers/tasks.py`：tenant pull 与 late cancel ACK hunks | REQUIRED_SUPPORT | Yes | Phase 5.5 租户边界及取消后 durable outbox 释放已验收 | tenant pull、late cancel tests |
+@@ -72,2 +73,6 @@
+-| `PddActionsSkuContractTest.kt`、`PddPaginationTest.kt` | EXPERIMENTAL_SKU / INVESTIGATION_ONLY | No | 依赖未纳入的 13b runtime/pagination hunks | negative gate replaces SKU runtime assertion |
+-| Job recovery、legacy finish、Oracle compatibility test hunks | REQUIRED_SUPPORT | No | 对应未纳入的生命周期/Oracle兼容 hunk，不降低既有断言 | 90b/full regression retained |
++| `PddActionsSkuContractTest.kt` | EXPERIMENTAL_SKU | No | 依赖未纳入的 13b Generic SKU runtime | behavior gate replaces Generic SKU runtime assertion |
++| `PddPaginationTest.kt` | REQUIRED_SUPPORT | Yes | virtual list 前向翻页与 unseen card 选择 | 2 JVM tests |
++| `LegacyFinishRecoveryTest.kt` | REQUIRED_SUPPORT | Yes | late cancel requeue 与 JSON null target compatibility | 2 JVM tests |
++| `JobRecoveryPolicyTest.kt` 新增 recovery tests | REQUIRED_SUPPORT | Yes | cross-attempt receipt、engine retry、checkpoint direct completion | 3 JVM tests |
++| Oracle compatibility / canonical receipt / tenant pull / late cancel tests | REQUIRED_SUPPORT | Yes | 对应恢复的 Accepted lifecycle 生产语义 | Python 非 SKU 7 tests |
++| `2026-08-24-raw-capture-identity-immutability.md` | ACCEPTED_RAW | Yes | 冻结 Raw tenant identity、strict idempotency 与 Derived 不可变合同 | Raw behavior tests |
+@@ -85 +90,15 @@
+-## 6. Verification record
++## 6. Independent Review Corrections
++
++| Reviewer Finding | Status | Corrected Classification | Restored / Fixed Files and Hunks | Acceptance Evidence | Tests |
++|---|---|---|---|---|---|
++| 1：Accepted 非 SKU 生命周期能力被误排除 | RESOLVED | `REQUIRED_SUPPORT / No` → `REQUIRED_SUPPORT / Yes` | `AgentCoordinator.kt`、`Dao.kt`、`PddActions.kt` pagination；`job_service.py`、`job_reconciliation.py`、`routers/tasks.py` | Backlog 1.0.73～1.0.75、Phase 2/5.5/6A 既有验收与 source `13b4301` | lifecycle/recovery targeted、full、isolated Oracle |
++| 1A：Accepted 非 SKU 测试数量下降 | RESOLVED | 非 SKU coverage 恢复；Generic SKU tests 继续排除 | Python reconciliation ×4、canonical receipt ×1、tenant pull ×1、late cancel ×1；Android pagination ×2、legacy finish ×2、recovery ×3 | 每个测试均对应上一行恢复的生产语义 | Python/Android targeted + full |
++| 2：Raw resanitize 原地覆盖 | RESOLVED | `ACCEPTED_RAW` 不变量强化 | `server/raw_capture.py` Derived/Resanitized version；replay 显式 original/derived | Accepted Raw evidence 需要可审计、可重放、不可变 | original bytes/hash/manifest 不变 + derived replay |
++| 3：capture_id 未租户绑定且弱幂等 | RESOLVED | `ACCEPTED_RAW` 身份合同冻结 | Tenant/Workspace 路径、identity/content hashes、`RAW_CAPTURE_CONFLICT`、Accepted ADR | Enterprise/Workspace 隔离及 Raw provenance 不变量 | retry/conflict/cross-tenant/cross-workspace/product/attempt/device/content |
++| 4：no-SKU 核心门禁仅做源码扫描 | RESOLVED | `REQUIRED_SUPPORT` 行为门禁 | `PddDetailPorts.kt` Spy/Fake seam；TaskEngine → Registry → PDD detail 实际调用路径 | Generic SKU 始终 `NOT ACCEPTED` | purchase/panel/combination=0，SKU_PANEL=0，DETAIL/parse/legacy read 正常；源码扫描仅辅助 |
++| 5：绝对路径泄露 | RESOLVED | `ACCEPTED_RAW` API 边界修复 | `routers/products.py` opaque evidence/manifest refs；旧 receipt 输出清洗；verification 使用 repo-relative 路径 | 物理存储路径不是业务 identity | API/receipt/media ping + changed-scope absolute-path scan |
++| 6：通用 RawSource 带 PDD schema 默认值 | RESOLVED | 平台中立 Contract + PDD 显式 Adapter provenance | `CollectorContract.kt` nullable default；`PddCollector.kt` 显式 `pdd-a11y-v1` | 防止未来 Adapter 继承错误 provenance | generic default null + PDD detail sources explicit |
++
++Generic SKU 相关 `GenericSkuContract`、购买/拼成入口自动交互、SKU Panel 自动打开和 combination traversal 未随 lifecycle 修复恢复；`PddActionsSkuContractTest.kt` 仍排除。Legacy SKU JSON/text 兼容读取及 `SKU_PANEL` 类型表达能力仅用于已存在数据，不会激活默认运行时。
++
++## 7. Verification record
+@@ -88,0 +108 @@
++| Lifecycle/reconciliation Python targeted | `python -m unittest -v tests.test_job_reconciliation_oracle_compat`；`tests.test_job_service`；`tests.test_phase55_enterprise_hardening`；`tests.test_task_state_r1` | `Ran 4 tests ... OK`；`Ran 10 tests ... OK (skipped=2)`；`Ran 6 tests ... OK`；`Ran 15 tests ... OK` | 0 | PASS |
+@@ -90,3 +110,4 @@
+-| Raw + Product P0 Python targeted | `python -m unittest -v tests.test_raw_capture tests.test_product_consistency_p0` | `Ran 8 tests ... OK` | 0 | PASS |
+-| Android targeted | Collector/Raw/Detail/negative gate filters | `BUILD SUCCESSFUL in 35s` | 0 | PASS |
+-| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | `Ran 178 tests ... OK (skipped=18)` | 0 | PASS |
++| Raw immutability/identity targeted | `python -m unittest -v tests.test_raw_capture` | `Ran 8 tests in 0.250s ... OK` | 0 | PASS |
++| Product P0 Python targeted | `python -m unittest -v tests.test_product_consistency_p0` | `Ran 5 tests ... OK` | 0 | PASS |
++| Android behavior/lifecycle targeted | `gradlew testDebugUnitTest --no-daemon` + 5 class filters | `BUILD SUCCESSFUL in 8s`; 18 tests, 0 failures, 0 skipped | 0 | PASS |
++| Python full | `python scripts/run_python_unit_tests.py` | `Ran 190 tests in 0.365s ... OK (skipped=18)` | 0 | PASS |
+@@ -94,3 +115,3 @@
+-| Android JVM full | `testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 13s`; 62 tests, 0 failures, 1 skipped | 0 | PASS |
+-| Web production | `npm ci && npm run build` | `1673 modules transformed`; built in 4.64s | 0 | PASS |
+-| Oracle Phase 1～6A | strict isolated Oracle gate | `Ran 40 tests in 116.520s ... OK`; `PASS=1 FAIL=0 BLOCKED=0` | 0 | PASS |
++| Android JVM full | `gradlew testDebugUnitTest --no-daemon` | `BUILD SUCCESSFUL in 11s`; 70 tests, 0 failures, 0 errors, 1 skipped | 0 | PASS |
++| Web production | `npm ci && npm run build` | `1673 modules transformed`; `built in 7.38s` | 0 | PASS |
++| Oracle Phase 1～6A | `scripts/test-baseline.ps1 -Suite oracle -Strict`；输入：既有隔离 Oracle test schema、全部 opt-in flags=1 | `Ran 41 tests in 126.094s ... OK`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+@@ -98,3 +119,5 @@
+-| Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + production source scan | default detail has no SKU call/source; Generic runtime names absent; only unused 90b capability definition remains | 0 | PASS |
+-| Security | tracked-path/secret/DSN/absolute-path/large-file scan | 0 findings; no changed file >1 MiB | 0 | PASS |
+-| Diff | `git diff --check origin/main` | no whitespace errors | 0 | PASS |
++| Generic SKU negative | `AcceptedBaselineNoSkuRuntimeTest` + auxiliary production source scan | behavior tests 3/3 PASS；purchase/panel/combination=0；SKU_PANEL=0；DETAIL/parse/legacy SKU read PASS；Generic runtime names 0 | 0 | PASS |
++| Security | changed-scope secret/raw/DB/artifact/large-file/absolute-path scan | no secret、Raw payload、DB、build artifact or changed file >1 MiB；absolute-path matches only negative test/ADR sentinel，API returned path=0。全仓真实既有 findings 为 `.path_ok`、`install-adb.ps1`、`config.json::_output_dir_abs`、`image_filter.py` fallback 与 Historical verification 文档；本 Task 不改其运行语义 | 0 | PASS |
++| Diff | `git diff --check 246f181..HEAD`（提交前等价检查工作树） | no whitespace errors | 0 | PASS |
++
++测试数量解释：Python `13b4301` 191 - 实验 Schema/Generic SKU 6 = Accepted 185；原 Split 误排除 7 后为 178；本次恢复 7 并新增 Raw review tests 5，最终 190。Android `13b4301` 70 - Generic SKU tests 3 = Accepted 67；加 Split 专用 no-SKU gate 2，误排除 7 后为 62；恢复 7 且行为 gate 从 2 扩为 3，最终 70。没有为了数量恢复 Generic SKU 测试。
+@@ -102 +125 @@
+-Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle 已单独实际执行并通过。
++Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PASS；隔离 Oracle 已另行实际执行 41 项并通过，无 skip。
+@@ -104 +127 @@ Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PAS
+-可复现修改/回滚制品：[`MODIFIED_FILE.kt`](BASELINE-SPLIT-001-verification/MODIFIED_FILE.kt)、[`DIFF_FILE.patch`](BASELINE-SPLIT-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-SPLIT-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-SPLIT-001-verification/ROLLBACK.sh)。
++本次 Review 修复可复现修改/回滚制品：[`MODIFIED_FILE.py`](BASELINE-REVIEW-FIX-001-verification/MODIFIED_FILE.py)、[`DIFF_FILE.patch`](BASELINE-REVIEW-FIX-001-verification/DIFF_FILE.patch)、[`VERIFICATION.txt`](BASELINE-REVIEW-FIX-001-verification/VERIFICATION.txt)、[`ROLLBACK.sh`](BASELINE-REVIEW-FIX-001-verification/ROLLBACK.sh)。原 Split 制品继续保留，并已移除验证记录中的用户机器绝对路径。
+@@ -106 +129 @@ Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PAS
+-## 7. Sol Review
++## 8. Sol Review
+@@ -113,2 +136,3 @@ Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PAS
+-6. 未删除或放宽既有测试断言；新增负向 gate。未纳入的实验测试随实验实现一起保留在 source branch。
+-7. 逐项复核 13b production hunks；没有发现 Accepted Raw/Product P0 的遗漏依赖。
++6. 恢复 7 项 Python 与 7 项 Android Accepted 非 SKU coverage；no-SKU 核心证明升级为行为测试，源码扫描仅作辅助。
++7. Original Raw、identity/content hash 和 Manifest 在 resanitize 前后逐字节不变；Derived 版本可独立验证和 replay。
++8. 逐项复核 13b production hunks；恢复仅覆盖既有 Accepted lifecycle，不包含 Generic SKU、P1 或 Phase 6B。
+@@ -116 +140 @@ Python 的 18 个 skip 和 Android 的 1 个 skip 均未计为 Oracle/真机 PAS
+-## 8. Rollback
++## 9. Rollback
+diff --git a/scripts/raw_capture_replay.py b/scripts/raw_capture_replay.py
+index 73c94fe..73ffde1 100644
+--- a/scripts/raw_capture_replay.py
++++ b/scripts/raw_capture_replay.py
+@@ -22,0 +23,3 @@ def main() -> int:
++    parser.add_argument("--enterprise-id", type=int)
++    parser.add_argument("--workspace-id", type=int)
++    parser.add_argument("--version", default="original", help="original, latest_safe, or a derived_capture_id")
+@@ -25 +28,7 @@ def main() -> int:
+-    result = replay_capture(args.capture_id, root=args.root)
++    result = replay_capture(
++        args.capture_id,
++        root=args.root,
++        enterprise_id=args.enterprise_id,
++        workspace_id=args.workspace_id,
++        version=args.version,
++    )
+diff --git a/server/job_reconciliation.py b/server/job_reconciliation.py
+index 5fa6fa9..e3fb472 100644
+--- a/server/job_reconciliation.py
++++ b/server/job_reconciliation.py
+@@ -219 +219 @@ class OracleReconciliationStore:
+-                     j.MAX_ATTEMPTS, j.STATUS, a.STATUS,
++                     j.MAX_ATTEMPTS, j.STATUS AS JOB_STATUS, a.STATUS AS ATTEMPT_STATUS,
+@@ -400 +400 @@ class OracleReconciliationStore:
+-            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='success', NEXT_RUN_AT=NULL, UPDATE_TIME=SYSTIMESTAMP
++            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='success', NEXT_RUN_AT=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
+@@ -522 +522 @@ class OracleReconciliationStore:
+-                       LEASE_TOKEN_HASH=NULL, LEASE_EXPIRES_AT=NULL, NEXT_RUN_AT=NULL,
++                       LEASE_TOKEN_HASH=NULL, LEASE_EXPIRES_AT=NULL, NEXT_RUN_AT=SYSTIMESTAMP,
+@@ -579 +579 @@ class OracleReconciliationStore:
+-            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='pending', NEXT_RUN_AT=NULL, UPDATE_TIME=SYSTIMESTAMP
++            """UPDATE SJZQ_COLLECTION_JOB SET STATUS='pending', NEXT_RUN_AT=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
+diff --git a/server/job_service.py b/server/job_service.py
+index 49c4d40..32ccd84 100644
+--- a/server/job_service.py
++++ b/server/job_service.py
+@@ -375 +375,2 @@ def complete(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_i
+-        cur.execute("SELECT PRODUCT_ID FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id AND TASK_ID=:task_id",
++        cur.execute("""SELECT PRODUCT_ID,TARGET_SPEC,TARGET_APPROVAL,TARGET_NAME,TARGET_MANUFACTURER
++                         FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:item_id AND TASK_ID=:task_id""",
+@@ -378 +379 @@ def complete(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_i
+-        if not item or item[0] is None or int(item[0]) not in receipts.values():
++        if not item:
+@@ -380 +381,8 @@ def complete(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_i
+-        canonical_product_id = int(item[0])
++        prebound_product_id = int(item[0]) if item[0] is not None else None
++        requires_prebound = any(str(value or "").strip() for value in item[1:])
++        if requires_prebound and (prebound_product_id is None or prebound_product_id not in receipts.values()):
++            raise JobProtocolError("RESULT_ITEM_MISMATCH", "matched job item product is absent from receipt manifest")
++        if prebound_product_id is not None:
++            if prebound_product_id not in receipts.values():
++                raise JobProtocolError("RESULT_ITEM_MISMATCH", "job item product is absent from receipt manifest")
++            canonical_product_id = prebound_product_id
+@@ -410 +418 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
+-    cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE NULL END,
++    cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE SYSTIMESTAMP END,
+diff --git a/server/raw_capture.py b/server/raw_capture.py
+index 204ed5e..7a6432b 100644
+--- a/server/raw_capture.py
++++ b/server/raw_capture.py
+@@ -19,0 +20,2 @@ CAPTURE_ID_RE = re.compile(r"^cap-[A-Za-z0-9][A-Za-z0-9._-]{7,127}$")
++DERIVED_ID_RE = re.compile(r"^cap-[A-Za-z0-9][A-Za-z0-9._-]{7,191}$")
++FILTER_VERSION = "raw-sanitize-v2"
+@@ -53 +55,3 @@ class RawCaptureError(ValueError):
+-    pass
++    def __init__(self, message: str, *, code: str = "RAW_CAPTURE_INVALID"):
++        super().__init__(message)
++        self.code = code
+@@ -59,0 +64,35 @@ def capture_root() -> Path:
++def _positive_id(value: Any, name: str) -> int:
++    try:
++        parsed = int(value)
++    except (TypeError, ValueError) as exc:
++        raise RawCaptureError(f"{name} is required") from exc
++    if parsed <= 0:
++        raise RawCaptureError(f"{name} must be positive")
++    return parsed
++
++
++def _tenant_capture_dir(base: Path, enterprise_id: int, workspace_id: int, capture_id: str) -> Path:
++    return base / f"enterprise-{enterprise_id}" / f"workspace-{workspace_id}" / capture_id
++
++
++def _resolve_capture_dir(
++    capture_id: str,
++    *,
++    root: Path | None,
++    enterprise_id: int | None,
++    workspace_id: int | None,
++) -> Path:
++    base = (root or capture_root()).resolve()
++    if (enterprise_id is None) != (workspace_id is None):
++        raise RawCaptureError("enterprise_id and workspace_id must be provided together")
++    if enterprise_id is not None and workspace_id is not None:
++        return _tenant_capture_dir(
++            base,
++            _positive_id(enterprise_id, "enterprise_id"),
++            _positive_id(workspace_id, "workspace_id"),
++            capture_id,
++        )
++    # Explicit legacy-only fallback. New tenant captures are never searched by capture_id.
++    return base / capture_id
++
++
+@@ -95,0 +135,39 @@ def _source_extension(content_type: str) -> str:
++def _capture_identity(
++    body: Any,
++    device: Mapping[str, Any],
++    *,
++    capture_id: str,
++    platform: str,
++    product_id: str,
++) -> dict[str, Any]:
++    return {
++        "capture_id": capture_id,
++        "enterprise_id": _positive_id(device.get("enterprise_id"), "enterprise_id"),
++        "workspace_id": _positive_id(device.get("workspace_id"), "workspace_id"),
++        "platform": platform,
++        "platform_product_id": product_id,
++        "task_id": getattr(body, "task_id", None),
++        "job_id": getattr(body, "job_id", None),
++        "attempt_id": getattr(body, "attempt_id", None),
++        "device_id": _positive_id(device.get("device_id"), "device_id"),
++    }
++
++
++def _upload_bytes(body: Any) -> bytes:
++    upload = sanitize(body.model_dump(mode="json") if hasattr(body, "model_dump") else dict(body))
++    for field in ("raw_capture", "device_key", "lease_token", "idempotency_key", "worker_id"):
++        upload.pop(field, None)
++    return _json_bytes(upload)
++
++
++def _manifest_contract(manifest: Mapping[str, Any]) -> tuple[str, str]:
++    return str(manifest.get("identity_sha256") or ""), str(manifest.get("content_sha256") or "")
++
++
++def _raise_capture_conflict(capture_id: str) -> None:
++    raise RawCaptureError(
++        f"capture_id identity or content conflict: {capture_id}",
++        code="RAW_CAPTURE_CONFLICT",
++    )
++
++
+@@ -97,2 +175,2 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-    raw = getattr(body, "raw_capture", None)
+-    if not raw:
++    raw_input = getattr(body, "raw_capture", None)
++    if not raw_input:
+@@ -100 +178 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-    raw = sanitize(dict(raw))
++    raw = sanitize(dict(raw_input))
+@@ -111,0 +190 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
++    identity = _capture_identity(body, device, capture_id=capture_id, platform=platform, product_id=product_id)
+@@ -113,9 +192,3 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-    base.mkdir(parents=True, exist_ok=True)
+-    target = base / capture_id
+-    if target.exists():
+-        existing = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+-        if existing.get("platform_product_id") != product_id:
+-            raise RawCaptureError("capture_id already belongs to another product")
+-        return existing
+-
+-    temp = Path(tempfile.mkdtemp(prefix=f".{capture_id}-", dir=base))
++    target = _tenant_capture_dir(base, identity["enterprise_id"], identity["workspace_id"], capture_id)
++    target.parent.mkdir(parents=True, exist_ok=True)
++    temp = Path(tempfile.mkdtemp(prefix=f".{capture_id}-", dir=target.parent))
+@@ -141,3 +213,0 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-                    # Raw Capture must not lose the remaining sources because a client
+-                    # declared JSON after line-level redaction changed its syntax.
+-                    # Preserve the exact sanitized bytes as text and make the mismatch explicit.
+@@ -157 +227,5 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-                "captured_at": _iso(source.get("captured_at_epoch_ms")),
++                "captured_at": (
++                    _iso(source.get("captured_at_epoch_ms") or raw.get("collected_at_epoch_ms"))
++                    if source.get("captured_at_epoch_ms") is not None or raw.get("collected_at_epoch_ms") is not None
++                    else None
++                ),
+@@ -167,4 +241 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-        upload = sanitize(body.model_dump(mode="json") if hasattr(body, "model_dump") else dict(body))
+-        upload.pop("raw_capture", None)
+-        upload.pop("device_key", None)
+-        upload.pop("lease_token", None)
++        upload_bytes = _upload_bytes(body)
+@@ -173 +243,0 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-        upload_bytes = _json_bytes(upload)
+@@ -175 +245,6 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-
++        source_inventory_sha256 = _sha(_json_bytes(manifest_sources))
++        identity_sha256 = _sha(_json_bytes(identity))
++        content_sha256 = _sha(_json_bytes({
++            "source_inventory_sha256": source_inventory_sha256,
++            "product_upload_sha256": _sha(upload_bytes),
++        }))
+@@ -177,3 +252,5 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-            "capture_id": capture_id,
+-            "platform": platform,
+-            "platform_product_id": product_id,
++            **identity,
++            "identity_contract_version": "raw-capture-identity-v1",
++            "identity_sha256": identity_sha256,
++            "source_inventory_sha256": source_inventory_sha256,
++            "content_sha256": content_sha256,
+@@ -181,6 +257,0 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-            "task_id": getattr(body, "task_id", None),
+-            "job_id": getattr(body, "job_id", None),
+-            "attempt_id": getattr(body, "attempt_id", None),
+-            "device_id": int(device["device_id"]),
+-            "enterprise_id": int(device.get("enterprise_id") or 1),
+-            "workspace_id": int(device.get("workspace_id") or 1),
+@@ -195,0 +267 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
++                "version": FILTER_VERSION,
+@@ -204 +276,13 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-        temp.rename(target)
++
++        if target.exists():
++            existing = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
++            if _manifest_contract(existing) != (identity_sha256, content_sha256):
++                _raise_capture_conflict(capture_id)
++            return existing
++        try:
++            temp.rename(target)
++        except FileExistsError:
++            existing = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
++            if _manifest_contract(existing) != (identity_sha256, content_sha256):
++                _raise_capture_conflict(capture_id)
++            return existing
+@@ -206,3 +290,3 @@ def persist_raw_capture(body: Any, device: Mapping[str, Any], *, root: Path | No
+-    except Exception:
+-        shutil.rmtree(temp, ignore_errors=True)
+-        raise
++    finally:
++        if temp.exists():
++            shutil.rmtree(temp, ignore_errors=True)
+@@ -248,2 +332,32 @@ def build_field_inventory(capture_dir: Path, manifest: Mapping[str, Any]) -> lis
+-def verify_capture(capture_id: str, *, root: Path | None = None) -> dict[str, Any]:
+-    directory = (root or capture_root()) / capture_id
++def _select_evidence_dir(original: Path, version: str) -> tuple[Path, str]:
++    if version == "original":
++        return original, "original"
++    derived_root = original / "derived"
++    if version == "latest_safe":
++        candidates = sorted(
++            (path for path in derived_root.iterdir() if path.is_dir()),
++            key=lambda path: path.name,
++        ) if derived_root.is_dir() else []
++        if not candidates:
++            raise RawCaptureError("no derived evidence is available")
++        return candidates[-1], candidates[-1].name
++    if not DERIVED_ID_RE.fullmatch(version):
++        raise RawCaptureError("invalid derived evidence version")
++    return derived_root / version, version
++
++
++def verify_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    version: str = "original",
++) -> dict[str, Any]:
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    directory, selected_version = _select_evidence_dir(original, version)
+@@ -270 +384,8 @@ def verify_capture(capture_id: str, *, root: Path | None = None) -> dict[str, An
+-    return {"capture_id": capture_id, "verified_sources": verified, "hashes_valid": True, "json_deserializable": True, "sensitive_credentials_found": False}
++    return {
++        "capture_id": capture_id,
++        "evidence_version": selected_version,
++        "verified_sources": verified,
++        "hashes_valid": True,
++        "json_deserializable": True,
++        "sensitive_credentials_found": False,
++    }
+@@ -273,30 +394,140 @@ def verify_capture(capture_id: str, *, root: Path | None = None) -> dict[str, An
+-def resanitize_capture(capture_id: str, *, root: Path | None = None) -> dict[str, Any]:
+-    """Apply the current minimum filter to an existing capture and refresh hashes atomically."""
+-    directory = (root or capture_root()) / capture_id
+-    manifest_path = directory / "manifest.json"
+-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+-    for source in manifest["sources"]:
+-        path = directory / source["storage_reference"]
+-        if path.suffix == ".json":
+-            data = _json_bytes(sanitize(json.loads(path.read_text(encoding="utf-8"))))
+-        else:
+-            filtered = sanitize(path.read_text(encoding="utf-8"))
+-            data = (filtered + ("" if filtered.endswith("\n") else "\n")).encode("utf-8")
+-        temporary = path.with_suffix(path.suffix + ".tmp")
+-        temporary.write_bytes(data)
+-        temporary.replace(path)
+-        source["size"] = len(data)
+-        source["sha256"] = _sha(data)
+-    inventory = build_field_inventory(directory, manifest)
+-    (directory / "field-inventory.json").write_bytes(_json_bytes(inventory))
+-    manifest["sensitive_data_filter"]["last_applied_at"] = _iso()
+-    temporary_manifest = manifest_path.with_suffix(".json.tmp")
+-    temporary_manifest.write_bytes(_json_bytes(manifest))
+-    temporary_manifest.replace(manifest_path)
+-    verify_capture(capture_id, root=root)
+-    return manifest
+-
+-
+-def replay_capture(capture_id: str, *, root: Path | None = None) -> dict[str, Any]:
+-    directory = (root or capture_root()) / capture_id
+-    verify = verify_capture(capture_id, root=root)
++def resanitize_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    filter_version: str = FILTER_VERSION,
++    reason: str = "sensitive-data-filter-upgrade",
++) -> dict[str, Any]:
++    """Create a derived safe version without changing original evidence bytes or manifest."""
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    original_manifest_path = original / "manifest.json"
++    original_manifest_bytes = original_manifest_path.read_bytes()
++    manifest = json.loads(original_manifest_bytes)
++    original_file_hashes = {
++        source["storage_reference"]: _sha((original / source["storage_reference"]).read_bytes())
++        for source in manifest["sources"]
++    }
++    upload_reference = manifest["product_upload"]["storage_reference"]
++    original_file_hashes[upload_reference] = _sha((original / upload_reference).read_bytes())
++    verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++
++    created_at = _iso()
++    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
++    version_seed = _sha(_json_bytes({
++        "capture_id": capture_id,
++        "filter_version": filter_version,
++        "created_at": created_at,
++        "reason": reason,
++    }))[:12]
++    derived_id = f"{capture_id}.resanitized.{stamp}.{version_seed}"
++    derived_root = original / "derived"
++    derived_root.mkdir(exist_ok=True)
++    target = derived_root / derived_id
++    temp = Path(tempfile.mkdtemp(prefix=f".{derived_id}-", dir=derived_root))
++    try:
++        (temp / "sources").mkdir()
++        derived_sources: list[dict[str, Any]] = []
++        for source in manifest["sources"]:
++            source_path = original / source["storage_reference"]
++            target_path = temp / source["storage_reference"]
++            target_path.parent.mkdir(parents=True, exist_ok=True)
++            if source_path.suffix == ".json":
++                data = _json_bytes(sanitize(json.loads(source_path.read_text(encoding="utf-8"))))
++            else:
++                filtered = sanitize(source_path.read_text(encoding="utf-8"))
++                data = (filtered + ("" if filtered.endswith("\n") else "\n")).encode("utf-8")
++            target_path.write_bytes(data)
++            derived_sources.append({**source, "size": len(data), "sha256": _sha(data)})
++
++        source_upload = original / upload_reference
++        derived_upload = temp / upload_reference
++        derived_upload.parent.mkdir(parents=True, exist_ok=True)
++        upload_data = _json_bytes(sanitize(json.loads(source_upload.read_text(encoding="utf-8"))))
++        derived_upload.write_bytes(upload_data)
++        derived_manifest = {
++            **{key: value for key, value in manifest.items() if key not in {
++                "sources", "product_upload", "field_inventory", "sensitive_data_filter",
++            }},
++            "evidence_kind": "derived_resanitized",
++            "derived_capture_id": derived_id,
++            "original_capture_id": capture_id,
++            "original_manifest_sha256": _sha(original_manifest_bytes),
++            "original_source_hashes": original_file_hashes,
++            "filter_version": str(filter_version)[:128],
++            "created_at": created_at,
++            "derivation_reason": str(reason)[:512],
++            "sources": derived_sources,
++            "product_upload": {
++                **manifest["product_upload"],
++                "size": len(upload_data),
++                "sha256": _sha(upload_data),
++            },
++            "sensitive_data_filter": {
++                **manifest.get("sensitive_data_filter", {}),
++                "version": str(filter_version)[:128],
++                "applied_at": created_at,
++            },
++        }
++        derived_manifest["source_inventory_sha256"] = _sha(_json_bytes(derived_sources))
++        derived_manifest["content_sha256"] = _sha(_json_bytes({
++            "source_inventory_sha256": derived_manifest["source_inventory_sha256"],
++            "product_upload_sha256": derived_manifest["product_upload"]["sha256"],
++        }))
++        inventory = build_field_inventory(temp, derived_manifest)
++        (temp / "field-inventory.json").write_bytes(_json_bytes(inventory))
++        derived_manifest["field_inventory"] = "field-inventory.json"
++        (temp / "manifest.json").write_bytes(_json_bytes(derived_manifest))
++        temp.rename(target)
++    finally:
++        if temp.exists():
++            shutil.rmtree(temp, ignore_errors=True)
++
++    if original_manifest_path.read_bytes() != original_manifest_bytes:
++        raise RawCaptureError("original manifest changed during derivation")
++    for reference, expected_hash in original_file_hashes.items():
++        if _sha((original / reference).read_bytes()) != expected_hash:
++            raise RawCaptureError("original evidence changed during derivation")
++    verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++        version=derived_id,
++    )
++    return derived_manifest
++
++
++def replay_capture(
++    capture_id: str,
++    *,
++    root: Path | None = None,
++    enterprise_id: int | None = None,
++    workspace_id: int | None = None,
++    version: str = "original",
++) -> dict[str, Any]:
++    original = _resolve_capture_dir(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++    )
++    directory, selected_version = _select_evidence_dir(original, version)
++    verify = verify_capture(
++        capture_id,
++        root=root,
++        enterprise_id=enterprise_id,
++        workspace_id=workspace_id,
++        version=selected_version,
++    )
+@@ -311,0 +543,2 @@ def replay_capture(capture_id: str, *, root: Path | None = None) -> dict[str, An
++        "evidence_version": selected_version,
++        "derived": selected_version != "original",
+diff --git a/server/routers/products.py b/server/routers/products.py
+index 2e72cd4..6d850c1 100644
+--- a/server/routers/products.py
++++ b/server/routers/products.py
+@@ -65,0 +66,18 @@ def _image_root() -> Path:
++def _raw_capture_result(manifest: dict) -> dict[str, str]:
++    capture_id = str(manifest["capture_id"])
++    return {
++        "capture_id": capture_id,
++        "evidence_ref": f"raw-capture:{capture_id}",
++        "manifest_ref": f"raw-capture:{capture_id}:manifest",
++    }
++
++
++def _public_product_result(result: dict) -> dict:
++    public = dict(result)
++    public.pop("capture_manifest", None)
++    capture_id = public.get("capture_id")
++    if capture_id:
++        public.update(_raw_capture_result({"capture_id": capture_id}))
++    return public
++
++
+@@ -99 +117 @@ def _receipt_ack(receipt, key: str, message: str = "already uploaded") -> ApiOk:
+-            **receipt["result"],
++            **_public_product_result(receipt["result"]),
+@@ -151,5 +169 @@ def _business_dedup_ack(cur, body: ProductUploadIn, device: dict, payload_sha256
+-        result.update({
+-            "capture_id": capture_manifest["capture_id"],
+-            "capture_manifest": str((Path(settings.image_dir).parent / "raw-captures" /
+-                                     capture_manifest["capture_id"] / "manifest.json").resolve()),
+-        })
++        result.update(_raw_capture_result(capture_manifest))
+@@ -292,0 +307,3 @@ def upload_product(body: ProductUploadIn):
++                    except RawCaptureError as exc:
++                        conn.rollback()
++                        return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
+@@ -516,6 +533,3 @@ def upload_product(body: ProductUploadIn):
+-                raise StateConflict("RAW_CAPTURE_INVALID", "invalid", str(exc)) from exc
+-            result.update({
+-                "capture_id": capture_manifest["capture_id"],
+-                "capture_manifest": str((Path(settings.image_dir).parent / "raw-captures" /
+-                                         capture_manifest["capture_id"] / "manifest.json").resolve()),
+-            })
++                conn.rollback()
++                return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
++            result.update(_raw_capture_result(capture_manifest))
+@@ -1115 +1129,2 @@ def media_ping():
+-    return ApiOk(data={"image_dir": str(_image_root())})
++    _image_root()
++    return ApiOk(data={"storage_backend": "local-media", "status": "ready"})
+diff --git a/server/routers/tasks.py b/server/routers/tasks.py
+index 00199e8..475be60 100644
+--- a/server/routers/tasks.py
++++ b/server/routers/tasks.py
+@@ -742,0 +743,2 @@ def pull_task(device_key: str, platform_code: str | None = None):
++               AND ENTERPRISE_ID = :enterprise_id
++               AND WORKSPACE_ID = :workspace_id
+@@ -757,0 +760,2 @@ def pull_task(device_key: str, platform_code: str | None = None):
++                "enterprise_id": device["enterprise_id"],
++                "workspace_id": device["workspace_id"],
+@@ -767,0 +772,2 @@ def pull_task(device_key: str, platform_code: str | None = None):
++                   AND ENTERPRISE_ID = :enterprise_id
++                   AND WORKSPACE_ID = :workspace_id
+@@ -778,0 +785,2 @@ def pull_task(device_key: str, platform_code: str | None = None):
++                    "enterprise_id": device["enterprise_id"],
++                    "workspace_id": device["workspace_id"],
+@@ -1052,0 +1061,9 @@ def task_finish(body: TaskFinishIn):
++                    # A server-side cancel is authoritative.  A late Agent
++                    # terminal callback may still carry its pre-cancel local
++                    # outcome; acknowledge it as cancelled so the durable
++                    # outbox can release the stale remote assignment without
++                    # changing the business result to success.
++                    or (
++                        current == TaskStatus.CANCELLED
++                        and requested in {"failed", "cancelled", "timed_out"}
++                    )
+diff --git a/tests/test_job_reconciliation_oracle_compat.py b/tests/test_job_reconciliation_oracle_compat.py
+new file mode 100644
+index 0000000..db53563
+--- /dev/null
++++ b/tests/test_job_reconciliation_oracle_compat.py
+@@ -0,0 +1,37 @@
++from __future__ import annotations
++
++import inspect
++import unittest
++
++from server.job_reconciliation import OracleReconciliationStore
++from server.job_service import fail
++
++
++class OracleReconciliationCompatibilityTest(unittest.TestCase):
++    def test_expired_scan_aliases_duplicate_status_columns(self):
++        source = inspect.getsource(OracleReconciliationStore.expired_leases)
++        self.assertIn("j.STATUS AS JOB_STATUS", source)
++        self.assertIn("a.STATUS AS ATTEMPT_STATUS", source)
++
++    def test_retry_promotion_preserves_not_null_next_run_at(self):
++        source = inspect.getsource(OracleReconciliationStore.promote_due_retry)
++        self.assertIn("NEXT_RUN_AT=SYSTIMESTAMP", source)
++        self.assertNotIn("NEXT_RUN_AT=NULL", source)
++
++    def test_terminal_reconciliation_preserves_not_null_next_run_at(self):
++        for method in (
++            OracleReconciliationStore.mark_confirmed_result_success,
++            OracleReconciliationStore.mark_job_dead,
++        ):
++            source = inspect.getsource(method)
++            self.assertIn("NEXT_RUN_AT=SYSTIMESTAMP", source)
++            self.assertNotIn("NEXT_RUN_AT=NULL", source)
++
++    def test_non_retryable_failure_preserves_not_null_next_run_at(self):
++        source = inspect.getsource(fail)
++        self.assertIn("ELSE SYSTIMESTAMP END", source)
++        self.assertNotIn("ELSE NULL END", source)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_job_service.py b/tests/test_job_service.py
+index 424d1ce..e38ef3d 100644
+--- a/tests/test_job_service.py
++++ b/tests/test_job_service.py
+@@ -126,0 +127,23 @@ class JobServiceTest(unittest.TestCase):
++    def test_complete_allows_unmatched_ordinary_item_to_use_canonical_receipt(self):
++        cur = FakeCursor()
++        running_job = dict(self.job, status="running", item_id=91)
++        running_attempt = dict(self.attempt, status="running")
++        original_execute = cur.execute
++
++        def execute(sql, params=None):
++            original_execute(sql, params)
++            if "SELECT PRODUCT_ID,TARGET_SPEC" in " ".join(sql.split()):
++                cur._row = (None, None, None, None, None)
++
++        cur.execute = execute
++        with patch.object(svc, "_complete_replay", return_value=False), \
++             patch.object(svc, "_context", return_value=(running_job, running_attempt)), \
++             patch.object(svc, "_aggregate_task_from_jobs", return_value=None), \
++             patch.object(svc, "next_id", return_value=50):
++            result = svc.complete(
++                cur, device_id=7, job_id=21, attempt_id=31, worker_id="worker-a",
++                lease_token="x" * 43, result_receipt_key="receipt-first",
++            )
++        self.assertEqual(result["status"], "success")
++        self.assertTrue(any("SET STATUS='succeeded',PRODUCT_ID" in sql for sql, _ in cur.calls))
++
+diff --git a/tests/test_phase55_enterprise_hardening.py b/tests/test_phase55_enterprise_hardening.py
+index 149ea8b..f8ca04f 100644
+--- a/tests/test_phase55_enterprise_hardening.py
++++ b/tests/test_phase55_enterprise_hardening.py
+@@ -134,0 +135,8 @@ class Phase55EnterpriseHardeningTest(unittest.TestCase):
++    def test_legacy_device_pull_is_scoped_to_enrolled_tenant(self):
++        source = Path("server/routers/tasks.py").read_text(encoding="utf-8")
++        pull_source = source[source.index("def pull_task("):source.index("def task_progress(")]
++        self.assertEqual(2, pull_source.count("AND ENTERPRISE_ID = :enterprise_id"))
++        self.assertEqual(2, pull_source.count("AND WORKSPACE_ID = :workspace_id"))
++        self.assertEqual(2, pull_source.count('"enterprise_id": device["enterprise_id"]'))
++        self.assertEqual(2, pull_source.count('"workspace_id": device["workspace_id"]'))
++
+diff --git a/tests/test_raw_capture.py b/tests/test_raw_capture.py
+index a7a902a..3f91d07 100644
+--- a/tests/test_raw_capture.py
++++ b/tests/test_raw_capture.py
+@@ -12 +12,8 @@ os.environ.setdefault("JWT_SECRET", "raw-capture-test-secret-20260819-0123456789
+-from server.raw_capture import persist_raw_capture, replay_capture, verify_capture
++from server.raw_capture import (
++    RawCaptureError,
++    persist_raw_capture,
++    replay_capture,
++    resanitize_capture,
++    verify_capture,
++)
++from server.routers.products import _raw_capture_result, _receipt_ack, media_ping
+@@ -53,0 +61,4 @@ class RawCaptureTest(unittest.TestCase):
++    @staticmethod
++    def capture_dir(root: Path, capture_id: str, enterprise_id: int = 1, workspace_id: int = 1) -> Path:
++        return root / f"enterprise-{enterprise_id}" / f"workspace-{workspace_id}" / capture_id
++
+@@ -68,2 +79,6 @@ class RawCaptureTest(unittest.TestCase):
+-            self.assertTrue(verify_capture(manifest["capture_id"], root=root)["hashes_valid"])
+-            replay = replay_capture(manifest["capture_id"], root=root)
++            self.assertTrue(verify_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++            )["hashes_valid"])
++            replay = replay_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++            )
+@@ -72 +87,2 @@ class RawCaptureTest(unittest.TestCase):
+-            stored = (root / manifest["capture_id"] / "parsed" / "product_upload.json").read_text("utf-8")
++            capture_dir = self.capture_dir(root, manifest["capture_id"])
++            stored = (capture_dir / "parsed" / "product_upload.json").read_text("utf-8")
+@@ -75 +91 @@ class RawCaptureTest(unittest.TestCase):
+-            detail = (root / manifest["capture_id"] / "sources" / "02_DETAIL.txt").read_text("utf-8")
++            detail = (capture_dir / "sources" / "02_DETAIL.txt").read_text("utf-8")
+@@ -97 +113,133 @@ class RawCaptureTest(unittest.TestCase):
+-            self.assertTrue(verify_capture(manifest["capture_id"], root=root)["hashes_valid"])
++            self.assertTrue(verify_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++            )["hashes_valid"])
++
++    def test_resanitize_creates_derived_evidence_without_mutating_original(self):
++        with tempfile.TemporaryDirectory() as directory:
++            root = Path(directory)
++            body = valid_body("cap-1123-resanitize")
++            manifest = persist_raw_capture(
++                body, {"device_id": 6, "enterprise_id": 1, "workspace_id": 1}, root=root,
++            )
++            original = self.capture_dir(root, manifest["capture_id"])
++            original_manifest = (original / "manifest.json").read_bytes()
++            original_files = {
++                source["storage_reference"]: (original / source["storage_reference"]).read_bytes()
++                for source in manifest["sources"]
++            }
++
++            derived = resanitize_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++                filter_version="review-filter-v2", reason="review immutability proof",
++            )
++
++            self.assertEqual(original_manifest, (original / "manifest.json").read_bytes())
++            for reference, expected in original_files.items():
++                self.assertEqual(expected, (original / reference).read_bytes())
++            self.assertEqual(manifest["capture_id"], derived["original_capture_id"])
++            self.assertEqual("review-filter-v2", derived["filter_version"])
++            self.assertIn("original_source_hashes", derived)
++            self.assertIn("content_sha256", derived)
++            self.assertTrue((original / "derived" / derived["derived_capture_id"] / "manifest.json").is_file())
++            original_replay = replay_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++                version="original",
++            )
++            derived_replay = replay_capture(
++                manifest["capture_id"], root=root, enterprise_id=1, workspace_id=1,
++                version=derived["derived_capture_id"],
++            )
++            self.assertFalse(original_replay["derived"])
++            self.assertTrue(derived_replay["derived"])
++
++    def test_capture_identity_is_strictly_idempotent_within_tenant_workspace(self):
++        with tempfile.TemporaryDirectory() as directory:
++            root = Path(directory)
++            body = valid_body("cap-1123-idempotent")
++            device = {"device_id": 6, "enterprise_id": 1, "workspace_id": 1}
++            first = persist_raw_capture(body, device, root=root)
++            retry = persist_raw_capture(body, device, root=root)
++            self.assertEqual(first["identity_sha256"], retry["identity_sha256"])
++            self.assertEqual(first["content_sha256"], retry["content_sha256"])
++
++    def test_same_capture_id_rejects_changed_payload_product_or_attempt(self):
++        mutations = []
++        original = valid_body("cap-1123-conflict")
++        changed_raw = dict(original.raw_capture)
++        changed_sources = [dict(source) for source in changed_raw["sources"]]
++        changed_sources[1]["payload"] = "不同商品事实 ￥99.00"
++        changed_raw["sources"] = changed_sources
++        mutations.append(original.model_copy(update={"raw_capture": changed_raw}))
++
++        changed_product_raw = dict(original.raw_capture)
++        changed_product_raw["platform_product_id"] = "972503815109"
++        mutations.append(original.model_copy(update={"item_id": "972503815109", "raw_capture": changed_product_raw}))
++        mutations.append(original.model_copy(update={"task_id": 1124}))
++        mutations.append(original.model_copy(update={"job_id": 322}))
++        mutations.append(original.model_copy(update={"attempt_id": 331}))
++
++        for index, conflicting in enumerate(mutations):
++            with self.subTest(index=index), tempfile.TemporaryDirectory() as directory:
++                root = Path(directory)
++                device = {"device_id": 6, "enterprise_id": 1, "workspace_id": 1}
++                persist_raw_capture(original, device, root=root)
++                with self.assertRaises(RawCaptureError) as raised:
++                    persist_raw_capture(conflicting, device, root=root)
++                self.assertEqual("RAW_CAPTURE_CONFLICT", raised.exception.code)
++
++        with tempfile.TemporaryDirectory() as directory:
++            root = Path(directory)
++            persist_raw_capture(
++                original, {"device_id": 6, "enterprise_id": 1, "workspace_id": 1}, root=root,
++            )
++            with self.assertRaises(RawCaptureError) as raised:
++                persist_raw_capture(
++                    original, {"device_id": 7, "enterprise_id": 1, "workspace_id": 1}, root=root,
++                )
++            self.assertEqual("RAW_CAPTURE_CONFLICT", raised.exception.code)
++
++    def test_same_capture_id_isolated_across_enterprise_and_workspace(self):
++        with tempfile.TemporaryDirectory() as directory:
++            root = Path(directory)
++            body = valid_body("cap-1123-tenant-scope")
++            first = persist_raw_capture(
++                body, {"device_id": 6, "enterprise_id": 1, "workspace_id": 1}, root=root,
++            )
++            other_enterprise = persist_raw_capture(
++                body, {"device_id": 7, "enterprise_id": 2, "workspace_id": 1}, root=root,
++            )
++            other_workspace = persist_raw_capture(
++                body, {"device_id": 8, "enterprise_id": 1, "workspace_id": 2}, root=root,
++            )
++            self.assertEqual(1, first["enterprise_id"])
++            self.assertEqual(2, other_enterprise["enterprise_id"])
++            self.assertEqual(2, other_workspace["workspace_id"])
++            self.assertTrue(self.capture_dir(root, body.raw_capture["capture_id"], 1, 1).is_dir())
++            self.assertTrue(self.capture_dir(root, body.raw_capture["capture_id"], 2, 1).is_dir())
++            self.assertTrue(self.capture_dir(root, body.raw_capture["capture_id"], 1, 2).is_dir())
++            with self.assertRaises(FileNotFoundError):
++                verify_capture(body.raw_capture["capture_id"], root=root)
++
++    def test_api_raw_references_are_opaque_not_filesystem_paths(self):
++        result = _raw_capture_result({"capture_id": "cap-1123-opaque-ref"})
++        self.assertEqual("cap-1123-opaque-ref", result["capture_id"])
++        self.assertNotIn("capture_manifest", result)
++        for value in result.values():
++            self.assertFalse(Path(value).is_absolute())
++            self.assertNotRegex(value, r"^[A-Za-z]:[\\/]")
++        ping_data = media_ping().data
++        rendered = json.dumps(ping_data, ensure_ascii=False)
++        self.assertNotRegex(rendered, r"[A-Za-z]:[\\/]")
++        self.assertNotIn("/home/", rendered)
++        self.assertNotIn("image_dir", ping_data)
++        replay = _receipt_ack({
++            "result": {
++                "capture_id": "cap-1123-opaque-ref",
++                "capture_manifest": r"D:\server\raw-captures\cap-1123-opaque-ref\manifest.json",
++            },
++            "product_id": 9,
++            "status": "acked",
++        }, "receipt-key")
++        replay_rendered = json.dumps(replay.data, ensure_ascii=False)
++        self.assertNotIn("capture_manifest", replay.data)
++        self.assertNotRegex(replay_rendered, r"[A-Za-z]:[\\/]")
+diff --git a/tests/test_task_state_r1.py b/tests/test_task_state_r1.py
+index b85a0af..1c58635 100644
+--- a/tests/test_task_state_r1.py
++++ b/tests/test_task_state_r1.py
+@@ -204,0 +205,15 @@ class R1ApiTransactionTest(unittest.TestCase):
++    def test_late_non_success_finish_after_server_cancel_acks_cancelled(self):
++        for local_status in ("failed", "cancelled", "timed_out"):
++            with self.subTest(local_status=local_status), \
++                 patch.object(tasks, "get_conn", conn_factory(RecordingConnection(RecordingCursor()))), \
++                 patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
++                 patch.object(tasks, "lock_device", return_value=DEVICE), \
++                 patch.object(tasks, "require_running_task", side_effect=StateConflict("TASK_NOT_RUNNING", "cancelled", "running")), \
++                 patch.object(tasks, "get_task_state", return_value={"status": "cancelled", "device_id": 7}):
++                response = tasks.task_finish(
++                    TaskFinishIn(device_key="device-key", task_id=22, status=local_status)
++                )
++            self.assertTrue(response.ok)
++            self.assertEqual("cancelled", response.data["status"])
++            self.assertTrue(response.data["idempotent"])
++

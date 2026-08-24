@@ -88,10 +88,13 @@ flowchart TD
     Coordinator --> ApiClient
     Coordinator --> TaskEngine
     ApiClient --> Server["FastAPI Agent API"]
-    TaskEngine --> PddActions
+    TaskEngine --> Registry["CollectorRegistry"]
+    Registry --> Contract["Collector Contract"]
+    Contract --> PddCollector["PddCollector / Adapter"]
+    PddCollector --> PddActions
     TaskEngine --> Matcher["ProductTargetMatcher"]
     PddActions --> A11y["A11yHelper / CollectA11yService"]
-    PddActions --> DetailReader
+    PddCollector --> DetailReader
     TaskEngine --> Room["Room DAO"]
     TaskEngine --> Outbox[("Room upload_outbox")]
     Coordinator --> Assignment[("Room job_assignment")]
@@ -104,7 +107,7 @@ flowchart TD
     ApkUpdater --> OTA["/api/ota/latest + APK"]
 ```
 
-`AgentCoordinator` 是远程调度适配层；`TaskEngine` 是本地执行状态机；`PddActions` 是平台 UI 自动化实现。当前平台常量预留天猫、京东、抖音，但实际动作实现只有拼多多可确认。
+`AgentCoordinator` 是远程调度适配层；`TaskEngine` 是平台无关的本地执行状态机。它按任务的 `platform_code` 从 `CollectorRegistry` 获取 Collector，只消费统一 Search/Detail 结果和系统错误。`PddCollector` 包裹既有 `PddActions`、`DetailReader`、链接解析和页面错误映射；Registry 当前只注册拼多多。平台常量占位不代表 Collector 已接入。
 
 ## 3. 主要数据流
 
@@ -115,7 +118,7 @@ flowchart TD
 3. 同一事务为采集 TaskItem 生成稳定 `CollectionJob.JOB_KEY`；Android 注册后调用 `POST /api/jobs/acquire`。
 4. 服务端以 `FOR UPDATE SKIP LOCKED` 原子领取，创建 `CollectionAttempt` 与可过期 `Lease`；数据库只保存 token hash，bearer token 仅返回 Worker。
 5. Agent 先把 Job/Attempt/Lease 写入 Room，再调用 start 并启动 `TaskEngine`；heartbeat 只用服务端时钟续租。
-6. `TaskEngine` 先分类页面并运行 `ProductQualityGate`；异常页和必填字段失败不生成商品。通过门禁的商品与 `product` outbox 事件在同一 Room 事务写入。
+6. `TaskEngine` 经 Registry 调用平台 Collector；PDD Adapter 复用既有页面分类、详情解析与客户端质量行为并返回统一结果。异常页和必填字段失败不生成商品；通过门禁的商品与 `product` outbox 事件在同一 Room 事务写入。
 7. `AgentCoordinator` 按持久 outbox 重试；`ApiClient` 使用稳定 idempotency key 上传商品，必要时上传本地图片，只有明确的 `acknowledged + persisted` 才将事件标记为 acked。
 8. 服务端在同一 Oracle 事务写商品、任务计数与 `SJZQ_UPLOAD_RECEIPT`；同 key 同 payload 返回既有确认，同 key 不同 payload 拒绝。
 9. 每个商品得到 ACK 后，Android 把 `keyword|pick_tag` 确认槽位写入单调、幂等 checkpoint；恢复时跳过已确认槽位。本地执行结束提交全部已确认 product receipt manifest，服务端逐项验证 lease、receipt、Product，并以 TaskItem 绑定商品作为 canonical result 后结束 Attempt/Lease。零确认结果和任一永久拒绝均转 Job failure，不能完成。
@@ -245,3 +248,19 @@ flowchart LR
 `server/management_queries.py` 是只读管理查询层，`server/routers/management.py` 只负责鉴权、参数边界和响应包装。该查询层直接读取 Phase 2/3 权威事实，不参与采集写事务，也不改变 Product Snapshot、Quarantine 或 Job Event。
 
 Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间线和 Task Trace。增长列表统一使用服务端 `page/limit/total`；页面必须显示 loading、error、empty，并通过稳定 ID 在 Task、Job、Attempt、Product 和 Quarantine 之间导航。详细语义见 `docs/decisions/phase4-management-observability.md`。
+
+## Accepted Raw Capture foundation
+
+Android PDD Collector 在正常详情采集内生成受控 `RawSource`，当前默认来源包括 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED 和 OTHER。通用 `RawSource.schemaHint` 默认为空，PDD Adapter 对自身来源显式写入 `pdd-a11y-v1`，未来 Adapter 不会继承 PDD provenance。Outbox 在上传前执行敏感字段过滤，并携带 capture identity、source metadata 和 parser/collector version。
+
+服务端 `server.raw_capture` 以 Enterprise/Workspace 隔离新 Capture 的内部目录，并用 Tenant、平台商品、Task/Job/Attempt/Device、capture id、source inventory/content hashes 共同校验严格幂等。同租户同内容 retry 返回原 Manifest；身份或内容不一致返回 `RAW_CAPTURE_CONFLICT`。API 只返回 opaque evidence/manifest reference，不返回服务器 resolved path。完整合同见 `docs/decisions/2026-08-24-raw-capture-identity-immutability.md`。
+
+Original Raw 的 bytes、SHA-256、Inventory 和 Manifest 永久不可变。重新脱敏创建带 original hashes、filter version、reason 和 derived hashes 的 `derived_resanitized` 版本；Offline Replay 显式选择 Original 或 Derived。Raw persistence 不改变 Product/Snapshot identity 和 receipt 事务语义。
+
+`SKU_PANEL` 可以作为 Raw source type 被存储和兼容读取，但 accepted baseline 的默认 PDD 详情流程不打开购买入口、不主动打开 SKU Panel，也不遍历 SKU combinations。Raw replay 只读取已保存证据，不访问平台、不回写 Raw 或 Product/Snapshot。
+
+## Accepted Product canonical contract
+
+`server/product_contract.py` 定义稳定字段名与五种价格语义；`server/product_read_model.py` 将 legacy 与 strict 数据映射为统一 Detail/Capture/Snapshot 读取模型。普通编辑只接受稳定资料，动态价格、销量、SKU observations、Raw 和 Snapshot 不可由普通 PUT 覆盖。Web 的 Product List 与 Task Detail 编辑窗口均先读取 scope 对应的 Edit DTO，不复制列表行作为编辑事实。
+
+正式 ProductAttribute、SKU Dimension/Combination/SkuSnapshot Schema 不属于本基线，未执行相关 migration。完整语义见 `docs/decisions/2026-08-20-product-field-semantics-p0.md`。

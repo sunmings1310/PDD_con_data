@@ -1,5 +1,15 @@
 # 稳定数据采集系统 Backlog
 
+## Accepted Business Baseline split（2026-08-23）
+
+- [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
+- [x] 纳入 Raw Capture 基础保存、脱敏、hash、manifest、server persistence 与 offline replay。
+- [x] 纳入 Product Consistency P0、Canonical Read/Edit DTO、稳定字段编辑白名单与动态事实不可编辑策略。
+- [x] 默认 PDD 正常采集路径不打开 SKU Panel、不点击购买入口、不遍历 combinations，并有负向 JVM gate。
+- [ ] Generic SKU runtime、SKU_PANEL 自动交互、正式 SKU Schema、P1 与 Phase 6B 明确排除；需独立证据、ADR 与批准。
+
+拆分清单与证据见 [`tasks/BASELINE-SPLIT-001.md`](tasks/BASELINE-SPLIT-001.md)。
+
 > 2026-08-16 全面审计基线：[`../GAP.md`](../GAP.md)。本轮未实施业务重构或数据库迁移。
 >
 > Phase 1 已于 2026-08-17 完成验收。Phase 2 已完成实现与验收：Task/Job/Attempt/Lease/Checkpoint、原子领取、恢复、Pause/Resume、reconciliation、Android 生命周期恢复和 18 项故障矩阵均已进入统一门禁。验收报告：[`tasks/phase2-acceptance.md`](tasks/phase2-acceptance.md)。等待批准后再进入 Phase 3。
@@ -358,9 +368,9 @@
 
 ### BL-302 建立平台 adapter 后再实现新平台
 
-- **状态/里程碑**：TODO / M5
+- **状态/里程碑**：IN PROGRESS（Phase 6A Collector abstraction DONE；第二平台验证待 Phase 6B）/ M5
 - **代码模块**：`server/platforms.py`、`routers/platforms.py`、Android engine/parser、桌面搜索/详情模块、平台测试 fixtures。
-- **任务**：先定义平台能力、动作、字段映射和测试接口；使拼多多通过接口回归，再按优先级实现天猫/京东/抖音。
+- **任务**：Phase 6A 已冻结最小 Collector/Registry/Capability/System Error 契约，并使拼多多经 Adapter 通过兼容回归。后续只在独立 Phase 6B 接入一个第二平台验证契约，不在 6A 接入 JD、淘宝或 1688。
 - **验收**：新平台有独立 adapter、字段契约、样本、E2E、指标和发布开关；仅常量/种子不算完成。
 - **依赖/风险**：BL-101/102/111/205；多平台优先级 UNKNOWN。
 
@@ -429,3 +439,14 @@ Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进�
 - [x] 隔离 Oracle Phase 1～5.5 真实迁移、两租户、设备 revoke、媒体与 quota 两会话并发回归
 
 验收见 `docs/tasks/phase55-acceptance.md`。Phase 5.5 已 ACCEPTED，Phase 6 已 UNBLOCKED 但尚未开始；等待批准。
+
+# Phase 6A Collector Abstraction 完成记录（2026-08-19）
+
+- [x] Collector Contract ADR、Registry、Capability、Identity 与 System Error
+- [x] PddCollector/PddAdapter 结构迁移；核心 TaskEngine/Quality 层移除 PDD 实现依赖
+- [x] Android/Python before-after compatibility
+- [x] PDD accepted/rejected 真实 Oracle compatibility
+- [x] Phase 1～6A Oracle `40/40 PASS`；全量严格入口 `PASS=4 FAIL=0 BLOCKED=0`
+- [x] 未接入 JD、淘宝、1688；未进入 Phase 6B
+
+验收见 `docs/tasks/phase6a-acceptance.md`。Phase 6A 已 ACCEPTED；Phase 6B 已 UNBLOCKED 但 NOT STARTED。

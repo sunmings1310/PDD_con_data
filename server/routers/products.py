@@ -14,7 +14,10 @@ from server.tenant import require_tenant_perms
 from server.config import settings
 from server.db import get_conn, next_id, row_as_dict, rows_as_dicts
 from server.image_filter import is_blocked_license_file, is_blocked_license_image
-from server.schemas import ApiOk, ProductUploadIn
+from server.schemas import (
+    ApiOk, CaptureEditDTO, CaptureResultDTO, ProductDetailDTO, ProductEditDTO,
+    ProductEditRequest, ProductUploadIn,
+)
 from server.services import append_task_log, get_device_by_key
 from server.task_state import StateConflict, TaskItemStatus
 from server.task_state_service import (
@@ -34,6 +37,12 @@ from server.product_observation import (
 from server.job_service import JobProtocolError, error_data as job_error_data, require_active_lease
 from server.quota import QuotaExceeded, STORAGE_BYTES, adjust_used, commit as commit_quota, reserve as reserve_quota
 from server.media_access import signed_media_url
+from server.raw_capture import RawCaptureError, persist_raw_capture
+from server.product_contract import (
+    DYNAMIC_IMMUTABLE_FIELDS, EDITABLE_STABLE_FIELDS, RAW_IMMUTABLE_FIELDS,
+    normalize_stable_edit,
+)
+from server.product_read_model import edit_dto, load_canonical_product
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 logger = logging.getLogger("sjzq.products")
@@ -52,6 +61,24 @@ def _image_root() -> Path:
     p = Path(settings.image_dir)
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def _raw_capture_result(manifest: dict) -> dict[str, str]:
+    capture_id = str(manifest["capture_id"])
+    return {
+        "capture_id": capture_id,
+        "evidence_ref": f"raw-capture:{capture_id}",
+        "manifest_ref": f"raw-capture:{capture_id}:manifest",
+    }
+
+
+def _public_product_result(result: dict) -> dict:
+    public = dict(result)
+    public.pop("capture_manifest", None)
+    capture_id = public.get("capture_id")
+    if capture_id:
+        public.update(_raw_capture_result({"capture_id": capture_id}))
+    return public
 
 
 def _product_payload_hash(body: ProductUploadIn) -> str:
@@ -87,7 +114,7 @@ def _receipt_ack(receipt, key: str, message: str = "already uploaded") -> ApiOk:
     return ApiOk(
         message=message,
         data={
-            **receipt["result"],
+            **_public_product_result(receipt["result"]),
             "product_id": receipt["product_id"],
             "idempotency_key": key,
             "acknowledged": receipt["status"] == "acked",
@@ -137,6 +164,9 @@ def _business_dedup_ack(cur, body: ProductUploadIn, device: dict, payload_sha256
         "idempotent": False,
         "business_deduplicated": True,
     }
+    if body.raw_capture:
+        capture_manifest = persist_raw_capture(body, device)
+        result.update(_raw_capture_result(capture_manifest))
     cur.execute(
         """
         INSERT INTO SJZQ_UPLOAD_RECEIPT (
@@ -274,6 +304,9 @@ def upload_product(body: ProductUploadIn):
                     except QuotaExceeded as exc:
                         conn.rollback()
                         return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
+                    except RawCaptureError as exc:
+                        conn.rollback()
+                        return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
                     if deduplicated is not None:
                         return deduplicated
                 if body.task_item_id:
@@ -493,6 +526,13 @@ def upload_product(body: ProductUploadIn):
             "persisted": True,
             "idempotent": False,
         }
+        if body.raw_capture:
+            try:
+                capture_manifest = persist_raw_capture(body, device)
+            except RawCaptureError as exc:
+                conn.rollback()
+                return ApiOk(ok=False, message=str(exc), data={"error_code": exc.code})
+            result.update(_raw_capture_result(capture_manifest))
         if observation is not None:
             result.update({
                 "master_product_id": observation.master_product_id,
@@ -866,6 +906,21 @@ def list_products(
         )
         items = rows_as_dicts(cur)
         _attach_product_images(cur, items, tenant)
+        for item in items:
+            # Canonical aliases are the public read contract.  Legacy keys remain
+            # temporarily for non-P0 clients but are not consumed by new Web code.
+            item.update({
+                "platform_product_id": item.get("item_id"),
+                "platform_title": item.get("sell_name"),
+                "canonical_name": item.get("product_name"),
+                "product_attribute_spec": item.get("spec_text"),
+                "approval_number": item.get("approval_no"),
+                "list_price": item.get("price"),
+                "detail_price": item.get("display_price"),
+                "single_purchase_price": item.get("deal_price"),
+                "sales": item.get("sales_num"),
+                "shop_sales": item.get("shop_sales_num"),
+            })
         return ApiOk(data={"total": total, "page": page, "limit": limit, "items": items})
 
 
@@ -907,38 +962,39 @@ def _attach_product_images(cur, products: list[dict], tenant) -> None:
 def get_product(product_id: int, tenant=Depends(require_tenant_perms("data:view"))):
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT * FROM SJZQ_PRODUCT WHERE PRODUCT_ID=:id AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
-            """,
-            {"id": product_id, **tenant.binds},
-        )
-        prod = row_as_dict(cur)
-        if not prod:
+        model = load_canonical_product(cur, product_id, tenant)
+        if not model:
             return ApiOk(ok=False, message="product not found")
-        cur.execute(
-            """
-            SELECT IMAGE_ID, SORT_NO, FILE_NAME, REL_PATH, SOURCE_URL, FILE_SIZE, CONTENT_TYPE
-              FROM SJZQ_PRODUCT_IMAGE
-             WHERE PRODUCT_ID = :id
-             ORDER BY SORT_NO, IMAGE_ID
-            """,
-            {"id": product_id},
-        )
-        images = []
-        for img in rows_as_dicts(cur):
-            rel = img.get("rel_path") or ""
-            img["url"] = signed_media_url(rel, tenant.enterprise_id, tenant.workspace_id) if rel else img.get("source_url")
-            images.append(img)
-        prod["images"] = images
-        return ApiOk(data=prod)
+        return ApiOk(data=ProductDetailDTO.model_validate(model).model_dump(mode="json"))
 
 
-EDITABLE_FIELDS = {
-    "sell_name", "product_name", "brand", "shop_name", "price", "display_price",
-    "group_price", "deal_price", "original_price", "sales_num", "shop_sales_num",
-    "spec_text", "approval_no", "manufacturer", "item_url", "category", "expiry_text",
-}
+@router.get("/{product_id}/capture-result")
+def get_capture_result(product_id: int, tenant=Depends(require_tenant_perms("data:view"))):
+    with get_conn() as conn:
+        model = load_canonical_product(conn.cursor(), product_id, tenant)
+        if not model:
+            return ApiOk(ok=False, message="product not found")
+        return ApiOk(data=CaptureResultDTO.model_validate(model).model_dump(mode="json"))
+
+
+@router.get("/{product_id}/edit")
+def get_product_edit(
+    product_id: int,
+    scope: str = Query("library", pattern="^(library|capture)$"),
+    user=Depends(require_perms("data:view")),
+    tenant=Depends(require_tenant_perms("data:view")),
+):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        model = load_canonical_product(cur, product_id, tenant)
+        if not model:
+            return ApiOk(ok=False, message="product not found")
+        before = _snapshot(cur, product_id)
+        if not before or not _can_edit_product(cur, before, user, tenant):
+            return ApiOk(ok=False, message="没有修改权限")
+        payload = edit_dto(model, scope)
+        dto = CaptureEditDTO if scope == "capture" else ProductEditDTO
+        return ApiOk(data=dto.model_validate(payload).model_dump(mode="json"))
 
 
 def _snapshot(cur, product_id: int) -> dict | None:
@@ -985,21 +1041,40 @@ def update_product(product_id: int, body: dict, request: Request, user=Depends(r
             return ApiOk(ok=False, message="商品不存在")
         if not _can_edit_product(cur, before, user, tenant):
             return ApiOk(ok=False, message="仅任务创建人可修改本次草稿，正式资料仅超级管理员可修改")
-        changes = {k: body.get(k) for k in EDITABLE_FIELDS if k in body}
+        immutable = sorted(set(body) & (DYNAMIC_IMMUTABLE_FIELDS | RAW_IMMUTABLE_FIELDS))
+        if immutable:
+            return ApiOk(
+                ok=False,
+                message="动态观察、Snapshot 和 Raw Evidence 不允许通过普通修改接口覆盖",
+                data={"error_code": "OBSERVED_FIELD_IMMUTABLE", "fields": immutable},
+            )
+        changes, unsupported = normalize_stable_edit(body)
+        if unsupported:
+            return ApiOk(
+                ok=False, message="包含非 ProductEditDTO 字段",
+                data={"error_code": "EDIT_FIELD_NOT_ALLOWED", "fields": sorted(unsupported)},
+            )
         if not changes:
             return ApiOk(ok=False, message="没有可修改字段")
+        # Validate the canonical write contract before translating once at the
+        # persistence boundary.
+        ProductEditRequest.model_validate(changes)
         sets = []
         params = {"id": product_id}
-        for key, value in changes.items():
-            sets.append(f"{key.upper()}=:{key}")
-            params[key] = value
+        for canonical, value in changes.items():
+            column = EDITABLE_STABLE_FIELDS[canonical]
+            sets.append(f"{column}=:{canonical}")
+            params[canonical] = value
         sets.append("UPDATE_TIME=SYSTIMESTAMP")
         cur.execute(f"UPDATE SJZQ_PRODUCT SET {', '.join(sets)} WHERE PRODUCT_ID=:id", params)
         after = _snapshot(cur, product_id)
         _record_change(cur, product_id, "update", before, after, user)
         write_op_log(cur, user_id=user["user_id"], username=user["username"], action="product_update",
                      module="product", detail=f"修改商品 #{product_id}", ip=request.client.host if request.client else None)
-        return ApiOk(message="已保存", data=after)
+        model = load_canonical_product(cur, product_id, tenant)
+        scope = str(body.get("scope") or ("capture" if before.get("library_status") == "draft" else "library"))
+        dto = CaptureEditDTO if scope == "capture" else ProductEditDTO
+        return ApiOk(message="已保存", data=dto.model_validate(edit_dto(model, scope)).model_dump(mode="json"))
 
 
 @router.delete("/{product_id}")
@@ -1051,4 +1126,5 @@ def save_products(body: dict, request: Request, user=Depends(require_perms("data
 
 @router.get("/media-info/ping")
 def media_ping():
-    return ApiOk(data={"image_dir": str(_image_root())})
+    _image_root()
+    return ApiOk(data={"storage_backend": "local-media", "status": "ready"})
