@@ -59,7 +59,7 @@ ANDROID_WRAPPER_COMMAND=python -c <inspect android_collector/gradle/wrapper/grad
 ANDROID_WRAPPER_INPUT=android_collector/gradle/wrapper/gradle-wrapper.jar
 ANDROID_WRAPPER_OUTPUT=WRAPPER_MAIN_PRESENT=True
 ANDROID_WRAPPER_EXIT=0
-ANDROID_HOSTED_COMMAND=up to three attempts of java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon; no attempt may be bypassed as success
+ANDROID_HOSTED_COMMAND=prefer official Gradle Plugin Portal/Google/Maven Central through a hosted-only init script, then up to three attempts of java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon --init-script <RUNNER_TEMP>/ci-repositories.init.gradle; no attempt may be bypassed as success
 ANDROID_HOSTED_STATUS=to be reported from the fixed Head hosted run; not represented as local PASS
 
 RENAME_COMMAND=git show --summary e1ed4cb59551e6b97511c2daf8755cdba4bd95f2; git ls-files docs/current-state.md docs/CURRENT_STATE.md

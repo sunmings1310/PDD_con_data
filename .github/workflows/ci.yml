@@ -133,11 +133,25 @@ jobs:
           cache: gradle
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: Prefer official repositories on hosted runner
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/ci-repositories.init.gradle" <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories.clear()
+              settings.pluginManagement.repositories.gradlePluginPortal()
+              settings.pluginManagement.repositories.google()
+              settings.pluginManagement.repositories.mavenCentral()
+              settings.dependencyResolutionManagement.repositories.clear()
+              settings.dependencyResolutionManagement.repositories.google()
+              settings.dependencyResolutionManagement.repositories.mavenCentral()
+          }
+          EOF
       - working-directory: android_collector
         shell: bash
         run: |
           for attempt in 1 2 3; do
-            if java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon; then
+            if java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon --init-script "$RUNNER_TEMP/ci-repositories.init.gradle"; then
               exit 0
             fi
             if [[ "$attempt" == "3" ]]; then

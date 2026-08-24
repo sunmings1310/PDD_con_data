@@ -74,7 +74,7 @@ None。此任务不改变产品或架构语义。
 | YAML/CI | `python -c <PyYAML + review-finding assertions>` | `.github/workflows/ci.yml` | YAML 可解析；6 个 jobs、完整 diff range、Android wrapper 与 Oracle 语义存在 | `YAML_PARSE=PASS`; `CI_STATIC=PASS` | 0 | PASS |
 | Rename | `git diff --cached --summary`；`git ls-files docs/current-state.md docs/CURRENT_STATE.md` | rename-only commit | 100% 大小写 rename；只保留 uppercase | `rename ... (100%)`; `docs/CURRENT_STATE.md` | 0 | PASS |
 | Scope/static | `git diff --name-only origin/main...HEAD` + allowlist | 25 changed paths（大小写 rename 计两个路径） | 无业务/Schema/测试断言修改 | `CHANGED_FILES=25`; `SCOPE_STATIC=PASS` | 0 | PASS |
-| Android wrapper | inspect wrapper JAR | `android_collector/gradle/wrapper/gradle-wrapper.jar` | Hosted Ubuntu 可调用 wrapper main；依赖解析失败最多重试三次且最终失败不被绕过 | `WRAPPER_MAIN_PRESENT=True`；实际 JVM tests 以后续 Hosted run 为准 | 0 | PASS |
+| Android wrapper | inspect wrapper JAR | `android_collector/gradle/wrapper/gradle-wrapper.jar` | Hosted Ubuntu 通过 hosted-only init script 优先使用官方仓库并调用 wrapper main；依赖解析失败最多重试三次且最终失败不被绕过 | `WRAPPER_MAIN_PRESENT=True`；实际 JVM tests 以后续 Hosted run 为准 | 0 | PASS |
 | Whitespace | `git diff --check origin/main...HEAD` | fixed Head | 无错误 | no output | 0 | PASS |
 
 ## Oracle Gate
