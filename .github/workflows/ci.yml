@@ -70,17 +70,11 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            base="$PR_BASE_SHA"
-          elif [[ "$EVENT_NAME" == "push" && -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
-            base="$PUSH_BEFORE_SHA"
-          else
-            git fetch --no-tags origin "$DEFAULT_BRANCH"
-            base="$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
-          fi
-          test -n "$base" || { echo "BLOCKED: unable to determine whitespace diff base"; exit 2; }
+          base="$(.github/scripts/resolve-diff-base.sh)"
           echo "Checking whitespace in $base..$GITHUB_SHA"
           git diff --check "$base" "$GITHUB_SHA"
+      - name: Test diff-base failure semantics
+        run: python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
 
   python-offline:
     name: Python offline tests
@@ -195,15 +189,7 @@ jobs:
             exit 0
           fi
 
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            base="$PR_BASE_SHA"
-          elif [[ "$EVENT_NAME" == "push" && -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
-            base="$PUSH_BEFORE_SHA"
-          else
-            git fetch --no-tags origin "$DEFAULT_BRANCH"
-            base="$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
-          fi
-          test -n "$base" || { echo "BLOCKED: unable to determine Oracle applicability diff base"; exit 2; }
+          base="$(.github/scripts/resolve-diff-base.sh)"
           mapfile -t changed < <(git diff --name-only "$base" "$GITHUB_SHA")
           required=false
           for path in "${changed[@]}"; do
