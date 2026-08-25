@@ -1,0 +1,66 @@
+REPO-GOV-ALIGN-001 POST-MERGE STATE VERIFICATION
+DATE=2026-08-25
+BRANCH=codex/repo-governance-accepted-state
+BASELINE=main@713cd714902c728cc0e7b796bdde4972c78042c9
+PR=https://github.com/sunmings1310/PDD_con_data/pull/3
+CHANGED_FIELD=docs/CURRENT_STATE.md current main baseline and REPO-GOV-ALIGN-001 governance status
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_governance_state\docs\tasks\REPO-GOV-ALIGN-001-state-verification\MODIFIED_FILE.txt
+DIFF_FILE=D:\work\PDD_con_data_governance_state\docs\tasks\REPO-GOV-ALIGN-001-state-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_governance_state\docs\tasks\REPO-GOV-ALIGN-001-state-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_governance_state\docs\tasks\REPO-GOV-ALIGN-001-state-verification\ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=8ffccc145ef323314543231148aed8d09cbfca3bad2856edbfd6c412873754ae
+MODIFIED_SHA256=f8f8f032fde3fcfcdb4c65c4b3967b2be31ae88ed8f59fe75c82faba7627ba02
+
+BASELINE
+COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','713cd714902c728cc0e7b796bdde4972c78042c9:docs/CURRENT_STATE.md'],text=True,encoding='utf-8'); print('BASELINE_GOVERNANCE_STATUS=' + ('present' if 'MERGED / ACCEPTED BASELINE' in s else 'absent'))"
+INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_governance_state; docs/CURRENT_STATE.md at merge commit 713cd714902c728cc0e7b796bdde4972c78042c9
+LITERAL_OUTPUT=BASELINE_GOVERNANCE_STATUS=absent
+EXIT_STATUS=0
+STATUS=PASS
+
+MODIFIED
+COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/REPO-GOV-ALIGN-001-state-verification/MODIFIED_FILE.txt').read_text(encoding='utf-8'); ok='713cd714902c728cc0e7b796bdde4972c78042c9' in s and 'MERGED / ACCEPTED BASELINE' in s; print('MODIFIED_GOVERNANCE_STATUS=' + ('present' if ok else 'absent'))"
+INPUT_ENVIRONMENT=MODIFIED_FILE.txt copied from updated docs/CURRENT_STATE.md
+LITERAL_OUTPUT=MODIFIED_GOVERNANCE_STATUS=present
+EXIT_STATUS=0
+STATUS=PASS
+
+ROLLBACK
+COMMAND=Copy-Item 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/MODIFIED_FILE.txt' 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; & 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; $rollbackExit=$LASTEXITCODE; Remove-Item 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; exit $rollbackExit
+INPUT_ENVIRONMENT=PowerShell; rollback_probe.txt is another copy of MODIFIED_FILE.txt under the repository
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_status_update_current_state
+LITERAL_OUTPUT=RESTORED_SHA256=8ffccc145ef323314543231148aed8d09cbfca3bad2856edbfd6c412873754ae
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe restores the pre-update CURRENT_STATE exactly; MODIFIED_FILE.txt remains changed
+
+STATUS_CONSISTENCY
+COMMAND=python -c "from pathlib import Path; files=['docs/CURRENT_STATE.md','docs/backlog.md','docs/tasks/REPO-GOV-ALIGN-001.md']; text='\n'.join(Path(p).read_text(encoding='utf-8') for p in files); assert text.count('MERGED / ACCEPTED BASELINE') >= 3; assert '713cd714902c728cc0e7b796bdde4972c78042c9' in text; assert '767a5ffe12de38d93570451566def314699043bf' in text; print('STATUS_CONSISTENCY=PASS')"
+INPUT_ENVIRONMENT=repository root; CURRENT_STATE, backlog, Task
+LITERAL_OUTPUT=STATUS_CONSISTENCY=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+MARKDOWN
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+INPUT_ENVIRONMENT=repository root
+LITERAL_OUTPUT=Validated 59 Markdown files
+EXIT_STATUS=0
+STATUS=PASS
+
+DIFF_CHECK
+COMMAND=git diff --check origin/main; if ($LASTEXITCODE -eq 0) { Write-Output 'DIFF_CHECK=PASS' }
+INPUT_ENVIRONMENT=PowerShell; origin/main@713cd714902c728cc0e7b796bdde4972c78042c9
+LITERAL_OUTPUT=DIFF_CHECK=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_STATUS=SKIPPED; documentation-only post-merge state update
+REAL_DEVICE_STATUS=SKIPPED; no Android behavior change
+NEXT_STATE=STOPPED; Generic SKU, P1 Schema, and Phase 6B remain NOT STARTED

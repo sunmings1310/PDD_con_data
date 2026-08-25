@@ -1,0 +1,44 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index d342093..b8537ba 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -12,4 +12,4 @@
+-| 可信业务提交 | `02234f2fd50d4b4afeceec6ff782d0151016887d` |
+-| 来源 | PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2)，普通 merge commit |
+-| Accepted Head | `2c95cd36c5aed04a82f9e2ddf62576fa8f0c1465` |
+-| 当前治理分支 | `codex/repo-governance-mainline`，从可信业务提交新建 |
++| 当前主线基线 | `713cd714902c728cc0e7b796bdde4972c78042c9` |
++| Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
++| Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
++| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE` |
+@@ -19 +19 @@
+-PR #2 已于 2026-08-24 merge。`main@02234f2` 同时包含其第二父提交 `2c95cd3`，保留 Phase 6A、Accepted Raw/Product baseline 和 Review fix 审计链。
++PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`，因此业务与治理基线现已同时进入主线。
+@@ -74 +74 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-## 6. 当前治理工作
++## 6. 治理基线完成状态
+@@ -76 +76 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-`REPO-GOV-ALIGN-001` 只把旧治理候选中仍适用的治理文档、AGENTS、模板和 CI 对齐到 `main@02234f2`：
++`REPO-GOV-ALIGN-001` 已以 `MERGED / ACCEPTED BASELINE` 完成。PR #3 只把旧治理候选中仍适用的治理文档、AGENTS、模板和 CI 对齐到 Accepted Business Baseline：
+@@ -81 +81,2 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-- 完成后停止在独立 Review 前，不创建 PR、不 merge。
++- 最终 Independent Review 为 `ACCEPT`；Hosted Core CI [#32756266442](https://github.com/sunmings1310/PDD_con_data/actions/runs/32756266442) 整体成功；
++- 经 Product Owner 单独批准后，PR #3 已 merge 为 `713cd714902c728cc0e7b796bdde4972c78042c9`。
+@@ -83 +84 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-当前治理 Head 和验证证据以 [`tasks/REPO-GOV-ALIGN-001.md`](tasks/REPO-GOV-ALIGN-001.md) 为准。
++治理 Head、Review、验证与 merge 证据以 [`tasks/REPO-GOV-ALIGN-001.md`](tasks/REPO-GOV-ALIGN-001.md) 和 PR #3 为准。
+@@ -103 +104 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-治理实现完成后由 Independent Review 针对固定 Head 检查：
++治理基线已完成 Review、CI 和 merge。本轮停止，不自动启动新业务阶段：
+@@ -105,5 +106,3 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-1. 变更仅包含治理文件；
+-2. 当前状态与 `main@02234f2` 一致；
+-3. Generic SKU、P1 与 Phase 6B 仍为 NOT STARTED；
+-4. 文档没有第二套状态账本或固定 Agent 池；
+-5. Markdown、YAML/CI、大小写 rename 和 `git diff --check` 的实际证据可复现。
++- Generic SKU runtime：仍为 `NOT STARTED`；
++- P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
++- Phase 6B：仍为 `NOT STARTED`。
+@@ -111 +110 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-通用规则允许 Control 在 Review `ACCEPT` 后自动创建 Draft PR，但本 Task 的 Stop Condition 明确禁止创建 PR，构成 Task-specific override；因此本轮 Review 后仍停止。merge 与 release 在所有情况下都必须等待 Product Owner 明确批准。
++任何后续阶段必须由 Product Owner 另行批准并建立独立 Task。
