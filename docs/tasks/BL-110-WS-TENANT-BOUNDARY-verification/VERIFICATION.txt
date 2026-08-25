@@ -3,7 +3,7 @@ Date: 2026-08-25 Asia/Shanghai
 Branch: codex/bl-110-ws-tenant-boundary
 Base: origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018
 Implementation review head: dc268b275411968c067cdacdcd9c00031198471b
-Accepted evidence-preparation head: 21b5a2cc3b788d809a873a435538c684c0db3ddc
+Accepted non-artifact state head: 11048e03617173764fdbc13a0329a0cf6db16aee
 Independent Review: ACCEPT; no blocking finding.
 
 CHANGED BRANCH / FIELD
@@ -26,7 +26,7 @@ FOUR ARTIFACTS
 
 SHA-256
 - MODIFIED_FILE: C95554AAB7B060EF6CC6A00CCF4DC58FBA06160CCD08FBEED62391F09B1EA20C
-- DIFF_FILE.patch: C241F57CB4CE58622EF74E9B5DEA13707A7CA9B815C09D957C630B14C7F2510E
+- DIFF_FILE.patch: 03FEE092491B9C129447FC43D0A4393878FF0DA14BC43C7BDBAA189B5F481624
 - ROLLBACK.sh: A50161B18957D70DA90D8E5423737E140AB0F90212C6022C6C1C0AA63786FC57
 
 BASELINE
@@ -79,7 +79,7 @@ ROLLBACK
 Command:
   sh D:/work/PDD_con_data_ws_tenant_rollback_test/docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/ROLLBACK.sh /d/work/PDD_con_data_ws_tenant_rollback_test
 Input:
-  Separate detached worktree at 21b5a2cc3b788d809a873a435538c684c0db3ddc with the four rollback artifacts copied into it; retained modified worktree is not the target.
+  Separate detached worktree at 11048e03617173764fdbc13a0329a0cf6db16aee with the final four rollback artifacts copied over its tracked artifact directory; retained modified worktree is not the target.
 Literal output/result:
   ROLLBACK_APPLIED=TRUE
   RESTORED_BASE=origin/main

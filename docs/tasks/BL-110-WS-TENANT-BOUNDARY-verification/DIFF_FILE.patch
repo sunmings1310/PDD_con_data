@@ -11,7 +11,7 @@ index b8537ba..90f69cf 100644
 +
 +当前执行队列必须保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 `main` 开始。本轮停止，不自动创建 PR、不启动后项或新业务阶段：
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 75e98fd..88b6c32 100644
+index 75e98fd..4d75792 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -11,0 +12,14 @@
@@ -21,7 +21,7 @@ index 75e98fd..88b6c32 100644
 +
 +| 顺序 | Task | 状态 | 范围与依赖 |
 +|---:|---|---|---|
-+| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 待推送 |
++| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 已推送 |
 +| 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
 +| 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
 +| 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
@@ -48,7 +48,7 @@ index 02d42a1..305730b 100644
 +
 diff --git a/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
 new file mode 100644
-index 0000000..65a9b50
+index 0000000..26e077a
 --- /dev/null
 +++ b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
 @@ -0,0 +1,127 @@
@@ -130,7 +130,7 @@ index 0000000..65a9b50
 +- [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
 +- [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
 +- [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
-+- [ ] 固定并推送 clean Head 后停止，不创建 PR。
++- [x] 固定并推送 clean Head 后停止，不创建 PR。
 +
 +## Test Plan
 +
@@ -178,7 +178,7 @@ index 0000000..65a9b50
 +- Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
 +- Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
 +- Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
-+- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据 Head 待固定和推送；PR 禁止。
++- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据提交以远端 `codex/bl-110-ws-tenant-boundary` Head 为准；PR 未创建且禁止自动创建。
 diff --git a/server/main.py b/server/main.py
 index 07d93af..5fcfc27 100644
 --- a/server/main.py
