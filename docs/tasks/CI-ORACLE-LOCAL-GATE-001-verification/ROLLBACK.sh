@@ -10,7 +10,7 @@ import sys
 
 
 ORIGINAL_SHA256 = "65f047b203895d912309fa94a2b7eb7fb860630f2529c795096f18b2604f3c8b"
-MODIFIED_SHA256 = "0a5e8f9250274581a933cd47982987b66583f7b19bc63257fea8682894485b04"
+MODIFIED_SHA256 = "6b31ac1d29f92877dfa0c35b41e9de91284c77857c98486c5c32c31c0fda5278"
 
 
 def digest(path: pathlib.Path) -> str:
@@ -29,7 +29,10 @@ def main() -> int:
         print("ROLLBACK=FAIL input is not the verified modified workflow", file=sys.stderr)
         return 2
     result = subprocess.run(
-        ["git", "apply", "--reverse", "--whitespace=nowarn", str(patch)],
+        [
+            "git", "apply", "--reverse", "--unidiff-zero",
+            "--ignore-space-change", "--whitespace=nowarn", str(patch),
+        ],
         cwd=target,
         text=True,
         capture_output=True,

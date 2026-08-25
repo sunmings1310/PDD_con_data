@@ -1,11 +1,8 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index dc0f3e8..1dcd3ca 100644
+index dc0f3e8..056c955 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
-@@ -182,13 +182,6 @@ jobs:
-             echo "ORACLE_GATE=REQUIRED: repository variable"
-             exit 0
-           fi
+@@ -185,7 +184,0 @@ jobs:
 -          if [[ "$ORACLE_CI_MODE" == "not_required" ]]; then
 -            echo "required=false" >> "$GITHUB_OUTPUT"
 -            echo "reason=repository variable ORACLE_CI_MODE=not_required" >> "$GITHUB_OUTPUT"
@@ -13,22 +10,37 @@ index dc0f3e8..1dcd3ca 100644
 -            exit 0
 -          fi
 -
-           base="$(.github/scripts/resolve-diff-base.sh)"
-           mapfile -t changed < <(git diff --name-only "$base" "$GITHUB_SHA")
-           required=false
-@@ -210,48 +203,30 @@ jobs:
-             echo "ORACLE_GATE=SKIPPED: explicitly not applicable to this change set"
-           fi
-
+@@ -194,18 +187,3 @@ jobs:
+-          required=false
+-          for path in "${changed[@]}"; do
+-            case "$path" in
+-              server/*.py|server/**/*.py|migrations/*|migrations/**/*|scripts/migrate*.py|tests/*oracle*.py|tests/**/*oracle*.py)
+-                required=true
+-                break
+-                ;;
+-            esac
+-          done
+-          if [[ "$required" == "true" ]]; then
+-            echo "required=true" >> "$GITHUB_OUTPUT"
+-            echo "reason=Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+-            echo "ORACLE_GATE=REQUIRED: Oracle-sensitive file changed"
+-          else
+-            echo "required=false" >> "$GITHUB_OUTPUT"
+-            echo "reason=no Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+-            echo "ORACLE_GATE=SKIPPED: explicitly not applicable to this change set"
+-          fi
++          python .github/scripts/classify_oracle_scope.py \
++            --github-output "$GITHUB_OUTPUT" \
++            "${changed[@]}"
+@@ -213,2 +191,2 @@ jobs:
 -  oracle-integration:
 -    name: Oracle integration (dedicated environment only)
 +  oracle-local-evidence:
 +    name: Oracle local evidence gate
-     needs: oracle-scope
+@@ -216 +194 @@ jobs:
 -    if: ${{ needs.oracle-scope.outputs.required == 'true' }}
 +    if: ${{ needs.oracle-scope.outputs.required == 'true' && github.event_name == 'pull_request' }}
-     runs-on: ubuntu-latest
-     env:
+@@ -219,14 +197,2 @@ jobs:
 -      APP_ENV: test
 -      ORACLE_HOST: ${{ secrets.T003_ORACLE_HOST }}
 -      ORACLE_PORT: ${{ secrets.T003_ORACLE_PORT }}
@@ -45,21 +57,18 @@ index dc0f3e8..1dcd3ca 100644
 -      T003_ORACLE_PASSWORD: ${{ secrets.T003_ORACLE_PASSWORD }}
 +      PR_BODY: ${{ github.event.pull_request.body }}
 +      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-     steps:
+@@ -234 +200,4 @@ jobs:
 -      - uses: actions/checkout@v4
 +      - name: Checkout fixed PR Head
 +        uses: actions/checkout@v4
 +        with:
 +          ref: ${{ github.event.pull_request.head.sha }}
-       - uses: actions/setup-python@v5
-         with:
-           python-version: "3.10"
+@@ -238,3 +207 @@ jobs:
 -          cache: pip
 -      - run: python -m pip install --disable-pip-version-check -r requirements.txt
 -      - name: Require every Oracle input
 +      - name: Materialize PR-scoped evidence
-         shell: bash
-         run: |
+@@ -243,15 +210,8 @@ jobs:
 -          required=(ORACLE_HOST ORACLE_PORT ORACLE_SERVICE ORACLE_USER ORACLE_PASSWORD JWT_SECRET T003_ORACLE_DSN T003_ORACLE_USER T003_ORACLE_PASSWORD)
 -          for name in "${required[@]}"; do
 -            test -n "${!name:-}" || { echo "BLOCKED: missing $name"; exit 2; }

@@ -184,24 +184,9 @@ jobs:
           fi
           base="$(.github/scripts/resolve-diff-base.sh)"
           mapfile -t changed < <(git diff --name-only "$base" "$GITHUB_SHA")
-          required=false
-          for path in "${changed[@]}"; do
-            case "$path" in
-              server/*.py|server/**/*.py|migrations/*|migrations/**/*|scripts/migrate*.py|tests/*oracle*.py|tests/**/*oracle*.py)
-                required=true
-                break
-                ;;
-            esac
-          done
-          if [[ "$required" == "true" ]]; then
-            echo "required=true" >> "$GITHUB_OUTPUT"
-            echo "reason=Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
-            echo "ORACLE_GATE=REQUIRED: Oracle-sensitive file changed"
-          else
-            echo "required=false" >> "$GITHUB_OUTPUT"
-            echo "reason=no Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
-            echo "ORACLE_GATE=SKIPPED: explicitly not applicable to this change set"
-          fi
+          python .github/scripts/classify_oracle_scope.py \
+            --github-output "$GITHUB_OUTPUT" \
+            "${changed[@]}"
 
   oracle-local-evidence:
     name: Oracle local evidence gate

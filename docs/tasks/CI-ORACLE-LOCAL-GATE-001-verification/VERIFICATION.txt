@@ -3,7 +3,7 @@ BRANCH=codex/ci-oracle-local-gate-001
 CHANGED_BRANCH_FIELD=.github/workflows/ci.yml :: oracle-integration hosted database job -> Oracle local evidence gate bound to pull_request.head.sha
 ORIGINAL_BASE=origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018
 ORIGINAL_SHA256=65f047b203895d912309fa94a2b7eb7fb860630f2529c795096f18b2604f3c8b
-MODIFIED_SHA256=0a5e8f9250274581a933cd47982987b66583f7b19bc63257fea8682894485b04
+MODIFIED_SHA256=6b31ac1d29f92877dfa0c35b41e9de91284c77857c98486c5c32c31c0fda5278
 
 FOUR_ARTIFACTS
 MODIFIED_FILE=docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/MODIFIED_FILE.txt
@@ -31,14 +31,14 @@ EXIT_STATUS=0
 RESULT=PASS (Oracle local evidence gate present; Hosted database access and sensitive-change bypass absent)
 
 ROLLBACK
-COMMAND=python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/ROLLBACK.sh C:\Users\Eden\AppData\Local\Temp\ci-oracle-rollback-9a68ba854b7a4b95887175a7e289d8a8
-INPUT=another copy containing MODIFIED_FILE behavior plus DIFF_FILE.patch
+COMMAND=python C:\Users\Eden\AppData\Local\Temp\ci-oracle-crlf-88b88d9ddf7744f8b2db42f1529e5101\artifact\ROLLBACK.sh C:\Users\Eden\AppData\Local\Temp\ci-oracle-crlf-88b88d9ddf7744f8b2db42f1529e5101\target
+INPUT=fresh Windows checkout simulation: ROLLBACK.sh, DIFF_FILE.patch and modified workflow converted to CRLF in another copy
 LITERAL_OUTPUT=ROLLBACK=PASS restored_sha256=65f047b203895d912309fa94a2b7eb7fb860630f2529c795096f18b2604f3c8b hosted_oracle_job=restored local_evidence_job=absent
 EXIT_STATUS=0
 RESTORED_BEHAVIOR_STATUS=Hosted oracle-integration job and T003/JWT secret references restored; Oracle local evidence job absent; original SHA-256 restored.
 
 TESTS
-VALIDATOR=Ran 11 tests in 2.149s / OK / exit 0 / PASS
+TARGETED=validator 11 + applicability 4; Ran 15 tests in 2.130s / OK / exit 0 / PASS
 YAML=YAML_PARSE=PASS files=1 / exit 0 / PASS
 MARKDOWN=MARKDOWN_LINKS=PASS files=54 / exit 0 / PASS
 PYTHON=Ran 195 tests in 0.377s / OK (skipped=23) / strict PASS / exit 0

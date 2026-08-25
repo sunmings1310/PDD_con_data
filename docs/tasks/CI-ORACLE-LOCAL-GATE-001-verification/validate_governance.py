@@ -44,6 +44,7 @@ def check_yaml() -> None:
 def check_ci() -> None:
     path = ROOT / ".github/workflows/ci.yml"
     text = path.read_text(encoding="utf-8")
+    scope_text = (ROOT / ".github/scripts/classify_oracle_scope.py").read_text(encoding="utf-8")
     doc = yaml.safe_load(text)
     jobs = set(doc["jobs"])
     expected = {"governance", "python-offline", "web-build", "android-jvm", "oracle-scope", "oracle-local-evidence"}
@@ -56,14 +57,16 @@ def check_ci() -> None:
         "Oracle local evidence gate",
         "validate_oracle_local_evidence.py",
         "github.event.pull_request.head.sha",
-        "ORACLE_GATE=REQUIRED: Oracle-sensitive file changed",
-        "ORACLE_GATE=SKIPPED: explicitly not applicable",
+        "classify_oracle_scope.py",
     )
     for token in required:
         if token not in text:
             raise AssertionError(f"required CI semantic missing: {token}")
     if "ORACLE_CI_MODE=not_required" in text or 'ORACLE_CI_MODE" == "not_required' in text:
         raise AssertionError("repository variable must not bypass Oracle-sensitive classification")
+    for token in ("scripts/test-baseline.ps1", "tests/test_phase2_schema_contract.py", "tests/test_job_service.py"):
+        if token not in scope_text:
+            raise AssertionError(f"canonical Oracle scope token missing: {token}")
     print("CI_STATIC=PASS hosted_db_access=absent oracle_bypass=absent")
 
 

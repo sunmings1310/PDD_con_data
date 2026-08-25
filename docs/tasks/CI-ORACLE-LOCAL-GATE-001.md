@@ -79,13 +79,14 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
 | Validator unit | `python -m unittest -v docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/test_validate_oracle_local_evidence.py` | 临时 Git repo + manifest fixtures | 11 cases PASS | `Ran 11 tests in 2.149s` / `OK` | 0 | PASS |
+| Applicability unit | `python -m unittest -v docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/test_oracle_scope.py` | canonical runner、九文件、server/migration/oracle tests、治理 docs | required/not-applicable 分类正确 | combined targeted：`Ran 15 tests in 2.130s` / `OK` | 0 | PASS |
 | Governance/static | `python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/validate_governance.py --check <yaml/ci/markdown>` | workflow、54 Markdown、scope | YAML/Markdown/scope/secret absence PASS | `YAML_PARSE=PASS files=1`; `CI_STATIC=PASS hosted_db_access=absent oracle_bypass=absent`; `MARKDOWN_LINKS=PASS files=54` | 0 | PASS |
 | Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | Python 3.10.6，复用已确认项目 venv | offline suite PASS | `Ran 195 tests in 0.377s`; `OK (skipped=23)`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | JDK 17.0.20 / SDK 34 | PASS | `BUILD SUCCESSFUL in 1m 7s`; XML `70 tests, 0 failures, 0 errors, 1 skipped`; strict summary PASS | 0 | PASS |
 | Web build | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 project toolchain / existing lockfile modules | PASS | `1673 modules transformed`; `built in 6.88s`; strict summary PASS | 0 | PASS |
 | Compile | `python -m compileall -q .github/scripts docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification` | Python 3.10.6 | no output | `COMPILEALL=PASS` | 0 | PASS |
 | Diff | `git diff --check origin/main...HEAD` | fixed Head | no output | pending fixed Head |  |  |
-| Rollback | `python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/ROLLBACK.sh <copy>` | disposable copy `ci-oracle-rollback-9a68...` | restored baseline behavior/status | `ROLLBACK=PASS restored_sha256=65f047... hosted_oracle_job=restored local_evidence_job=absent` | 0 | PASS |
+| Rollback | `python <fresh-crlf-artifact>/ROLLBACK.sh <fresh-crlf-copy>` | patch、script、modified workflow 全部模拟 fresh Windows CRLF checkout | restored baseline behavior/status | `ROLLBACK=PASS restored_sha256=65f047... hosted_oracle_job=restored local_evidence_job=absent` | 0 | PASS |
 
 ## Oracle Gate
 
@@ -119,3 +120,13 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 - PR #5 observed state：Draft / open / Head `6f35f2e342f8e283cef340e42de610c21bd78952`；
 - Derived artifacts：[`CI-ORACLE-LOCAL-GATE-001-verification/`](CI-ORACLE-LOCAL-GATE-001-verification/)；
 - Review / fixed Head / Draft PR：pending。
+
+## Independent Review Findings
+
+首轮 Review（Head `f9e1d4926a6e724faa144eebb02b8357cb99b956`）：`CHANGES_REQUIRED`，无 P0。
+
+| Finding | Priority | Fix | Verification |
+|---|---:|---|---|
+| applicability 漏判 `scripts/test-baseline.ps1`、`test_phase2_schema_contract.py`、`test_job_service.py` | P1 | 独立 classifier 固定 canonical 九文件、runner、server/migration/oracle-test rules | `test_oracle_scope.py` |
+| context-less artifact patch 在 fresh Windows CRLF checkout rollback 失败 | P1 | 生成 `--unified=0` patch；rollback 使用 `--unidiff-zero --ignore-space-change`；fresh CRLF checkout 回归 | `ROLLBACK=PASS ... original SHA-256 restored` |
+| CURRENT_STATE 未同步 | P2 | 记录 main 基线、本治理 REVIEW 语义、PR #5 后续门禁 | Markdown/governance validation |
