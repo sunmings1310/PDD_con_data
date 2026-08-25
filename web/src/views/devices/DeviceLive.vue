@@ -73,6 +73,13 @@ async function load() {
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   ws = new WebSocket(`${proto}://${location.host}/ws/realtime`)
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      type: 'auth',
+      token: localStorage.getItem('sjzq_token') || '',
+      device_id: Number(id),
+    }))
+  }
   ws.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data)

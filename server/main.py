@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from server.config import IMAGE_DIR, settings
 from server.db import close_pool, init_pool
 from server.routers import accounts, auth, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users, jobs, management, enterprises
-from server.ws_hub import router as ws_router
+from server.ws_hub import hub as realtime_hub, router as ws_router
 from server.media_access import verify_media_signature
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -47,12 +47,17 @@ async def lifespan(_: FastAPI):
     from server.migrate import ensure_schema_patches
 
     ensure_schema_patches()
+    app_loop = asyncio.get_running_loop()
+    realtime_hub.bind_loop(app_loop)
     reconciliation_task = asyncio.create_task(_reconciliation_loop())
-    yield
-    reconciliation_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await reconciliation_task
-    close_pool()
+    try:
+        yield
+    finally:
+        realtime_hub.unbind_loop(app_loop)
+        reconciliation_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await reconciliation_task
+        close_pool()
 
 
 app = FastAPI(title="多平台APP采集调度系统", version="2.0.0", lifespan=lifespan)
