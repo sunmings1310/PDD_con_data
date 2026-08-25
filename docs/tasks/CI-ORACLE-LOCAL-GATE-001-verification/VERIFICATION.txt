@@ -1,0 +1,49 @@
+TASK=CI-ORACLE-LOCAL-GATE-001
+BRANCH=codex/ci-oracle-local-gate-001
+CHANGED_BRANCH_FIELD=.github/workflows/ci.yml :: oracle-integration hosted database job -> Oracle local evidence gate bound to pull_request.head.sha
+ORIGINAL_BASE=origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+ORIGINAL_SHA256=65f047b203895d912309fa94a2b7eb7fb860630f2529c795096f18b2604f3c8b
+MODIFIED_SHA256=0a5e8f9250274581a933cd47982987b66583f7b19bc63257fea8682894485b04
+
+FOUR_ARTIFACTS
+MODIFIED_FILE=docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/MODIFIED_FILE.txt
+DIFF_FILE=docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/DIFF_FILE.patch
+VERIFICATION=docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/VERIFICATION.txt
+ROLLBACK=docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/ROLLBACK.sh (git mode 100755)
+
+BASELINE
+COMMAND=git show origin/main:.github/workflows/ci.yml | Select-String '^  oracle-integration:|secrets\.T003_ORACLE_HOST|secrets\.TEST_JWT_SECRET'
+INPUT=origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018:.github/workflows/ci.yml
+LITERAL_OUTPUT:
+  oracle-integration:
+      ORACLE_HOST: ${{ secrets.T003_ORACLE_HOST }}
+      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+EXIT_STATUS=0
+RESULT=PASS (baseline behavior reproduced: Hosted Oracle job and repository secret references present)
+
+MODIFIED
+COMMAND=python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/validate_governance.py --check ci
+INPUT=working branch .github/workflows/ci.yml
+LITERAL_OUTPUT:
+CI_STATIC=PASS hosted_db_access=absent oracle_bypass=absent
+GOVERNANCE_VALIDATION=PASS
+EXIT_STATUS=0
+RESULT=PASS (Oracle local evidence gate present; Hosted database access and sensitive-change bypass absent)
+
+ROLLBACK
+COMMAND=python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/ROLLBACK.sh C:\Users\Eden\AppData\Local\Temp\ci-oracle-rollback-9a68ba854b7a4b95887175a7e289d8a8
+INPUT=another copy containing MODIFIED_FILE behavior plus DIFF_FILE.patch
+LITERAL_OUTPUT=ROLLBACK=PASS restored_sha256=65f047b203895d912309fa94a2b7eb7fb860630f2529c795096f18b2604f3c8b hosted_oracle_job=restored local_evidence_job=absent
+EXIT_STATUS=0
+RESTORED_BEHAVIOR_STATUS=Hosted oracle-integration job and T003/JWT secret references restored; Oracle local evidence job absent; original SHA-256 restored.
+
+TESTS
+VALIDATOR=Ran 10 tests in 2.157s / OK / exit 0 / PASS
+YAML=YAML_PARSE=PASS files=1 / exit 0 / PASS
+MARKDOWN=MARKDOWN_LINKS=PASS files=54 / exit 0 / PASS
+PYTHON=Ran 195 tests in 0.377s / OK (skipped=23) / strict PASS / exit 0
+ANDROID=BUILD SUCCESSFUL in 1m 7s / XML 70 tests, 0 failures, 0 errors, 1 skipped / strict PASS / exit 0
+WEB=1673 modules transformed / built in 6.88s / strict PASS / exit 0
+COMPILE=COMPILEALL=PASS / exit 0
+
+REMAINING_TRUST_BOUNDARY=GitHub verifies manifest structure, fixed Head, age, command, counts, literal-output hash, four artifact hashes and rollback. Independent Reviewer must verify that the local isolated Oracle run actually occurred; this is not equivalent to a Hosted DB run.
