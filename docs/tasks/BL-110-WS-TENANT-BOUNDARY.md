@@ -2,7 +2,7 @@
 
 - **Task ID**：BL-110-WS-TENANT-BOUNDARY
 - **Title**：实时日志 WebSocket 握手认证、租户/资源分区与可靠调度
-- **Status**：IN_PROGRESS
+- **Status**：ACCEPTED / PR NOT CREATED
 - **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
 - **Branch / worktree**：`codex/bl-110-ws-tenant-boundary` / `D:\work\PDD_con_data_ws_tenant`
 
@@ -66,33 +66,35 @@
 
 ## Acceptance Criteria
 
-- [ ] 缺 token、无效 token、disabled user 均以 WS policy violation 拒绝；
-- [ ] 缺 `device:view`、非 Enterprise/Workspace member、Workspace membership 不匹配均拒绝；
-- [ ] revoked/missing Device、跨租户 Device/Task、Task/Device 资源错配均拒绝或不投递；
-- [ ] 客户端不提交 Enterprise/Workspace，scope 只由服务端 identity 与资源归属确定；
-- [ ] 同 Enterprise/Workspace 且同 Device 的已授权连接收到正确 Task 日志；其他租户、Workspace 或 Device 不收到；
-- [ ] app loop 绑定、线程安全调度、未绑定/关闭 loop、投递异常都有确定结果、日志和计数；不吞异常；
-- [ ] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
-- [ ] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
+- [x] 缺 token、无效 token、disabled user 均以 WS policy violation 拒绝；
+- [x] 缺 `device:view`、非 Enterprise/Workspace member、Workspace membership 不匹配均拒绝；
+- [x] revoked/missing Device、跨租户 Device/Task、Task/Device 资源错配均拒绝或不投递；
+- [x] 客户端不提交 Enterprise/Workspace，scope 只由服务端 identity 与资源归属确定；
+- [x] 同 Enterprise/Workspace 且同 Device 的已授权连接收到正确 Task 日志；其他租户、Workspace 或 Device 不收到；
+- [x] 握手后 token expiry、用户/Membership/权限或 Device 撤销会在下一次投递前重验，1008 断开且不投递；
+- [x] app loop 绑定、线程安全调度、未绑定/关闭 loop、投递异常都有确定结果、日志和计数；不吞异常；
+- [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
+- [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
+- [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
 - [ ] 固定并推送 clean Head 后停止，不创建 PR。
 
 ## Test Plan
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `python -m unittest -v tests.test_realtime_ws_tenant` | dummy config；fake WebSocket/DB/loop | 认证、权限、跨租户、撤销、资源、分区与调度矩阵通过 | 待执行 |  |  |
-| Oracle targeted | `python -m unittest -v tests.test_realtime_ws_tenant_oracle` | 隔离 Oracle；opt-in env | 真实 membership/permission/device/task 归属矩阵通过并 rollback | 待执行 |  |  |
-| Module | `python scripts/run_python_unit_tests.py` | Python 3.10；Oracle opt-in off | 全量 offline Python 通过 | 待执行 |  |  |
-| Web | `npm ci`; `npm run build` | Node 22.18.x/npm 10.x | Web production build 通过 | 待执行 |  |  |
-| Full regression | `scripts/test-baseline.ps1 -Strict` | 固定 Python/JDK/Android/Node 与适用 Oracle env | 全量适用门禁通过 | 待执行 |  |  |
-| Diff | `git diff --check`、验证/rollback artifact | 完整 Task delta | 无 whitespace error，可恢复 | 待执行 |  |  |
+| Targeted | `python -m unittest -v tests.test_realtime_ws_tenant tests.test_task_state_r1` | dummy config；fake WebSocket/DB/loop | 认证、权限、跨租户、撤销、资源、分区、receipt 与调度矩阵通过 | `Ran 32 tests ... OK` | 0 | PASS |
+| Oracle targeted | `python -m unittest -v tests.test_realtime_ws_tenant_oracle` | 批准的隔离 Oracle；opt-in env | 真实 membership/permission/tenant/workspace/device/task 矩阵通过并 rollback | `Ran 1 test ... OK` | 0 | PASS |
+| Module | `python scripts/run_python_unit_tests.py` | Python 3.10.6；Oracle opt-in off | 全量 offline Python 通过 | `Ran 213 tests ... OK (skipped=24)` | 0 | PASS |
+| Web | `npm ci`; `npm run build` | Node 22.18.0/npm 10.9.3 | Web production build 通过 | `1673 modules transformed`；built successfully | 0 | PASS |
+| Full regression | `scripts/test-baseline.ps1 -Strict` | 固定 Python/JDK/Android/Node；批准的 Phase 1～6A Oracle env | 全量适用门禁通过 | `PASS=4 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Diff | `git diff --check`、验证/rollback artifact | 完整 Task delta | 无 whitespace error，可恢复 | 无输出；rollback 恢复 baseline probe | 0 | PASS |
 
 ## Oracle Gate
 
 - Required：Yes
 - Reason：权限、Membership、撤销和 Task/Device tenant ownership 必须在真实 Oracle 方言/约束下验证。
 - Environment：隔离、可写、可清理测试 Schema；测试记录均在事务中并 rollback。
-- Command / result / exit：待执行。
+- Command / result / exit：`python -m unittest -v tests.test_realtime_ws_tenant_oracle`；`Ran 1 test in 3.972s / OK`；exit 0。数据在测试事务 `finally` rollback。
 
 ## Real-device Gate
 
@@ -120,6 +122,6 @@ Independent Review `ACCEPT`、适用门禁通过、固定并推送 clean Head �
 ## Evidence
 
 - Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
-- Derived artifacts：待生成 `docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`。
-- Review findings：待 Independent Review。
-- Commit / PR：待固定 Head；PR 禁止。
+- Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
+- Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
+- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据 Head 待固定和推送；PR 禁止。

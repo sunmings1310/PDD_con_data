@@ -9,7 +9,7 @@
 | 项目 | 当前值 |
 |---|---|
 | 主分支 | `main` |
-| 当前主线基线 | `713cd714902c728cc0e7b796bdde4972c78042c9` |
+| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
 | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE` |
@@ -101,7 +101,9 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 ## 8. 下一交接
 
-治理基线已完成 Review、CI 和 merge。本轮停止，不自动启动新业务阶段：
+`BL-110-WS-TENANT-BOUNDARY` 已在独立分支完成本地实现、适用门禁与 Independent Review `ACCEPT`；它尚未创建 PR、merge 或 release，因此 `main` 仍不包含该能力。已验证分支把实时日志连接绑定到服务端 identity、membership、`device:view`、Device/Task 归属与 token expiry；每次投递前重新校验撤销状态，Hub 只在同 Enterprise/Workspace/Device channel 内发送；Oracle commit 后才线程安全调度，失败有日志和计数，8 秒 HTTP 轮询仍为恢复路径。
+
+当前执行队列必须保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 `main` 开始。本轮停止，不自动创建 PR、不启动后项或新业务阶段：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
