@@ -1,0 +1,95 @@
+BL-110-WS-TENANT-BOUNDARY VERIFICATION
+Date: 2026-08-25 Asia/Shanghai
+Branch: codex/bl-110-ws-tenant-boundary
+Base: origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+Implementation review head: dc268b275411968c067cdacdcd9c00031198471b
+Accepted evidence-preparation head: 21b5a2cc3b788d809a873a435538c684c0db3ddc
+Independent Review: ACCEPT; no blocking finding.
+
+CHANGED BRANCH / FIELD
+- Governing branch: before each Hub delivery, `if not authorized` closes with WS 1008 and removes the subscriber before payload send.
+- Governing fields: `RealtimePrincipal.user_id`, `RealtimePrincipal.expires_at`, and `RealtimePrincipal.channel` bind identity, token expiry, and the server-derived Enterprise/Workspace/Device scope.
+- Producer branch: Task/Device realtime scope is resolved before `claim_progress_id`; Oracle commit completes before `notify_sync`.
+
+ORIGINAL / MODIFIED
+- Original file: origin/main:server/ws_hub.py
+- Original Git blob: a8bd8a1ad7dfb3c7795a9d77c512581bb6cc6fcf
+- Modified file: D:\work\PDD_con_data_ws_tenant\server\ws_hub.py
+- Modified Git blob: c687039fb89d962677fd2c0fa31b0e7fa9c4f91f
+- Restored behavior/status: origin/main has an unauthenticated global client set and silent scheduling failure; rollback restores that exact baseline only in the rollback test copy. The retained task worktree remains modified and closes that P0.
+
+FOUR ARTIFACTS
+1. MODIFIED_FILE: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\MODIFIED_FILE
+2. DIFF_FILE: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\DIFF_FILE.patch
+3. VERIFICATION.txt: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\VERIFICATION.txt
+4. executable ROLLBACK.sh: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\ROLLBACK.sh
+
+SHA-256
+- MODIFIED_FILE: C95554AAB7B060EF6CC6A00CCF4DC58FBA06160CCD08FBEED62391F09B1EA20C
+- DIFF_FILE.patch: A6A0C0140418A8E75A5E1D38EA72F044E7E155267BFDD1C73FCAC6FF84D27B05
+- ROLLBACK.sh: B648EC48BC3C5CDAD52BF209236DEFC8E63C58C732F13EFC2AF88E1E8605E606
+
+BASELINE
+Command:
+  powershell: `$source = git show origin/main:server/ws_hub.py;` test global WebSocket set, connect-before-auth, and swallowed failure branches.
+Input:
+  origin/main:server/ws_hub.py at 42610e15cf683158eb2f96a3dc3d08e8b1f5e018.
+Literal output/result:
+  BASELINE_WS_GLOBAL_UNAUTHENTICATED_AND_FAILURE_SILENT=TRUE
+Exit status: 0
+
+MODIFIED
+Command:
+  D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_realtime_ws_tenant tests.test_task_state_r1
+Input:
+  Dummy test config; fake WebSocket/DB/app loop; real modified source. No secret or business data.
+Literal output/result:
+  Ran 32 tests in 0.133s
+  OK
+Exit status: 0
+
+ORACLE TARGETED
+Command:
+  REALTIME_WS_ORACLE_TEST_ENABLED=1 python -m unittest -v tests.test_realtime_ws_tenant_oracle
+Input:
+  Approved isolated writable Oracle test schema; credentials loaded from environment and not recorded; generated tenant/user/workspace/device/task rows; transaction rollback in finally.
+Literal output/result:
+  test_membership_permission_revocation_and_resource_ownership_matrix ... ok
+  Ran 1 test in 3.972s
+  OK
+  ORACLE_TARGETED_EXIT=0
+Exit status: 0
+
+FULL REGRESSION AFTER REVIEW FIX
+Command:
+  .\scripts\test-baseline.ps1 -Strict
+Input:
+  Python 3.10.6; Node 22.18.0/npm 10.9.3; JDK 17; Android SDK 34; approved isolated Phase 1-6A Oracle environment; secrets not recorded.
+Literal output/result:
+  [PASS] python-unit: exit=0
+  [PASS] oracle-integration: exit=0
+  BUILD SUCCESSFUL in 7s
+  [PASS] android-jvm: exit=0
+  1673 modules transformed.
+  [PASS] web-build: exit=0
+  SUMMARY PASS=4 FAIL=0 BLOCKED=0 STRICT=True
+Exit status: 0
+
+ROLLBACK
+Command:
+  sh D:/work/PDD_con_data_ws_tenant_rollback_test/docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/ROLLBACK.sh /d/work/PDD_con_data_ws_tenant_rollback_test
+Input:
+  Separate detached worktree at 21b5a2cc3b788d809a873a435538c684c0db3ddc with the four rollback artifacts copied into it; retained modified worktree is not the target.
+Literal output/result:
+  ROLLBACK_APPLIED=TRUE
+  RESTORED_BASE=origin/main
+  ROLLBACK_SCRIPT_EXIT=0
+  ROLLBACK_DIFF_TO_ORIGIN_MAIN_EXIT=0
+  RESTORED_BASELINE_BEHAVIOR=TRUE
+Exit status: 0
+
+RESTORED BEHAVIOR / STATUS
+- The rollback copy matched origin/main across the complete task delta.
+- The baseline probe again found the old global unauthenticated Hub and silent scheduling branch.
+- The separate rollback worktree was removed after verification.
+- D:\work\PDD_con_data_ws_tenant remains on the modified branch; no PR, merge, release, Schema change, migration, Generic SKU, P1/P2 data-model, or Phase 6B action occurred.
