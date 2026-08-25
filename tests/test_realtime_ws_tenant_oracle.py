@@ -87,6 +87,13 @@ class RealtimeWsOracleGate(unittest.TestCase):
                         {"workspace": workspace_id, "enterprise": enterprise_id},
                     )
                 (enterprise_a, workspace_a), (enterprise_b, workspace_b) = tenants
+                workspace_a2 = next_id(cur, "SJZQ_SEQ_WORKSPACE")
+                cur.execute(
+                    """INSERT INTO SJZQ_WORKSPACE
+                       (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME)
+                       VALUES (:workspace,:enterprise,'restricted','Restricted')""",
+                    {"workspace": workspace_a2, "enterprise": enterprise_a},
+                )
 
                 memberships = (
                     (enterprise_a, users["valid"], role_view),
@@ -117,10 +124,19 @@ class RealtimeWsOracleGate(unittest.TestCase):
                     {"enterprise": enterprise_b, "workspace": workspace_b,
                      "user_id": users["other"], "role_id": role_view},
                 )
+                cur.execute(
+                    """INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
+                       (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
+                       VALUES (:enterprise,:workspace,:user_id,:role_id)""",
+                    {"enterprise": enterprise_a, "workspace": workspace_a2,
+                     "user_id": users["no_perm"], "role_id": role_no_view},
+                )
 
                 devices = {}
                 for suffix, enterprise_id, workspace_id, revoked in (
                     ("a", enterprise_a, workspace_a, False),
+                    ("a_other", enterprise_a, workspace_a, False),
+                    ("a_workspace_2", enterprise_a, workspace_a2, False),
                     ("revoked", enterprise_a, workspace_a, True),
                     ("b", enterprise_b, workspace_b, False),
                 ):
@@ -151,9 +167,12 @@ class RealtimeWsOracleGate(unittest.TestCase):
                 self.assertIsNone(resolve_realtime_channel(cur, users["no_perm"], devices["a"]))
                 self.assertIsNone(resolve_realtime_channel(cur, users["disabled"], devices["a"]))
                 self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["b"]))
+                self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["a_workspace_2"]))
                 self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["revoked"]))
                 self.assertIsNone(resolve_realtime_channel(cur, users["other"], devices["a"]))
                 self.assertEqual(expected, resolve_task_event_channel(cur, task_a, devices["a"]))
+                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["a_other"]))
+                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["a_workspace_2"]))
                 self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["b"]))
                 self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["revoked"]))
             finally:

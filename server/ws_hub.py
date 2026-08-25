@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import json
 import logging
 from threading import Lock
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
@@ -29,6 +30,15 @@ class RealtimeChannel:
     enterprise_id: int
     workspace_id: int
     device_id: int
+
+
+@dataclass(frozen=True)
+class RealtimePrincipal:
+    """Connection identity and expiry bound to its server-derived channel."""
+
+    user_id: int
+    expires_at: int
+    channel: RealtimeChannel
 
 
 class RealtimeAuthError(Exception):
@@ -100,24 +110,43 @@ def resolve_task_event_channel(cur: Any, task_id: int, device_id: int) -> Realti
     return RealtimeChannel(int(row[0]), int(row[1]), int(row[2]))
 
 
-def authorize_realtime(token: str, device_id: int) -> RealtimeChannel:
+def authorize_realtime(token: str, device_id: int) -> RealtimePrincipal:
     """Authenticate a socket and resolve its only authorized resource channel."""
     try:
         payload = decode_token(token)
         user_id = int(payload["uid"])
+        expires_at = int(payload["exp"])
+        if expires_at <= int(time.time()):
+            raise RealtimeAuthError
         with get_conn() as conn:
             channel = resolve_realtime_channel(conn.cursor(), user_id, int(device_id))
     except (HTTPException, KeyError, TypeError, ValueError) as exc:
         raise RealtimeAuthError from exc
     if channel is None:
         raise RealtimeAuthError
-    return channel
+    return RealtimePrincipal(user_id, expires_at, channel)
+
+
+def revalidate_realtime(principal: RealtimePrincipal) -> bool:
+    """Fail closed before every delivery when identity, membership, device, or token changed."""
+    if principal.expires_at <= int(time.time()):
+        return False
+    try:
+        with get_conn() as conn:
+            current = resolve_realtime_channel(
+                conn.cursor(), principal.user_id, principal.channel.device_id
+            )
+    except Exception:
+        logger.exception("realtime subscription revalidation failed")
+        return False
+    return current == principal.channel
 
 
 class Hub:
-    def __init__(self) -> None:
-        self.clients: dict[RealtimeChannel, set[WebSocket]] = {}
+    def __init__(self, validator: Any | None = None) -> None:
+        self.clients: dict[RealtimeChannel, dict[WebSocket, RealtimePrincipal]] = {}
         self.lock = asyncio.Lock()
+        self._validator = validator or revalidate_realtime
         self._loop: asyncio.AbstractEventLoop | None = None
         self._state_lock = Lock()
         self._stats = {
@@ -143,26 +172,38 @@ class Hub:
         with self._state_lock:
             return dict(self._stats)
 
-    async def connect(self, ws: WebSocket, channel: RealtimeChannel) -> None:
+    async def connect(self, ws: WebSocket, principal: RealtimePrincipal) -> None:
         async with self.lock:
-            self.clients.setdefault(channel, set()).add(ws)
+            self.clients.setdefault(principal.channel, {})[ws] = principal
 
     async def disconnect(self, ws: WebSocket, channel: RealtimeChannel) -> None:
         async with self.lock:
             peers = self.clients.get(channel)
             if peers is None:
                 return
-            peers.discard(ws)
+            peers.pop(ws, None)
             if not peers:
                 self.clients.pop(channel, None)
 
     async def broadcast(self, channel: RealtimeChannel, event: str, data: Any) -> None:
         payload = json.dumps({"event": event, "data": data}, ensure_ascii=False, default=str)
         async with self.lock:
-            peers = list(self.clients.get(channel, ()))
+            peers = list(self.clients.get(channel, {}).items())
         dead: list[WebSocket] = []
-        for ws in peers:
+        for ws, principal in peers:
             try:
+                authorized = await asyncio.to_thread(self._validator, principal)
+                if not authorized:
+                    logger.warning(
+                        "realtime subscription revoked user=%s enterprise=%s workspace=%s device=%s",
+                        principal.user_id,
+                        channel.enterprise_id,
+                        channel.workspace_id,
+                        channel.device_id,
+                    )
+                    await ws.close(code=1008, reason="authorization revoked")
+                    dead.append(ws)
+                    continue
                 await asyncio.wait_for(ws.send_text(payload), timeout=SEND_TIMEOUT_SECONDS)
             except Exception:  # network/send timeout is isolated to this peer
                 self._increment("delivery_failures")
@@ -222,7 +263,7 @@ async def _reject(ws: WebSocket) -> None:
 @router.websocket("/ws/realtime")
 async def realtime(ws: WebSocket) -> None:
     await ws.accept()
-    channel: RealtimeChannel | None = None
+    principal: RealtimePrincipal | None = None
     try:
         raw = await asyncio.wait_for(ws.receive_text(), timeout=AUTH_TIMEOUT_SECONDS)
         auth = json.loads(raw)
@@ -232,9 +273,11 @@ async def realtime(ws: WebSocket) -> None:
         device_id = auth.get("device_id")
         if not isinstance(token, str) or not token or isinstance(device_id, bool):
             raise RealtimeAuthError
-        channel = await asyncio.to_thread(authorize_realtime, token, int(device_id))
-        await hub.connect(ws, channel)
-        await ws.send_text(json.dumps({"event": "ready", "data": {"device_id": channel.device_id}}))
+        principal = await asyncio.to_thread(authorize_realtime, token, int(device_id))
+        await hub.connect(ws, principal)
+        await ws.send_text(
+            json.dumps({"event": "ready", "data": {"device_id": principal.channel.device_id}})
+        )
         while True:
             msg = await ws.receive_text()
             if msg == "ping":
@@ -246,8 +289,8 @@ async def realtime(ws: WebSocket) -> None:
     except Exception:
         logger.exception("realtime websocket failed after handshake")
     finally:
-        if channel is not None:
-            await hub.disconnect(ws, channel)
+        if principal is not None:
+            await hub.disconnect(ws, principal.channel)
 
 
 def notify_sync(channel: RealtimeChannel, event: str, data: Any) -> bool:

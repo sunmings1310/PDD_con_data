@@ -875,9 +875,6 @@ def task_progress(body: TaskProgressIn):
             if not body.progress_id:
                 return ApiOk(ok=False, message="delta progress requires progress_id",
                              data={"error_code": "PROGRESS_ID_REQUIRED"})
-            if not claim_progress_id(cur, body.progress_id, body.task_id, int(device["device_id"])):
-                return ApiOk(message="duplicate progress ignored",
-                             data={"progress_id": body.progress_id, "idempotent": True})
         event_channel = resolve_task_event_channel(cur, body.task_id, int(device["device_id"]))
         if event_channel is None:
             return ApiOk(
@@ -885,6 +882,10 @@ def task_progress(body: TaskProgressIn):
                 message="task/device realtime scope mismatch",
                 data={"error_code": "REALTIME_SCOPE_MISMATCH"},
             )
+        if has_delta:
+            if not claim_progress_id(cur, body.progress_id, body.task_id, int(device["device_id"])):
+                return ApiOk(message="duplicate progress ignored",
+                             data={"progress_id": body.progress_id, "idempotent": True})
         if body.item_id is not None and item_status:
             # Deprecated compatibility: old Agent used done and failed for match/no-match.
             item_status = {"done": "succeeded"}.get(item_status, item_status)

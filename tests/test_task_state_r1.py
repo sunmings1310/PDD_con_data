@@ -17,6 +17,7 @@ from server.routers import devices, products, tasks  # noqa: E402
 from server.schemas import DeviceHeartbeatIn, ProductUploadIn, TaskFinishIn, TaskProgressIn  # noqa: E402
 from server.task_state import StateConflict  # noqa: E402
 from server.task_state_service import claim_progress_id  # noqa: E402
+from server.ws_hub import RealtimeChannel  # noqa: E402
 import oracledb  # noqa: E402
 
 
@@ -113,6 +114,7 @@ class R1ApiTransactionTest(unittest.TestCase):
              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
              patch.object(tasks, "lock_device", return_value=DEVICE), \
              patch.object(tasks, "require_running_task", return_value={}), \
+             patch.object(tasks, "resolve_task_event_channel", return_value=RealtimeChannel(1, 1, 7)), \
              patch.object(tasks, "claim_progress_id", return_value=False):
             response = tasks.task_progress(body)
         self.assertTrue(response.ok)
