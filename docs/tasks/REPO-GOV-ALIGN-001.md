@@ -2,7 +2,7 @@
 
 - **Task ID**：REPO-GOV-ALIGN-001
 - **Title**：治理基线对齐最新 main
-- **Status**：REVIEW
+- **Status**：MERGED / ACCEPTED BASELINE
 - **状态权威**：[`../backlog.md`](../backlog.md)
 
 ## Goal
@@ -29,7 +29,7 @@
 - Oracle Schema、migration、生产配置；
 - Generic SKU、P1、Phase 6B；
 - 修改旧治理分支；
-- 创建 PR 或 merge。
+- 在 Independent Review、Hosted CI 和 Product Owner 单独批准完成前创建 PR 或 merge；这些门禁后来已依次满足，最终结果记录在本 Task 的 Evidence。
 
 ## Non-goals
 
@@ -65,7 +65,8 @@ None。此任务不改变产品或架构语义。
 - [x] 历史 GAP/issues/milestone 只增加状态和权威链接；
 - [x] 首轮 Independent Review 给出 `CHANGES_REQUIRED`，所有 P1/P2 finding 已完成最小修复并等待复审；
 - [x] 第二轮 Independent Review 的 diff-base `BLOCKED` 语义与字面证据 finding 已完成最小修复并等待复审；
-- [ ] Independent Review 对新的固定 Head 给出最终结论。
+- [x] Independent Review 对固定 Head `767a5ffe12de38d93570451566def314699043bf` 给出最终结论 `ACCEPT`；
+- [x] Product Owner 单独批准 merge，PR #3 已合并为 `713cd714902c728cc0e7b796bdde4972c78042c9`。
 
 ## Test Plan
 
@@ -76,7 +77,7 @@ None。此任务不改变产品或架构语义。
 | Diff-base resolver | `python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver` | PR、push、workflow_dispatch 及无效 base/head/fetch/merge-base 故障注入 | 正常范围 PASS；所有不可判定范围输出 `BLOCKED`、exit 2 | `RESOLVER_TESTS=PASS`，四类故障均为字面 `BLOCKED`/2 | 0 | PASS |
 | Rename | `git show --summary e1ed4cb59551e6b97511c2daf8755cdba4bd95f2`；`git ls-files docs/current-state.md docs/CURRENT_STATE.md` | rename-only commit | 100% 大小写 rename；只保留 uppercase | `rename ... (100%)`; `docs/CURRENT_STATE.md` | 0 | PASS |
 | Scope/static | `python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check scope` | 27 changed paths（大小写 rename 计两个路径） | 无业务/Schema/测试断言修改 | `CHANGED_FILES=27`; `SCOPE_STATIC=PASS` | 0 | PASS |
-| Android hosted | GitHub Actions Core CI #32755183229 | Head `1f0a5d2de8d2ab852c96352d20f72fe376a68507` | wrapper main 实际执行 JVM tests | `Android JVM tests|success` | 0 | PASS |
+| Android hosted | GitHub Actions Core CI #32756266442 | Head `767a5ffe12de38d93570451566def314699043bf` | wrapper main 实际执行 JVM tests | `Android JVM tests|success` | 0 | PASS |
 | Whitespace | `git diff --check origin/main...HEAD; if ($LASTEXITCODE -eq 0) { Write-Output 'DIFF_CHECK=PASS' }` | fixed Head | 无错误 | `DIFF_CHECK=PASS` | 0 | PASS |
 
 ## Oracle Gate
@@ -98,11 +99,11 @@ None。此任务不改变产品或架构语义。
 
 ## Human Decision Points
 
-- 通用规则允许 Review `ACCEPT` 后由 Control 自动创建 Draft PR；本 Task 明确禁止创建 PR并要求停止，构成 Task-specific override。后续如需 PR 必须由新的明确用户指令授权；merge 与 release 始终需要 Product Owner 明确批准。
+- Independent Review 已 `ACCEPT`；Product Owner 已单独批准 PR #3 merge。该批准只适用于本治理 Task，不授权 Generic SKU、P1、Phase 6B 或 release。
 
 ## Stop Condition
 
-提交并 push 新治理分支后停止；不创建 PR、不 merge、不进入 Generic SKU、P1 或 Phase 6B。
+PR #3 merge 并更新权威状态后停止；不进入 Generic SKU、P1 或 Phase 6B。
 
 ## Evidence
 
@@ -110,4 +111,6 @@ None。此任务不改变产品或架构语义。
 - Old governance source：`28addc917706904bf84252cb1e1cbff01c75aa3d`；
 - Verification artifacts：[`REPO-GOV-ALIGN-001-verification/`](REPO-GOV-ALIGN-001-verification/)；
 - Rename-only commit：`e1ed4cb59551e6b97511c2daf8755cdba4bd95f2`；
-- Final commit / Head：以本 Task 所在的最终提交为准；push 后由 Control 在交接报告固定 SHA。
+- Accepted governance Head：`767a5ffe12de38d93570451566def314699043bf`；
+- PR：[REPO-GOV-ALIGN-001 #3](https://github.com/sunmings1310/PDD_con_data/pull/3)，最终 Review `ACCEPT`；
+- Merge commit / current main baseline：`713cd714902c728cc0e7b796bdde4972c78042c9`。

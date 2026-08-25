@@ -3,11 +3,11 @@
 > **Status: CURRENT TASK STATUS AUTHORITY（2026-08-25）**
 > 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
 
-## Active governance task
+## Completed governance baseline
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| REPO-GOV-ALIGN-001 | REVIEW | 从 `main@02234f2` 对齐治理文档、AGENTS、模板和 CI；无业务实现 | 固定 Head 交给 Independent Review；Review 前不创建 PR |
+| REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 
@@ -41,7 +41,7 @@
 
 ## 使用规则
 
-- 状态取值：`TODO`、`IN_PROGRESS`、`BLOCKED`、`DONE`；以各任务条目的状态为准。
+- 普通实施状态取值：`TODO`、`IN_PROGRESS`、`BLOCKED`、`DONE`；治理/集成流程可按 [`../WORKFLOW.md`](../WORKFLOW.md) 使用 `REVIEW`、`ACCEPTED`、`MERGED / ACCEPTED BASELINE`，以各任务条目状态为准。
 - 完成任务时必须记录实际命令、输入、输出和测试结果；功能修改同时更新本文件状态。
 - 涉及架构边界变化时更新 `docs/architecture.md`；重要技术选择写入 `docs/decisions/`。
 - 未确认的业务决策不得由开发自行假设，相关任务保持 `BLOCKED/UNKNOWN`。
