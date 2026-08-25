@@ -85,8 +85,8 @@ Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manif
 |---|---|---|---|---|---:|---|
 | Targeted | `python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0` | Python 3.10 venv；dummy non-network Oracle config | fixture、Raw 与 Product P0 离线契约通过 | `Ran 19 tests ... OK` | 0 | PASS |
 | Module | Gradle `testDebugUnitTest` filters：`AcceptedBaselineNoSkuRuntimeTest`、`RawCaptureReplayTest`、`DetailReaderTest` | JDK 17 / SDK 34；未设置 `PDD_CAPTURE_DIRS` | non-runtime/parser 通过；真实 Raw replay 不得伪 PASS | `BUILD SUCCESSFUL`; 14 passed, `RawCaptureReplayTest` 1 skipped | 0 | PASS + SKIPPED |
-| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待执行 |  | BLOCKED |
-| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待执行 |  | BLOCKED |
+| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待真实证据采集后执行最终回归 |  | PENDING |
+| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待真实证据采集后执行最终回归 |  | PENDING |
 
 ## Oracle Gate
 
@@ -130,4 +130,4 @@ Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manif
 - Original evidence：Accepted baseline 没有 committed 真实 SKU_PANEL Raw；历史调查保留在 `13b4301`，不能当作 Accepted runtime。
 - Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)；后续待建立真实证据矩阵、Replay/DTO 报告与 Schema Proposal Review 建议。
 - Review findings：待 Independent Review。
-- Commit / PR：尚未提交；本 Task 未批准自动创建 PR。当前在真实账号/真机/人工验证前 `BLOCKED`。
+- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；后续 Review-fix Head 以分支历史和 Independent Review 记录为准；PR 未创建且未获准。当前 Real-device Gate 在真实账号/真机/人工验证前 `BLOCKED`。

@@ -194,10 +194,10 @@ index 0000000..e936524
 +    raise SystemExit(main())
 diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
 new file mode 100644
-index 0000000..589edde
+index 0000000..975e37d
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,121 @@
 +TASK=SKU-EVIDENCE-001
 +BRANCH=codex/sku-evidence-001
 +BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
@@ -210,11 +210,13 @@ index 0000000..589edde
 +ROLLBACK=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh
 +
 +BASELINE
-+Command: git fetch origin --prune; git rev-parse origin/main; git status --porcelain
-+Input/environment: D:\work\PDD_con_data; origin/main
++Command: $originMain=git rev-parse origin/main; Write-Output "ORIGIN_MAIN=$originMain"; $baseObject=git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; Write-Output "BASE_OBJECT=$baseObject"; $oldGov=git rev-parse codex/repo-governance-baseline; Write-Output "OLD_GOV=$oldGov"; Write-Output "EXIT=0"
++Input/environment: D:\work\PDD_con_data_sku_evidence; fetched origin
 +Literal output/result:
 +ORIGIN_MAIN=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+working tree output was empty
++BASE_OBJECT=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
++OLD_GOV=28addc917706904bf84252cb1e1cbff01c75aa3d
++EXIT=0
 +Exit status: 0
 +Status: PASS
 +
@@ -240,22 +242,25 @@ index 0000000..589edde
 +Status: FAIL
 +
 +TARGETED_PYTHON
-+Command: set non-network test ORACLE_HOST/PORT/SERVICE/USER/PASSWORD and JWT_SECRET; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
++Command: $env:ORACLE_HOST='127.0.0.1'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='TEST'; $env:ORACLE_USER='test'; $env:ORACLE_PASSWORD='test-password'; $env:JWT_SECRET='sku-evidence-test-jwt-secret-20260825'; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0; Write-Output "EXIT=$LASTEXITCODE"; exit $LASTEXITCODE
 +Input/environment: Python 3.10 project venv; dummy Oracle configuration used only to satisfy config validation; no Oracle connection or network access
 +Literal output/result:
-+Ran 19 tests in 0.279s
++Ran 19 tests in 0.251s
 +OK
++EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +TARGETED_ANDROID
-+Command: D:\work\PDD_con_data\.tools\jdk-17.0.20+8\bin\java.exe -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon
-+Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17; Android SDK 34; PDD_CAPTURE_DIRS not set
++Command: $env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_HOME='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; & "$env:JAVA_HOME\bin\java.exe" -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon; $e=$LASTEXITCODE; Get-ChildItem 'app\build\test-results\testDebugUnitTest\TEST-*.xml' | ForEach-Object { [xml]$x=Get-Content $_.FullName; if ($x.testsuite.name -match 'AcceptedBaselineNoSkuRuntimeTest|RawCaptureReplayTest|DetailReaderTest') { '{0}: tests={1} failures={2} errors={3} skipped={4}' -f $x.testsuite.name,$x.testsuite.tests,$x.testsuite.failures,$x.testsuite.errors,$x.testsuite.skipped } }; Write-Output "EXIT=$e"; exit $e
++Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; ANDROID_HOME/ANDROID_SDK_ROOT=D:\work\pda-picking\tools\android-sdk; PDD_CAPTURE_DIRS not set
 +Literal output/result:
-+BUILD SUCCESSFUL in 1m 26s
++BUILD SUCCESSFUL in 8s
++30 actionable tasks: 1 executed, 29 up-to-date
 +AcceptedBaselineNoSkuRuntimeTest: tests=3 failures=0 errors=0 skipped=0
 +DetailReaderTest: tests=11 failures=0 errors=0 skipped=0
 +RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=1
++EXIT=0
 +Exit status: 0
 +Status: PASS for 14 executed tests; SKIPPED for real-Raw replay because PDD_CAPTURE_DIRS is absent
 +
@@ -285,23 +290,24 @@ index 0000000..589edde
 +Status: PASS
 +
 +DIFF_CHECK
-+Command: git diff --cached --check
-+Input/environment: codex/sku-evidence-001 staged Task package
++Command: git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check; git diff --cached --check
++Input/environment: full branch delta from approved base plus staged Review fixes
 +Literal output/result: no output
 +Exit status: 0
 +Status: PASS
 +
 +DIFF_ARTIFACT
-+Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
-+Input/environment: final staged Task package; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
++Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','42610e15cf683158eb2f96a3dc3d08e8b1f5e018','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
++Input/environment: index containing the complete Task package relative to approved base; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
 +Literal output/result: git apply --cached --check --reverse --unidiff-zero produced no output
 +Exit status: 0
 +Status: PASS
 +
 +ROLLBACK
-+Command: copy MODIFIED_FILE.txt to a new temporary file; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh <temporary-copy>
-+Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-49f474e1e76946bd8d4ccf40120ba386.txt
++Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-rollback-review.txt'; Copy-Item -LiteralPath 'docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt' -Destination $copy -Force; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh' $copy; $e=$LASTEXITCODE; Write-Output "SHELL_EXIT=$e"; Remove-Item -LiteralPath $copy; exit $e
++Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
 +Literal output/result:
++ROLLBACK_TARGET=C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
 +RESTORED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
 +EXPECTED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
 +ROLLBACK_MATCH=true
@@ -315,7 +321,7 @@ index 0000000..589edde
 +The rollback copy restores REAL_DEVICE_GATE=PENDING. The repository MODIFIED_FILE remains changed with REAL_DEVICE_GATE=BLOCKED, matching docs/backlog.md and the Task while explicit real-device/account/manual approval is pending.
 diff --git a/docs/tasks/SKU-EVIDENCE-001.md b/docs/tasks/SKU-EVIDENCE-001.md
 new file mode 100644
-index 0000000..f01e62a
+index 0000000..b0d9127
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001.md
 @@ -0,0 +1,133 @@
@@ -406,8 +412,8 @@ index 0000000..f01e62a
 +|---|---|---|---|---|---:|---|
 +| Targeted | `python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0` | Python 3.10 venv；dummy non-network Oracle config | fixture、Raw 与 Product P0 离线契约通过 | `Ran 19 tests ... OK` | 0 | PASS |
 +| Module | Gradle `testDebugUnitTest` filters：`AcceptedBaselineNoSkuRuntimeTest`、`RawCaptureReplayTest`、`DetailReaderTest` | JDK 17 / SDK 34；未设置 `PDD_CAPTURE_DIRS` | non-runtime/parser 通过；真实 Raw replay 不得伪 PASS | `BUILD SUCCESSFUL`; 14 passed, `RawCaptureReplayTest` 1 skipped | 0 | PASS + SKIPPED |
-+| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待执行 |  | BLOCKED |
-+| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待执行 |  | BLOCKED |
++| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待真实证据采集后执行最终回归 |  | PENDING |
++| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待真实证据采集后执行最终回归 |  | PENDING |
 +
 +## Oracle Gate
 +
@@ -451,4 +457,4 @@ index 0000000..f01e62a
 +- Original evidence：Accepted baseline 没有 committed 真实 SKU_PANEL Raw；历史调查保留在 `13b4301`，不能当作 Accepted runtime。
 +- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)；后续待建立真实证据矩阵、Replay/DTO 报告与 Schema Proposal Review 建议。
 +- Review findings：待 Independent Review。
-+- Commit / PR：尚未提交；本 Task 未批准自动创建 PR。当前在真实账号/真机/人工验证前 `BLOCKED`。
++- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；后续 Review-fix Head 以分支历史和 Independent Review 记录为准；PR 未创建且未获准。当前 Real-device Gate 在真实账号/真机/人工验证前 `BLOCKED`。
