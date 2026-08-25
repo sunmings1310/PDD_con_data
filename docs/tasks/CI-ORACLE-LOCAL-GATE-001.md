@@ -86,7 +86,7 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 | Web build | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 project toolchain / existing lockfile modules | PASS | `1673 modules transformed`; `built in 6.88s`; strict summary PASS | 0 | PASS |
 | Compile | `python -m compileall -q .github/scripts docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification` | Python 3.10.6 | no output | `COMPILEALL=PASS` | 0 | PASS |
 | Diff | `git diff --check origin/main...HEAD` | fixed Head | no output | pending fixed Head |  |  |
-| Rollback | `python <fresh-crlf-artifact>/ROLLBACK.sh <fresh-crlf-copy>` | patch、script、modified workflow 全部模拟 fresh Windows CRLF checkout | restored baseline behavior/status | `ROLLBACK=PASS restored_sha256=65f047... hosted_oracle_job=restored local_evidence_job=absent` | 0 | PASS |
+| Rollback | `python <fresh-clone>/.../ROLLBACK.sh <copy>` | `git clone -c core.autocrlf=true --no-local .`，`PATCH_HAS_CRLF=True` | restored baseline behavior/status | `ROLLBACK=PASS restored_sha256=65f047... hosted_oracle_job=restored local_evidence_job=absent` | 0 | PASS |
 
 ## Oracle Gate
 
