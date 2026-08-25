@@ -79,13 +79,14 @@ Exit status: 0
 Status: PASS
 
 YAML_CI_STATIC
-Command: validate_governance.py --check yaml; validate_governance.py --check ci
+Command: & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check yaml; $yamlExit=$LASTEXITCODE; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check ci; $ciExit=$LASTEXITCODE; Write-Output "YAML_EXIT=$yamlExit CI_EXIT=$ciExit"; if ($yamlExit -ne 0 -or $ciExit -ne 0) { exit 1 }; exit 0
 Input/environment: D:\work\PDD_con_data_sku_evidence
 Literal output/result:
 YAML_FILES=1
 YAML_PARSE=PASS
 CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
 CI_STATIC=PASS
+YAML_EXIT=0 CI_EXIT=0
 Exit status: 0
 Status: PASS
 
