@@ -10,6 +10,18 @@
 3. Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台均为 NOT STARTED。
 4. 下一业务阶段必须创建 Task/ADR、满足对应证据门禁并经 Product Owner 批准；下文旧 M0～M5 条目不构成授权。
 
+## 当前已批准执行顺序
+
+```text
+BL-110-WS-TENANT-BOUNDARY
+→ WEB-RESULT-VISIBILITY-001
+→ WEB-CLIENT-CONTRACT-001
+→ WEB-TASK-IMPORT-001
+→ WEB-STATE-UX-001
+```
+
+每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许执行第 1 项。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
+
 > 制定日期：2026-08-13
 > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`
 > 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。

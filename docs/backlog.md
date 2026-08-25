@@ -9,6 +9,20 @@
 |---|---|---|---|
 | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
 
+## Product-approved Web execution queue（2026-08-25）
+
+严格按以下依赖顺序执行；后项必须从前项 merge 后的 `main` 建立独立 Task/分支，不在未合并依赖上串接：
+
+| 顺序 | Task | 状态 | 范围与依赖 |
+|---:|---|---|---|
+| 1 | BL-110-WS-TENANT-BOUNDARY | IN_PROGRESS / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、分区广播、可靠调度和失败可观察性 |
+| 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
+| 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
+| 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
+| 5 | WEB-STATE-UX-001 | APPROVED / WAITING FOR #4 MERGE / P2 | 收口页面 loading/error/empty/retry、状态文案与刷新；依赖 #4 merge |
+
+`WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
+
 ## Accepted Business Baseline（2026-08-24 merged）
 
 - [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
