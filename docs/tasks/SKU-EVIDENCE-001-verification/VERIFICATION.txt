@@ -1,0 +1,115 @@
+TASK=SKU-EVIDENCE-001
+BRANCH=codex/sku-evidence-001
+BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 Real-device Gate = BLOCKED while Task remains IN_PROGRESS
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt
+DIFF_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh
+
+BASELINE
+Command: git fetch origin --prune; git rev-parse origin/main; git status --porcelain
+Input/environment: D:\work\PDD_con_data; origin/main
+Literal output/result:
+ORIGIN_MAIN=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+working tree output was empty
+Exit status: 0
+Status: PASS
+
+BRANCH_AND_WORKTREE
+Command: git worktree add -b codex/sku-evidence-001 D:\work\PDD_con_data_sku_evidence 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+Input/environment: branch did not exist locally or on origin; target path did not exist
+Literal output/result:
+Preparing worktree (new branch 'codex/sku-evidence-001')
+HEAD is now at 42610e1 Merge pull request #4 from sunmings1310/codex/repo-governance-accepted-state
+Exit status: 0
+Status: PASS
+
+TARGETED_PYTHON_INITIAL_ENVIRONMENT_PROBE
+Command: python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
+Input/environment: system Python 3.10 without project dependencies/config
+Literal output/result:
+Ran 3 tests in 0.000s
+FAILED (errors=3)
+ModuleNotFoundError: No module named 'loguru'
+ImportError: cannot import name 'field_validator' from 'pydantic'
+ModuleNotFoundError: No module named 'jwt'
+Exit status: 1
+Status: FAIL
+
+TARGETED_PYTHON
+Command: set non-network test ORACLE_HOST/PORT/SERVICE/USER/PASSWORD and JWT_SECRET; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
+Input/environment: Python 3.10 project venv; dummy Oracle configuration used only to satisfy config validation; no Oracle connection or network access
+Literal output/result:
+Ran 19 tests in 0.279s
+OK
+Exit status: 0
+Status: PASS
+
+TARGETED_ANDROID
+Command: D:\work\PDD_con_data\.tools\jdk-17.0.20+8\bin\java.exe -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon
+Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17; Android SDK 34; PDD_CAPTURE_DIRS not set
+Literal output/result:
+BUILD SUCCESSFUL in 1m 26s
+AcceptedBaselineNoSkuRuntimeTest: tests=3 failures=0 errors=0 skipped=0
+DetailReaderTest: tests=11 failures=0 errors=0 skipped=0
+RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=1
+Exit status: 0
+Status: PASS for 14 executed tests; SKIPPED for real-Raw replay because PDD_CAPTURE_DIRS is absent
+
+REAL_DEVICE_GATE
+Command: not executed
+Input/environment: requires real Android device, logged-in test account, selected target pages and human supervision
+Literal output/result: BLOCKED: explicit Product Owner approval is required before real-account/manual validation
+Exit status: not executed
+Status: BLOCKED
+
+MARKDOWN_LINKS
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check markdown
+Input/environment: D:\work\PDD_con_data_sku_evidence
+Literal output/result: Validated 61 Markdown files
+Exit status: 0
+Status: PASS
+
+YAML_CI_STATIC
+Command: validate_governance.py --check yaml; validate_governance.py --check ci
+Input/environment: D:\work\PDD_con_data_sku_evidence
+Literal output/result:
+YAML_FILES=1
+YAML_PARSE=PASS
+CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
+CI_STATIC=PASS
+Exit status: 0
+Status: PASS
+
+DIFF_CHECK
+Command: git diff --cached --check
+Input/environment: codex/sku-evidence-001 staged Task package
+Literal output/result: no output
+Exit status: 0
+Status: PASS
+
+DIFF_ARTIFACT
+Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
+Input/environment: final staged Task package; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
+Literal output/result: git apply --cached --check --reverse --unidiff-zero produced no output
+Exit status: 0
+Status: PASS
+
+ROLLBACK
+Command: copy MODIFIED_FILE.txt to a new temporary file; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh <temporary-copy>
+Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-49f474e1e76946bd8d4ccf40120ba386.txt
+Literal output/result:
+RESTORED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
+EXPECTED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
+ROLLBACK_MATCH=true
+ROLLBACK_RESULT=PASS
+ROLLBACK_EXIT=0
+SHELL_EXIT=0
+Exit status: 0
+Status: PASS
+
+RESTORED_BEHAVIOR_STATUS
+The rollback copy restores REAL_DEVICE_GATE=PENDING. The repository MODIFIED_FILE remains changed with REAL_DEVICE_GATE=BLOCKED, matching docs/backlog.md and the Task while explicit real-device/account/manual approval is pending.

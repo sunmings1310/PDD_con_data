@@ -1,0 +1,454 @@
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 75e98fd..d657f68 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -11,0 +12,6 @@
++## Active approved task
++
++| Task | 状态 | 范围 | 禁止/停止边界 |
++|---|---|---|---|
++| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE BLOCKED | 已完成基线核验、Task 建立、现有证据盘点和离线 targeted 验证；下一步补齐三维以上、disabled/unavailable、SKU 图片关联、平台直接 SKU ID 与真实 Raw → Replay → DTO 证据 | 真实账号、真机、目标页面和人工验证开始前必须获得 Product Owner 明确批准；不实施 Schema/migration/runtime/P1/P2/Phase 6B |
++
+diff --git a/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
+new file mode 100644
+index 0000000..f2e22bd
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
+@@ -0,0 +1,117 @@
++# SKU-EVIDENCE-001 Existing Evidence Inventory
++
++- Baseline：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- Inventory date：2026-08-25
++- Result：`REAL-DEVICE GATE BLOCKED — EXPLICIT APPROVAL REQUIRED`
++
++## 1. Accepted capabilities that can be reused
++
++- `server/raw_capture.py` and `scripts/raw_capture_replay.py` provide immutable Raw validation, tenant/workspace identity, SHA-256 manifest verification and offline replay.
++- `RawCaptureReplayTest` provides the Android Raw → `DetailReader` → `ProductQualityGate` → DTO path, but skips when `PDD_CAPTURE_DIRS` is absent.
++- `SKU_PANEL` is a representable Raw source type. The Accepted default PDD path does not open the purchase panel or traverse combinations.
++- Phase 1～6A strict regression, Product Golden Sample and Legacy read already have fixed entry points.
++
++## 2. Existing evidence matrix
++
++| Evidence | Existing coverage | Decision status |
++|---|---|---|
++| Normal/abnormal collection fixtures | 10 offline fixtures; abnormal pages cannot create pseudo products | Sufficient for quality baseline, not SKU reality |
++| SKU combinations | Synthetic fixture has 2 rows; parser tests include two-dimensional panel text | Not real platform evidence |
++| Dimensions ≥ 3 | No committed Raw Capture | `NOT_OBSERVED` |
++| Disabled/unavailable option | No committed SKU_PANEL Raw sample | `NOT_OBSERVED` |
++| Invalid combination | No committed SKU_PANEL Raw sample | `NOT_OBSERVED` |
++| SKU image association | Golden Sample has product media, not SKU→image binding | `NOT_OBSERVED` |
++| Direct platform SKU ID | Synthetic `sku-1/sku-2` only | `NOT_OBSERVED` |
++| Raw identity/hash/manifest | Mechanism and synthetic tests exist | Mechanism PASS; real SKU evidence missing |
++| Raw → Replay → DTO | Tool/tests exist; real `PDD_CAPTURE_DIRS` absent | Real evidence `BLOCKED` |
++| Default Generic SKU runtime | Negative JVM behavior gate | Disabled / PASS |
++
++The synthetic fixture IDs and Golden Sample combinations must not be promoted to direct platform SKU identity evidence.
++
++## 3. Historical investigation material not in Accepted main
++
++The historical branch `13b4301445eda9768069a807a13d9f43cedb8e8f` retains investigation-only tools and tests:
++
++- `scripts/schema_discovery.py`
++- `scripts/sku_panel_discovery.py`
++- `scripts/generic_sku_validation.py`
++- corresponding discovery/validation tests and Proposed ADR
++
++They are evidence sources, not Accepted production runtime. This Task does not automatically restore or ship them.
++
++## 4. Reusable commands
++
++Server Raw replay:
++
++```powershell
++python scripts/raw_capture_replay.py <capture_id> `
++  --root <capture-root> `
++  --enterprise-id <enterprise_id> `
++  --workspace-id <workspace_id> `
++  --version original `
++  --output <replay-output.json>
++```
++
++Android real-Raw replay:
++
++```powershell
++$env:PDD_CAPTURE_DIRS = '<capture-dir-1>;<capture-dir-2>'
++$env:PDD_REPLAY_OUTPUT = '<output-json>'
++cd android_collector
++.\gradlew.bat testDebugUnitTest --tests com.collector.pdd.parser.RawCaptureReplayTest
++```
++
++Full regression:
++
++```powershell
++.\scripts\test-baseline.ps1 -Strict
++```
++
++Golden Sample / Legacy read:
++
++```powershell
++python scripts/product_consistency_p0.py
++```
++
++## 5. Minimum new evidence matrix
++
++Each target must record:
++
++```text
++device_model
++android_version
++pdd_app_version
++capture_id
++platform_product_id
++opened_before_hash
++opened_after_hash
++source_manifest_hash
++dimension_count
++option_count_by_dimension
++disabled_options
++invalid_combinations
++sku_image_relation
++platform_sku_id = OBSERVED / NOT_OBSERVED
++replay_result
++dto_result
++parser_version
++quality_rules_version
++```
++
++Minimum target set:
++
++1. one product with at least three purchase dimensions;
++2. one product with disabled/unavailable options and an invalid combination;
++3. one product where SKU image association can be observed;
++4. direct platform SKU ID evidence, or explicit `NOT_OBSERVED` for every inspected source.
++
++## 6. Current blocker
++
++The missing evidence requires a real Android device, a logged-in test account, selected target pages and human supervision while entering the purchase specification panel. Offline fixtures and JVM tests cannot replace this gate. Per Task Stop Condition, Control must obtain explicit Product Owner approval before those steps. Until then:
++
++```text
++SKU MODEL NEEDS MORE EVIDENCE
++platform_sku_id = NOT_OBSERVED
++sku_media_association = NOT_OBSERVED
++disabled/unavailable semantics = NOT_OBSERVED
++```
+diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt b/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt
+new file mode 100644
+index 0000000..560db58
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt
+@@ -0,0 +1 @@
++REAL_DEVICE_GATE=BLOCKED
+diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh b/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh
+new file mode 100755
+index 0000000..e936524
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh
+@@ -0,0 +1,47 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++from pathlib import Path
++import sys
++
++
++EXPECTED_SHA256 = "aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21"
++
++
++def main() -> int:
++    if len(sys.argv) != 2:
++        print("ROLLBACK_RESULT=FAIL")
++        print("ROLLBACK_REASON=usage: ROLLBACK.sh <copy-of-MODIFIED_FILE.txt>")
++        print("ROLLBACK_EXIT=2")
++        return 2
++
++    target = Path(sys.argv[1])
++    if not target.is_file():
++        print("ROLLBACK_RESULT=FAIL")
++        print("ROLLBACK_REASON=target-not-found")
++        print("ROLLBACK_EXIT=2")
++        return 2
++
++    data = target.read_bytes()
++    old = b"REAL_DEVICE_GATE=BLOCKED\n"
++    new = b"REAL_DEVICE_GATE=PENDING\n"
++    if data != old:
++        print("ROLLBACK_RESULT=FAIL")
++        print("ROLLBACK_REASON=unexpected-modified-fixture")
++        print("ROLLBACK_EXIT=2")
++        return 2
++    target.write_bytes(new)
++    restored = hashlib.sha256(target.read_bytes()).hexdigest()
++
++    print(f"ROLLBACK_TARGET={target}")
++    print(f"RESTORED_SHA256={restored}")
++    print(f"EXPECTED_SHA256={EXPECTED_SHA256}")
++    print(f"ROLLBACK_MATCH={'true' if restored == EXPECTED_SHA256 else 'false'}")
++    print(f"ROLLBACK_RESULT={'PASS' if restored == EXPECTED_SHA256 else 'FAIL'}")
++    print(f"ROLLBACK_EXIT={0 if restored == EXPECTED_SHA256 else 2}")
++    return 0 if restored == EXPECTED_SHA256 else 2
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
+new file mode 100644
+index 0000000..589edde
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
+@@ -0,0 +1,115 @@
++TASK=SKU-EVIDENCE-001
++BRANCH=codex/sku-evidence-001
++BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
++CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 Real-device Gate = BLOCKED while Task remains IN_PROGRESS
++
++ARTIFACTS
++MODIFIED_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt
++DIFF_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\DIFF_FILE.patch
++VERIFICATION=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\VERIFICATION.txt
++ROLLBACK=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh
++
++BASELINE
++Command: git fetch origin --prune; git rev-parse origin/main; git status --porcelain
++Input/environment: D:\work\PDD_con_data; origin/main
++Literal output/result:
++ORIGIN_MAIN=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
++working tree output was empty
++Exit status: 0
++Status: PASS
++
++BRANCH_AND_WORKTREE
++Command: git worktree add -b codex/sku-evidence-001 D:\work\PDD_con_data_sku_evidence 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
++Input/environment: branch did not exist locally or on origin; target path did not exist
++Literal output/result:
++Preparing worktree (new branch 'codex/sku-evidence-001')
++HEAD is now at 42610e1 Merge pull request #4 from sunmings1310/codex/repo-governance-accepted-state
++Exit status: 0
++Status: PASS
++
++TARGETED_PYTHON_INITIAL_ENVIRONMENT_PROBE
++Command: python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
++Input/environment: system Python 3.10 without project dependencies/config
++Literal output/result:
++Ran 3 tests in 0.000s
++FAILED (errors=3)
++ModuleNotFoundError: No module named 'loguru'
++ImportError: cannot import name 'field_validator' from 'pydantic'
++ModuleNotFoundError: No module named 'jwt'
++Exit status: 1
++Status: FAIL
++
++TARGETED_PYTHON
++Command: set non-network test ORACLE_HOST/PORT/SERVICE/USER/PASSWORD and JWT_SECRET; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
++Input/environment: Python 3.10 project venv; dummy Oracle configuration used only to satisfy config validation; no Oracle connection or network access
++Literal output/result:
++Ran 19 tests in 0.279s
++OK
++Exit status: 0
++Status: PASS
++
++TARGETED_ANDROID
++Command: D:\work\PDD_con_data\.tools\jdk-17.0.20+8\bin\java.exe -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon
++Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17; Android SDK 34; PDD_CAPTURE_DIRS not set
++Literal output/result:
++BUILD SUCCESSFUL in 1m 26s
++AcceptedBaselineNoSkuRuntimeTest: tests=3 failures=0 errors=0 skipped=0
++DetailReaderTest: tests=11 failures=0 errors=0 skipped=0
++RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=1
++Exit status: 0
++Status: PASS for 14 executed tests; SKIPPED for real-Raw replay because PDD_CAPTURE_DIRS is absent
++
++REAL_DEVICE_GATE
++Command: not executed
++Input/environment: requires real Android device, logged-in test account, selected target pages and human supervision
++Literal output/result: BLOCKED: explicit Product Owner approval is required before real-account/manual validation
++Exit status: not executed
++Status: BLOCKED
++
++MARKDOWN_LINKS
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check markdown
++Input/environment: D:\work\PDD_con_data_sku_evidence
++Literal output/result: Validated 61 Markdown files
++Exit status: 0
++Status: PASS
++
++YAML_CI_STATIC
++Command: validate_governance.py --check yaml; validate_governance.py --check ci
++Input/environment: D:\work\PDD_con_data_sku_evidence
++Literal output/result:
++YAML_FILES=1
++YAML_PARSE=PASS
++CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
++CI_STATIC=PASS
++Exit status: 0
++Status: PASS
++
++DIFF_CHECK
++Command: git diff --cached --check
++Input/environment: codex/sku-evidence-001 staged Task package
++Literal output/result: no output
++Exit status: 0
++Status: PASS
++
++DIFF_ARTIFACT
++Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
++Input/environment: final staged Task package; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
++Literal output/result: git apply --cached --check --reverse --unidiff-zero produced no output
++Exit status: 0
++Status: PASS
++
++ROLLBACK
++Command: copy MODIFIED_FILE.txt to a new temporary file; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh <temporary-copy>
++Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-49f474e1e76946bd8d4ccf40120ba386.txt
++Literal output/result:
++RESTORED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
++EXPECTED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
++ROLLBACK_MATCH=true
++ROLLBACK_RESULT=PASS
++ROLLBACK_EXIT=0
++SHELL_EXIT=0
++Exit status: 0
++Status: PASS
++
++RESTORED_BEHAVIOR_STATUS
++The rollback copy restores REAL_DEVICE_GATE=PENDING. The repository MODIFIED_FILE remains changed with REAL_DEVICE_GATE=BLOCKED, matching docs/backlog.md and the Task while explicit real-device/account/manual approval is pending.
+diff --git a/docs/tasks/SKU-EVIDENCE-001.md b/docs/tasks/SKU-EVIDENCE-001.md
+new file mode 100644
+index 0000000..f01e62a
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001.md
+@@ -0,0 +1,133 @@
++# SKU-EVIDENCE-001：补齐 Generic SKU Schema 决策证据
++
++- **Task ID**：SKU-EVIDENCE-001
++- **Title**：补齐 Generic SKU Schema 决策证据
++- **Status**：IN_PROGRESS（Real-device Gate：BLOCKED）
++- **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- **Branch / worktree**：`codex/sku-evidence-001` / `D:\work\PDD_con_data_sku_evidence`
++- **Product Owner approval**：2026-08-25，本 Task 仅批准真实证据补齐与 Schema Proposal Review 建议，不批准 Schema 实施、Generic SKU runtime、P1、P2 或 Phase 6B。
++
++## Goal
++
++补齐 Generic SKU Schema 决策所需的真实、可追溯、可重放证据，并给出可交给独立 Schema ADR Review 的结论；证据不足或推翻现有假设时明确记录，不以实现代替证据。
++
++## Context
++
++Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manifest、离线 Replay、Canonical Product Contract 和 `SKU_PANEL` Raw source 表达能力，但默认 PDD 路径不打开购买入口、不遍历组合。既有调查覆盖无 SKU、单维、双维及部分组合观察，仍缺三维以上、disabled/unavailable、SKU 图片稳定关联、平台直接 SKU ID 和当前批准测试版本真机回归。
++
++## Scope
++
++### Allowed
++
++1. 补充三维及以上购买维度真实样本；
++2. 补充 disabled/unavailable option 与无效 combination；
++3. 验证 SKU 图片与选项/组合关联稳定性；
++4. 查找平台直接 SKU ID；未观察到时记录 `NOT_OBSERVED`；
++5. 使用既有 Raw Capture 保存打开前后证据、SHA-256、manifest 和 identity；
++6. 执行当前批准测试版本真机回归；
++7. 验证 Raw → Replay → DTO 一致性；
++8. 执行 Phase 1～6A、Product Golden Sample、Legacy read 回归；
++9. 输出证据矩阵和独立 Schema ADR Review 建议。
++
++### Forbidden
++
++- 创建正式 SKU/ProductAttribute Oracle 表或执行 migration；
++- 启用默认 Generic SKU runtime，或修改普通 PDD 默认采集路径；
++- 进入 P1、P2、Phase 6B 或第二平台；
++- 用标题、商品参数或主商品价格推导 SKU；
++- 伪造平台 SKU ID、库存、图片、选项或组合；
++- 确认订单、提交订单、支付或越过购买安全边界；
++- 删除、回填或清洗现有数据。
++
++## Non-goals
++
++- 不冻结正式 Oracle Schema；
++- 不实现生产 Generic SKU Collector；
++- 不改变 Product/Snapshot/SKU 产品语义；
++- 不发布、不 merge、不清理历史证据分支。
++
++## Dependencies
++
++- Accepted Raw Capture 与 Product P0；
++- 可用真机、合法测试账号、满足缺口的目标商品页面和人工监督；
++- 隔离 Oracle 环境用于既有严格回归，不用于 Schema 变更；
++- 原始证据与派生矩阵必须分离保存。
++
++## Affected Modules
++
++- `docs/tasks/SKU-EVIDENCE-001.md`
++- `docs/backlog.md`
++- 既有 Raw Capture / Replay 工具与脱敏证据目录（仅按批准步骤产生测试证据）
++- 必要的离线证据矩阵、验证记录和 Schema Proposal 建议
++
++## ADR
++
++- 复用 `docs/decisions/2026-08-24-raw-capture-identity-immutability.md`；
++- 本 Task 不接受正式 SKU Schema ADR。证据充分后只提交独立 ADR Review 建议，仍需 Product Owner 另行批准。
++
++## Acceptance Criteria
++
++- [ ] 三维及以上购买维度有真实 Raw/manifest/identity 证据，或明确记录未取得原因；
++- [ ] disabled/unavailable option 和无效 combination 有可重放证据；
++- [ ] SKU 图片关联有跨状态/组合的稳定性判断与反例；
++- [ ] 平台 SKU ID 有直接证据，或明确为 `NOT_OBSERVED`；
++- [ ] 未触发确认订单、提交订单或支付；
++- [ ] Original Raw、hash、manifest 与 derived replay/矩阵分离且可核验；
++- [ ] Raw → Replay → DTO 一致性通过；
++- [ ] 当前批准测试版本真机 Gate 有实际结果；
++- [ ] Phase 1～6A、Product Golden Sample、Legacy read 回归有实际结果；
++- [ ] 输出证据充分性结论和独立 Schema ADR Review 建议；
++- [ ] Independent Review 给出 `ACCEPT`、`CHANGES_REQUIRED` 或 `BLOCKED`。
++
++## Test Plan
++
++| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
++|---|---|---|---|---|---:|---|
++| Targeted | `python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0` | Python 3.10 venv；dummy non-network Oracle config | fixture、Raw 与 Product P0 离线契约通过 | `Ran 19 tests ... OK` | 0 | PASS |
++| Module | Gradle `testDebugUnitTest` filters：`AcceptedBaselineNoSkuRuntimeTest`、`RawCaptureReplayTest`、`DetailReaderTest` | JDK 17 / SDK 34；未设置 `PDD_CAPTURE_DIRS` | non-runtime/parser 通过；真实 Raw replay 不得伪 PASS | `BUILD SUCCESSFUL`; 14 passed, `RawCaptureReplayTest` 1 skipped | 0 | PASS + SKIPPED |
++| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待执行 |  | BLOCKED |
++| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待执行 |  | BLOCKED |
++
++## Oracle Gate
++
++- Required：Yes（仅执行既有 Phase 1～6A strict、Golden Sample、Legacy read 回归；本 Task 不变更 Schema）
++- Reason：Schema Proposal 的兼容结论必须证明现有 Product/Raw/Legacy 行为不回归。
++- Environment：隔离、可写、可清理 Oracle；Golden Sample 按既有批准只读入口。
++- Command / result / exit：待现有门禁盘点后固定；缺环境必须记为 `BLOCKED`。
++
++## Real-device Gate
++
++- Required：Yes
++- Device/scenario：当前批准测试版本；三维以上、disabled/unavailable、图片关联、平台 SKU ID 观察；全程不得确认订单/提交订单/支付。
++- Command or steps / result：需要真实账号、真机、目标页面和人工验证，执行前按 Stop Condition 请求 Product Owner 明确批准。
++
++## Rollback
++
++- Code rollback：本 Task 当前只建立文档和派生证据；未 merge 分支可删除，已提交变更可按提交逆序 `git revert`。
++- Configuration rollback：不修改生产配置；真机临时测试设置恢复到测试前状态。
++- Data recovery：不执行 Schema、migration、回填或清洗；隔离 Oracle 测试数据按既有清理入口删除。
++- Irreversible items：无；一旦步骤需要不可逆订单/支付动作立即停止。
++
++## Human Decision Points
++
++- 真机、真实账号、目标页面或人工验证开始前必须获得明确批准；
++- 需要改变 Product/Snapshot/SKU 语义、扩大采样范围或启用 runtime 时停止；
++- Schema/ migration、merge、release 必须另行批准。
++
++## Stop Condition
++
++满足任一条件即停止：
++
++1. 证据足以提交独立 Schema ADR Review；
++2. 证据推翻当前模型假设，记录反例；
++3. 缺少真机、账号、目标页面或人工验证而 `BLOCKED`；
++4. 需要越过确认订单、提交订单或支付边界；
++5. 需要改变 Product/Snapshot/SKU 产品语义并转交 Product Owner；
++6. 证据报告和回归完成；不得自动实施 Schema。
++
++## Evidence
++
++- Original evidence：Accepted baseline 没有 committed 真实 SKU_PANEL Raw；历史调查保留在 `13b4301`，不能当作 Accepted runtime。
++- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)；后续待建立真实证据矩阵、Replay/DTO 报告与 Schema Proposal Review 建议。
++- Review findings：待 Independent Review。
++- Commit / PR：尚未提交；本 Task 未批准自动创建 PR。当前在真实账号/真机/人工验证前 `BLOCKED`。

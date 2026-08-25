@@ -9,6 +9,12 @@
 |---|---|---|---|
 | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
 
+## Active approved task
+
+| Task | 状态 | 范围 | 禁止/停止边界 |
+|---|---|---|---|
+| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE BLOCKED | 已完成基线核验、Task 建立、现有证据盘点和离线 targeted 验证；下一步补齐三维以上、disabled/unavailable、SKU 图片关联、平台直接 SKU ID 与真实 Raw → Replay → DTO 证据 | 真实账号、真机、目标页面和人工验证开始前必须获得 Product Owner 明确批准；不实施 Schema/migration/runtime/P1/P2/Phase 6B |
+
 ## Accepted Business Baseline（2026-08-24 merged）
 
 - [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
