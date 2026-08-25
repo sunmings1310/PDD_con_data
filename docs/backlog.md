@@ -15,7 +15,7 @@
 
 | 顺序 | Task | 状态 | 范围与依赖 |
 |---:|---|---|---|
-| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 待推送 |
+| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 已推送 |
 | 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
 | 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
 | 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
