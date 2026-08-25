@@ -11,7 +11,9 @@
 - `SKU_PANEL` is a representable Raw source type. The Accepted default PDD path does not open the purchase panel or traverse combinations.
 - Phase 1～6A strict regression, Product Golden Sample and Legacy read already have fixed entry points.
 
-## 2. Existing evidence matrix
+## 2. Pre-execution evidence matrix (historical baseline)
+
+本节冻结 Task 启动时的盘点，不代表当前状态；当前真机结果只以第 6 节和 [`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md) 为准。
 
 | Evidence | Existing coverage | Decision status |
 |---|---|---|

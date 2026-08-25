@@ -36,7 +36,7 @@
 | `3437eb1e` | 2 | 8 | 12 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
 | `4c1b30d2` | 2 | 10 | 21 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
 | `c2d9d9e8` | 2 | 9 | 20 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
-| `2483d11d` | 1 | 8 | 8 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable one-dimensional price evidence |
+| `2483d11d` | 1 inventoried, another default selection visible | 8 | prices observed under an unmodeled/default selection | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | dimension inventory incomplete; combination attribution `NOT_CONFIRMED` |
 | `7c6eee66` | 1 | 7 | one false while page still requests shoe size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | incomplete selection, not invalid combination |
 | `85318453` | 2 | 7 | 6 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
 | `d9a9b816` | 1 | 7 sampled | page still requires size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | partial dimension observation |
@@ -48,6 +48,7 @@
 - **Unavailable / invalid combination**：`NOT_CONFIRMED`。`available=false` 样本同时存在选择未生效、必要维度未选或价格读取失败，不能升级为平台明确拒绝。
 - **SKU image / option association**：`NOT_OBSERVED`。所有 combination 的 `media_ref` 均为空。
 - **Direct platform SKU ID**：`NOT_OBSERVED`。所有 combination 的 `platform_sku_id` 均为空；不得推导或伪造。
+- **Raw 521 / `2483d11d`**：首次 observation 没有 confirmed `selected_text`，后续页面状态包含未进入 `dimension_inventory` 的默认选择；价格只能证明页面曾显示该价格，不能归因于已建模的单维组合。
 
 ## 4. Raw → Replay → DTO
 

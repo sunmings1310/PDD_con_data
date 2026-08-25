@@ -11,10 +11,10 @@ index 75e98fd..612382a 100644
 +
 diff --git a/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
 new file mode 100644
-index 0000000..35f7cae
+index 0000000..d0bb23c
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,123 @@
 +# SKU-EVIDENCE-001 Existing Evidence Inventory
 +
 +- Baseline：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
@@ -28,7 +28,9 @@ index 0000000..35f7cae
 +- `SKU_PANEL` is a representable Raw source type. The Accepted default PDD path does not open the purchase panel or traverse combinations.
 +- Phase 1～6A strict regression, Product Golden Sample and Legacy read already have fixed entry points.
 +
-+## 2. Existing evidence matrix
++## 2. Pre-execution evidence matrix (historical baseline)
++
++本节冻结 Task 启动时的盘点，不代表当前状态；当前真机结果只以第 6 节和 [`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md) 为准。
 +
 +| Evidence | Existing coverage | Decision status |
 +|---|---|---|
@@ -138,10 +140,10 @@ index 0000000..35f7cae
 +The observed `available=false` values are not sufficient evidence of an invalid combination because the corresponding page state did not confirm the requested selection or still required another dimension. This reaches the Task stop condition “evidence refutes the current model assumption”; it does not approve Schema implementation.
 diff --git a/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md b/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md
 new file mode 100644
-index 0000000..3b8a447
+index 0000000..a425b95
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,81 @@
 +# SKU-EVIDENCE-001 Real-device Evidence Matrix
 +
 +- **Evidence date**：2026-08-25
@@ -180,7 +182,7 @@ index 0000000..3b8a447
 +| `3437eb1e` | 2 | 8 | 12 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
 +| `4c1b30d2` | 2 | 10 | 21 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
 +| `c2d9d9e8` | 2 | 9 | 20 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
-+| `2483d11d` | 1 | 8 | 8 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable one-dimensional price evidence |
++| `2483d11d` | 1 inventoried, another default selection visible | 8 | prices observed under an unmodeled/default selection | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | dimension inventory incomplete; combination attribution `NOT_CONFIRMED` |
 +| `7c6eee66` | 1 | 7 | one false while page still requests shoe size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | incomplete selection, not invalid combination |
 +| `85318453` | 2 | 7 | 6 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
 +| `d9a9b816` | 1 | 7 sampled | page still requires size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | partial dimension observation |
@@ -192,6 +194,7 @@ index 0000000..3b8a447
 +- **Unavailable / invalid combination**：`NOT_CONFIRMED`。`available=false` 样本同时存在选择未生效、必要维度未选或价格读取失败，不能升级为平台明确拒绝。
 +- **SKU image / option association**：`NOT_OBSERVED`。所有 combination 的 `media_ref` 均为空。
 +- **Direct platform SKU ID**：`NOT_OBSERVED`。所有 combination 的 `platform_sku_id` 均为空；不得推导或伪造。
++- **Raw 521 / `2483d11d`**：首次 observation 没有 confirmed `selected_text`，后续页面状态包含未进入 `dimension_inventory` 的默认选择；价格只能证明页面曾显示该价格，不能归因于已建模的单维组合。
 +
 +## 4. Raw → Replay → DTO
 +
@@ -284,10 +287,10 @@ index 0000000..c51500b
 +    raise SystemExit(main())
 diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
 new file mode 100644
-index 0000000..c600baa
+index 0000000..198a7dc
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
-@@ -0,0 +1,171 @@
+@@ -0,0 +1,158 @@
 +TASK=SKU-EVIDENCE-001
 +BRANCH=codex/sku-evidence-001
 +BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
@@ -307,7 +310,7 @@ index 0000000..c600baa
 +Status: PASS
 +
 +BASELINE_TARGETED_TESTS
-+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
++Command: $env:ORACLE_HOST='127.0.0.1'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='TEST'; $env:ORACLE_USER='test'; $env:ORACLE_PASSWORD='test-password'; $env:JWT_SECRET='sku-evidence-test-jwt-secret-20260825'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
 +Input/environment: committed Task establishment Head f665bbc2900d49ae025cc2b9dfcfc2287d29b5e3; dummy non-network Oracle config used only for config validation
 +Literal output/result:
 +Ran 19 tests in 0.251s
@@ -316,25 +319,22 @@ index 0000000..c600baa
 +Status: PASS
 +
 +REAL_DEVICE_TERMINAL_STATE
-+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import os,oracledb; c=oracledb.connect(user=os.environ['ORACLE_USER'],password=os.environ['ORACLE_PASSWORD'],dsn=os.environ['ORACLE_DSN']); q=c.cursor(); q.execute(\"select task_id,status,success_count,fail_count from sjzq_task where task_id in (1567,1568) order by task_id\"); print('TASKS',q.fetchall()); q.execute(\"select job_id,status,attempt_count,active_attempt_id,lease_token_hash from sjzq_collection_job where task_id=1568 order by job_id\"); print('JOBS',q.fetchall()); q.execute(\"select device_id,status,run_state,current_task_id,active_job_id,active_attempt_id from sjzq_device where device_id=6\"); print('DEVICE',q.fetchall()); q.execute(\"select count(*) from sjzq_job_event where task_id=1568 and (event_type like '%anomal%' or event_type like '%error%')\"); print('ANOMALY_OR_ERROR_EVENTS',q.fetchone()[0]); c.close()"
++Command: & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' -c 'import os,oracledb; c=oracledb.connect(user=os.environ["ORACLE_USER"],password=os.environ["ORACLE_PASSWORD"],dsn=os.environ["ORACLE_DSN"]); q=c.cursor(); q.execute("select task_id,status,success_count,fail_count from sjzq_task where task_id in (1567,1568) order by task_id"); print("TASKS",q.fetchall()); q.execute("select job_id,status,attempt_count,active_attempt_id,lease_token_hash from sjzq_collection_job where task_id=1568 order by job_id"); print("JOBS",q.fetchall()); q.execute("select device_id,status,run_state,current_task_id,active_job_id,active_attempt_id from sjzq_device where device_id=6"); print("DEVICE",q.fetchall()); q.execute("select count(*) from sjzq_job_event where task_id=1568 and (event_type like ''%anomal%'' or event_type like ''%error%'')"); print("ANOMALY_OR_ERROR_EVENTS",q.fetchone()[0]); c.close()'; "EXIT=$LASTEXITCODE"
 +Input/environment: approved dedicated test Oracle; existing device and lawful test account; no credential values persisted in this artifact
 +Literal output/result:
-+TASK 1567 status=cancelled success_count=3 fail_count=0
-+TASK 1568 status=succeeded success_count=4 fail_count=0
-+JOBS 558,559,560,561 status=success attempt_count=1 active_attempt_id=NULL lease_token_hash=NULL
-+DEVICE 6 status=online run_state=idle current_task_id=NULL active_job_id=NULL active_attempt_id=NULL
-+ANOMALY_OR_ERROR_EVENTS=0
++TASKS [(1567, 'cancelled', 3, 0), (1568, 'succeeded', 4, 0)]
++JOBS [(558, 'success', 1, None, None), (559, 'success', 1, None, None), (560, 'success', 1, None, None), (561, 'success', 1, None, None)]
++DEVICE [(6, 'online', 'idle', None, None, None)]
++ANOMALY_OR_ERROR_EVENTS 0
++EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +RAW_RECONSTRUCTION_AND_HASH_VERIFICATION
-+Command: $env:PYTHONPATH='.'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\sku-evidence-001\reconstruct_live_captures.py
++Command: $env:PYTHONPATH='.'; $rows=(& 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' artifacts\sku-evidence-001\reconstruct_live_captures.py | Out-String | ConvertFrom-Json); $e=$LASTEXITCODE; $ids=($rows.raw_id -join ','); $valid=@($rows|Where-Object hashes_valid).Count; "RAW_IDS=$ids CAPTURES=$($rows.Count) HASHES_VALID=$valid EXIT=$e"; exit $e
 +Input/environment: approved dedicated test Oracle; task ids 1567 and 1568; output root artifacts/sku-evidence-001/raw-captures; credentials supplied only through process environment
 +Literal output/result:
-+RAW_IDS=515,516,517,518,519,520,521
-+CAPTURES=7
-+HASHES_VALID=7
-+VERIFIED_SOURCE_TYPES=SEARCH,DETAIL,SKU_PANEL,SHOP,PROMOTION,MEDIA,EMBEDDED plus OTHER where present
++RAW_IDS=515,516,517,518,519,520,521 CAPTURES=7 HASHES_VALID=7 EXIT=0
 +Exit status: 0
 +Status: PASS
 +
@@ -346,19 +346,19 @@ index 0000000..c600baa
 +Status: PASS for extraction; REVIEW finding: available=false is OBSERVATION_NOT_CONFIRMED, not proof of invalid combination
 +
 +SERVER_RAW_REPLAY
-+Command: $ids=@('cap-1567-3437eb1e-5471-45e6-894c-85726505891f','cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec','cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b','cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d','cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b','cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84','cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244'); foreach($id in $ids){ D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\raw_capture_replay.py $id --root artifacts\sku-evidence-001\raw-captures --enterprise-id 1 --workspace-id 1 --output "artifacts\sku-evidence-001\server-replay\$id.json"; if($LASTEXITCODE -ne 0){exit $LASTEXITCODE} }; Write-Output "REPLAYED=$($ids.Count) EXIT=0"
++Command: $ids=@('cap-1567-3437eb1e-5471-45e6-894c-85726505891f','cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec','cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b','cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d','cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b','cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84','cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244'); $errors=0; foreach($id in $ids){& 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' scripts\raw_capture_replay.py $id --root artifacts\sku-evidence-001\raw-captures --enterprise-id 1 --workspace-id 1 --output "artifacts\sku-evidence-001\server-replay\$id.json" *> $null; if($LASTEXITCODE -ne 0){$errors++;continue}; $d=Get-Content "artifacts\sku-evidence-001\server-replay\$id.json" -Raw|ConvertFrom-Json; $m=Get-Content "artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1\$id\manifest.json" -Raw|ConvertFrom-Json; if($d.mode -ne 'dry-run-analysis' -or $d.network_access -ne $false -or $d.verification.hashes_valid -ne $true -or $d.quality_gate.accepted -ne $true -or $d.normalizer.platform_product_id -ne $m.platform_product_id){$errors++}}; "REPLAYED=$($ids.Count) VERIFICATION_ERRORS=$errors EXIT=$errors"; exit $errors
 +Input/environment: dummy non-network server configuration; Original Raw only
-+Literal output/result: REPLAYED=7 EXIT=0; every output mode=dry-run-analysis, network_access=false, hashes_valid=true, platform_product_id matched manifest, QualityGate accepted=true
++Literal output/result: REPLAYED=7 VERIFICATION_ERRORS=0 EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +ANDROID_EXPLICIT_RAW_REPLAY
-+Command: $dirs=Get-ChildItem '..\artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1' -Directory | Where-Object Name -like 'cap-156*' | Sort-Object Name; $env:PDD_CAPTURE_DIRS=($dirs.FullName -join [IO.Path]::PathSeparator); $env:PDD_REPLAY_OUTPUT=(Resolve-Path '..\artifacts\sku-evidence-001').Path+'\android-replay.json'; java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*RawCaptureReplayTest' --no-daemon
++Command: $env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_HOME='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; $dirs=Get-ChildItem '..\artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1' -Directory | Where-Object Name -like 'cap-156*' | Sort-Object Name; $env:PDD_CAPTURE_DIRS=($dirs.FullName -join [IO.Path]::PathSeparator); $env:PDD_REPLAY_OUTPUT=(Resolve-Path '..\artifacts\sku-evidence-001').Path+'\android-replay.json'; & "$env:JAVA_HOME\bin\java.exe" -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*RawCaptureReplayTest' --no-daemon *> $null; $e=$LASTEXITCODE; [xml]$x=Get-Content 'app\build\test-results\testDebugUnitTest\TEST-com.collector.pdd.parser.RawCaptureReplayTest.xml'; '{0}: tests={1} failures={2} errors={3} skipped={4}' -f $x.testsuite.name,$x.testsuite.tests,$x.testsuite.failures,$x.testsuite.errors,$x.testsuite.skipped; $d=Get-Content $env:PDD_REPLAY_OUTPUT -Raw | ConvertFrom-Json; "NETWORK=$($d.network_access) RESULTS=$($d.results.Count)"; $root=Resolve-Path '..\artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1'; $errors=@(); foreach($result in $d.results){$m=Get-Content (Join-Path $root "$($result.capture_id)\manifest.json") -Raw|ConvertFrom-Json; if($result.item_id -ne $m.platform_product_id -or $result.parser_version -ne 'pdd-android-2'){$errors+=$result.capture_id}}; "IDENTITY_DTO_ERRORS=$($errors.Count) EXIT=$e"; exit $e
 +Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; seven verified captures
 +Literal output/result:
-+com.collector.pdd.parser.RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=0 time=0.339
++com.collector.pdd.parser.RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=0
 +NETWORK=False RESULTS=7
-+All 7 item_id values matched manifest identity; parser_version=pdd-android-2; DTO status was partial/warning and was not represented as Generic SKU runtime PASS
++IDENTITY_DTO_ERRORS=0 EXIT=0
 +Exit status: 0
 +Status: PASS
 +
@@ -379,24 +379,18 @@ index 0000000..c600baa
 +Status: PASS; 23 Oracle-dependent tests were explicitly SKIPPED, not called PASS by this gate
 +
 +ANDROID_FULL_JVM
-+Command: java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
++Command: $env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_HOME='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; Remove-Item Env:PDD_CAPTURE_DIRS -ErrorAction SilentlyContinue; Remove-Item Env:PDD_REPLAY_OUTPUT -ErrorAction SilentlyContinue; & "$env:JAVA_HOME\bin\java.exe" -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon *> $null; $e=$LASTEXITCODE; $rows=@(Get-ChildItem 'app\build\test-results\testDebugUnitTest\TEST-*.xml'|ForEach-Object{[xml]$x=Get-Content $_.FullName; [pscustomobject]@{tests=[int]$x.testsuite.tests;failures=[int]$x.testsuite.failures;errors=[int]$x.testsuite.errors;skipped=[int]$x.testsuite.skipped}}); "ANDROID_TESTS=$(($rows|Measure-Object tests -Sum).Sum) FAILURES=$(($rows|Measure-Object failures -Sum).Sum) ERRORS=$(($rows|Measure-Object errors -Sum).Sum) SKIPPED=$(($rows|Measure-Object skipped -Sum).Sum) SUITES=$($rows.Count) EXIT=$e"; exit $e
 +Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; PDD_CAPTURE_DIRS unset for the module-wide run
 +Literal output/result:
-+BUILD SUCCESSFUL in 13s
-+30 actionable tasks: 2 executed, 28 up-to-date
-+ANDROID_TESTS=70 FAILURES=0 ERRORS=0 SKIPPED=1 SUITES=17
++ANDROID_TESTS=70 FAILURES=0 ERRORS=0 SKIPPED=1 SUITES=17 EXIT=0
 +Exit status: 0
 +Status: PASS; RawCaptureReplayTest was SKIPPED in this module-wide no-env run and separately executed above with seven captures
 +
 +WEB_PRODUCTION_BUILD
-+Command: prepend D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64 to PATH; npm ci; npm run build
++Command: $node='D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64'; $env:PATH="$node;$env:PATH"; $nodeVersion=node --version; $npmVersion=npm --version; npm ci *> $null; $ci=$LASTEXITCODE; if($ci -eq 0){npm run build *> $null; $build=$LASTEXITCODE}else{$build=2}; "NODE=$nodeVersion NPM=$npmVersion NPM_CI_EXIT=$ci WEB_BUILD_EXIT=$build"; if($ci -or $build){exit 1}
 +Input/environment: D:\work\PDD_con_data_sku_evidence\web; Node v22.18.0; npm 10.9.3
 +Literal output/result:
-+added 127 packages in 17s
-+vite v8.2.1 building client environment for production...
-+✓ 1673 modules transformed.
-+✓ built in 6.49s
-+WEB_EXIT=0
++NODE=v22.18.0 NPM=10.9.3 NPM_CI_EXIT=0 WEB_BUILD_EXIT=0
 +Exit status: 0
 +Status: PASS
 +
@@ -411,20 +405,15 @@ index 0000000..c600baa
 +Status: PASS
 +
 +PRODUCT_GOLDEN_AND_LEGACY_READ
-+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\product_consistency_p0.py
++Command: $json=(& 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' scripts\product_consistency_p0.py | Out-String | ConvertFrom-Json); $e=$LASTEXITCODE; "SKU_COMBINATION_COUNT=$($json.sku_combination_count) MEDIA_COUNT=$($json.media_count) PROVENANCE_STATUS=$($json.provenance.status) PROVENANCE_REASON=$($json.provenance.reason) RESULT=$($json.result) EXIT=$e"; exit $e
 +Input/environment: approved dedicated Oracle; accepted golden product identity
 +Literal output/result:
-+sku_combination_count=10
-+media_count=8
-+provenance.status=unavailable
-+provenance.reason=legacy_product_has_no_raw_or_snapshot_link
-+result=PASS
-+PRODUCT_GOLDEN_EXIT=0
++SKU_COMBINATION_COUNT=10 MEDIA_COUNT=8 PROVENANCE_STATUS=unavailable PROVENANCE_REASON=legacy_product_has_no_raw_or_snapshot_link RESULT=PASS EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +MARKDOWN_YAML_CI_AND_DIFF
-+Command: run validate_governance.py --check markdown, --check yaml, --check ci; then git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check
++Command: & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check markdown; $m=$LASTEXITCODE; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check yaml; $y=$LASTEXITCODE; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check ci; $c=$LASTEXITCODE; git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check; $d=$LASTEXITCODE; "MARKDOWN_EXIT=$m YAML_EXIT=$y CI_EXIT=$c DIFF_EXIT=$d"; if($m -or $y -or $c -or $d){exit 1}
 +Input/environment: D:\work\PDD_con_data_sku_evidence; current Task evidence documents
 +Literal output/result:
 +Validated 62 Markdown files
@@ -447,6 +436,7 @@ index 0000000..c600baa
 +Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-final-rollback.txt'; Copy-Item docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt $copy -Force; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh $copy; $e=$LASTEXITCODE; $repo=(Get-Content docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt -Raw).Trim(); Write-Output "REPO_MODIFIED=$repo"; Remove-Item $copy; Write-Output "SHELL_EXIT=$e"; exit $e
 +Input/environment: another copy in C:\Users\Eden\AppData\Local\Temp
 +Literal output/result:
++ROLLBACK_TARGET=C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-final-rollback.txt
 +RESTORED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
 +EXPECTED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
 +ROLLBACK_MATCH=true
