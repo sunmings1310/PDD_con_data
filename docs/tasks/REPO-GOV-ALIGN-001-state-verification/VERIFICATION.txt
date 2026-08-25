@@ -30,7 +30,7 @@ EXIT_STATUS=0
 STATUS=PASS
 
 ROLLBACK
-COMMAND=& 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'
+COMMAND=Copy-Item 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/MODIFIED_FILE.txt' 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; & 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_governance_state/docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; $rollbackExit=$LASTEXITCODE; Remove-Item 'docs/tasks/REPO-GOV-ALIGN-001-state-verification/rollback_probe.txt'; exit $rollbackExit
 INPUT_ENVIRONMENT=PowerShell; rollback_probe.txt is another copy of MODIFIED_FILE.txt under the repository
 LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_status_update_current_state
 LITERAL_OUTPUT=RESTORED_SHA256=8ffccc145ef323314543231148aed8d09cbfca3bad2856edbfd6c412873754ae
