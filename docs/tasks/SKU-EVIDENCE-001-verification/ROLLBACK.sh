@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 
-EXPECTED_SHA256 = "aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21"
+EXPECTED_SHA256 = "8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c"
 
 
 def main() -> int:
@@ -24,8 +24,8 @@ def main() -> int:
         return 2
 
     data = target.read_bytes()
-    old = b"REAL_DEVICE_GATE=BLOCKED\n"
-    new = b"REAL_DEVICE_GATE=PENDING\n"
+    old = b"REAL_DEVICE_GATE=PASS\n"
+    new = b"REAL_DEVICE_GATE=BLOCKED\n"
     if data != old:
         print("ROLLBACK_RESULT=FAIL")
         print("ROLLBACK_REASON=unexpected-modified-fixture")

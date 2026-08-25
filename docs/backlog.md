@@ -13,7 +13,7 @@
 
 | Task | 状态 | 范围 | 禁止/停止边界 |
 |---|---|---|---|
-| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE BLOCKED | 已完成基线核验、Task 建立、现有证据盘点和离线 targeted 验证；下一步补齐三维以上、disabled/unavailable、SKU 图片关联、平台直接 SKU ID 与真实 Raw → Replay → DTO 证据 | 真实账号、真机、目标页面和人工验证开始前必须获得 Product Owner 明确批准；不实施 Schema/migration/runtime/P1/P2/Phase 6B |
+| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | REVIEW / SCHEMA REVIEW CANDIDATE | 真机 7 个 Raw、manifest/hash、Raw→Replay→DTO 与全量回归已完成；三维、disabled、SKU media、平台 SKU ID 均为 `NOT_OBSERVED`，且 `available=false == invalid combination` 假设已被证伪 | 等待 Independent Review；不实施 Schema/migration/runtime/P1/P2/Phase 6B，PR/merge 仍需单独批准 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 

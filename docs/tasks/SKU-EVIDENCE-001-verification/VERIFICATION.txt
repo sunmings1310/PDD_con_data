@@ -1,7 +1,7 @@
 TASK=SKU-EVIDENCE-001
 BRANCH=codex/sku-evidence-001
 BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 Real-device Gate = BLOCKED while Task remains IN_PROGRESS
+CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 = REVIEW / SCHEMA REVIEW CANDIDATE; Real-device Gate = PASS; Schema implementation = NOT APPROVED
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt
@@ -10,113 +10,162 @@ VERIFICATION=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verif
 ROLLBACK=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh
 
 BASELINE
-Command: $originMain=git rev-parse origin/main; Write-Output "ORIGIN_MAIN=$originMain"; $baseObject=git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; Write-Output "BASE_OBJECT=$baseObject"; $oldGov=git rev-parse codex/repo-governance-baseline; Write-Output "OLD_GOV=$oldGov"; Write-Output "EXIT=0"
-Input/environment: D:\work\PDD_con_data_sku_evidence; fetched origin
-Literal output/result:
-ORIGIN_MAIN=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-BASE_OBJECT=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-OLD_GOV=28addc917706904bf84252cb1e1cbff01c75aa3d
-EXIT=0
+Command: git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; git merge-base --is-ancestor 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 HEAD
+Input/environment: D:\work\PDD_con_data_sku_evidence
+Literal output/result: 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
 Exit status: 0
 Status: PASS
 
-BRANCH_AND_WORKTREE
-Command: git worktree add -b codex/sku-evidence-001 D:\work\PDD_con_data_sku_evidence 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-Input/environment: branch did not exist locally or on origin; target path did not exist
-Literal output/result:
-Preparing worktree (new branch 'codex/sku-evidence-001')
-HEAD is now at 42610e1 Merge pull request #4 from sunmings1310/codex/repo-governance-accepted-state
-Exit status: 0
-Status: PASS
-
-TARGETED_PYTHON_INITIAL_ENVIRONMENT_PROBE
-Command: python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
-Input/environment: system Python 3.10 without project dependencies/config
-Literal output/result:
-Ran 3 tests in 0.000s
-FAILED (errors=3)
-ModuleNotFoundError: No module named 'loguru'
-ImportError: cannot import name 'field_validator' from 'pydantic'
-ModuleNotFoundError: No module named 'jwt'
-Exit status: 1
-Status: FAIL
-
-TARGETED_PYTHON
-Command: $env:ORACLE_HOST='127.0.0.1'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='TEST'; $env:ORACLE_USER='test'; $env:ORACLE_PASSWORD='test-password'; $env:JWT_SECRET='sku-evidence-test-jwt-secret-20260825'; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0; Write-Output "EXIT=$LASTEXITCODE"; exit $LASTEXITCODE
-Input/environment: Python 3.10 project venv; dummy Oracle configuration used only to satisfy config validation; no Oracle connection or network access
+BASELINE_TARGETED_TESTS
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
+Input/environment: committed Task establishment Head f665bbc2900d49ae025cc2b9dfcfc2287d29b5e3; dummy non-network Oracle config used only for config validation
 Literal output/result:
 Ran 19 tests in 0.251s
 OK
-EXIT=0
 Exit status: 0
 Status: PASS
 
-TARGETED_ANDROID
-Command: $env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_HOME='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; & "$env:JAVA_HOME\bin\java.exe" -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon; $e=$LASTEXITCODE; Get-ChildItem 'app\build\test-results\testDebugUnitTest\TEST-*.xml' | ForEach-Object { [xml]$x=Get-Content $_.FullName; if ($x.testsuite.name -match 'AcceptedBaselineNoSkuRuntimeTest|RawCaptureReplayTest|DetailReaderTest') { '{0}: tests={1} failures={2} errors={3} skipped={4}' -f $x.testsuite.name,$x.testsuite.tests,$x.testsuite.failures,$x.testsuite.errors,$x.testsuite.skipped } }; Write-Output "EXIT=$e"; exit $e
-Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; ANDROID_HOME/ANDROID_SDK_ROOT=D:\work\pda-picking\tools\android-sdk; PDD_CAPTURE_DIRS not set
+REAL_DEVICE_TERMINAL_STATE
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import os,oracledb; c=oracledb.connect(user=os.environ['ORACLE_USER'],password=os.environ['ORACLE_PASSWORD'],dsn=os.environ['ORACLE_DSN']); q=c.cursor(); q.execute(\"select task_id,status,success_count,fail_count from sjzq_task where task_id in (1567,1568) order by task_id\"); print('TASKS',q.fetchall()); q.execute(\"select job_id,status,attempt_count,active_attempt_id,lease_token_hash from sjzq_collection_job where task_id=1568 order by job_id\"); print('JOBS',q.fetchall()); q.execute(\"select device_id,status,run_state,current_task_id,active_job_id,active_attempt_id from sjzq_device where device_id=6\"); print('DEVICE',q.fetchall()); q.execute(\"select count(*) from sjzq_job_event where task_id=1568 and (event_type like '%anomal%' or event_type like '%error%')\"); print('ANOMALY_OR_ERROR_EVENTS',q.fetchone()[0]); c.close()"
+Input/environment: approved dedicated test Oracle; existing device and lawful test account; no credential values persisted in this artifact
 Literal output/result:
-BUILD SUCCESSFUL in 8s
-30 actionable tasks: 1 executed, 29 up-to-date
-AcceptedBaselineNoSkuRuntimeTest: tests=3 failures=0 errors=0 skipped=0
-DetailReaderTest: tests=11 failures=0 errors=0 skipped=0
-RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=1
-EXIT=0
-Exit status: 0
-Status: PASS for 14 executed tests; SKIPPED for real-Raw replay because PDD_CAPTURE_DIRS is absent
-
-REAL_DEVICE_GATE
-Command: not executed
-Input/environment: requires real Android device, logged-in test account, selected target pages and human supervision
-Literal output/result: BLOCKED: explicit Product Owner approval is required before real-account/manual validation
-Exit status: not executed
-Status: BLOCKED
-
-MARKDOWN_LINKS
-Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check markdown
-Input/environment: D:\work\PDD_con_data_sku_evidence
-Literal output/result: Validated 61 Markdown files
+TASK 1567 status=cancelled success_count=3 fail_count=0
+TASK 1568 status=succeeded success_count=4 fail_count=0
+JOBS 558,559,560,561 status=success attempt_count=1 active_attempt_id=NULL lease_token_hash=NULL
+DEVICE 6 status=online run_state=idle current_task_id=NULL active_job_id=NULL active_attempt_id=NULL
+ANOMALY_OR_ERROR_EVENTS=0
 Exit status: 0
 Status: PASS
 
-YAML_CI_STATIC
-Command: & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check yaml; $yamlExit=$LASTEXITCODE; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check ci; $ciExit=$LASTEXITCODE; Write-Output "YAML_EXIT=$yamlExit CI_EXIT=$ciExit"; if ($yamlExit -ne 0 -or $ciExit -ne 0) { exit 1 }; exit 0
-Input/environment: D:\work\PDD_con_data_sku_evidence
+RAW_RECONSTRUCTION_AND_HASH_VERIFICATION
+Command: $env:PYTHONPATH='.'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\sku-evidence-001\reconstruct_live_captures.py
+Input/environment: approved dedicated test Oracle; task ids 1567 and 1568; output root artifacts/sku-evidence-001/raw-captures; credentials supplied only through process environment
 Literal output/result:
-YAML_FILES=1
-YAML_PARSE=PASS
-CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
-CI_STATIC=PASS
-YAML_EXIT=0 CI_EXIT=0
+RAW_IDS=515,516,517,518,519,520,521
+CAPTURES=7
+HASHES_VALID=7
+VERIFIED_SOURCE_TYPES=SEARCH,DETAIL,SKU_PANEL,SHOP,PROMOTION,MEDIA,EMBEDDED plus OTHER where present
 Exit status: 0
 Status: PASS
 
-DIFF_CHECK
-Command: git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check; git diff --cached --check
-Input/environment: full branch delta from approved base plus staged Review fixes
+RAW_EVIDENCE_CLASSIFICATION
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\sku-evidence-001\generic_sku_validation.py --raw-root artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1 --output artifacts\sku-evidence-001\live-analysis cap-1567-3437eb1e-5471-45e6-894c-85726505891f cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84 cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244
+Input/environment: seven verified local Original Raw directories; investigation tool restored into ignored artifacts from historical branch and not shipped as runtime
+Literal output/result: {"samples": 7, "dimensions": 11, "combinations": 81, "medicine": 0}
+Exit status: 0
+Status: PASS for extraction; REVIEW finding: available=false is OBSERVATION_NOT_CONFIRMED, not proof of invalid combination
+
+SERVER_RAW_REPLAY
+Command: $ids=@('cap-1567-3437eb1e-5471-45e6-894c-85726505891f','cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec','cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b','cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d','cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b','cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84','cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244'); foreach($id in $ids){ D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\raw_capture_replay.py $id --root artifacts\sku-evidence-001\raw-captures --enterprise-id 1 --workspace-id 1 --output "artifacts\sku-evidence-001\server-replay\$id.json"; if($LASTEXITCODE -ne 0){exit $LASTEXITCODE} }; Write-Output "REPLAYED=$($ids.Count) EXIT=0"
+Input/environment: dummy non-network server configuration; Original Raw only
+Literal output/result: REPLAYED=7 EXIT=0; every output mode=dry-run-analysis, network_access=false, hashes_valid=true, platform_product_id matched manifest, QualityGate accepted=true
+Exit status: 0
+Status: PASS
+
+ANDROID_EXPLICIT_RAW_REPLAY
+Command: $dirs=Get-ChildItem '..\artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1' -Directory | Where-Object Name -like 'cap-156*' | Sort-Object Name; $env:PDD_CAPTURE_DIRS=($dirs.FullName -join [IO.Path]::PathSeparator); $env:PDD_REPLAY_OUTPUT=(Resolve-Path '..\artifacts\sku-evidence-001').Path+'\android-replay.json'; java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*RawCaptureReplayTest' --no-daemon
+Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; seven verified captures
+Literal output/result:
+com.collector.pdd.parser.RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=0 time=0.339
+NETWORK=False RESULTS=7
+All 7 item_id values matched manifest identity; parser_version=pdd-android-2; DTO status was partial/warning and was not represented as Generic SKU runtime PASS
+Exit status: 0
+Status: PASS
+
+PYTHON_COMPILE
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server scripts tests
+Input/environment: Python 3.10 project venv
 Literal output/result: no output
 Exit status: 0
 Status: PASS
 
+PYTHON_FULL_OFFLINE
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py
+Input/environment: Python 3.10 project venv; Oracle opt-in variables not set
+Literal output/result:
+Ran 195 tests in 0.756s
+OK (skipped=23)
+Exit status: 0
+Status: PASS; 23 Oracle-dependent tests were explicitly SKIPPED, not called PASS by this gate
+
+ANDROID_FULL_JVM
+Command: java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
+Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; PDD_CAPTURE_DIRS unset for the module-wide run
+Literal output/result:
+BUILD SUCCESSFUL in 13s
+30 actionable tasks: 2 executed, 28 up-to-date
+ANDROID_TESTS=70 FAILURES=0 ERRORS=0 SKIPPED=1 SUITES=17
+Exit status: 0
+Status: PASS; RawCaptureReplayTest was SKIPPED in this module-wide no-env run and separately executed above with seven captures
+
+WEB_PRODUCTION_BUILD
+Command: prepend D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64 to PATH; npm ci; npm run build
+Input/environment: D:\work\PDD_con_data_sku_evidence\web; Node v22.18.0; npm 10.9.3
+Literal output/result:
+added 127 packages in 17s
+vite v8.2.1 building client environment for production...
+✓ 1673 modules transformed.
+✓ built in 6.49s
+WEB_EXIT=0
+Exit status: 0
+Status: PASS
+
+ORACLE_STRICT_PHASE1_TO_6A
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_state_r2_oracle tests.test_phase2_schema_contract tests.test_job_service tests.test_job_reconciliation_oracle_integration tests.test_phase2_route_oracle tests.test_phase3_oracle tests.test_phase5_oracle tests.test_phase55_oracle tests.test_phase6a_oracle
+Input/environment: approved dedicated writable/cleanable Oracle; T003_ORACLE_TEST_ENABLED=1; PHASE5_ORACLE_TEST_ENABLED=1; PHASE55_ORACLE_TEST_ENABLED=1; PHASE6A_ORACLE_TEST_ENABLED=1; credentials supplied only through environment
+Literal output/result:
+Ran 46 tests in 197.142s
+OK
+ORACLE_EXIT=0
+Exit status: 0
+Status: PASS
+
+PRODUCT_GOLDEN_AND_LEGACY_READ
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\product_consistency_p0.py
+Input/environment: approved dedicated Oracle; accepted golden product identity
+Literal output/result:
+sku_combination_count=10
+media_count=8
+provenance.status=unavailable
+provenance.reason=legacy_product_has_no_raw_or_snapshot_link
+result=PASS
+PRODUCT_GOLDEN_EXIT=0
+Exit status: 0
+Status: PASS
+
+MARKDOWN_YAML_CI_AND_DIFF
+Command: run validate_governance.py --check markdown, --check yaml, --check ci; then git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check
+Input/environment: D:\work\PDD_con_data_sku_evidence; current Task evidence documents
+Literal output/result:
+Validated 62 Markdown files
+YAML_FILES=1
+YAML_PARSE=PASS
+CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
+CI_STATIC=PASS
+MARKDOWN_EXIT=0 YAML_EXIT=0 CI_EXIT=0 DIFF_EXIT=0
+Exit status: 0
+Status: PASS
+
 DIFF_ARTIFACT
-Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','42610e15cf683158eb2f96a3dc3d08e8b1f5e018','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
-Input/environment: index containing the complete Task package relative to approved base; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
-Literal output/result: git apply --cached --check --reverse --unidiff-zero produced no output
+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','42610e15cf683158eb2f96a3dc3d08e8b1f5e018','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
+Input/environment: staged complete Task delta relative to approved base; DIFF_FILE excludes itself to avoid recursive content
+Literal output/result: no output
 Exit status: 0
 Status: PASS
 
 ROLLBACK
-Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-rollback-review.txt'; Copy-Item -LiteralPath 'docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt' -Destination $copy -Force; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh' $copy; $e=$LASTEXITCODE; Write-Output "SHELL_EXIT=$e"; Remove-Item -LiteralPath $copy; exit $e
-Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
+Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-final-rollback.txt'; Copy-Item docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt $copy -Force; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh $copy; $e=$LASTEXITCODE; $repo=(Get-Content docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt -Raw).Trim(); Write-Output "REPO_MODIFIED=$repo"; Remove-Item $copy; Write-Output "SHELL_EXIT=$e"; exit $e
+Input/environment: another copy in C:\Users\Eden\AppData\Local\Temp
 Literal output/result:
-ROLLBACK_TARGET=C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
-RESTORED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
-EXPECTED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
+RESTORED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
+EXPECTED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
 ROLLBACK_MATCH=true
 ROLLBACK_RESULT=PASS
 ROLLBACK_EXIT=0
+REPO_MODIFIED=REAL_DEVICE_GATE=PASS
 SHELL_EXIT=0
 Exit status: 0
 Status: PASS
 
 RESTORED_BEHAVIOR_STATUS
-The rollback copy restores REAL_DEVICE_GATE=PENDING. The repository MODIFIED_FILE remains changed with REAL_DEVICE_GATE=BLOCKED, matching docs/backlog.md and the Task while explicit real-device/account/manual approval is pending.
+The rollback copy restores REAL_DEVICE_GATE=BLOCKED, the committed pre-approval behavior/status. The repository MODIFIED_FILE remains REAL_DEVICE_GATE=PASS, matching docs/backlog.md and the Task evidence. Schema implementation, migration, Generic SKU runtime, P1/P2 and Phase 6B remain NOT APPROVED / NOT STARTED.

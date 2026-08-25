@@ -2,7 +2,7 @@
 
 - Baseline：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
 - Inventory date：2026-08-25
-- Result：`REAL-DEVICE GATE BLOCKED — EXPLICIT APPROVAL REQUIRED`
+- Result：`REAL-DEVICE GATE EXECUTED — MODEL ASSUMPTIONS REQUIRE CHANGES`
 
 ## 1. Accepted capabilities that can be reused
 
@@ -105,13 +105,17 @@ Minimum target set:
 3. one product where SKU image association can be observed;
 4. direct platform SKU ID evidence, or explicit `NOT_OBSERVED` for every inspected source.
 
-## 6. Current blocker
+## 6. Gate disposition
 
-The missing evidence requires a real Android device, a logged-in test account, selected target pages and human supervision while entering the purchase specification panel. Offline fixtures and JVM tests cannot replace this gate. Per Task Stop Condition, Control must obtain explicit Product Owner approval before those steps. Until then:
+Product Owner explicitly approved the real-device gate on 2026-08-25. The controlled run produced seven immutable captures and then stopped without additional sampling. The resulting evidence is recorded in [`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md):
 
 ```text
-SKU MODEL NEEDS MORE EVIDENCE
+SCHEMA REVIEW CANDIDATE — MODEL ASSUMPTIONS REQUIRE CHANGES
+dimensions >= 3 = NOT_OBSERVED
 platform_sku_id = NOT_OBSERVED
 sku_media_association = NOT_OBSERVED
-disabled/unavailable semantics = NOT_OBSERVED
+disabled = NOT_OBSERVED
+invalid_combination = NOT_CONFIRMED
 ```
+
+The observed `available=false` values are not sufficient evidence of an invalid combination because the corresponding page state did not confirm the requested selection or still required another dimension. This reaches the Task stop condition “evidence refutes the current model assumption”; it does not approve Schema implementation.

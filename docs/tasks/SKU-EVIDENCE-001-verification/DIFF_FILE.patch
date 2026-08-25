@@ -1,5 +1,5 @@
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 75e98fd..d657f68 100644
+index 75e98fd..612382a 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -11,0 +12,6 @@
@@ -7,19 +7,19 @@ index 75e98fd..d657f68 100644
 +
 +| Task | 状态 | 范围 | 禁止/停止边界 |
 +|---|---|---|---|
-+| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE BLOCKED | 已完成基线核验、Task 建立、现有证据盘点和离线 targeted 验证；下一步补齐三维以上、disabled/unavailable、SKU 图片关联、平台直接 SKU ID 与真实 Raw → Replay → DTO 证据 | 真实账号、真机、目标页面和人工验证开始前必须获得 Product Owner 明确批准；不实施 Schema/migration/runtime/P1/P2/Phase 6B |
++| [`SKU-EVIDENCE-001`](tasks/SKU-EVIDENCE-001.md) | REVIEW / SCHEMA REVIEW CANDIDATE | 真机 7 个 Raw、manifest/hash、Raw→Replay→DTO 与全量回归已完成；三维、disabled、SKU media、平台 SKU ID 均为 `NOT_OBSERVED`，且 `available=false == invalid combination` 假设已被证伪 | 等待 Independent Review；不实施 Schema/migration/runtime/P1/P2/Phase 6B，PR/merge 仍需单独批准 |
 +
 diff --git a/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
 new file mode 100644
-index 0000000..f2e22bd
+index 0000000..35f7cae
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-evidence-inventory.md
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,121 @@
 +# SKU-EVIDENCE-001 Existing Evidence Inventory
 +
 +- Baseline：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
 +- Inventory date：2026-08-25
-+- Result：`REAL-DEVICE GATE BLOCKED — EXPLICIT APPROVAL REQUIRED`
++- Result：`REAL-DEVICE GATE EXECUTED — MODEL ASSUMPTIONS REQUIRE CHANGES`
 +
 +## 1. Accepted capabilities that can be reused
 +
@@ -122,26 +122,116 @@ index 0000000..f2e22bd
 +3. one product where SKU image association can be observed;
 +4. direct platform SKU ID evidence, or explicit `NOT_OBSERVED` for every inspected source.
 +
-+## 6. Current blocker
++## 6. Gate disposition
 +
-+The missing evidence requires a real Android device, a logged-in test account, selected target pages and human supervision while entering the purchase specification panel. Offline fixtures and JVM tests cannot replace this gate. Per Task Stop Condition, Control must obtain explicit Product Owner approval before those steps. Until then:
++Product Owner explicitly approved the real-device gate on 2026-08-25. The controlled run produced seven immutable captures and then stopped without additional sampling. The resulting evidence is recorded in [`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md):
 +
 +```text
-+SKU MODEL NEEDS MORE EVIDENCE
++SCHEMA REVIEW CANDIDATE — MODEL ASSUMPTIONS REQUIRE CHANGES
++dimensions >= 3 = NOT_OBSERVED
 +platform_sku_id = NOT_OBSERVED
 +sku_media_association = NOT_OBSERVED
-+disabled/unavailable semantics = NOT_OBSERVED
++disabled = NOT_OBSERVED
++invalid_combination = NOT_CONFIRMED
 +```
++
++The observed `available=false` values are not sufficient evidence of an invalid combination because the corresponding page state did not confirm the requested selection or still required another dimension. This reaches the Task stop condition “evidence refutes the current model assumption”; it does not approve Schema implementation.
+diff --git a/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md b/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md
+new file mode 100644
+index 0000000..3b8a447
+--- /dev/null
++++ b/docs/tasks/SKU-EVIDENCE-001-real-device-evidence.md
+@@ -0,0 +1,80 @@
++# SKU-EVIDENCE-001 Real-device Evidence Matrix
++
++- **Evidence date**：2026-08-25
++- **Approved baseline**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- **Device**：M2007J3SC / Android 10 / collector `1.0.81`
++- **Tasks**：`1567`（受控提前停止，3 个结果）、`1568`（4/4 job success）
++- **Result**：`SCHEMA REVIEW CANDIDATE — MODEL ASSUMPTIONS REQUIRE CHANGES`
++
++本文件只提交脱敏摘要、identity/hash 和可复现结论。Original Raw 保存在隔离证据目录，不提交真实页面内容或账号信息；derived replay 和矩阵与 Original Raw 分离。
++
++## 1. Execution boundary and terminal state
++
++- Task `1568` 聚合终态为 `succeeded`，`SUCCESS_COUNT=4`、`FAIL_COUNT=0`，四个 Job 均为 `success`、`ACTIVE_ATTEMPT_ID=NULL`、lease 已释放。
++- 设备 `6` 在结束后为 `online / idle`，`CURRENT_TASK_ID`、`ACTIVE_JOB_ID`、`ACTIVE_ATTEMPT_ID` 均为空。
++- Task `1568` 没有 anomaly/error event；没有继续创建采样任务。
++- 7/7 capture 的 guard 均为 `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`。
++
++## 2. Raw identity and immutable hashes
++
++| Raw | Capture | Product identity | Identity SHA-256 | Content SHA-256 | SKU_PANEL SHA-256 |
++|---:|---|---:|---|---|---|
++| 515 | `cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec` | `920205213506` | `668c312359884b23e632d46d15bce24cd63c2c01871d601586c96d56f3b9817e` | `6cc3448122ae0e7a68d6ec164502ef7a65c22dd75db42b252e8fbd6d489fa65f` | `233a65ef8b3e094c01f910a21353343ae46afd6c2bc7c0f9e345de7b5cd1eb51` |
++| 516 | `cap-1567-3437eb1e-5471-45e6-894c-85726505891f` | `806103671575` | `93d0e01b8bc20a2ce66d3dce05e65b55c8f0f5b4d7a6ef6f638fc20bffc0d578` | `6c7951b9904857ab4d86b2ddceb76af48a58403edd4895e66159a3272ec4721c` | `680aff1e3a9971009de9b8ba2f15ef5377b1acafe1c5738ab55b8cd7e7364d15` |
++| 517 | `cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b` | `826879938468` | `3f8c15680996966ab746bb3b4eed04c09042363e9082ea01501cd48decaab400` | `e7a9da8b49e1090ee733988cdf0ee531e2e5eff85d8ea025dbc74d8866a732fa` | `419ceb4c2ae0a9ff1fcedb45ee1befbef8b5d8a1ff236df4848b746041d0d178` |
++| 518 | `cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84` | `762257475043` | `6aeb1f2f6a9bf7a74da52b002e5b8a779581e6b7f21bf7458245226c02b6184c` | `74b63cc352094261e04637ef0274291e9b0de3b278023d8342cb58fe612ca369` | `1b6dea077ec8db9a2c229eb0297ddfd613f2b9fa7b164886a5b73526f4510980` |
++| 519 | `cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244` | `932558905084` | `df6506675bc2f84bdc59b0812827a32b427b1c97a3d061baaafe8e9ce5ac5227` | `5045d9dc3c26a3f71d2ee69325d8e9efe5db4011bddeb629f38030abe7ea8754` | `80ecd92b2b876f0c3b95446ebadeee06ebe6665afe244926dc11fe06523070a8` |
++| 520 | `cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b` | `940415734455` | `bae90064f9533827da809aa080000ac579ec78cd4e03f699640667db82d0de42` | `3240c3d850dbf3291ce66d4b92b12a54923f1daa2ae0ac2400634d3191021cb1` | `06748724985b0e804757d5f32595b89b4b71c1dfaed81be7fafdbdc864f83e74` |
++| 521 | `cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d` | `959729371509` | `eff2219dbe4570c67eb17b294261588ac6a83df9af17c26ff642358f1ef6ddfc` | `da066423861bd6bee6c8191b03695ce2d62d26bd2d58904a7f8b69b4d40b3852` | `0ecac449fd4e29af0e8adbafa55f880c058c6bc973f1df154883acbd341482b6` |
++
++`verify_capture` 对 7/7 manifest、source size/hash、product upload JSON 和敏感标记检查均通过。
++
++## 3. Observation matrix
++
++| Capture suffix | Dimensions observed | Options | Combination observations | Disabled | SKU media | Direct platform SKU ID | Decision status |
++|---|---:|---:|---:|---|---|---|---|
++| `3437eb1e` | 2 | 8 | 12 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
++| `4c1b30d2` | 2 | 10 | 21 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
++| `c2d9d9e8` | 2 | 9 | 20 reported false, all price missing | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | `OBSERVATION_NOT_CONFIRMED` |
++| `2483d11d` | 1 | 8 | 8 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable one-dimensional price evidence |
++| `7c6eee66` | 1 | 7 | one false while page still requests shoe size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | incomplete selection, not invalid combination |
++| `85318453` | 2 | 7 | 6 available with price | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | usable two-dimensional price evidence |
++| `d9a9b816` | 1 | 7 sampled | page still requires size | `NOT_OBSERVED` | `NOT_OBSERVED` | `NOT_OBSERVED` | partial dimension observation |
++
++### Required factual classifications
++
++- **Three or more dimensions**：`NOT_OBSERVED`。7 个样本最多只形成两个已确认维度，不能从标题或文本拼接出第三维。
++- **Disabled option**：`NOT_OBSERVED`。带文本的 `enabled=false` panel node 为 0。
++- **Unavailable / invalid combination**：`NOT_CONFIRMED`。`available=false` 样本同时存在选择未生效、必要维度未选或价格读取失败，不能升级为平台明确拒绝。
++- **SKU image / option association**：`NOT_OBSERVED`。所有 combination 的 `media_ref` 均为空。
++- **Direct platform SKU ID**：`NOT_OBSERVED`。所有 combination 的 `platform_sku_id` 均为空；不得推导或伪造。
++
++## 4. Raw → Replay → DTO
++
++- Server replay：7/7 `mode=dry-run-analysis`、`network_access=false`、hash/JSON verification PASS；Product identity 与 manifest 一致；QualityGate 均接受正常商品事实。
++- Android replay：显式设置 7 个 `PDD_CAPTURE_DIRS`，`RawCaptureReplayTest` 实际执行 `1` test、`0` failure、`0` error、`0` skipped；输出 7 个 DTO，`item_id` 与 manifest identity 全部一致，`parser_version=pdd-android-2`。
++- Android Accepted 默认路径仍不把调查性 `SKU_PANEL` 自动交互作为 runtime 能力；Android DTO 因缺少默认路径认可的完整字段表现为 `parse_status=partial / quality_status=warning`。这是真实结果，不冒充正式 Generic SKU runtime PASS。
++
++## 5. Model finding and Schema ADR Review recommendation
++
++真实证据推翻了“Raw 中 `available=false` 可以直接等价为 invalid combination”的假设。Schema Proposal Review 必须至少：
++
++1. 将交互请求、选择确认和业务 availability 分开建模；只有页面已选状态匹配、必要维度完整且存在明确拒绝证据时，才允许 `OBSERVED_UNAVAILABLE`；
++2. 使用 `OBSERVED_AVAILABLE / OBSERVED_UNAVAILABLE / OBSERVATION_NOT_CONFIRMED / NOT_OBSERVED`，不得把采集失败写成库存或无效组合；
++3. `platform_sku_id`、`media_ref` 和 disabled state 均必须 nullable/observation-aware；
++4. SKU identity 不得由标题、商品参数、主商品价格或本次选项文本单独推导；
++5. 在更多证据与单独 Product Owner 决策前，不实施正式 Schema/migration，不启用 Generic SKU runtime。
++
++因此本 Task 已达到“证据推翻当前模型假设”的 Stop Condition，可以提交独立 Schema ADR Review；它不等于 P1 或 Schema 实施已获准。
++
++## 6. Regression summary
++
++| Gate | Literal result | Status |
++|---|---|---|
++| Python compile | exit `0` | PASS |
++| Python unit | `Ran 195 tests ... OK (skipped=23)`；23 个为未启用 Oracle 的离线 skip | PASS |
++| Android full JVM | `BUILD SUCCESSFUL`; 70 tests, 0 failure/error, 1 expected no-env replay skip | PASS |
++| Android explicit real-Raw replay | 7 DTO; 1 test, 0 failure/error/skip | PASS |
++| Web production build | Node `22.18.0`; `✓ built in 6.49s` | PASS |
++| Oracle strict Phase 1～6A | `Ran 46 tests in 197.142s` / `OK` | PASS |
++| Product Golden Sample / Legacy read | `result: PASS`; legacy provenance remains explicitly unavailable | PASS |
 diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt b/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt
 new file mode 100644
-index 0000000..560db58
+index 0000000..b3b6a1f
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-verification/MODIFIED_FILE.txt
 @@ -0,0 +1 @@
-+REAL_DEVICE_GATE=BLOCKED
++REAL_DEVICE_GATE=PASS
 diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh b/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh
 new file mode 100755
-index 0000000..e936524
+index 0000000..c51500b
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-verification/ROLLBACK.sh
 @@ -0,0 +1,47 @@
@@ -153,7 +243,7 @@ index 0000000..e936524
 +import sys
 +
 +
-+EXPECTED_SHA256 = "aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21"
++EXPECTED_SHA256 = "8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c"
 +
 +
 +def main() -> int:
@@ -171,8 +261,8 @@ index 0000000..e936524
 +        return 2
 +
 +    data = target.read_bytes()
-+    old = b"REAL_DEVICE_GATE=BLOCKED\n"
-+    new = b"REAL_DEVICE_GATE=PENDING\n"
++    old = b"REAL_DEVICE_GATE=PASS\n"
++    new = b"REAL_DEVICE_GATE=BLOCKED\n"
 +    if data != old:
 +        print("ROLLBACK_RESULT=FAIL")
 +        print("ROLLBACK_REASON=unexpected-modified-fixture")
@@ -194,14 +284,14 @@ index 0000000..e936524
 +    raise SystemExit(main())
 diff --git a/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
 new file mode 100644
-index 0000000..67651bd
+index 0000000..c600baa
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001-verification/VERIFICATION.txt
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,171 @@
 +TASK=SKU-EVIDENCE-001
 +BRANCH=codex/sku-evidence-001
 +BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 Real-device Gate = BLOCKED while Task remains IN_PROGRESS
++CHANGED_BRANCH_FIELD=docs/backlog.md :: SKU-EVIDENCE-001 = REVIEW / SCHEMA REVIEW CANDIDATE; Real-device Gate = PASS; Schema implementation = NOT APPROVED
 +
 +ARTIFACTS
 +MODIFIED_FILE=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt
@@ -210,119 +300,168 @@ index 0000000..67651bd
 +ROLLBACK=D:\work\PDD_con_data_sku_evidence\docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh
 +
 +BASELINE
-+Command: $originMain=git rev-parse origin/main; Write-Output "ORIGIN_MAIN=$originMain"; $baseObject=git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; Write-Output "BASE_OBJECT=$baseObject"; $oldGov=git rev-parse codex/repo-governance-baseline; Write-Output "OLD_GOV=$oldGov"; Write-Output "EXIT=0"
-+Input/environment: D:\work\PDD_con_data_sku_evidence; fetched origin
-+Literal output/result:
-+ORIGIN_MAIN=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+BASE_OBJECT=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+OLD_GOV=28addc917706904bf84252cb1e1cbff01c75aa3d
-+EXIT=0
++Command: git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; git merge-base --is-ancestor 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 HEAD
++Input/environment: D:\work\PDD_con_data_sku_evidence
++Literal output/result: 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
 +Exit status: 0
 +Status: PASS
 +
-+BRANCH_AND_WORKTREE
-+Command: git worktree add -b codex/sku-evidence-001 D:\work\PDD_con_data_sku_evidence 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+Input/environment: branch did not exist locally or on origin; target path did not exist
-+Literal output/result:
-+Preparing worktree (new branch 'codex/sku-evidence-001')
-+HEAD is now at 42610e1 Merge pull request #4 from sunmings1310/codex/repo-governance-accepted-state
-+Exit status: 0
-+Status: PASS
-+
-+TARGETED_PYTHON_INITIAL_ENVIRONMENT_PROBE
-+Command: python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
-+Input/environment: system Python 3.10 without project dependencies/config
-+Literal output/result:
-+Ran 3 tests in 0.000s
-+FAILED (errors=3)
-+ModuleNotFoundError: No module named 'loguru'
-+ImportError: cannot import name 'field_validator' from 'pydantic'
-+ModuleNotFoundError: No module named 'jwt'
-+Exit status: 1
-+Status: FAIL
-+
-+TARGETED_PYTHON
-+Command: $env:ORACLE_HOST='127.0.0.1'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='TEST'; $env:ORACLE_USER='test'; $env:ORACLE_PASSWORD='test-password'; $env:JWT_SECRET='sku-evidence-test-jwt-secret-20260825'; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0; Write-Output "EXIT=$LASTEXITCODE"; exit $LASTEXITCODE
-+Input/environment: Python 3.10 project venv; dummy Oracle configuration used only to satisfy config validation; no Oracle connection or network access
++BASELINE_TARGETED_TESTS
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0
++Input/environment: committed Task establishment Head f665bbc2900d49ae025cc2b9dfcfc2287d29b5e3; dummy non-network Oracle config used only for config validation
 +Literal output/result:
 +Ran 19 tests in 0.251s
 +OK
-+EXIT=0
 +Exit status: 0
 +Status: PASS
 +
-+TARGETED_ANDROID
-+Command: $env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_HOME='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; & "$env:JAVA_HOME\bin\java.exe" -classpath 'gradle\wrapper\gradle-wrapper.jar' org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*AcceptedBaselineNoSkuRuntimeTest' --tests '*RawCaptureReplayTest' --tests '*DetailReaderTest' --no-daemon; $e=$LASTEXITCODE; Get-ChildItem 'app\build\test-results\testDebugUnitTest\TEST-*.xml' | ForEach-Object { [xml]$x=Get-Content $_.FullName; if ($x.testsuite.name -match 'AcceptedBaselineNoSkuRuntimeTest|RawCaptureReplayTest|DetailReaderTest') { '{0}: tests={1} failures={2} errors={3} skipped={4}' -f $x.testsuite.name,$x.testsuite.tests,$x.testsuite.failures,$x.testsuite.errors,$x.testsuite.skipped } }; Write-Output "EXIT=$e"; exit $e
-+Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; ANDROID_HOME/ANDROID_SDK_ROOT=D:\work\pda-picking\tools\android-sdk; PDD_CAPTURE_DIRS not set
++REAL_DEVICE_TERMINAL_STATE
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import os,oracledb; c=oracledb.connect(user=os.environ['ORACLE_USER'],password=os.environ['ORACLE_PASSWORD'],dsn=os.environ['ORACLE_DSN']); q=c.cursor(); q.execute(\"select task_id,status,success_count,fail_count from sjzq_task where task_id in (1567,1568) order by task_id\"); print('TASKS',q.fetchall()); q.execute(\"select job_id,status,attempt_count,active_attempt_id,lease_token_hash from sjzq_collection_job where task_id=1568 order by job_id\"); print('JOBS',q.fetchall()); q.execute(\"select device_id,status,run_state,current_task_id,active_job_id,active_attempt_id from sjzq_device where device_id=6\"); print('DEVICE',q.fetchall()); q.execute(\"select count(*) from sjzq_job_event where task_id=1568 and (event_type like '%anomal%' or event_type like '%error%')\"); print('ANOMALY_OR_ERROR_EVENTS',q.fetchone()[0]); c.close()"
++Input/environment: approved dedicated test Oracle; existing device and lawful test account; no credential values persisted in this artifact
 +Literal output/result:
-+BUILD SUCCESSFUL in 8s
-+30 actionable tasks: 1 executed, 29 up-to-date
-+AcceptedBaselineNoSkuRuntimeTest: tests=3 failures=0 errors=0 skipped=0
-+DetailReaderTest: tests=11 failures=0 errors=0 skipped=0
-+RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=1
-+EXIT=0
-+Exit status: 0
-+Status: PASS for 14 executed tests; SKIPPED for real-Raw replay because PDD_CAPTURE_DIRS is absent
-+
-+REAL_DEVICE_GATE
-+Command: not executed
-+Input/environment: requires real Android device, logged-in test account, selected target pages and human supervision
-+Literal output/result: BLOCKED: explicit Product Owner approval is required before real-account/manual validation
-+Exit status: not executed
-+Status: BLOCKED
-+
-+MARKDOWN_LINKS
-+Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py --check markdown
-+Input/environment: D:\work\PDD_con_data_sku_evidence
-+Literal output/result: Validated 61 Markdown files
++TASK 1567 status=cancelled success_count=3 fail_count=0
++TASK 1568 status=succeeded success_count=4 fail_count=0
++JOBS 558,559,560,561 status=success attempt_count=1 active_attempt_id=NULL lease_token_hash=NULL
++DEVICE 6 status=online run_state=idle current_task_id=NULL active_job_id=NULL active_attempt_id=NULL
++ANOMALY_OR_ERROR_EVENTS=0
 +Exit status: 0
 +Status: PASS
 +
-+YAML_CI_STATIC
-+Command: & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check yaml; $yamlExit=$LASTEXITCODE; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py' --check ci; $ciExit=$LASTEXITCODE; Write-Output "YAML_EXIT=$yamlExit CI_EXIT=$ciExit"; if ($yamlExit -ne 0 -or $ciExit -ne 0) { exit 1 }; exit 0
-+Input/environment: D:\work\PDD_con_data_sku_evidence
++RAW_RECONSTRUCTION_AND_HASH_VERIFICATION
++Command: $env:PYTHONPATH='.'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\sku-evidence-001\reconstruct_live_captures.py
++Input/environment: approved dedicated test Oracle; task ids 1567 and 1568; output root artifacts/sku-evidence-001/raw-captures; credentials supplied only through process environment
 +Literal output/result:
-+YAML_FILES=1
-+YAML_PARSE=PASS
-+CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
-+CI_STATIC=PASS
-+YAML_EXIT=0 CI_EXIT=0
++RAW_IDS=515,516,517,518,519,520,521
++CAPTURES=7
++HASHES_VALID=7
++VERIFIED_SOURCE_TYPES=SEARCH,DETAIL,SKU_PANEL,SHOP,PROMOTION,MEDIA,EMBEDDED plus OTHER where present
 +Exit status: 0
 +Status: PASS
 +
-+DIFF_CHECK
-+Command: git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check; git diff --cached --check
-+Input/environment: full branch delta from approved base plus staged Review fixes
++RAW_EVIDENCE_CLASSIFICATION
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\sku-evidence-001\generic_sku_validation.py --raw-root artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1 --output artifacts\sku-evidence-001\live-analysis cap-1567-3437eb1e-5471-45e6-894c-85726505891f cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84 cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244
++Input/environment: seven verified local Original Raw directories; investigation tool restored into ignored artifacts from historical branch and not shipped as runtime
++Literal output/result: {"samples": 7, "dimensions": 11, "combinations": 81, "medicine": 0}
++Exit status: 0
++Status: PASS for extraction; REVIEW finding: available=false is OBSERVATION_NOT_CONFIRMED, not proof of invalid combination
++
++SERVER_RAW_REPLAY
++Command: $ids=@('cap-1567-3437eb1e-5471-45e6-894c-85726505891f','cap-1567-4c1b30d2-a71b-489e-961c-ee1735c4ecec','cap-1567-c2d9d9e8-aa91-4d6c-a953-0adb04d7991b','cap-1568-2483d11d-fcd7-4224-9253-8d26bde8038d','cap-1568-7c6eee66-bfcf-4776-bd7c-4b39b08c7e3b','cap-1568-85318453-6c3e-4ce5-850b-cc736f345e84','cap-1568-d9a9b816-5885-4fb8-8f40-3778dc82f244'); foreach($id in $ids){ D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\raw_capture_replay.py $id --root artifacts\sku-evidence-001\raw-captures --enterprise-id 1 --workspace-id 1 --output "artifacts\sku-evidence-001\server-replay\$id.json"; if($LASTEXITCODE -ne 0){exit $LASTEXITCODE} }; Write-Output "REPLAYED=$($ids.Count) EXIT=0"
++Input/environment: dummy non-network server configuration; Original Raw only
++Literal output/result: REPLAYED=7 EXIT=0; every output mode=dry-run-analysis, network_access=false, hashes_valid=true, platform_product_id matched manifest, QualityGate accepted=true
++Exit status: 0
++Status: PASS
++
++ANDROID_EXPLICIT_RAW_REPLAY
++Command: $dirs=Get-ChildItem '..\artifacts\sku-evidence-001\raw-captures\enterprise-1\workspace-1' -Directory | Where-Object Name -like 'cap-156*' | Sort-Object Name; $env:PDD_CAPTURE_DIRS=($dirs.FullName -join [IO.Path]::PathSeparator); $env:PDD_REPLAY_OUTPUT=(Resolve-Path '..\artifacts\sku-evidence-001').Path+'\android-replay.json'; java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --tests '*RawCaptureReplayTest' --no-daemon
++Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; seven verified captures
++Literal output/result:
++com.collector.pdd.parser.RawCaptureReplayTest: tests=1 failures=0 errors=0 skipped=0 time=0.339
++NETWORK=False RESULTS=7
++All 7 item_id values matched manifest identity; parser_version=pdd-android-2; DTO status was partial/warning and was not represented as Generic SKU runtime PASS
++Exit status: 0
++Status: PASS
++
++PYTHON_COMPILE
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server scripts tests
++Input/environment: Python 3.10 project venv
 +Literal output/result: no output
 +Exit status: 0
 +Status: PASS
 +
++PYTHON_FULL_OFFLINE
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py
++Input/environment: Python 3.10 project venv; Oracle opt-in variables not set
++Literal output/result:
++Ran 195 tests in 0.756s
++OK (skipped=23)
++Exit status: 0
++Status: PASS; 23 Oracle-dependent tests were explicitly SKIPPED, not called PASS by this gate
++
++ANDROID_FULL_JVM
++Command: java -classpath gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
++Input/environment: D:\work\PDD_con_data_sku_evidence\android_collector; JDK 17.0.20; Android SDK 34; PDD_CAPTURE_DIRS unset for the module-wide run
++Literal output/result:
++BUILD SUCCESSFUL in 13s
++30 actionable tasks: 2 executed, 28 up-to-date
++ANDROID_TESTS=70 FAILURES=0 ERRORS=0 SKIPPED=1 SUITES=17
++Exit status: 0
++Status: PASS; RawCaptureReplayTest was SKIPPED in this module-wide no-env run and separately executed above with seven captures
++
++WEB_PRODUCTION_BUILD
++Command: prepend D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64 to PATH; npm ci; npm run build
++Input/environment: D:\work\PDD_con_data_sku_evidence\web; Node v22.18.0; npm 10.9.3
++Literal output/result:
++added 127 packages in 17s
++vite v8.2.1 building client environment for production...
++✓ 1673 modules transformed.
++✓ built in 6.49s
++WEB_EXIT=0
++Exit status: 0
++Status: PASS
++
++ORACLE_STRICT_PHASE1_TO_6A
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_state_r2_oracle tests.test_phase2_schema_contract tests.test_job_service tests.test_job_reconciliation_oracle_integration tests.test_phase2_route_oracle tests.test_phase3_oracle tests.test_phase5_oracle tests.test_phase55_oracle tests.test_phase6a_oracle
++Input/environment: approved dedicated writable/cleanable Oracle; T003_ORACLE_TEST_ENABLED=1; PHASE5_ORACLE_TEST_ENABLED=1; PHASE55_ORACLE_TEST_ENABLED=1; PHASE6A_ORACLE_TEST_ENABLED=1; credentials supplied only through environment
++Literal output/result:
++Ran 46 tests in 197.142s
++OK
++ORACLE_EXIT=0
++Exit status: 0
++Status: PASS
++
++PRODUCT_GOLDEN_AND_LEGACY_READ
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\product_consistency_p0.py
++Input/environment: approved dedicated Oracle; accepted golden product identity
++Literal output/result:
++sku_combination_count=10
++media_count=8
++provenance.status=unavailable
++provenance.reason=legacy_product_has_no_raw_or_snapshot_link
++result=PASS
++PRODUCT_GOLDEN_EXIT=0
++Exit status: 0
++Status: PASS
++
++MARKDOWN_YAML_CI_AND_DIFF
++Command: run validate_governance.py --check markdown, --check yaml, --check ci; then git diff 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 --check
++Input/environment: D:\work\PDD_con_data_sku_evidence; current Task evidence documents
++Literal output/result:
++Validated 62 Markdown files
++YAML_FILES=1
++YAML_PARSE=PASS
++CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
++CI_STATIC=PASS
++MARKDOWN_EXIT=0 YAML_EXIT=0 CI_EXIT=0 DIFF_EXIT=0
++Exit status: 0
++Status: PASS
++
 +DIFF_ARTIFACT
-+Command: python -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','42610e15cf683158eb2f96a3dc3d08e8b1f5e018','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
-+Input/environment: index containing the complete Task package relative to approved base; DIFF_FILE.patch intentionally excludes itself to avoid recursive content
-+Literal output/result: git apply --cached --check --reverse --unidiff-zero produced no output
++Command: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import subprocess,pathlib; args=['git','diff','--cached','--binary','-U0','42610e15cf683158eb2f96a3dc3d08e8b1f5e018','--','.',':(exclude)docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch']; pathlib.Path(r'docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch').write_bytes(subprocess.check_output(args))"; git add docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch; git apply --cached --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-001-verification/DIFF_FILE.patch
++Input/environment: staged complete Task delta relative to approved base; DIFF_FILE excludes itself to avoid recursive content
++Literal output/result: no output
 +Exit status: 0
 +Status: PASS
 +
 +ROLLBACK
-+Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-rollback-review.txt'; Copy-Item -LiteralPath 'docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt' -Destination $copy -Force; & 'D:\work\PDD_con_data\.venv-t001\Scripts\python.exe' 'docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh' $copy; $e=$LASTEXITCODE; Write-Output "SHELL_EXIT=$e"; Remove-Item -LiteralPath $copy; exit $e
-+Input/environment: C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
++Command: $copy=Join-Path $env:TEMP 'SKU-EVIDENCE-001-final-rollback.txt'; Copy-Item docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt $copy -Force; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs\tasks\SKU-EVIDENCE-001-verification\ROLLBACK.sh $copy; $e=$LASTEXITCODE; $repo=(Get-Content docs\tasks\SKU-EVIDENCE-001-verification\MODIFIED_FILE.txt -Raw).Trim(); Write-Output "REPO_MODIFIED=$repo"; Remove-Item $copy; Write-Output "SHELL_EXIT=$e"; exit $e
++Input/environment: another copy in C:\Users\Eden\AppData\Local\Temp
 +Literal output/result:
-+ROLLBACK_TARGET=C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-001-rollback-review.txt
-+RESTORED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
-+EXPECTED_SHA256=aed6320bfca34b41e4f3332e2d84d09d78ee3c9b14fd3d6b850cbf9ccabfbe21
++RESTORED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
++EXPECTED_SHA256=8adfd76309197c3d4f58dae6e996a3d1805dab80bad4c1d5d86fe1d0fd44668c
 +ROLLBACK_MATCH=true
 +ROLLBACK_RESULT=PASS
 +ROLLBACK_EXIT=0
++REPO_MODIFIED=REAL_DEVICE_GATE=PASS
 +SHELL_EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +RESTORED_BEHAVIOR_STATUS
-+The rollback copy restores REAL_DEVICE_GATE=PENDING. The repository MODIFIED_FILE remains changed with REAL_DEVICE_GATE=BLOCKED, matching docs/backlog.md and the Task while explicit real-device/account/manual approval is pending.
++The rollback copy restores REAL_DEVICE_GATE=BLOCKED, the committed pre-approval behavior/status. The repository MODIFIED_FILE remains REAL_DEVICE_GATE=PASS, matching docs/backlog.md and the Task evidence. Schema implementation, migration, Generic SKU runtime, P1/P2 and Phase 6B remain NOT APPROVED / NOT STARTED.
 diff --git a/docs/tasks/SKU-EVIDENCE-001.md b/docs/tasks/SKU-EVIDENCE-001.md
 new file mode 100644
-index 0000000..b0d9127
+index 0000000..2b6dfa7
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-001.md
 @@ -0,0 +1,133 @@
@@ -330,7 +469,7 @@ index 0000000..b0d9127
 +
 +- **Task ID**：SKU-EVIDENCE-001
 +- **Title**：补齐 Generic SKU Schema 决策证据
-+- **Status**：IN_PROGRESS（Real-device Gate：BLOCKED）
++- **Status**：REVIEW（Real-device Gate：PASS；Schema implementation：NOT APPROVED）
 +- **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
 +- **Branch / worktree**：`codex/sku-evidence-001` / `D:\work\PDD_con_data_sku_evidence`
 +- **Product Owner approval**：2026-08-25，本 Task 仅批准真实证据补齐与 Schema Proposal Review 建议，不批准 Schema 实施、Generic SKU runtime、P1、P2 或 Phase 6B。
@@ -395,16 +534,16 @@ index 0000000..b0d9127
 +
 +## Acceptance Criteria
 +
-+- [ ] 三维及以上购买维度有真实 Raw/manifest/identity 证据，或明确记录未取得原因；
-+- [ ] disabled/unavailable option 和无效 combination 有可重放证据；
-+- [ ] SKU 图片关联有跨状态/组合的稳定性判断与反例；
-+- [ ] 平台 SKU ID 有直接证据，或明确为 `NOT_OBSERVED`；
-+- [ ] 未触发确认订单、提交订单或支付；
-+- [ ] Original Raw、hash、manifest 与 derived replay/矩阵分离且可核验；
-+- [ ] Raw → Replay → DTO 一致性通过；
-+- [ ] 当前批准测试版本真机 Gate 有实际结果；
-+- [ ] Phase 1～6A、Product Golden Sample、Legacy read 回归有实际结果；
-+- [ ] 输出证据充分性结论和独立 Schema ADR Review 建议；
++- [x] 三维及以上购买维度有真实 Raw/manifest/identity 证据，或明确记录未取得原因（7 个样本均为 1～2 维，结论 `NOT_OBSERVED`）；
++- [x] disabled/unavailable option 和无效 combination 有可重放证据（disabled `NOT_OBSERVED`；`available=false` 被证伪为不足以认定 invalid combination）；
++- [x] SKU 图片关联有稳定性判断（7/7 `media_ref` 为空，结论 `NOT_OBSERVED`）；
++- [x] 平台 SKU ID 明确为 `NOT_OBSERVED`；
++- [x] 未触发确认订单、提交订单或支付；
++- [x] Original Raw、hash、manifest 与 derived replay/矩阵分离且可核验；
++- [x] Raw → Replay → DTO 身份一致性通过，并如实记录 Android DTO 的 partial/warning；
++- [x] 当前批准测试版本真机 Gate 有实际结果；
++- [x] Phase 1～6A、Product Golden Sample、Legacy read 回归有实际结果；
++- [x] 输出证据充分性结论和独立 Schema ADR Review 建议；
 +- [ ] Independent Review 给出 `ACCEPT`、`CHANGES_REQUIRED` 或 `BLOCKED`。
 +
 +## Test Plan
@@ -413,21 +552,21 @@ index 0000000..b0d9127
 +|---|---|---|---|---|---:|---|
 +| Targeted | `python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0` | Python 3.10 venv；dummy non-network Oracle config | fixture、Raw 与 Product P0 离线契约通过 | `Ran 19 tests ... OK` | 0 | PASS |
 +| Module | Gradle `testDebugUnitTest` filters：`AcceptedBaselineNoSkuRuntimeTest`、`RawCaptureReplayTest`、`DetailReaderTest` | JDK 17 / SDK 34；未设置 `PDD_CAPTURE_DIRS` | non-runtime/parser 通过；真实 Raw replay 不得伪 PASS | `BUILD SUCCESSFUL`; 14 passed, `RawCaptureReplayTest` 1 skipped | 0 | PASS + SKIPPED |
-+| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待真实证据采集后执行最终回归 |  | PENDING |
-+| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待真实证据采集后执行最终回归 |  | PENDING |
++| Full regression | Python offline、Android JVM、Web build、Oracle strict 分层入口 | Python 3.10、JDK 17、Node 22.18、隔离 Oracle | Phase 1～6A 回归实际通过 | Python 195 OK；Android 70/0/0；Web build PASS；Oracle 46/46 OK | 0 | PASS |
++| Golden / Legacy | `python scripts/product_consistency_p0.py` | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | `result: PASS`；legacy provenance 仍明确 unavailable | 0 | PASS |
 +
 +## Oracle Gate
 +
 +- Required：Yes（仅执行既有 Phase 1～6A strict、Golden Sample、Legacy read 回归；本 Task 不变更 Schema）
 +- Reason：Schema Proposal 的兼容结论必须证明现有 Product/Raw/Legacy 行为不回归。
 +- Environment：隔离、可写、可清理 Oracle；Golden Sample 按既有批准只读入口。
-+- Command / result / exit：待现有门禁盘点后固定；缺环境必须记为 `BLOCKED`。
++- Command / result / exit：Phase 1～6A strict `Ran 46 tests in 197.142s`、`OK`、exit `0`；Product Golden Sample `result: PASS`、exit `0`。
 +
 +## Real-device Gate
 +
 +- Required：Yes
 +- Device/scenario：当前批准测试版本；三维以上、disabled/unavailable、图片关联、平台 SKU ID 观察；全程不得确认订单/提交订单/支付。
-+- Command or steps / result：需要真实账号、真机、目标页面和人工验证，执行前按 Stop Condition 请求 Product Owner 明确批准。
++- Command or steps / result：Product Owner 已于 2026-08-25 明确批准；collector `1.0.81` 在受控真机完成 7 个 Raw，Task `1568` 为 4/4 success，设备已回到 online/idle。7/7 guard 确认未点击确认订单、未提交订单、未开始支付。结果与 hash 见证据矩阵。
 +
 +## Rollback
 +
@@ -456,6 +595,6 @@ index 0000000..b0d9127
 +## Evidence
 +
 +- Original evidence：Accepted baseline 没有 committed 真实 SKU_PANEL Raw；历史调查保留在 `13b4301`，不能当作 Accepted runtime。
-+- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)；后续待建立真实证据矩阵、Replay/DTO 报告与 Schema Proposal Review 建议。
-+- Review findings：待 Independent Review。
-+- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；后续 Review-fix Head 以分支历史和 Independent Review 记录为准；PR 未创建且未获准。当前 Real-device Gate 在真实账号/真机/人工验证前 `BLOCKED`。
++- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)。
++- Review findings：真实证据推翻 `available=false == invalid combination` 的模型假设；三维、disabled、SKU media 和平台 SKU ID 均须按 `NOT_OBSERVED` 处理。等待最终 Independent Review。
++- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；最终 fixed Head 待验证提交后记录。PR 未创建且未获准；Schema/migration/runtime/P1/P2/Phase 6B 均未开始。

@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-EVIDENCE-001
 - **Title**：补齐 Generic SKU Schema 决策证据
-- **Status**：IN_PROGRESS（Real-device Gate：BLOCKED）
+- **Status**：REVIEW（Real-device Gate：PASS；Schema implementation：NOT APPROVED）
 - **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
 - **Branch / worktree**：`codex/sku-evidence-001` / `D:\work\PDD_con_data_sku_evidence`
 - **Product Owner approval**：2026-08-25，本 Task 仅批准真实证据补齐与 Schema Proposal Review 建议，不批准 Schema 实施、Generic SKU runtime、P1、P2 或 Phase 6B。
@@ -67,16 +67,16 @@ Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manif
 
 ## Acceptance Criteria
 
-- [ ] 三维及以上购买维度有真实 Raw/manifest/identity 证据，或明确记录未取得原因；
-- [ ] disabled/unavailable option 和无效 combination 有可重放证据；
-- [ ] SKU 图片关联有跨状态/组合的稳定性判断与反例；
-- [ ] 平台 SKU ID 有直接证据，或明确为 `NOT_OBSERVED`；
-- [ ] 未触发确认订单、提交订单或支付；
-- [ ] Original Raw、hash、manifest 与 derived replay/矩阵分离且可核验；
-- [ ] Raw → Replay → DTO 一致性通过；
-- [ ] 当前批准测试版本真机 Gate 有实际结果；
-- [ ] Phase 1～6A、Product Golden Sample、Legacy read 回归有实际结果；
-- [ ] 输出证据充分性结论和独立 Schema ADR Review 建议；
+- [x] 三维及以上购买维度有真实 Raw/manifest/identity 证据，或明确记录未取得原因（7 个样本均为 1～2 维，结论 `NOT_OBSERVED`）；
+- [x] disabled/unavailable option 和无效 combination 有可重放证据（disabled `NOT_OBSERVED`；`available=false` 被证伪为不足以认定 invalid combination）；
+- [x] SKU 图片关联有稳定性判断（7/7 `media_ref` 为空，结论 `NOT_OBSERVED`）；
+- [x] 平台 SKU ID 明确为 `NOT_OBSERVED`；
+- [x] 未触发确认订单、提交订单或支付；
+- [x] Original Raw、hash、manifest 与 derived replay/矩阵分离且可核验；
+- [x] Raw → Replay → DTO 身份一致性通过，并如实记录 Android DTO 的 partial/warning；
+- [x] 当前批准测试版本真机 Gate 有实际结果；
+- [x] Phase 1～6A、Product Golden Sample、Legacy read 回归有实际结果；
+- [x] 输出证据充分性结论和独立 Schema ADR Review 建议；
 - [ ] Independent Review 给出 `ACCEPT`、`CHANGES_REQUIRED` 或 `BLOCKED`。
 
 ## Test Plan
@@ -85,21 +85,21 @@ Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manif
 |---|---|---|---|---|---:|---|
 | Targeted | `python -m unittest -v tests.test_collection_fixtures tests.test_raw_capture tests.test_product_consistency_p0` | Python 3.10 venv；dummy non-network Oracle config | fixture、Raw 与 Product P0 离线契约通过 | `Ran 19 tests ... OK` | 0 | PASS |
 | Module | Gradle `testDebugUnitTest` filters：`AcceptedBaselineNoSkuRuntimeTest`、`RawCaptureReplayTest`、`DetailReaderTest` | JDK 17 / SDK 34；未设置 `PDD_CAPTURE_DIRS` | non-runtime/parser 通过；真实 Raw replay 不得伪 PASS | `BUILD SUCCESSFUL`; 14 passed, `RawCaptureReplayTest` 1 skipped | 0 | PASS + SKIPPED |
-| Full regression | `scripts/test-baseline.ps1` 分层严格入口 | 固定工具链；Oracle opt-in 单独记录 | Phase 1～6A 回归实际通过 | 待真实证据采集后执行最终回归 |  | PENDING |
-| Golden / Legacy | 既有 Product Golden Sample 与 Legacy read 命令 | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | 待真实证据采集后执行最终回归 |  | PENDING |
+| Full regression | Python offline、Android JVM、Web build、Oracle strict 分层入口 | Python 3.10、JDK 17、Node 22.18、隔离 Oracle | Phase 1～6A 回归实际通过 | Python 195 OK；Android 70/0/0；Web build PASS；Oracle 46/46 OK | 0 | PASS |
+| Golden / Legacy | `python scripts/product_consistency_p0.py` | 隔离 Oracle/批准的只读样本 | Canonical/Legacy 读取保持一致 | `result: PASS`；legacy provenance 仍明确 unavailable | 0 | PASS |
 
 ## Oracle Gate
 
 - Required：Yes（仅执行既有 Phase 1～6A strict、Golden Sample、Legacy read 回归；本 Task 不变更 Schema）
 - Reason：Schema Proposal 的兼容结论必须证明现有 Product/Raw/Legacy 行为不回归。
 - Environment：隔离、可写、可清理 Oracle；Golden Sample 按既有批准只读入口。
-- Command / result / exit：待现有门禁盘点后固定；缺环境必须记为 `BLOCKED`。
+- Command / result / exit：Phase 1～6A strict `Ran 46 tests in 197.142s`、`OK`、exit `0`；Product Golden Sample `result: PASS`、exit `0`。
 
 ## Real-device Gate
 
 - Required：Yes
 - Device/scenario：当前批准测试版本；三维以上、disabled/unavailable、图片关联、平台 SKU ID 观察；全程不得确认订单/提交订单/支付。
-- Command or steps / result：需要真实账号、真机、目标页面和人工验证，执行前按 Stop Condition 请求 Product Owner 明确批准。
+- Command or steps / result：Product Owner 已于 2026-08-25 明确批准；collector `1.0.81` 在受控真机完成 7 个 Raw，Task `1568` 为 4/4 success，设备已回到 online/idle。7/7 guard 确认未点击确认订单、未提交订单、未开始支付。结果与 hash 见证据矩阵。
 
 ## Rollback
 
@@ -128,6 +128,6 @@ Accepted Business Baseline 已具备 Raw Capture、不可变 identity/hash/manif
 ## Evidence
 
 - Original evidence：Accepted baseline 没有 committed 真实 SKU_PANEL Raw；历史调查保留在 `13b4301`，不能当作 Accepted runtime。
-- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)；后续待建立真实证据矩阵、Replay/DTO 报告与 Schema Proposal Review 建议。
-- Review findings：待 Independent Review。
-- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；后续 Review-fix Head 以分支历史和 Independent Review 记录为准；PR 未创建且未获准。当前 Real-device Gate 在真实账号/真机/人工验证前 `BLOCKED`。
+- Derived artifacts：[`SKU-EVIDENCE-001-evidence-inventory.md`](SKU-EVIDENCE-001-evidence-inventory.md)、[`SKU-EVIDENCE-001-real-device-evidence.md`](SKU-EVIDENCE-001-real-device-evidence.md)、[`SKU-EVIDENCE-001-verification/VERIFICATION.txt`](SKU-EVIDENCE-001-verification/VERIFICATION.txt)。
+- Review findings：真实证据推翻 `available=false == invalid combination` 的模型假设；三维、disabled、SKU media 和平台 SKU ID 均须按 `NOT_OBSERVED` 处理。等待最终 Independent Review。
+- Commit / PR：Task 建立提交 `9f41036c7b9fb13b986baaae49a7583568ef46b7`；最终 fixed Head 待验证提交后记录。PR 未创建且未获准；Schema/migration/runtime/P1/P2/Phase 6B 均未开始。
