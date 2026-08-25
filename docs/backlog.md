@@ -7,7 +7,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| CI-ORACLE-LOCAL-GATE-001 | REVIEW | 将 Oracle merge 门禁改为固定 Head 的本地隔离 Oracle strict 证据；GitHub 不连接数据库 | 固定实现 Head 交给 Independent Review；Review fix 后创建 Draft PR，merge 前停止 |
+| CI-ORACLE-LOCAL-GATE-001 | ACCEPTED | 将 Oracle merge 门禁改为固定 Head 的本地隔离 Oracle strict 证据；GitHub 不连接数据库 | Independent Review 已 ACCEPT；创建独立 Draft PR 并监控 Hosted offline CI，merge 前停止 |
 
 ## Completed governance baseline
 

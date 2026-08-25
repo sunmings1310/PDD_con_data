@@ -2,7 +2,7 @@
 
 - **Task ID**：CI-ORACLE-LOCAL-GATE-001
 - **Title**：Oracle 本地严格证据合并门禁
-- **Status**：REVIEW
+- **Status**：ACCEPTED
 - **状态权威**：[`../backlog.md`](../backlog.md)
 
 ## Goal
@@ -53,13 +53,13 @@ None。该任务改变仓库合并治理，不改变产品/数据架构。
 
 ## Acceptance Criteria
 
-- [ ] Hosted CI 保留 Python offline、Android JVM、Web build、Governance 与 Oracle applicability；
-- [ ] Hosted CI 不连接数据库、不引用 T003 Oracle/JWT repository secrets；
-- [ ] Oracle-sensitive PR 必须提交绑定固定 Head 的 fresh local strict manifest；
-- [ ] Manifest 包含 exact command、Head、测试数量、字面结果/hash、exit、环境标识、时间、四制品与 rollback/无持久业务变更；
-- [ ] Validator 拒绝错误 Head、缺字段、非零 exit、SKIPPED/BLOCKED、结果/制品篡改、过期和错误命令；
-- [ ] 文档与模板统一 merge 条件和 remaining trust boundary；
-- [ ] Independent Review 明确确认没有把 Oracle 门禁降为可任意跳过；
+- [x] Hosted CI 保留 Python offline、Android JVM、Web build、Governance 与 Oracle applicability；
+- [x] Hosted CI 不连接数据库、不引用 T003 Oracle/JWT repository secrets；
+- [x] Oracle-sensitive PR 必须提交绑定固定 Head 的 fresh local strict manifest；
+- [x] Manifest 包含 exact command、Head、测试集合/数量、字面结果/hash、exit、环境标识、时间、四制品与 rollback/无持久业务变更；
+- [x] Validator 拒绝错误 Head、缺字段、非零 exit、SKIPPED/BLOCKED、结果/制品篡改、过期、错误命令和错误测试集合；
+- [x] 文档与模板统一 merge 条件和 remaining trust boundary；
+- [x] Independent Review 明确确认没有把 Oracle 门禁降为可任意跳过；
 - [ ] 固定 clean Head 推送并创建独立 Draft PR；Hosted CI 不访问数据库；merge 前停止。
 
 ## Evidence Manifest
@@ -119,7 +119,8 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 - Original baseline：`origin/main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`；
 - PR #5 observed state：Draft / open / Head `6f35f2e342f8e283cef340e42de610c21bd78952`；
 - Derived artifacts：[`CI-ORACLE-LOCAL-GATE-001-verification/`](CI-ORACLE-LOCAL-GATE-001-verification/)；
-- Review / fixed Head / Draft PR：pending。
+- Independent Review：`ACCEPT`，fixed implementation Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1`，无 P0/P1/P2；
+- Draft PR：next。
 
 ## Independent Review Findings
 
@@ -130,3 +131,5 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 | applicability 漏判 `scripts/test-baseline.ps1`、`test_phase2_schema_contract.py`、`test_job_service.py` | P1 | 独立 classifier 固定 canonical 九文件、runner、server/migration/oracle-test rules | `test_oracle_scope.py` |
 | context-less artifact patch 在 fresh Windows CRLF checkout rollback 失败 | P1 | 生成 `--unified=0` patch；rollback 使用 `--unidiff-zero --ignore-space-change`；fresh CRLF checkout 回归 | `ROLLBACK=PASS ... original SHA-256 restored` |
 | CURRENT_STATE 未同步 | P2 | 记录 main 基线、本治理 REVIEW 语义、PR #5 后续门禁 | Markdown/governance validation |
+
+第二轮 Review（Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1`）：`ACCEPT`，无 P0/P1/P2。Reviewer 明确确认 classifier 无 `not_required` bypass、Oracle-sensitive 不能任意跳过、Hosted workflow 无数据库/secret 引用、fresh CRLF rollback PASS，且 remaining local-run provenance trust boundary 未冒充 Hosted DB run。
