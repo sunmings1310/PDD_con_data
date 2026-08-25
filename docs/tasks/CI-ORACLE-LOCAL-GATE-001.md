@@ -78,7 +78,7 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Validator unit | `python -m unittest -v docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/test_validate_oracle_local_evidence.py` | 临时 Git repo + manifest fixtures | 10 cases PASS | `Ran 10 tests in 2.157s` / `OK` | 0 | PASS |
+| Validator unit | `python -m unittest -v docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/test_validate_oracle_local_evidence.py` | 临时 Git repo + manifest fixtures | 11 cases PASS | `Ran 11 tests in 2.149s` / `OK` | 0 | PASS |
 | Governance/static | `python docs/tasks/CI-ORACLE-LOCAL-GATE-001-verification/validate_governance.py --check <yaml/ci/markdown>` | workflow、54 Markdown、scope | YAML/Markdown/scope/secret absence PASS | `YAML_PARSE=PASS files=1`; `CI_STATIC=PASS hosted_db_access=absent oracle_bypass=absent`; `MARKDOWN_LINKS=PASS files=54` | 0 | PASS |
 | Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | Python 3.10.6，复用已确认项目 venv | offline suite PASS | `Ran 195 tests in 0.377s`; `OK (skipped=23)`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | JDK 17.0.20 / SDK 34 | PASS | `BUILD SUCCESSFUL in 1m 7s`; XML `70 tests, 0 failures, 0 errors, 1 skipped`; strict summary PASS | 0 | PASS |

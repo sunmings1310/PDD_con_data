@@ -48,7 +48,7 @@ class OracleEvidenceValidatorTest(unittest.TestCase):
             "status": "PASS",
             "exit_code": 0,
             "environment": {"identifier": "oracle-free-local-01", "isolation": "local-isolated-oracle", "database": "Oracle", "persistent_business_changes": False},
-            "test_run": {"suite": "oracle-integration", "tests_total": 46, "passed": 46, "failures": 0, "errors": 0, "skipped": 0, "blocked": 0},
+            "test_run": {"suite": "oracle-integration", "test_files": MODULE.EXPECTED_TEST_FILES, "tests_total": 46, "passed": 46, "failures": 0, "errors": 0, "skipped": 0, "blocked": 0},
             "literal_output": literal,
             "literal_output_sha256": hashlib.sha256(literal.encode()).hexdigest(),
             "rollback": {"status": "PASS", "command": "bash ROLLBACK.sh copy", "literal_result": "ROLLBACK=PASS restored", "exit_code": 0, "persistent_business_changes": False},
@@ -99,6 +99,11 @@ class OracleEvidenceValidatorTest(unittest.TestCase):
     def test_wrong_command(self):
         self.manifest["command"] = "python -m unittest"
         with self.assertRaisesRegex(MODULE.EvidenceError, "canonical"):
+            self.validate()
+
+    def test_wrong_test_collection(self):
+        self.manifest["test_run"]["test_files"] = ["tests/test_phase6a_oracle.py"]
+        with self.assertRaisesRegex(MODULE.EvidenceError, "canonical Oracle strict collection"):
             self.validate()
 
     def test_artifact_tamper(self):

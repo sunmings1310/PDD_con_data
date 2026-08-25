@@ -20,6 +20,17 @@ CANONICAL_COMMAND = (
 )
 MARKER = "<!-- oracle-local-evidence:v1 -->"
 ROLES = {"modified_file", "diff_file", "verification", "rollback"}
+EXPECTED_TEST_FILES = [
+    "tests/test_task_state_r2_oracle.py",
+    "tests/test_phase2_schema_contract.py",
+    "tests/test_job_service.py",
+    "tests/test_job_reconciliation_oracle_integration.py",
+    "tests/test_phase2_route_oracle.py",
+    "tests/test_phase3_oracle.py",
+    "tests/test_phase5_oracle.py",
+    "tests/test_phase55_oracle.py",
+    "tests/test_phase6a_oracle.py",
+]
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -112,6 +123,7 @@ def validate_manifest(
     for field in ("tests_total", "passed", "failures", "errors", "skipped", "blocked"):
         _require(type(run.get(field)) is int and run[field] >= 0, f"test_run.{field} must be a non-negative integer")
     _require(run.get("suite") == "oracle-integration", "test_run.suite must be oracle-integration")
+    _require(run.get("test_files") == EXPECTED_TEST_FILES, "test_run.test_files does not match the canonical Oracle strict collection")
     _require(run["tests_total"] > 0, "tests_total must be positive")
     _require(run["passed"] == run["tests_total"], "every Oracle test must pass")
     _require(run["failures"] == run["errors"] == run["skipped"] == run["blocked"] == 0, "failures/errors/skipped/blocked must all be zero")
