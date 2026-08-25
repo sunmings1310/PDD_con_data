@@ -4,7 +4,7 @@
 >
 > 审计方式：源码与现有测试只读检查；批准测试 Oracle 的只读查询；FastAPI 现有只读 handler/query 直接调用；未登录真实账号、未修改业务数据、未启动业务实现。
 >
-> 总结：**数据没有丢失；用户看到“没有数据”的主要原因是页面入口、过滤语义、标识契约和刷新/状态反馈不完整。P0=0，P1=7，P2=2，P3=1。**
+> 总结：**任务 1568 数据没有丢失；用户看到“没有数据”的主要原因是页面入口、过滤语义、标识契约和刷新/状态反馈不完整。另有一个独立 P0：实时日志 WebSocket 未认证、未按 Enterprise/Workspace 分区且调度可静默失败。P0=1，P1=7，P2=2，P3=1。**
 
 ## 1. 核心结论
 
@@ -20,13 +20,15 @@ Task 1568 succeeded（4/4）
 → 0 Quarantine
 ```
 
-因此，本次现象不是 `Android → Oracle` 丢数据，也不是普通 Product/Snapshot/Quality 未生成。实际可见性断点如下：
+因此，本次“无数据”现象不是 `Android → Oracle` 丢数据，也不是普通 Product/Snapshot/Quality 未生成。实际可见性断点如下：
 
 1. `/products` 默认只返回 `saved` 商品；任务 `1568` 的 4 条结果均为 `draft`，所以商品资料库不会显示。页面空态只写“暂无商品”，没有解释“采集结果需从任务详情保存入库”。
 2. `/tasks/1568` 使用 `task_id` 查询时，现有 API 确实返回 4 条 draft 商品；这是当前唯一完整的普通结果入口。
 3. Product、Task Trace 和 Quarantine 页面把全局 `master_product_id` 放入时间线路由，但服务端在租户模式下把该参数解释为 `enterprise_product_id`，导致 Snapshot 时间线返回空。
 4. Task 列表和商品资料库不自动刷新；采集中停留在这些页面会看到旧状态。Task 详情虽每 5 秒轮询，但任务与商品请求被 `Promise.all` 绑定且没有页面级错误/空态，任一请求失败都可能留下空白或旧数据。
 5. 已接受 Raw 没有独立 Web 查询入口；Quality 页面也不支持 `task_id/job_id` 筛选。用户无法从 Task 直接核对 Raw/Quality，只有 Quarantine 详情能显示 Raw 引用。
+
+独立 Review 同时发现一个必须先处理的安全与可靠性断点：`/ws/realtime` 无认证、权限和租户校验，所有连接进入一个全局广播集合；Web 连接也不发送 token、Enterprise 或 Workspace。同步路由的通知调度还会吞掉异常。因此当前实时日志要么静默不推送，要么在调度成功时可能把 Task/Device/日志内容广播给未认证或其他租户连接。该 P0 与 Task 1568 的 Oracle 持久化完整性是两件事，不能互相抵消。
 
 ### SKU 边界
 
@@ -98,13 +100,13 @@ Correct tenant resource /products/237/timeline → Snapshot 410
 
 ## 3. 页面、API 与数据源矩阵
 
-所有业务请求原则上经 `web/src/api/http.js` 自动附带 Bearer Token、`X-Enterprise-Id` 和 `X-Workspace-Id`；服务端以 `require_tenant_perms` 和 Oracle tenant predicate 过滤。Excel 的三个 blob/upload 请求是已确认例外。
+普通 HTTP 业务请求原则上经 `web/src/api/http.js` 自动附带 Bearer Token、`X-Enterprise-Id` 和 `X-Workspace-Id`；服务端以 `require_tenant_perms` 和 Oracle tenant predicate 过滤。已确认两类例外：Excel 的三个 raw axios blob/upload 请求缺租户头；实时日志 WebSocket 不经过 HTTP client，既不发送身份/租户上下文，服务端也不校验或分区。
 
 | 页面 / 路由 | 主要用户功能 | API | Oracle / 服务状态来源 | 空态、错误态、刷新 |
 |---|---|---|---|---|
 | 登录 `/login` | 登录并取得用户/租户上下文 | `/api/auth/login`、`/api/auth/me` | User、Role、Membership、Workspace | 登录错误 toast；无轮询 |
 | 设备 `/devices` | 设备、绑定、终止任务 | `/api/devices`、platforms、account operators | Device、Task、Job/Attempt/Lease、Account/User | 手动刷新；缺统一 loading/error/empty |
-| 实时监控 `/devices/:id/live` | 当前任务与屏幕状态 | devices、task detail、WS | Device、Task/Item/Log | 8 秒轮询；有“无执行中任务”，请求错误不清晰 |
+| 实时监控 `/devices/:id/live` | 当前任务与屏幕状态 | devices、task detail、`/ws/realtime` | Device、Task/Item/Log + 全局内存 WS Hub | 8 秒 HTTP 轮询；WS 未认证/未带租户/全局广播且调度可能静默失败（P0） |
 | 投屏 `/devices/:id/cast` | 启停投屏、任务日志 | cast start/stop、devices、task detail、WS | 内存 cast state + Device/Task/Log | 日志 5 秒轮询；画面空态；错误主要 toast |
 | 任务列表 `/tasks` | 筛选、审核、进入详情 | `/api/tasks`、review | Task | 有 loading/error/empty；仅手动刷新 |
 | 创建任务 `/tasks/create` | 选择平台/设备/账号并创建 | platforms、devices、accounts、`POST /api/tasks` | Platform、Device、Account、Task/Item/Job | 提交 loading；初始依赖失败缺页面级恢复 |
@@ -127,7 +129,13 @@ Correct tenant resource /products/237/timeline → Snapshot 410
 
 ### P0
 
-**未发现 P0。** Task 1568 的租户、持久化、任务成功语义和业务结果均存在；没有观察到跨租户泄露、错误完成或数据丢失。
+#### F0 — 实时日志 WebSocket 未认证、未按租户分区且调度不可靠
+
+- **复现**：`server/ws_hub.py` 把所有 WebSocket 放入一个全局 `set` 并向全部 peers 广播；`/ws/realtime` 连接直接 `accept()`，没有 token、`device:view`、Enterprise/Workspace membership 或资源归属检查。`DeviceLive.vue` 的连接 URL 不携带任何上下文，Task progress 广播数据也没有租户字段。
+- **可靠性反例**：`notify_sync()` 从同步 handler 调用 `get_event_loop()/create_task()`，只在 loop running 时调度，并吞掉全部异常；因此 UI 声称的“WebSocket 推送日志”可能静默不工作。
+- **影响**：一旦广播被成功调度，未认证连接或其他租户连接可能收到 `task_id/device_id/message/level`；调度失败时用户又会得到无提示的陈旧日志。现有 HTTP tenant predicate 不能保护该独立 WS 通道。
+- **最低修复**：复用已有 `BL-110`，建立一个受控的最小 WS 子任务：握手认证、`device:view`、Enterprise/Workspace membership、Task/Device 归属校验；Hub 按租户/资源分区；事件携带服务端确定的 scope；使用可靠的 app event loop/队列调度并记录失败；增加未认证、跨租户、撤销用户/设备和真实调度契约测试。
+- **停止条件**：本审计只记录并升级 P0，不修改 WS 业务代码；在 P0 修复并验证前，不把实时日志标为安全或可靠。
 
 ### P1
 
@@ -219,7 +227,17 @@ Production build 通过，但主 chunk 约 578 kB 并触发现有告警。该问
 
 ## 6. 最小必要整改任务排序
 
-### 1. `WEB-RESULT-VISIBILITY-001` — 优先 P1
+### 1. `BL-110-WS-TENANT-BOUNDARY` — 最高优先 P0
+
+复用已有 `BL-110`，不要建立重复的全站 WebSocket 项目。本子任务只收敛实时日志 WS：
+
+- 握手认证与 `device:view` 权限；
+- Enterprise/Workspace、Task、Device 归属校验；
+- Hub/事件按租户与资源分区；
+- 同步 handler 到 app event loop 的可靠调度与可观察失败；
+- 未认证、跨租户、撤销与调度契约测试。
+
+### 2. `WEB-RESULT-VISIBILITY-001` — 后续 P1
 
 一个垂直切片完成以下内容，避免拆成多个互相等待的小任务：
 
@@ -229,19 +247,19 @@ Production build 通过，但主 chunk 约 578 kB 并触发现有告警。该问
 - Task Trace 增加脱敏 Raw/Quality/Snapshot 引用和 task-scoped 质量摘要；
 - 对 Task 1568 同型 fixture 增加 Web/API 契约和组件测试。
 
-### 2. `WEB-CLIENT-CONTRACT-001` — 第二优先 P1
+### 3. `WEB-CLIENT-CONTRACT-001` — 后续 P1
 
 - Excel blob/upload/export 统一 tenant-aware HTTP client；
 - 按权限选择首页/回退路由，提供无权限页；
 - 覆盖 Authorization、Enterprise、Workspace 和角色路由矩阵。
 
-### 3. `WEB-STATE-UX-001` — 后续 P2
+### 4. `WEB-STATE-UX-001` — 后续 P2
 
 - 只为仍缺失的页面补齐统一 loading/error/empty/retry；
 - 统一成功/失败/目标计数与“已入库/待保存/警告”文案；
 - 依据真实使用指标再决定刷新节奏和 bundle 优化。
 
-不建议现在新建独立 Dashboard 重构、设计系统、Generic SKU 页面、Schema/migration 或全站 WebSocket 项目。
+不建议现在新建独立 Dashboard 重构、设计系统、Generic SKU 页面、Schema/migration 或重复的全站 WebSocket 项目。
 
 ## 7. 验证与限制
 
@@ -249,5 +267,6 @@ Production build 通过，但主 chunk 约 578 kB 并触发现有告警。该问
 - Web strict gate：`[PASS] web-build: exit=0`，exit 0。
 - Oracle Task 1568 query + handler contract：exit 0；显式 `ROLLBACK`。
 - 静态契约检查：raw axios=3、Excel tenant header refs=0、timeline master-id links=3、server enterprise-id lookup=1。
+- WS 静态契约检查：global client set=1、server auth/tenant refs=0、client WS context refs=0、Task event tenant refs=0；P0 reproduced。
 - 未执行需要新登录的浏览器会话；没有使用或记录真实账号、Token、密码或未脱敏 Raw。Oracle/API/Web 断点已通过真实持久化事实、现有 handler 和渲染源码交叉验证。
 - 本报告不批准任何实现；`SKU-EVIDENCE-001` 保持 `REVIEW / SCHEMA REVIEW CANDIDATE`，不进入 Schema、Generic SKU runtime、P1/P2 或 Phase 6B。

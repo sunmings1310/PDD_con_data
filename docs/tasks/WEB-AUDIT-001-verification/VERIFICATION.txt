@@ -1,7 +1,7 @@
 TASK=WEB-AUDIT-001
 BRANCH=codex/web-audit-001
 BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = REVIEW; P0=0; implementation/PR/merge/release = NOT STARTED
+CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = CHANGES_REQUIRED; P0=1 realtime WebSocket tenant/auth/reliable-dispatch boundary; implementation/PR/merge/release = NOT STARTED
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\MODIFIED_FILE.txt
@@ -43,6 +43,13 @@ Literal output/result: RAW_AXIOS_CALLS=3 EXCEL_TENANT_HEADER_REFS=0 TIMELINE_MAS
 Exit status: 0
 Status: PASS; P1 client/identifier findings reproduced
 
+REALTIME_WEBSOCKET_CONTRACT
+Command: count global client set, authentication/tenant refs in server/ws_hub.py, token/tenant refs in DeviceLive.vue, and tenant refs in Task progress event payload
+Input/environment: fixed Head source; no network connection or login
+Literal output/result: WS_GLOBAL_CLIENT_SET=1 WS_AUTH_OR_TENANT_REFS=0 CLIENT_WS_CONTEXT_REFS=0 TASK_EVENT_TENANT_REFS=0 WS_EXCEPTION_SWALLOW_LINES=4
+Exit status: 0
+Status: PASS; P0 unauthenticated/global broadcast and silent-dispatch finding reproduced
+
 WEB_PRODUCTION_BUILD
 Command: $node='D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64'; $env:PATH="$node;$env:PATH"; npm ci; npm run build
 Input/environment: D:\work\PDD_con_data_web_audit\web; Node v22.18.0; npm 10.9.3
@@ -82,11 +89,11 @@ EXPECTED_SHA256=8b9e56432fcccb4612af85b4f039569164825ee0646931349dd60344ea4c83b0
 ROLLBACK_MATCH=true
 ROLLBACK_RESULT=PASS
 ROLLBACK_EXIT=0
-REPO_MODIFIED=WEB_AUDIT_STATUS=REVIEW
+REPO_MODIFIED=WEB_AUDIT_STATUS=CHANGES_REQUIRED
 COPY_RESTORED=WEB_AUDIT_STATUS=IN_PROGRESS
 SHELL_EXIT=0
 Exit status: 0
 Status: PASS
 
 RESTORED_BEHAVIOR_STATUS
-The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=REVIEW. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.
+The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=CHANGES_REQUIRED. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.
