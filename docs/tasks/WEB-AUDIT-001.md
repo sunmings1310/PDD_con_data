@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-AUDIT-001
 - **Title**：前端功能、数据可见性与产品流程审计
-- **Status**：CHANGES_REQUIRED
+- **Status**：ACCEPTED（P0 escalated；Task stopped before implementation/PR）
 
 ## Goal
 
@@ -58,7 +58,7 @@ Product Owner 已批准本只读审计。`SKU-EVIDENCE-001` 保持 `REVIEW / SCH
 - [x] 使用任务 `1568` 复现并定位 `Oracle → API → Web` 真实断点。
 - [x] 区分调查性 SKU Raw 与普通 Task/Product/Snapshot/Quality 可见性。
 - [x] 按 P0/P1/P2/P3 输出可复现 findings、端到端用户流程与最小整改排序。
-- [ ] 现有适用测试与独立 Review 完成，固定 clean Head（首轮 Review：`CHANGES REQUIRED`，P0 WS finding 待文档修正后复核）。
+- [x] 现有适用测试与独立 Review 完成，固定 clean Head（首轮 `CHANGES REQUIRED`；修订后复核 `ACCEPT`）。
 
 ## Test Plan
 
@@ -103,5 +103,5 @@ Product Owner 已批准本只读审计。`SKU-EVIDENCE-001` 保持 `REVIEW / SCH
 
 - Original evidence：当前源码、已批准测试 Oracle 中任务 `1568` 的只读查询结果（仅脱敏摘要）。
 - Derived artifacts：[`WEB-AUDIT-001-report.md`](WEB-AUDIT-001-report.md) 与 `WEB-AUDIT-001-verification/`。
-- Review findings：首轮 `CHANGES REQUIRED`：P0=1（实时日志 WS 未认证、未按 Enterprise/Workspace 分区、调度异常被吞）；原 P1=7、P2=2、P3=1 结论保持。修订后等待复核。
-- Commit / PR：Task 建立提交 `7e6c77335aaebf4fc021f4b039423feb7874bcc3`；最终 fixed Head 待 Review 后记录；PR 禁止。
+- Review findings：首轮 `CHANGES REQUIRED`：P0=1（实时日志 WS 未认证、未按 Enterprise/Workspace 分区、调度异常被吞）。修订 Head `c313f5b2c5c492fd3089b30b357e3017ed1d9d3d` 复核为 `ACCEPT`；P1=7、P2=2、P3=1 结论保持。
+- Commit / PR：Task 建立提交 `7e6c77335aaebf4fc021f4b039423feb7874bcc3`；报告提交 `904b3c75eb3cbd0a9059ab2ce9e6c3fe78858cb6`；Review 修订 Head `c313f5b2c5c492fd3089b30b357e3017ed1d9d3d`；最终状态记录提交后固定。PR 禁止。

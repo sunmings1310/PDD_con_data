@@ -1,7 +1,7 @@
 TASK=WEB-AUDIT-001
 BRANCH=codex/web-audit-001
 BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = CHANGES_REQUIRED; P0=1 realtime WebSocket tenant/auth/reliable-dispatch boundary; implementation/PR/merge/release = NOT STARTED
+CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = ACCEPTED / P0 ESCALATED / STOPPED; P0=1 realtime WebSocket tenant/auth/reliable-dispatch boundary; implementation/PR/merge/release = NOT STARTED
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\MODIFIED_FILE.txt
@@ -80,6 +80,13 @@ Literal output/result: DIFF_CHECK_EXIT=0 PATCH_REVERSE_CHECK_EXIT=0
 Exit status: 0
 Status: PASS
 
+INDEPENDENT_REVIEW
+Command: independent read-only review of fixed investigation/report Head c313f5b2c5c492fd3089b30b357e3017ed1d9d3d
+Input/environment: scope, Task 1568 evidence, page/API/tenant matrix, severity, minimal remediation order, four artifacts, rollback and SKU boundary
+Literal output/result: ACCEPT; P0 synchronized; BL-110-WS-TENANT-BOUNDARY ranked first; P1=7 P2=2 P3=1 preserved; diff/rollback/artifacts consistent
+Exit status: 0
+Status: ACCEPT
+
 ROLLBACK
 Command: Copy-Item MODIFIED_FILE.txt artifacts\web-audit-001\rollback-copy.txt; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe ROLLBACK.sh artifacts\web-audit-001\rollback-copy.txt
 Input/environment: another copy under ignored artifacts; repository MODIFIED_FILE remains unchanged
@@ -89,11 +96,11 @@ EXPECTED_SHA256=8b9e56432fcccb4612af85b4f039569164825ee0646931349dd60344ea4c83b0
 ROLLBACK_MATCH=true
 ROLLBACK_RESULT=PASS
 ROLLBACK_EXIT=0
-REPO_MODIFIED=WEB_AUDIT_STATUS=CHANGES_REQUIRED
+REPO_MODIFIED=WEB_AUDIT_STATUS=ACCEPTED_P0_ESCALATED_STOPPED
 COPY_RESTORED=WEB_AUDIT_STATUS=IN_PROGRESS
 SHELL_EXIT=0
 Exit status: 0
 Status: PASS
 
 RESTORED_BEHAVIOR_STATUS
-The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=CHANGES_REQUIRED. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.
+The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=ACCEPTED_P0_ESCALATED_STOPPED. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.

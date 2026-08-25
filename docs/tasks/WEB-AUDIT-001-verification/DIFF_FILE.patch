@@ -1,9 +1,9 @@
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 75e98fd..f3c1ef9 100644
+index 75e98fd..316ff35 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -10,0 +11 @@
-+| WEB-AUDIT-001 | CHANGES_REQUIRED | 只读审计 Web 功能、数据可见性与产品流程；任务 1568 数据完整；Independent Review 新增 P0：实时日志 WS 未认证、未按租户分区且调度可静默失败 | 仅修订审计文档后重新 Review；先处理 BL-110 最小 WS 边界，再处理结果可见性；不创建 PR、不修改业务实现 |
++| WEB-AUDIT-001 | ACCEPTED / P0 ESCALATED / STOPPED | 只读审计已通过 Independent Review；任务 1568 数据完整；P0 为实时日志 WS 未认证、未按租户分区且调度可静默失败 | 先批准并处理 `BL-110-WS-TENANT-BOUNDARY`，再处理结果可见性；本 Task 不创建 PR、不修改业务实现 |
 diff --git a/docs/tasks/WEB-AUDIT-001-report.md b/docs/tasks/WEB-AUDIT-001-report.md
 new file mode 100644
 index 0000000..2833f39
@@ -284,11 +284,11 @@ index 0000000..2833f39
 +- 本报告不批准任何实现；`SKU-EVIDENCE-001` 保持 `REVIEW / SCHEMA REVIEW CANDIDATE`，不进入 Schema、Generic SKU runtime、P1/P2 或 Phase 6B。
 diff --git a/docs/tasks/WEB-AUDIT-001-verification/MODIFIED_FILE.txt b/docs/tasks/WEB-AUDIT-001-verification/MODIFIED_FILE.txt
 new file mode 100644
-index 0000000..7f8063f
+index 0000000..6b29197
 --- /dev/null
 +++ b/docs/tasks/WEB-AUDIT-001-verification/MODIFIED_FILE.txt
 @@ -0,0 +1 @@
-+WEB_AUDIT_STATUS=CHANGES_REQUIRED
++WEB_AUDIT_STATUS=ACCEPTED_P0_ESCALATED_STOPPED
 diff --git a/docs/tasks/WEB-AUDIT-001-verification/ROLLBACK.sh b/docs/tasks/WEB-AUDIT-001-verification/ROLLBACK.sh
 new file mode 100755
 index 0000000..6665e96
@@ -325,14 +325,14 @@ index 0000000..6665e96
 +raise SystemExit(0 if actual == EXPECTED else 1)
 diff --git a/docs/tasks/WEB-AUDIT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-AUDIT-001-verification/VERIFICATION.txt
 new file mode 100644
-index 0000000..e2d5973
+index 0000000..830e695
 --- /dev/null
 +++ b/docs/tasks/WEB-AUDIT-001-verification/VERIFICATION.txt
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,106 @@
 +TASK=WEB-AUDIT-001
 +BRANCH=codex/web-audit-001
 +BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
-+CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = CHANGES_REQUIRED; P0=1 realtime WebSocket tenant/auth/reliable-dispatch boundary; implementation/PR/merge/release = NOT STARTED
++CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = ACCEPTED / P0 ESCALATED / STOPPED; P0=1 realtime WebSocket tenant/auth/reliable-dispatch boundary; implementation/PR/merge/release = NOT STARTED
 +
 +ARTIFACTS
 +MODIFIED_FILE=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\MODIFIED_FILE.txt
@@ -411,6 +411,13 @@ index 0000000..e2d5973
 +Exit status: 0
 +Status: PASS
 +
++INDEPENDENT_REVIEW
++Command: independent read-only review of fixed investigation/report Head c313f5b2c5c492fd3089b30b357e3017ed1d9d3d
++Input/environment: scope, Task 1568 evidence, page/API/tenant matrix, severity, minimal remediation order, four artifacts, rollback and SKU boundary
++Literal output/result: ACCEPT; P0 synchronized; BL-110-WS-TENANT-BOUNDARY ranked first; P1=7 P2=2 P3=1 preserved; diff/rollback/artifacts consistent
++Exit status: 0
++Status: ACCEPT
++
 +ROLLBACK
 +Command: Copy-Item MODIFIED_FILE.txt artifacts\web-audit-001\rollback-copy.txt; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe ROLLBACK.sh artifacts\web-audit-001\rollback-copy.txt
 +Input/environment: another copy under ignored artifacts; repository MODIFIED_FILE remains unchanged
@@ -420,17 +427,17 @@ index 0000000..e2d5973
 +ROLLBACK_MATCH=true
 +ROLLBACK_RESULT=PASS
 +ROLLBACK_EXIT=0
-+REPO_MODIFIED=WEB_AUDIT_STATUS=CHANGES_REQUIRED
++REPO_MODIFIED=WEB_AUDIT_STATUS=ACCEPTED_P0_ESCALATED_STOPPED
 +COPY_RESTORED=WEB_AUDIT_STATUS=IN_PROGRESS
 +SHELL_EXIT=0
 +Exit status: 0
 +Status: PASS
 +
 +RESTORED_BEHAVIOR_STATUS
-+The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=CHANGES_REQUIRED. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.
++The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=ACCEPTED_P0_ESCALATED_STOPPED. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.
 diff --git a/docs/tasks/WEB-AUDIT-001.md b/docs/tasks/WEB-AUDIT-001.md
 new file mode 100644
-index 0000000..4e6cb0f
+index 0000000..1e887ba
 --- /dev/null
 +++ b/docs/tasks/WEB-AUDIT-001.md
 @@ -0,0 +1,107 @@
@@ -438,7 +445,7 @@ index 0000000..4e6cb0f
 +
 +- **Task ID**：WEB-AUDIT-001
 +- **Title**：前端功能、数据可见性与产品流程审计
-+- **Status**：CHANGES_REQUIRED
++- **Status**：ACCEPTED（P0 escalated；Task stopped before implementation/PR）
 +
 +## Goal
 +
@@ -494,7 +501,7 @@ index 0000000..4e6cb0f
 +- [x] 使用任务 `1568` 复现并定位 `Oracle → API → Web` 真实断点。
 +- [x] 区分调查性 SKU Raw 与普通 Task/Product/Snapshot/Quality 可见性。
 +- [x] 按 P0/P1/P2/P3 输出可复现 findings、端到端用户流程与最小整改排序。
-+- [ ] 现有适用测试与独立 Review 完成，固定 clean Head（首轮 Review：`CHANGES REQUIRED`，P0 WS finding 待文档修正后复核）。
++- [x] 现有适用测试与独立 Review 完成，固定 clean Head（首轮 `CHANGES REQUIRED`；修订后复核 `ACCEPT`）。
 +
 +## Test Plan
 +
@@ -539,5 +546,5 @@ index 0000000..4e6cb0f
 +
 +- Original evidence：当前源码、已批准测试 Oracle 中任务 `1568` 的只读查询结果（仅脱敏摘要）。
 +- Derived artifacts：[`WEB-AUDIT-001-report.md`](WEB-AUDIT-001-report.md) 与 `WEB-AUDIT-001-verification/`。
-+- Review findings：首轮 `CHANGES REQUIRED`：P0=1（实时日志 WS 未认证、未按 Enterprise/Workspace 分区、调度异常被吞）；原 P1=7、P2=2、P3=1 结论保持。修订后等待复核。
-+- Commit / PR：Task 建立提交 `7e6c77335aaebf4fc021f4b039423feb7874bcc3`；最终 fixed Head 待 Review 后记录；PR 禁止。
++- Review findings：首轮 `CHANGES REQUIRED`：P0=1（实时日志 WS 未认证、未按 Enterprise/Workspace 分区、调度异常被吞）。修订 Head `c313f5b2c5c492fd3089b30b357e3017ed1d9d3d` 复核为 `ACCEPT`；P1=7、P2=2、P3=1 结论保持。
++- Commit / PR：Task 建立提交 `7e6c77335aaebf4fc021f4b039423feb7874bcc3`；报告提交 `904b3c75eb3cbd0a9059ab2ce9e6c3fe78858cb6`；Review 修订 Head `c313f5b2c5c492fd3089b30b357e3017ed1d9d3d`；最终状态记录提交后固定。PR 禁止。

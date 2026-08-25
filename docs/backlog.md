@@ -8,7 +8,7 @@
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
 | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
-| WEB-AUDIT-001 | CHANGES_REQUIRED | 只读审计 Web 功能、数据可见性与产品流程；任务 1568 数据完整；Independent Review 新增 P0：实时日志 WS 未认证、未按租户分区且调度可静默失败 | 仅修订审计文档后重新 Review；先处理 BL-110 最小 WS 边界，再处理结果可见性；不创建 PR、不修改业务实现 |
+| WEB-AUDIT-001 | ACCEPTED / P0 ESCALATED / STOPPED | 只读审计已通过 Independent Review；任务 1568 数据完整；P0 为实时日志 WS 未认证、未按租户分区且调度可静默失败 | 先批准并处理 `BL-110-WS-TENANT-BOUNDARY`，再处理结果可见性；本 Task 不创建 PR、不修改业务实现 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 
