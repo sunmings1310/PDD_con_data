@@ -8,7 +8,7 @@
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
 | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
-| WEB-AUDIT-001 | IN_PROGRESS | 只读审计 Web 功能、数据可见性与产品流程；核对任务 1568 的 Oracle → API → Web 链路 | 完成报告与独立 Review；不创建 PR、不修改业务实现 |
+| WEB-AUDIT-001 | REVIEW | 只读审计 Web 功能、数据可见性与产品流程；任务 1568 数据完整，断点位于 draft 可见语义、Snapshot 标识契约、页面状态/刷新与下钻入口 | 等待 Independent Review；不创建 PR、不修改业务实现 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 

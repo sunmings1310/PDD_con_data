@@ -1,0 +1,92 @@
+TASK=WEB-AUDIT-001
+BRANCH=codex/web-audit-001
+BASELINE=42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+CHANGED_BRANCH_FIELD=docs/backlog.md :: WEB-AUDIT-001 = REVIEW; P0=0; implementation/PR/merge/release = NOT STARTED
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\MODIFIED_FILE.txt
+DIFF_FILE=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_audit\docs\tasks\WEB-AUDIT-001-verification\ROLLBACK.sh
+
+BASELINE
+Command: git rev-parse 42610e15cf683158eb2f96a3dc3d08e8b1f5e018; git merge-base --is-ancestor 42610e15cf683158eb2f96a3dc3d08e8b1f5e018 HEAD
+Input/environment: D:\work\PDD_con_data_web_audit
+Literal output/result: 42610e15cf683158eb2f96a3dc3d08e8b1f5e018
+Exit status: 0
+Status: PASS
+
+TASK_1568_ORACLE_AND_HANDLER_CONTRACT
+Command: $env:PYTHONPATH=(Get-Location).Path; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe artifacts\web-audit-001\query_1568.py; summarize web_api_contract
+Input/environment: approved test Oracle; existing project server/.env loaded only into the process; no credential or Raw payload persisted in tracked files; task_id=1568; explicit rollback
+Literal output/result:
+TASK status=succeeded success_count=4 fail_count=0
+COUNTS task_items=4 jobs=4 attempts=4 legacy_products=4 raw=4 quality=4 snapshots=4 quarantines=0 receipts=8
+PRODUCTS_DEFAULT_TOTAL=72 PRODUCTS_DEFAULT_CONTAINS_TASK_1568=false
+PRODUCTS_TASK_1568_TOTAL=4 PRODUCT_IDS=539,538,537,536
+TASK_DETAIL_ITEMS=4 TASK_DETAIL_LOGS=6 TASK_DETAIL_STATUS=succeeded
+TRANSACTION=ROLLBACK
+Exit status: 0
+Status: PASS; finding reproduced without data mutation
+
+SNAPSHOT_IDENTIFIER_CONTRACT
+Command: call server.management_queries.list_snapshots with tenant 1/1 for Web-linked id 249 and actual enterprise_product_id 237; rollback
+Input/environment: approved test Oracle; Task 1568 Product 536; no Raw payload read
+Literal output/result: WEB_LINK_ID=249 TOTAL=0 EXPECTED_ENTERPRISE_PRODUCT_ID=237 TOTAL=1 SNAPSHOT_IDS=[410] TRANSACTION=ROLLBACK
+Exit status: 0
+Status: PASS; P1 identifier mismatch reproduced
+
+STATIC_WEB_CONTRACT
+Command: count raw axios calls and tenant header references in ExcelMatch.vue; count master_product_id timeline links; count server enterprise-product lookup
+Input/environment: baseline Web and server source
+Literal output/result: RAW_AXIOS_CALLS=3 EXCEL_TENANT_HEADER_REFS=0 TIMELINE_MASTER_ID_LINKS=3 SERVER_ENTERPRISE_ID_LOOKUPS=1
+Exit status: 0
+Status: PASS; P1 client/identifier findings reproduced
+
+WEB_PRODUCTION_BUILD
+Command: $node='D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64'; $env:PATH="$node;$env:PATH"; npm ci; npm run build
+Input/environment: D:\work\PDD_con_data_web_audit\web; Node v22.18.0; npm 10.9.3
+Literal output/result:
+added 127 packages
+vite v8.2.1 building client environment for production...
+1673 modules transformed.
+dist/assets/index-B69Z-kXs.js 577.77 kB | gzip: 180.61 kB
+✓ built in 3.79s
+NPM_CI_EXIT=0 WEB_BUILD_EXIT=0
+Exit status: 0
+Status: PASS; existing >500 kB chunk warning retained
+
+WEB_STRICT_GATE
+Command: copy existing bundled Node into ignored worktree .tools; .\scripts\test-baseline.ps1 -Suite web -Strict
+Input/environment: D:\work\PDD_con_data_web_audit; fixed Node 22.18.x/npm 10.x
+Literal output/result:
+[PASS] web-build: exit=0
+SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT=0
+Exit status: 0
+Status: PASS
+
+DIFF_ARTIFACT
+Command: generate git diff --cached --binary -U0 from baseline excluding DIFF_FILE.patch; git diff --cached --check; git apply --cached --check --reverse --unidiff-zero DIFF_FILE.patch
+Input/environment: complete staged WEB-AUDIT-001 governance/report delta relative to approved baseline; DIFF_FILE excludes itself to avoid recursive content
+Literal output/result: DIFF_CHECK_EXIT=0 PATCH_REVERSE_CHECK_EXIT=0
+Exit status: 0
+Status: PASS
+
+ROLLBACK
+Command: Copy-Item MODIFIED_FILE.txt artifacts\web-audit-001\rollback-copy.txt; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe ROLLBACK.sh artifacts\web-audit-001\rollback-copy.txt
+Input/environment: another copy under ignored artifacts; repository MODIFIED_FILE remains unchanged
+Literal output/result:
+RESTORED_SHA256=8b9e56432fcccb4612af85b4f039569164825ee0646931349dd60344ea4c83b0
+EXPECTED_SHA256=8b9e56432fcccb4612af85b4f039569164825ee0646931349dd60344ea4c83b0
+ROLLBACK_MATCH=true
+ROLLBACK_RESULT=PASS
+ROLLBACK_EXIT=0
+REPO_MODIFIED=WEB_AUDIT_STATUS=REVIEW
+COPY_RESTORED=WEB_AUDIT_STATUS=IN_PROGRESS
+SHELL_EXIT=0
+Exit status: 0
+Status: PASS
+
+RESTORED_BEHAVIOR_STATUS
+The rollback copy restores WEB_AUDIT_STATUS=IN_PROGRESS, the pre-report workflow marker. The repository MODIFIED_FILE remains WEB_AUDIT_STATUS=REVIEW. No Web, server, API, Schema, migration, configuration or business data behavior was changed. SKU-EVIDENCE-001 remains REVIEW / SCHEMA REVIEW CANDIDATE and no Generic SKU runtime, P1/P2, Phase 6B, PR, merge or release was started.

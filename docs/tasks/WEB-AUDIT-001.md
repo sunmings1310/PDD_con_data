@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-AUDIT-001
 - **Title**：前端功能、数据可见性与产品流程审计
-- **Status**：IN_PROGRESS
+- **Status**：REVIEW
 
 ## Goal
 
@@ -53,28 +53,29 @@ Product Owner 已批准本只读审计。`SKU-EVIDENCE-001` 保持 `REVIEW / SCH
 
 ## Acceptance Criteria
 
-- [ ] 完整页面/路由/功能矩阵与 API/服务端/Oracle 数据源映射。
-- [ ] 记录 Enterprise/Workspace 过滤、展示字段、空态、错误态与刷新机制。
-- [ ] 使用任务 `1568` 复现并定位 `Oracle → API → Web` 真实断点。
-- [ ] 区分调查性 SKU Raw 与普通 Task/Product/Snapshot/Quality 可见性。
-- [ ] 按 P0/P1/P2/P3 输出可复现 findings、端到端用户流程与最小整改排序。
+- [x] 完整页面/路由/功能矩阵与 API/服务端/Oracle 数据源映射。
+- [x] 记录 Enterprise/Workspace 过滤、展示字段、空态、错误态与刷新机制。
+- [x] 使用任务 `1568` 复现并定位 `Oracle → API → Web` 真实断点。
+- [x] 区分调查性 SKU Raw 与普通 Task/Product/Snapshot/Quality 可见性。
+- [x] 按 P0/P1/P2/P3 输出可复现 findings、端到端用户流程与最小整改排序。
 - [ ] 现有适用测试与独立 Review 完成，固定 clean Head。
 
 ## Test Plan
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | 静态路由/API/SQL 映射与任务 1568 只读查询 | 当前源码、已批准测试 Oracle | 映射完整且不写数据 | 待执行 |  |  |
-| Module | `npm ci`; `npm run build` | Node 22.18.x / npm 10.x | production build 通过 | 待执行 |  |  |
-| Full regression | `scripts/test-baseline.ps1 -Suite web -Strict` | 固定 Web 工具链 | Web strict gate 通过 | 待执行 |  |  |
-| Diff | `git diff --check` | Task 允许文档 | 无 whitespace error | 待执行 |  |  |
+| Targeted | `python artifacts/web-audit-001/query_1568.py`（ignored，只读调查脚本）及现有 handler/query 直接调用 | 已批准测试 Oracle；Task 1568；凭据仅经既有环境加载 | 映射完整且显式 rollback | Task 4/4；Product/Raw/Quality/Snapshot 各 4；default products 不含 1568，task filter 返回 4；`TRANSACTION=ROLLBACK` | 0 | PASS |
+| Targeted | Snapshot identifier contract probe | `master_product_id=249`、`enterprise_product_id=237`、tenant 1/1 | 复现并定位假空态 | `WEB_LINK_ID=249 TOTAL=0 ... ID=237 TOTAL=1 SNAPSHOT_IDS=[410] TRANSACTION=ROLLBACK` | 0 | PASS（finding reproduced） |
+| Module | `npm ci`; `npm run build` | Node v22.18.0 / npm 10.9.3 | production build 通过 | 1673 modules；`✓ built in 3.79s`；large-chunk warning 保留 | 0 | PASS |
+| Full regression | `scripts/test-baseline.ps1 -Suite web -Strict` | 固定 Web 工具链 | Web strict gate 通过 | `[PASS] web-build: exit=0`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Diff | `git diff --cached --check`; reverse apply check | Task 允许文档与完整 DIFF artifact | 无 whitespace error；patch 可反向验证 | `DIFF_CHECK_EXIT=0 PATCH_REVERSE_CHECK_EXIT=0` | 0 | PASS |
 
 ## Oracle Gate
 
 - Required：Yes（只读调查，不是 migration Gate）
 - Reason：必须以任务 `1568` 核对权威持久化事实与租户范围。
 - Environment：已批准测试 Oracle；凭据只经现有环境注入，不写入报告。
-- Command / result / exit：待执行。
+- Command / result / exit：只读 Task 1568 query + handler contract，Task/Product/Raw/Quality/Snapshot 均存在；显式 `ROLLBACK`；exit 0，PASS。
 
 ## Real-device Gate
 
@@ -101,6 +102,6 @@ Product Owner 已批准本只读审计。`SKU-EVIDENCE-001` 保持 `REVIEW / SCH
 ## Evidence
 
 - Original evidence：当前源码、已批准测试 Oracle 中任务 `1568` 的只读查询结果（仅脱敏摘要）。
-- Derived artifacts：`docs/tasks/WEB-AUDIT-001-report.md` 与 `docs/tasks/WEB-AUDIT-001-verification/`。
-- Review findings：待独立 Review。
-- Commit / PR：待固定 Head；PR 禁止。
+- Derived artifacts：[`WEB-AUDIT-001-report.md`](WEB-AUDIT-001-report.md) 与 `WEB-AUDIT-001-verification/`。
+- Review findings：P0=0；P1=7；P2=2；P3=1。等待独立 Review。
+- Commit / PR：Task 建立提交 `7e6c77335aaebf4fc021f4b039423feb7874bcc3`；最终 fixed Head 待 Review 后记录；PR 禁止。
