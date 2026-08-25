@@ -48,3 +48,8 @@ COMPILE=COMPILEALL=PASS / exit 0
 
 REMAINING_TRUST_BOUNDARY=GitHub verifies manifest structure, fixed Head, age, command, counts, literal-output hash, four artifact hashes and rollback. Independent Reviewer must verify that the local isolated Oracle run actually occurred; this is not equivalent to a Hosted DB run.
 INDEPENDENT_REVIEW=ACCEPT at 40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1; no P0/P1/P2; no arbitrary Oracle skip found
+FINAL_STATE_REVIEW=ACCEPT at ec01d9083d640343281a7efcbb93d0a2cb5d8f89; no findings
+DRAFT_PR=https://github.com/sunmings1310/PDD_con_data/pull/6
+HOSTED_PUSH_RUN=32840185392 / success
+HOSTED_PR_RUN=32840222261 / success
+HOSTED_JOBS=Python offline success; Android JVM success; Web build success; Governance success; Oracle applicability success; Oracle local evidence skipped as not applicable; no database job

@@ -12,7 +12,7 @@
 | 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
-| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：ACCEPTED / DRAFT PR NEXT` |
+| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：PR / DRAFT` |
 | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
 | Golden Sample | PDD `platform_product_id=985843042423` |
 
@@ -91,7 +91,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 - Oracle-sensitive PR 必须在固定 PR Head 的本地隔离 Oracle 上执行 canonical strict command，并在 PR body 提交结构化 manifest；
 - Hosted validator 检查 Head、时效、canonical 九文件集合/计数、字面输出和四制品 hash、rollback 与无持久业务变更；`BLOCKED`/`SKIPPED` 不能冒充 `PASS`；
 - Independent Reviewer 仍必须核验本地运行来源与隔离性。该人工信任边界不等价于 Hosted DB run；
-- 当前状态为 `ACCEPTED / DRAFT PR NEXT`，尚未进入 main；merge 仍需 Product Owner 明确批准。PR #5 保持 Draft/BLOCKED，待本治理 merge 后从新 main 更新并在其最终 Head 重跑本地 Oracle strict。
+- 当前状态为 Draft PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6)，尚未进入 main；Head `ec01d90` 的 push 与 pull_request Hosted Core CI 均成功，Oracle applicability 成功且本治理的 evidence job 明确 `skipped`，没有数据库 job。merge 仍需 Product Owner 明确批准。PR #5 保持 Draft/BLOCKED，待本治理 merge 后从新 main 更新并在其最终 Head 重跑本地 Oracle strict。
 
 ## 8. 文档唯一职责
 

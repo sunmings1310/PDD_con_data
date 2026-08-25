@@ -2,7 +2,7 @@
 
 - **Task ID**：CI-ORACLE-LOCAL-GATE-001
 - **Title**：Oracle 本地严格证据合并门禁
-- **Status**：ACCEPTED
+- **Status**：PR / DRAFT
 - **状态权威**：[`../backlog.md`](../backlog.md)
 
 ## Goal
@@ -60,7 +60,7 @@ None。该任务改变仓库合并治理，不改变产品/数据架构。
 - [x] Validator 拒绝错误 Head、缺字段、非零 exit、SKIPPED/BLOCKED、结果/制品篡改、过期、错误命令和错误测试集合；
 - [x] 文档与模板统一 merge 条件和 remaining trust boundary；
 - [x] Independent Review 明确确认没有把 Oracle 门禁降为可任意跳过；
-- [ ] 固定 clean Head 推送并创建独立 Draft PR；Hosted CI 不访问数据库；merge 前停止。
+- [x] 固定 clean Head 推送并创建独立 Draft PR；Hosted CI 不访问数据库；merge 前停止。
 
 ## Evidence Manifest
 
@@ -120,7 +120,9 @@ GitHub 能核验 manifest 结构、当前 Head、72 小时时效、canonical com
 - PR #5 observed state：Draft / open / Head `6f35f2e342f8e283cef340e42de610c21bd78952`；
 - Derived artifacts：[`CI-ORACLE-LOCAL-GATE-001-verification/`](CI-ORACLE-LOCAL-GATE-001-verification/)；
 - Independent Review：`ACCEPT`，fixed implementation Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1`，无 P0/P1/P2；
-- Draft PR：next。
+- Draft PR：[#6](https://github.com/sunmings1310/PDD_con_data/pull/6)，创建 Head `ec01d9083d640343281a7efcbb93d0a2cb5d8f89`；
+- Hosted Core CI：push run `32840185392` 与 pull_request run `32840222261` 均 `success`；Python offline、Android JVM、Web、Governance、Oracle applicability 均 success；Oracle local evidence gate 对本治理明确 `skipped`，没有数据库连接 job；
+- PR #5：仍 open / Draft，Head `6f35f2e342f8e283cef340e42de610c21bd78952`。
 
 ## Independent Review Findings
 
