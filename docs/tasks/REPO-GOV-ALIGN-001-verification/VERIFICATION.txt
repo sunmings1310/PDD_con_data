@@ -1,0 +1,132 @@
+REPO-GOV-ALIGN-001 VERIFICATION
+DATE=2026-08-25
+BRANCH=codex/repo-governance-mainline
+BASELINE=main@02234f2fd50d4b4afeceec6ff782d0151016887d
+OLD_GOVERNANCE_SOURCE=28addc917706904bf84252cb1e1cbff01c75aa3d
+CHANGED_FIELD=WORKFLOW.md Product Owner/Control/Dev/Independent Review/E2E role, Control boundary, and Task-specific Draft PR override
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\MODIFIED_FILE.txt
+DIFF_FILE=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\ROLLBACK.sh
+VALIDATOR=D:\work\PDD_con_data_governance_mainline\docs\tasks\REPO-GOV-ALIGN-001-verification\validate_governance.py
+DIFF_BASE_RESOLVER=D:\work\PDD_con_data_governance_mainline\.github\scripts\resolve-diff-base.sh
+
+HASHES
+ORIGINAL_SHA256=07cece9a5d2431ce052bd8ae9383f6d128aa23828edc1fe495f46296bb8935f5
+MODIFIED_SHA256=524e4adcca6f7f3351124d8de52d98f4a3819555ec127caffdf9e4192f6efafe
+
+BASELINE
+COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','28addc917706904bf84252cb1e1cbff01c75aa3d:WORKFLOW.md'],text=True,encoding='utf-8'); roles=['Product Owner','Control','Independent Review']; print('BASELINE_ROLE_MATRIX=' + ('present' if all(x in s for x in roles) else 'absent'))"
+INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_governance_mainline; old governance candidate WORKFLOW.md at 28addc917706904bf84252cb1e1cbff01c75aa3d
+LITERAL_OUTPUT=BASELINE_ROLE_MATRIX=absent
+EXIT_STATUS=0
+STATUS=PASS
+
+MODIFIED
+COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/REPO-GOV-ALIGN-001-verification/MODIFIED_FILE.txt').read_text(encoding='utf-8'); required=['Product Owner','Control','Dev','Independent Review','E2E','Task-specific override']; print('MODIFIED_ROLE_MATRIX=' + ('present' if all(x in s for x in required) else 'absent'))"
+INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_governance_mainline; MODIFIED_FILE.txt copied from review-fixed WORKFLOW.md
+LITERAL_OUTPUT=MODIFIED_ROLE_MATRIX=present
+EXIT_STATUS=0
+STATUS=PASS
+
+ROLLBACK
+COMMAND=& 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_governance_mainline/docs/tasks/REPO-GOV-ALIGN-001-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_governance_mainline/docs/tasks/REPO-GOV-ALIGN-001-verification/rollback_probe.txt'
+INPUT_ENVIRONMENT=PowerShell; rollback_probe.txt is a second copy of MODIFIED_FILE.txt under the repository verification directory
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_old_governance_workflow
+LITERAL_OUTPUT=RESTORED_SHA256=07cece9a5d2431ce052bd8ae9383f6d128aa23828edc1fe495f46296bb8935f5
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=rollback_probe.txt exactly matches the original SHA-256; the probe is removed after verification; MODIFIED_FILE.txt remains changed with SHA-256 524e4adcca6f7f3351124d8de52d98f4a3819555ec127caffdf9e4192f6efafe
+
+MARKDOWN_LINKS
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+INPUT_ENVIRONMENT=repository root; root Markdown, docs recursively, and server/android_collector/web/.github top-level Markdown
+LITERAL_OUTPUT=Validated 59 Markdown files
+EXIT_STATUS=0
+STATUS=PASS
+
+YAML
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check yaml
+INPUT_ENVIRONMENT=repository root; .github/workflows/ci.yml; PyYAML 6.0.2
+LITERAL_OUTPUT=YAML_FILES=1
+LITERAL_OUTPUT=YAML_PARSE=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+CI_STATIC
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check ci
+INPUT_ENVIRONMENT=repository root; .github/workflows/ci.yml and .github/scripts/resolve-diff-base.sh
+LITERAL_OUTPUT=CI_JOBS=android-jvm,governance,oracle-integration,oracle-scope,python-offline,web-build
+LITERAL_OUTPUT=CI_STATIC=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+DIFF_BASE_RESOLVER
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
+INPUT_ENVIRONMENT=repository root at parent 1f0a5d2de8d2ab852c96352d20f72fe376a68507; origin/main 02234f2fd50d4b4afeceec6ff782d0151016887d; Git Bash; temporary isolated Git repositories for failure injection
+LITERAL_OUTPUT=RESOLVER_PR_OUTPUT=02234f2fd50d4b4afeceec6ff782d0151016887d
+LITERAL_OUTPUT=RESOLVER_PR_EXIT=0
+LITERAL_OUTPUT=RESOLVER_PUSH_OUTPUT=1f0a5d2de8d2ab852c96352d20f72fe376a68507
+LITERAL_OUTPUT=RESOLVER_PUSH_EXIT=0
+LITERAL_OUTPUT=RESOLVER_DISPATCH_OUTPUT=02234f2fd50d4b4afeceec6ff782d0151016887d
+LITERAL_OUTPUT=RESOLVER_DISPATCH_EXIT=0
+LITERAL_OUTPUT=RESOLVER_INVALID_BASE_OUTPUT=BLOCKED: pull_request base commit is missing or invalid: not-a-commit
+LITERAL_OUTPUT=RESOLVER_INVALID_BASE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_INVALID_HEAD_OUTPUT=BLOCKED: head commit is missing or invalid: not-a-head
+LITERAL_OUTPUT=RESOLVER_INVALID_HEAD_EXIT=2
+LITERAL_OUTPUT=RESOLVER_FETCH_FAILURE_OUTPUT=BLOCKED: unable to fetch default branch: definitely-missing-governance-branch
+LITERAL_OUTPUT=RESOLVER_FETCH_FAILURE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_MERGE_BASE_FAILURE_OUTPUT=BLOCKED: unable to determine merge-base for f8890feab299305c00803ef0489648ab68e293e4 and origin/main
+LITERAL_OUTPUT=RESOLVER_MERGE_BASE_FAILURE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_TESTS=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+ANDROID_WRAPPER
+COMMAND=python -c "import zipfile; z=zipfile.ZipFile('android_collector/gradle/wrapper/gradle-wrapper.jar'); print('WRAPPER_MAIN_PRESENT=' + str('org/gradle/wrapper/GradleWrapperMain.class' in z.namelist()))"
+INPUT_ENVIRONMENT=repository root; android_collector/gradle/wrapper/gradle-wrapper.jar
+LITERAL_OUTPUT=WRAPPER_MAIN_PRESENT=True
+EXIT_STATUS=0
+STATUS=PASS
+
+HOSTED_CI
+COMMAND=GitHub Actions push workflow .github/workflows/ci.yml at Head 1f0a5d2de8d2ab852c96352d20f72fe376a68507
+INPUT_ENVIRONMENT=GitHub Hosted Runner; Core CI run 32755183229; https://github.com/sunmings1310/PDD_con_data/actions/runs/32755183229
+LITERAL_OUTPUT=Governance / links and YAML|success
+LITERAL_OUTPUT=Python offline tests|success
+LITERAL_OUTPUT=Web production build|success
+LITERAL_OUTPUT=Android JVM tests|success
+LITERAL_OUTPUT=Oracle gate applicability|success
+LITERAL_OUTPUT=Oracle integration (dedicated environment only)|skipped
+EXIT_STATUS=0
+STATUS=PASS (applicable jobs); Oracle integration STATUS=SKIPPED after explicit governance-only applicability classification
+
+RENAME
+COMMAND=git show --summary e1ed4cb59551e6b97511c2daf8755cdba4bd95f2; git ls-files docs/current-state.md docs/CURRENT_STATE.md
+INPUT_ENVIRONMENT=repository root
+LITERAL_OUTPUT=rename docs/{current-state.md => CURRENT_STATE.md} (100%)
+LITERAL_OUTPUT=docs/CURRENT_STATE.md
+EXIT_STATUS=0
+STATUS=PASS
+
+SCOPE
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check scope
+INPUT_ENVIRONMENT=repository root; origin/main...final Head; uppercase/lowercase rename paths counted separately
+LITERAL_OUTPUT=CHANGED_FILES=27
+LITERAL_OUTPUT=SCOPE_STATIC=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+DIFF_CHECK
+COMMAND=git diff --check origin/main...HEAD; if ($LASTEXITCODE -eq 0) { Write-Output 'DIFF_CHECK=PASS' }
+INPUT_ENVIRONMENT=PowerShell; repository root; origin/main...final Head
+LITERAL_OUTPUT=DIFF_CHECK=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_STATUS=SKIPPED for Core CI 32755183229 only after oracle-scope explicitly classified the governance-only change set as not applicable; Required or explicitly enabled Oracle with missing inputs outputs BLOCKED and exits 2
+REAL_DEVICE_STATUS=SKIPPED because this Task changes no Android business or lifecycle behavior

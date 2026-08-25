@@ -1,0 +1,257 @@
+name: Core CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  governance:
+    name: Governance / links and YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install governance validator
+        run: python -m pip install --disable-pip-version-check "PyYAML==6.0.2"
+      - name: Validate workflow YAML
+        run: python -c "import pathlib,yaml; [yaml.safe_load(p.read_text(encoding='utf-8')) for p in pathlib.Path('.github/workflows').glob('*.yml')]"
+      - name: Validate repository-relative Markdown links
+        shell: python
+        run: |
+          import pathlib
+          import re
+          import sys
+
+          files = list(pathlib.Path(".").glob("*.md"))
+          files += list(pathlib.Path("docs").rglob("*.md"))
+          files += list(pathlib.Path("server").glob("*.md"))
+          files += list(pathlib.Path("android_collector").glob("*.md"))
+          files += list(pathlib.Path("web").glob("*.md"))
+          files += list(pathlib.Path(".github").glob("*.md"))
+          files = sorted(set(files))
+          failures = []
+          pattern = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
+          for source in files:
+              text = source.read_text(encoding="utf-8")
+              for raw in pattern.findall(text):
+                  target = raw.strip().split()[0].strip("<>")
+                  if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                      continue
+                  path_text = target.split("#", 1)[0]
+                  if not path_text:
+                      continue
+                  target_path = (source.parent / path_text).resolve()
+                  if not target_path.exists():
+                      failures.append(f"{source}: missing link target {target}")
+          if failures:
+              print("\n".join(failures))
+              sys.exit(1)
+          print(f"Validated {len(files)} Markdown files")
+      - name: Check whitespace errors
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          base="$(.github/scripts/resolve-diff-base.sh)"
+          echo "Checking whitespace in $base..$GITHUB_SHA"
+          git diff --check "$base" "$GITHUB_SHA"
+      - name: Test diff-base failure semantics
+        run: python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
+
+  python-offline:
+    name: Python offline tests
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      ORACLE_HOST: offline.invalid
+      ORACLE_PORT: "1521"
+      ORACLE_SERVICE: OFFLINE
+      ORACLE_USER: offline_test
+      ORACLE_PASSWORD: offline-test-only
+      JWT_SECRET: offline-test-jwt-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Python compile check
+        run: python -m compileall -q server scripts tests
+      - name: Python unit tests
+        run: python scripts/run_python_unit_tests.py
+
+  web-build:
+    name: Web production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  android-jvm:
+    name: Android JVM tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: Prefer official repositories on hosted runner
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/ci-repositories.init.gradle" <<'EOF'
+          settingsEvaluated { settings ->
+              settings.pluginManagement.repositories.clear()
+              settings.pluginManagement.repositories.gradlePluginPortal()
+              settings.pluginManagement.repositories.google()
+              settings.pluginManagement.repositories.mavenCentral()
+              settings.dependencyResolutionManagement.repositories.clear()
+              settings.dependencyResolutionManagement.repositories.google()
+              settings.dependencyResolutionManagement.repositories.mavenCentral()
+          }
+          EOF
+      - working-directory: android_collector
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon --init-script "$RUNNER_TEMP/ci-repositories.init.gradle"; then
+              exit 0
+            fi
+            if [[ "$attempt" == "3" ]]; then
+              echo "Android JVM tests failed after $attempt attempts"
+              exit 1
+            fi
+            echo "Android JVM test attempt $attempt failed; retrying dependency resolution"
+            sleep $((attempt * 15))
+          done
+
+  oracle-scope:
+    name: Oracle gate applicability
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+      reason: ${{ steps.scope.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        name: Classify Oracle gate
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ORACLE_CI_MODE: ${{ vars.ORACLE_CI_MODE }}
+        run: |
+          if [[ "$ORACLE_CI_MODE" == "required" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "reason=repository variable ORACLE_CI_MODE=required" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_GATE=REQUIRED: repository variable"
+            exit 0
+          fi
+          if [[ "$ORACLE_CI_MODE" == "not_required" ]]; then
+            echo "required=false" >> "$GITHUB_OUTPUT"
+            echo "reason=repository variable ORACLE_CI_MODE=not_required" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_GATE=SKIPPED: explicitly not applicable by repository variable"
+            exit 0
+          fi
+
+          base="$(.github/scripts/resolve-diff-base.sh)"
+          mapfile -t changed < <(git diff --name-only "$base" "$GITHUB_SHA")
+          required=false
+          for path in "${changed[@]}"; do
+            case "$path" in
+              server/*.py|server/**/*.py|migrations/*|migrations/**/*|scripts/migrate*.py|tests/*oracle*.py|tests/**/*oracle*.py)
+                required=true
+                break
+                ;;
+            esac
+          done
+          if [[ "$required" == "true" ]]; then
+            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_GATE=REQUIRED: Oracle-sensitive file changed"
+          else
+            echo "required=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_GATE=SKIPPED: explicitly not applicable to this change set"
+          fi
+
+  oracle-integration:
+    name: Oracle integration (dedicated environment only)
+    needs: oracle-scope
+    if: ${{ needs.oracle-scope.outputs.required == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      ORACLE_HOST: ${{ secrets.T003_ORACLE_HOST }}
+      ORACLE_PORT: ${{ secrets.T003_ORACLE_PORT }}
+      ORACLE_SERVICE: ${{ secrets.T003_ORACLE_SERVICE }}
+      ORACLE_USER: ${{ secrets.T003_ORACLE_USER }}
+      ORACLE_PASSWORD: ${{ secrets.T003_ORACLE_PASSWORD }}
+      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      T003_ORACLE_TEST_ENABLED: "1"
+      PHASE5_ORACLE_TEST_ENABLED: "1"
+      PHASE55_ORACLE_TEST_ENABLED: "1"
+      PHASE6A_ORACLE_TEST_ENABLED: "1"
+      T003_ORACLE_DSN: ${{ secrets.T003_ORACLE_DSN }}
+      T003_ORACLE_USER: ${{ secrets.T003_ORACLE_USER }}
+      T003_ORACLE_PASSWORD: ${{ secrets.T003_ORACLE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Require every Oracle input
+        shell: bash
+        run: |
+          required=(ORACLE_HOST ORACLE_PORT ORACLE_SERVICE ORACLE_USER ORACLE_PASSWORD JWT_SECRET T003_ORACLE_DSN T003_ORACLE_USER T003_ORACLE_PASSWORD)
+          for name in "${required[@]}"; do
+            test -n "${!name:-}" || { echo "BLOCKED: missing $name"; exit 2; }
+          done
+      - run: >-
+          python -m unittest -v
+          tests/test_task_state_r2_oracle.py
+          tests/test_phase2_schema_contract.py
+          tests/test_job_service.py
+          tests/test_job_reconciliation_oracle_integration.py
+          tests/test_phase2_route_oracle.py
+          tests/test_phase3_oracle.py
+          tests/test_phase5_oracle.py
+          tests/test_phase55_oracle.py
+          tests/test_phase6a_oracle.py
