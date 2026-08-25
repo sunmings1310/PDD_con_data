@@ -2,34 +2,19 @@ diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
 index b8537ba..90f69cf 100644
 --- a/docs/CURRENT_STATE.md
 +++ b/docs/CURRENT_STATE.md
-@@ -9,7 +9,7 @@
- | 项目 | 当前值 |
- |---|---|
- | 主分支 | `main` |
+@@ -12 +12 @@
 -| 当前主线基线 | `713cd714902c728cc0e7b796bdde4972c78042c9` |
 +| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
- | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
- | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
- | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE` |
-@@ -101,7 +101,9 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
- 
- ## 8. 下一交接
- 
+@@ -104 +104,3 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 -治理基线已完成 Review、CI 和 merge。本轮停止，不自动启动新业务阶段：
 +`BL-110-WS-TENANT-BOUNDARY` 已在独立分支完成本地实现、适用门禁与 Independent Review `ACCEPT`；它尚未创建 PR、merge 或 release，因此 `main` 仍不包含该能力。已验证分支把实时日志连接绑定到服务端 identity、membership、`device:view`、Device/Task 归属与 token expiry；每次投递前重新校验撤销状态，Hub 只在同 Enterprise/Workspace/Device channel 内发送；Oracle commit 后才线程安全调度，失败有日志和计数，8 秒 HTTP 轮询仍为恢复路径。
 +
 +当前执行队列必须保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 `main` 开始。本轮停止，不自动创建 PR、不启动后项或新业务阶段：
- 
- - Generic SKU runtime：仍为 `NOT STARTED`；
- - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 diff --git a/docs/backlog.md b/docs/backlog.md
 index 75e98fd..88b6c32 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
-@@ -9,6 +9,20 @@
- |---|---|---|---|
- | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
- 
+@@ -11,0 +12,14 @@
 +## Product-approved Web execution queue（2026-08-25）
 +
 +严格按以下依赖顺序执行；后项必须从前项 merge 后的 `main` 建立独立 Task/分支，不在未合并依赖上串接：
@@ -44,17 +29,11 @@ index 75e98fd..88b6c32 100644
 +
 +`WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 +
- ## Accepted Business Baseline（2026-08-24 merged）
- 
- - [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
 diff --git a/docs/roadmap.md b/docs/roadmap.md
 index 02d42a1..305730b 100644
 --- a/docs/roadmap.md
 +++ b/docs/roadmap.md
-@@ -10,6 +10,18 @@
- 3. Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台均为 NOT STARTED。
- 4. 下一业务阶段必须创建 Task/ADR、满足对应证据门禁并经 Product Owner 批准；下文旧 M0～M5 条目不构成授权。
- 
+@@ -12,0 +13,12 @@
 +## 当前已批准执行顺序
 +
 +```text
@@ -67,9 +46,6 @@ index 02d42a1..305730b 100644
 +
 +每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许执行第 1 项。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
 +
- > 制定日期：2026-08-13
- > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`
- > 范围：从当前“功能型内部系统”升级为可构建、可恢复、可验证、可观测并可持续演进的稳定数据采集系统。
 diff --git a/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
 new file mode 100644
 index 0000000..65a9b50
@@ -207,22 +183,13 @@ diff --git a/server/main.py b/server/main.py
 index 07d93af..5fcfc27 100644
 --- a/server/main.py
 +++ b/server/main.py
-@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
- from server.config import IMAGE_DIR, settings
- from server.db import close_pool, init_pool
- from server.routers import accounts, auth, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users, jobs, management, enterprises
+@@ -18 +18 @@ from server.routers import accounts, auth, cast, dashboard, devices, excel_match
 -from server.ws_hub import router as ws_router
 +from server.ws_hub import hub as realtime_hub, router as ws_router
- from server.media_access import verify_media_signature
- 
- STATIC_DIR = Path(__file__).resolve().parent / "static"
-@@ -47,12 +47,17 @@ async def lifespan(_: FastAPI):
-     from server.migrate import ensure_schema_patches
- 
-     ensure_schema_patches()
+@@ -49,0 +50,2 @@ async def lifespan(_: FastAPI):
 +    app_loop = asyncio.get_running_loop()
 +    realtime_hub.bind_loop(app_loop)
-     reconciliation_task = asyncio.create_task(_reconciliation_loop())
+@@ -51,5 +53,8 @@ async def lifespan(_: FastAPI):
 -    yield
 -    reconciliation_task.cancel()
 -    with suppress(asyncio.CancelledError):
@@ -236,34 +203,16 @@ index 07d93af..5fcfc27 100644
 +        with suppress(asyncio.CancelledError):
 +            await reconciliation_task
 +        close_pool()
- 
- 
- app = FastAPI(title="多平台APP采集调度系统", version="2.0.0", lifespan=lifespan)
 diff --git a/server/routers/tasks.py b/server/routers/tasks.py
 index 475be60..10a681e 100644
 --- a/server/routers/tasks.py
 +++ b/server/routers/tasks.py
-@@ -23,7 +23,7 @@ from server.services import (
-     get_device_by_key,
-     parse_json_obj,
- )
+@@ -26 +26 @@ from server.services import (
 -from server.ws_hub import notify_sync
 +from server.ws_hub import notify_sync, resolve_task_event_channel
- from server.task_state import StateConflict, TaskItemStatus, TaskStatus, task_status, task_storage_status
- from server.task_state_service import (
-     close_unfinished_items,
-@@ -852,6 +852,7 @@ def pull_task(device_key: str, platform_code: str | None = None):
- 
- @router.post("/progress")
- def task_progress(body: TaskProgressIn):
+@@ -854,0 +855 @@ def task_progress(body: TaskProgressIn):
 +    event_channel = None
-     with get_conn() as conn:
-         cur = conn.cursor()
-         device = get_device_by_key(cur, body.device_key)
-@@ -874,6 +875,14 @@ def task_progress(body: TaskProgressIn):
-             if not body.progress_id:
-                 return ApiOk(ok=False, message="delta progress requires progress_id",
-                              data={"error_code": "PROGRESS_ID_REQUIRED"})
+@@ -876,0 +878,8 @@ def task_progress(body: TaskProgressIn):
 +        event_channel = resolve_task_event_channel(cur, body.task_id, int(device["device_id"]))
 +        if event_channel is None:
 +            return ApiOk(
@@ -272,13 +221,7 @@ index 475be60..10a681e 100644
 +                data={"error_code": "REALTIME_SCOPE_MISMATCH"},
 +            )
 +        if has_delta:
-             if not claim_progress_id(cur, body.progress_id, body.task_id, int(device["device_id"])):
-                 return ApiOk(message="duplicate progress ignored",
-                              data={"progress_id": body.progress_id, "idempotent": True})
-@@ -932,16 +941,18 @@ def task_progress(body: TaskProgressIn):
-             device_id=device["device_id"],
-             level=body.level,
-         )
+@@ -935,10 +944,12 @@ def task_progress(body: TaskProgressIn):
 -        notify_sync(
 -            "task_log",
 -            {
@@ -301,35 +244,27 @@ index 475be60..10a681e 100644
 +        },
 +    )
 +    return ApiOk()
- 
- 
- @router.post("/finish")
 diff --git a/server/ws_hub.py b/server/ws_hub.py
 index a8bd8a1..c687039 100644
 --- a/server/ws_hub.py
 +++ b/server/ws_hub.py
-@@ -1,67 +1,298 @@
+@@ -1 +1 @@
 -"""简易 WebSocket 广播：设备日志 / 任务进度。"""
 +"""Tenant- and device-scoped realtime task log delivery."""
- 
- from __future__ import annotations
- 
- import asyncio
+@@ -5,0 +6,2 @@ import asyncio
 +from concurrent.futures import Future
 +from dataclasses import dataclass
- import json
+@@ -6,0 +9,3 @@ import json
 +import logging
 +from threading import Lock
 +import time
- from typing import Any
- 
+@@ -9 +14,4 @@ from typing import Any
 -from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 +from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 +
 +from server.auth_util import decode_token
 +from server.db import get_conn
- 
- router = APIRouter(tags=["ws"])
+@@ -11,0 +20,123 @@ router = APIRouter(tags=["ws"])
 +logger = logging.getLogger("sjzq.realtime_ws")
 +
 +AUTH_TIMEOUT_SECONDS = 5.0
@@ -453,14 +388,12 @@ index a8bd8a1..c687039 100644
 +        logger.exception("realtime subscription revalidation failed")
 +        return False
 +    return current == principal.channel
- 
- 
- class Hub:
+@@ -15,2 +146,2 @@ class Hub:
 -    def __init__(self) -> None:
 -        self.clients: set[WebSocket] = set()
 +    def __init__(self, validator: Any | None = None) -> None:
 +        self.clients: dict[RealtimeChannel, dict[WebSocket, RealtimePrincipal]] = {}
-         self.lock = asyncio.Lock()
+@@ -17,0 +149,17 @@ class Hub:
 +        self._validator = validator or revalidate_realtime
 +        self._loop: asyncio.AbstractEventLoop | None = None
 +        self._state_lock = Lock()
@@ -478,7 +411,7 @@ index a8bd8a1..c687039 100644
 +        with self._state_lock:
 +            if loop is None or self._loop is loop:
 +                self._loop = None
- 
+@@ -19,2 +167,9 @@ class Hub:
 -    async def connect(self, ws: WebSocket) -> None:
 -        await ws.accept()
 +    def _increment(self, key: str) -> None:
@@ -490,13 +423,13 @@ index a8bd8a1..c687039 100644
 +            return dict(self._stats)
 +
 +    async def connect(self, ws: WebSocket, principal: RealtimePrincipal) -> None:
-         async with self.lock:
+@@ -22 +177 @@ class Hub:
 -            self.clients.add(ws)
 +            self.clients.setdefault(principal.channel, {})[ws] = principal
- 
+@@ -24 +179 @@ class Hub:
 -    async def disconnect(self, ws: WebSocket) -> None:
 +    async def disconnect(self, ws: WebSocket, channel: RealtimeChannel) -> None:
-         async with self.lock:
+@@ -26 +181,6 @@ class Hub:
 -            self.clients.discard(ws)
 +            peers = self.clients.get(channel)
 +            if peers is None:
@@ -504,18 +437,18 @@ index a8bd8a1..c687039 100644
 +            peers.pop(ws, None)
 +            if not peers:
 +                self.clients.pop(channel, None)
- 
+@@ -28 +188 @@ class Hub:
 -    async def broadcast(self, event: str, data: Any) -> None:
 +    async def broadcast(self, channel: RealtimeChannel, event: str, data: Any) -> None:
-         payload = json.dumps({"event": event, "data": data}, ensure_ascii=False, default=str)
+@@ -30 +189,0 @@ class Hub:
 -        dead: list[WebSocket] = []
-         async with self.lock:
+@@ -32,2 +191,3 @@ class Hub:
 -            peers = list(self.clients)
 -        for ws in peers:
 +            peers = list(self.clients.get(channel, {}).items())
 +        dead: list[WebSocket] = []
 +        for ws, principal in peers:
-             try:
+@@ -35,2 +195,21 @@ class Hub:
 -                await ws.send_text(payload)
 -            except Exception:
 +                authorized = await asyncio.to_thread(self._validator, principal)
@@ -539,8 +472,7 @@ index a8bd8a1..c687039 100644
 +                    channel.workspace_id,
 +                    channel.device_id,
 +                )
-                 dead.append(ws)
-         for ws in dead:
+@@ -39 +218,35 @@ class Hub:
 -            await self.disconnect(ws)
 +            await self.disconnect(ws, channel)
 +
@@ -577,23 +509,19 @@ index a8bd8a1..c687039 100644
 +        except Exception:
 +            self._increment("schedule_failures")
 +            logger.exception("realtime scheduled delivery crashed")
- 
- 
- hub = Hub()
- 
- 
+@@ -44,0 +258,5 @@ hub = Hub()
 +async def _reject(ws: WebSocket) -> None:
 +    logger.warning("realtime websocket authorization rejected")
 +    await ws.close(code=1008, reason="authorization failed")
 +
 +
- @router.websocket("/ws/realtime")
+@@ -46,2 +264,3 @@ hub = Hub()
 -async def realtime(ws: WebSocket):
 -    await hub.connect(ws)
 +async def realtime(ws: WebSocket) -> None:
 +    await ws.accept()
 +    principal: RealtimePrincipal | None = None
-     try:
+@@ -48,0 +268,13 @@ async def realtime(ws: WebSocket):
 +        raw = await asyncio.wait_for(ws.receive_text(), timeout=AUTH_TIMEOUT_SECONDS)
 +        auth = json.loads(raw)
 +        if not isinstance(auth, dict) or auth.get("type") != "auth":
@@ -607,24 +535,21 @@ index a8bd8a1..c687039 100644
 +        await ws.send_text(
 +            json.dumps({"event": "ready", "data": {"device_id": principal.channel.device_id}})
 +        )
-         while True:
+@@ -50 +281,0 @@ async def realtime(ws: WebSocket):
 -            # 心跳保活；客户端可发 ping
-             msg = await ws.receive_text()
-             if msg == "ping":
-                 await ws.send_text(json.dumps({"event": "pong"}))
+@@ -53,0 +285,2 @@ async def realtime(ws: WebSocket):
 +    except (RealtimeAuthError, asyncio.TimeoutError, json.JSONDecodeError, TypeError, ValueError):
 +        await _reject(ws)
-     except WebSocketDisconnect:
+@@ -55 +288 @@ async def realtime(ws: WebSocket):
 -        await hub.disconnect(ws)
 +        pass
-     except Exception:
+@@ -57 +290,4 @@ async def realtime(ws: WebSocket):
 -        await hub.disconnect(ws)
 +        logger.exception("realtime websocket failed after handshake")
 +    finally:
 +        if principal is not None:
 +            await hub.disconnect(ws, principal.channel)
- 
- 
+@@ -60,8 +296,3 @@ async def realtime(ws: WebSocket):
 -def notify_sync(event: str, data: Any) -> None:
 -    """从同步路由里尽力推送。"""
 -    try:
@@ -1164,30 +1089,15 @@ diff --git a/tests/test_task_state_r1.py b/tests/test_task_state_r1.py
 index 1c58635..9f95c78 100644
 --- a/tests/test_task_state_r1.py
 +++ b/tests/test_task_state_r1.py
-@@ -17,6 +17,7 @@ from server.routers import devices, products, tasks  # noqa: E402
- from server.schemas import DeviceHeartbeatIn, ProductUploadIn, TaskFinishIn, TaskProgressIn  # noqa: E402
- from server.task_state import StateConflict  # noqa: E402
- from server.task_state_service import claim_progress_id  # noqa: E402
+@@ -19,0 +20 @@ from server.task_state_service import claim_progress_id  # noqa: E402
 +from server.ws_hub import RealtimeChannel  # noqa: E402
- import oracledb  # noqa: E402
- 
- 
-@@ -113,6 +114,7 @@ class R1ApiTransactionTest(unittest.TestCase):
-              patch.object(tasks, "get_device_by_key", return_value=DEVICE), \
-              patch.object(tasks, "lock_device", return_value=DEVICE), \
-              patch.object(tasks, "require_running_task", return_value={}), \
+@@ -115,0 +117 @@ class R1ApiTransactionTest(unittest.TestCase):
 +             patch.object(tasks, "resolve_task_event_channel", return_value=RealtimeChannel(1, 1, 7)), \
-              patch.object(tasks, "claim_progress_id", return_value=False):
-             response = tasks.task_progress(body)
-         self.assertTrue(response.ok)
 diff --git a/web/src/views/devices/DeviceLive.vue b/web/src/views/devices/DeviceLive.vue
 index d6dff1d..f3a7684 100644
 --- a/web/src/views/devices/DeviceLive.vue
 +++ b/web/src/views/devices/DeviceLive.vue
-@@ -73,6 +73,13 @@ async function load() {
- function connectWs() {
-   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-   ws = new WebSocket(`${proto}://${location.host}/ws/realtime`)
+@@ -75,0 +76,7 @@ function connectWs() {
 +  ws.onopen = () => {
 +    ws.send(JSON.stringify({
 +      type: 'auth',
@@ -1195,6 +1105,3 @@ index d6dff1d..f3a7684 100644
 +      device_id: Number(id),
 +    }))
 +  }
-   ws.onmessage = (ev) => {
-     try {
-       const msg = JSON.parse(ev.data)

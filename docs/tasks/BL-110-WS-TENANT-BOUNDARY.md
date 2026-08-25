@@ -76,7 +76,7 @@
 - [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
 - [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
 - [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
-- [ ] 固定并推送 clean Head 后停止，不创建 PR。
+- [x] 固定并推送 clean Head 后停止，不创建 PR。
 
 ## Test Plan
 
@@ -124,4 +124,4 @@ Independent Review `ACCEPT`、适用门禁通过、固定并推送 clean Head �
 - Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
 - Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
 - Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
-- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据 Head 待固定和推送；PR 禁止。
+- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据提交以远端 `codex/bl-110-ws-tenant-boundary` Head 为准；PR 未创建且禁止自动创建。

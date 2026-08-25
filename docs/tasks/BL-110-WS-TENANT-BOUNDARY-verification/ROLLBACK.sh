@@ -18,8 +18,8 @@ if [ ! -f "$patch_file" ]; then
   exit 3
 fi
 
-git -C "$root" apply --reverse --check "$patch_file"
-git -C "$root" apply --reverse "$patch_file"
+git -C "$root" apply --unidiff-zero --reverse --check "$patch_file"
+git -C "$root" apply --unidiff-zero --reverse "$patch_file"
 
 # The resolved path was checked above and is confined to the target repository.
 rm -rf -- "$artifact_dir"
