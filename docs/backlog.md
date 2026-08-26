@@ -3,6 +3,12 @@
 > **Status: CURRENT TASK STATUS AUTHORITY（2026-08-25）**
 > 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
 
+## Active governance tasks
+
+| Task | 状态 | 范围 | 下一步 |
+|---|---|---|---|
+| CI-ORACLE-LOCAL-GATE-001 | PR / DRAFT | 将 Oracle merge 门禁改为固定 Head 的本地隔离 Oracle strict 证据；GitHub 不连接数据库 | Draft PR #6；Hosted offline CI 已通过；merge 前停止等待 Product Owner |
+
 ## Completed governance baseline
 
 | Task | 状态 | 范围 | 下一步 |

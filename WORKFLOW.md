@@ -78,19 +78,21 @@ targeted tests → module tests → full regression → required integration/E2E
 git diff --check
 ```
 
-实际报告必须包含命令、输入/环境、字面输出摘要、退出码和 `PASS / FAIL / BLOCKED / SKIPPED`。不得把“未运行”“无环境”或 HTTP 2xx 描述为业务通过。
+实际报告必须包含命令、输入/环境、字面输出摘要、退出码和 `PASS / FAIL / BLOCKED / SKIPPED`。不得把“未运行”“无环境”或 HTTP 2xx 描述为业务通过。Oracle-sensitive PR 还必须在固定 PR Head 上生成本地证据 manifest，并由 Hosted CI 的 `Oracle local evidence gate` 校验 Head 绑定、时效、测试计数、字面结果 hash、四制品 hash 与 rollback 状态。
 
 ## 7. Oracle Gate 与真机 Gate
 
-- 不依赖真实 Oracle 的 PR 核心门禁由 CI 执行；Oracle 是独立外部门禁。
-- 涉及 migration、tenant、transaction、Lease/幂等或 Oracle 方言的 Task，在最终验收前必须在隔离、可写、可清理的 Oracle 测试环境实际运行。Task 或 CI 差异分类明确判定 Oracle 不适用时才可记为 `SKIPPED`；Oracle Gate 为 Required/启用但缺少环境或参数时必须输出 `BLOCKED` 并失败，绝不能记为 `PASS` 或 `SKIPPED`。
+- GitHub Actions 只执行 Python offline、Android JVM、Web build、Governance、Oracle applicability 分类与本地证据 validator；Hosted runner 不连接数据库，也不读取或要求 T003 Oracle/JWT repository secrets。
+- 涉及 migration、tenant、transaction、Lease/幂等、Oracle repository 或 Oracle 方言的 Task，在最终验收前必须在隔离、可写、可清理的本地 Oracle 测试环境，对固定 PR Head 运行 `powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`。Task 或 CI 差异分类明确判定 Oracle 不适用时才可记为 `SKIPPED`；Oracle Gate 为 Required 而缺环境、参数、合格证据或 Reviewer 核验时必须输出 `BLOCKED` 并失败，绝不能记为 `PASS` 或 `SKIPPED`。
+- Required evidence 至少记录 exact command、Head SHA、测试集合/数量、字面结果及 SHA-256、exit code、隔离环境标识、生成时间、四制品 SHA-256、显式 rollback 与“无持久业务变更”。格式与 validator 见 [`docs/tasks/CI-ORACLE-LOCAL-GATE-001.md`](docs/tasks/CI-ORACLE-LOCAL-GATE-001.md)。证据放在 PR body，避免提交证据后改变其所绑定的 Head。
+- Validator 能拒绝错误 Head、缺字段、非零 exit、`SKIPPED`/`BLOCKED`、结果或制品篡改、过期和错误命令；它不能从 GitHub Hosted runner 自动证明本地数据库运行确实发生。Independent Reviewer 必须核对本地运行来源、隔离性和四制品/rollback，且不得把此人工信任边界描述为 Hosted DB run 的等价替代。
 - Schema/migration 必须版本化、可重入并附恢复说明；破坏性迁移、已有数据删除/回填必须先获人工批准。
 - 涉及 Android 生命周期、系统 kill/force-stop、Doze、网络恢复、真实 App 页面或设备行为时必须执行真机 Gate；无设备不能以 JVM 测试替代并宣称 PASS。
 
 ## 8. Review、merge、E2E 与发布
 
 - PR 使用 [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)，列出实际测试、外部门禁、风险、已知问题和回滚。
-- Agent 不自动 merge。只有 Reviewer `ACCEPTED`、适用门禁通过且维护者明确批准后才能 merge。
+- Agent 不自动 merge。Oracle-sensitive PR 只有 Independent Reviewer `ACCEPTED`、GitHub offline CI 通过、本地 Oracle evidence gate 通过且维护者明确批准后才能 merge。
 - merge 后执行 Task 指定的 E2E；E2E 通过且发布获得批准后才标记 `RELEASED`。
 - 回滚必须说明代码回退、配置恢复和数据恢复；不可逆项必须在实施前得到批准。
 

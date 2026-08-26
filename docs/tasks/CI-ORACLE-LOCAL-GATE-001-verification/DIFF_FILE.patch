@@ -1,0 +1,94 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index dc0f3e8..056c955 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -185,7 +184,0 @@ jobs:
+-          if [[ "$ORACLE_CI_MODE" == "not_required" ]]; then
+-            echo "required=false" >> "$GITHUB_OUTPUT"
+-            echo "reason=repository variable ORACLE_CI_MODE=not_required" >> "$GITHUB_OUTPUT"
+-            echo "ORACLE_GATE=SKIPPED: explicitly not applicable by repository variable"
+-            exit 0
+-          fi
+-
+@@ -194,18 +187,3 @@ jobs:
+-          required=false
+-          for path in "${changed[@]}"; do
+-            case "$path" in
+-              server/*.py|server/**/*.py|migrations/*|migrations/**/*|scripts/migrate*.py|tests/*oracle*.py|tests/**/*oracle*.py)
+-                required=true
+-                break
+-                ;;
+-            esac
+-          done
+-          if [[ "$required" == "true" ]]; then
+-            echo "required=true" >> "$GITHUB_OUTPUT"
+-            echo "reason=Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+-            echo "ORACLE_GATE=REQUIRED: Oracle-sensitive file changed"
+-          else
+-            echo "required=false" >> "$GITHUB_OUTPUT"
+-            echo "reason=no Oracle-sensitive file changed" >> "$GITHUB_OUTPUT"
+-            echo "ORACLE_GATE=SKIPPED: explicitly not applicable to this change set"
+-          fi
++          python .github/scripts/classify_oracle_scope.py \
++            --github-output "$GITHUB_OUTPUT" \
++            "${changed[@]}"
+@@ -213,2 +191,2 @@ jobs:
+-  oracle-integration:
+-    name: Oracle integration (dedicated environment only)
++  oracle-local-evidence:
++    name: Oracle local evidence gate
+@@ -216 +194 @@ jobs:
+-    if: ${{ needs.oracle-scope.outputs.required == 'true' }}
++    if: ${{ needs.oracle-scope.outputs.required == 'true' && github.event_name == 'pull_request' }}
+@@ -219,14 +197,2 @@ jobs:
+-      APP_ENV: test
+-      ORACLE_HOST: ${{ secrets.T003_ORACLE_HOST }}
+-      ORACLE_PORT: ${{ secrets.T003_ORACLE_PORT }}
+-      ORACLE_SERVICE: ${{ secrets.T003_ORACLE_SERVICE }}
+-      ORACLE_USER: ${{ secrets.T003_ORACLE_USER }}
+-      ORACLE_PASSWORD: ${{ secrets.T003_ORACLE_PASSWORD }}
+-      JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+-      T003_ORACLE_TEST_ENABLED: "1"
+-      PHASE5_ORACLE_TEST_ENABLED: "1"
+-      PHASE55_ORACLE_TEST_ENABLED: "1"
+-      PHASE6A_ORACLE_TEST_ENABLED: "1"
+-      T003_ORACLE_DSN: ${{ secrets.T003_ORACLE_DSN }}
+-      T003_ORACLE_USER: ${{ secrets.T003_ORACLE_USER }}
+-      T003_ORACLE_PASSWORD: ${{ secrets.T003_ORACLE_PASSWORD }}
++      PR_BODY: ${{ github.event.pull_request.body }}
++      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+@@ -234 +200,4 @@ jobs:
+-      - uses: actions/checkout@v4
++      - name: Checkout fixed PR Head
++        uses: actions/checkout@v4
++        with:
++          ref: ${{ github.event.pull_request.head.sha }}
+@@ -238,3 +207 @@ jobs:
+-          cache: pip
+-      - run: python -m pip install --disable-pip-version-check -r requirements.txt
+-      - name: Require every Oracle input
++      - name: Materialize PR-scoped evidence
+@@ -243,15 +210,8 @@ jobs:
+-          required=(ORACLE_HOST ORACLE_PORT ORACLE_SERVICE ORACLE_USER ORACLE_PASSWORD JWT_SECRET T003_ORACLE_DSN T003_ORACLE_USER T003_ORACLE_PASSWORD)
+-          for name in "${required[@]}"; do
+-            test -n "${!name:-}" || { echo "BLOCKED: missing $name"; exit 2; }
+-          done
+-      - run: >-
+-          python -m unittest -v
+-          tests/test_task_state_r2_oracle.py
+-          tests/test_phase2_schema_contract.py
+-          tests/test_job_service.py
+-          tests/test_job_reconciliation_oracle_integration.py
+-          tests/test_phase2_route_oracle.py
+-          tests/test_phase3_oracle.py
+-          tests/test_phase5_oracle.py
+-          tests/test_phase55_oracle.py
+-          tests/test_phase6a_oracle.py
++          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
++      - name: Validate local Oracle strict evidence
++        run: >-
++          python .github/scripts/validate_oracle_local_evidence.py
++          --manifest "$RUNNER_TEMP/pr-body.md"
++          --from-pr-body
++          --expected-head "$PR_HEAD_SHA"
++          --repository .
