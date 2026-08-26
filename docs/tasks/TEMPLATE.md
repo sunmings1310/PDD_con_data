@@ -38,8 +38,15 @@
 
 - Required：Yes / No
 - Reason：
-- Environment：
-- Command / result / exit：
+- Local isolated environment identifier：
+- Fixed Head SHA：
+- Canonical command / test count / literal result hash / exit：
+- Evidence generated at / expiry：
+- Four artifacts / rollback / persistent business changes：
+- Hosted evidence validator：PASS / FAIL / BLOCKED / SKIPPED
+- Independent Reviewer provenance check：ACCEPT / BLOCKED / pending
+
+Oracle-sensitive Task 必须在固定 PR Head 本地 strict 通过；缺环境、参数、证据或 Reviewer 核验均为 `BLOCKED`。GitHub Actions 不连接数据库，只校验证据 manifest。Head 移动后旧证据失效并必须重跑。
 
 ## Real-device Gate
 

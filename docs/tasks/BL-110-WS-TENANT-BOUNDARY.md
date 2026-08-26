@@ -2,8 +2,9 @@
 
 - **Task ID**：BL-110-WS-TENANT-BOUNDARY
 - **Title**：实时日志 WebSocket 握手认证、租户/资源分区与可靠调度
-- **Status**：ACCEPTED / PR NOT CREATED
+- **Status**：PR #5 / DRAFT / FIXED-HEAD GATES PENDING
 - **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
+- **Current PR base**：`main@b3a7e2c493f44f4cb0bde7645d2c79340d019d65`
 - **Branch / worktree**：`codex/bl-110-ws-tenant-boundary` / `D:\work\PDD_con_data_ws_tenant`
 
 ## Goal
@@ -34,7 +35,7 @@
 - 扩大到投屏、OTA、全站 WebSocket broker、多实例或 CORS/密码哈希等 BL-110 其他范围；
 - 信任客户端提交的 Enterprise/Workspace；
 - 启动后续 Web 队列项、Generic SKU、SKU Schema/P1 数据模型、Phase 6B；
-- 创建 PR、merge、release。
+- merge、release；PR #5 的证据刷新已由 Product Owner 批准。
 
 ## Non-goals
 
@@ -76,7 +77,7 @@
 - [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
 - [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
 - [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
-- [x] 固定并推送 clean Head 后停止，不创建 PR。
+- [ ] 从 `main@b3a7e2c` 更新并固定 clean PR Head；重跑本地 Oracle strict、提交 manifest、Hosted evidence gate 通过后停止。
 
 ## Test Plan
 
@@ -117,11 +118,11 @@
 
 ## Stop Condition
 
-Independent Review `ACCEPT`、适用门禁通过、固定并推送 clean Head 后停止。不得创建 PR、merge、release；不得启动队列第 2 项，因为其必须从本项 merge 后的 main 开始。
+Independent Review `ACCEPT` 已保持；从 `main@b3a7e2c` 更新后，在固定 PR Head 重新生成本地 Oracle strict manifest 并让 Hosted offline/evidence CI 通过，然后停止。不得 merge、release；不得启动队列第 2 项，因为其必须从本项 merge 后的 main 开始。
 
 ## Evidence
 
 - Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
 - Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
 - Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
-- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据提交以远端 `codex/bl-110-ws-tenant-boundary` Head 为准；PR 未创建且禁止自动创建。
+- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5)；最终证据以远端 `codex/bl-110-ws-tenant-boundary` 固定 Head 与 PR body manifest 为准。

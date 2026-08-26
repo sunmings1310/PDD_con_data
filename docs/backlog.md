@@ -1,7 +1,13 @@
 # 稳定数据采集系统 Backlog
 
-> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-25）**
+> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-26）**
 > 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
+
+## Completed governance tasks
+
+| Task | 状态 | 范围 | 下一步 |
+|---|---|---|---|
+| CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
 ## Completed governance baseline
 
@@ -15,7 +21,7 @@
 
 | 顺序 | Task | 状态 | 范围与依赖 |
 |---:|---|---|---|
-| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 已推送 |
+| 1 | BL-110-WS-TENANT-BOUNDARY | PR #5 / DRAFT / EVIDENCE REFRESH / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；从 `main@b3a7e2c` 更新后重跑固定 Head 本地 Oracle 与 Hosted evidence gate |
 | 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
 | 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
 | 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
