@@ -1,27 +1,57 @@
 diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
-index b8537ba..90f69cf 100644
+index 8363dba..fcafdbb 100644
 --- a/docs/CURRENT_STATE.md
 +++ b/docs/CURRENT_STATE.md
+@@ -4 +4 @@
+-> 更新日期：2026-08-25
++> 更新日期：2026-08-26
 @@ -12 +12 @@
--| 当前主线基线 | `713cd714902c728cc0e7b796bdde4972c78042c9` |
-+| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
-@@ -104 +104,3 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
--治理基线已完成 Review、CI 和 merge。本轮停止，不自动启动新业务阶段：
-+`BL-110-WS-TENANT-BOUNDARY` 已在独立分支完成本地实现、适用门禁与 Independent Review `ACCEPT`；它尚未创建 PR、merge 或 release，因此 `main` 仍不包含该能力。已验证分支把实时日志连接绑定到服务端 identity、membership、`device:view`、Device/Task 归属与 token expiry；每次投递前重新校验撤销状态，Hub 只在同 Enterprise/Workspace/Device channel 内发送；Oracle commit 后才线程安全调度，失败有日志和计数，8 秒 HTTP 轮询仍为恢复路径。
+-| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
++| 当前主线基线 | `b3a7e2c493f44f4cb0bde7645d2c79340d019d65` |
+@@ -15 +15 @@
+-| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：PR / DRAFT` |
++| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
+@@ -19 +19 @@
+-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`；业务能力未改变。
++PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate；业务能力未改变。
+@@ -86 +86 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-## 7. Oracle 本地证据门禁候选状态
++## 7. Oracle 本地证据门禁状态
+@@ -88 +88 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
++`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准并通过 PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6) merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
+@@ -94 +94 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-- 当前状态为 Draft PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6)，尚未进入 main；Head `ec01d90` 的 push 与 pull_request Hosted Core CI 均成功，Oracle applicability 成功且本治理的 evidence job 明确 `skipped`，没有数据库 job。merge 仍需 Product Owner 明确批准。PR #5 保持 Draft/BLOCKED，待本治理 merge 后从新 main 更新并在其最终 Head 重跑本地 Oracle strict。
++- 门禁已经进入 main；GitHub Actions 不运行数据库测试。Oracle-sensitive PR 必须由本地隔离 Oracle strict manifest 和 Hosted evidence validator 共同通过。PR #5 正从新 main 更新，并将在固定最终 Head 重新生成本地 Oracle strict 证据。
+@@ -114 +114,3 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-治理基线已进入 main；`CI-ORACLE-LOCAL-GATE-001` 正在独立 Review，不自动启动新业务阶段：
++`BL-110-WS-TENANT-BOUNDARY` 已在 Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 完成本地实现与 Independent Review `ACCEPT`；当前从 `main@b3a7e2c` 更新，重新生成固定 Head 的本地 Oracle strict 证据并运行 Hosted evidence gate。该能力尚未 merge 或 release，因此 main 仍不包含它。
 +
-+当前执行队列必须保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 `main` 开始。本轮停止，不自动创建 PR、不启动后项或新业务阶段：
++当前执行队列保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 main 开始。本轮完成 PR #5 固定 Head 门禁后停止，merge 仍需 Product Owner 明确批准：
+@@ -120 +122 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-先完成本地 Oracle evidence gate 的 Review、Draft PR 与 Hosted offline CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
++先完成 PR #5 固定 Head 的本地 Oracle evidence manifest 与 Hosted offline/evidence CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 75e98fd..4d75792 100644
+index 09462cd..675dec4 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
-@@ -11,0 +12,14 @@
+@@ -3 +3 @@
+-> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-25）**
++> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-26）**
+@@ -6 +6 @@
+-## Active governance tasks
++## Completed governance tasks
+@@ -10 +10 @@
+-| CI-ORACLE-LOCAL-GATE-001 | PR / DRAFT | 将 Oracle merge 门禁改为固定 Head 的本地隔离 Oracle strict 证据；GitHub 不连接数据库 | Draft PR #6；Hosted offline CI 已通过；merge 前停止等待 Product Owner |
++| CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
+@@ -17,0 +18,14 @@
 +## Product-approved Web execution queue（2026-08-25）
 +
 +严格按以下依赖顺序执行；后项必须从前项 merge 后的 `main` 建立独立 Task/分支，不在未合并依赖上串接：
 +
 +| 顺序 | Task | 状态 | 范围与依赖 |
 +|---:|---|---|---|
-+| 1 | BL-110-WS-TENANT-BOUNDARY | ACCEPTED / PR NOT CREATED / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；固定 Head 已推送 |
++| 1 | BL-110-WS-TENANT-BOUNDARY | PR #5 / DRAFT / EVIDENCE REFRESH / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；从 `main@b3a7e2c` 更新后重跑固定 Head 本地 Oracle 与 Hosted evidence gate |
 +| 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
 +| 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
 +| 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
@@ -30,10 +60,16 @@ index 75e98fd..4d75792 100644
 +`WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 +
 diff --git a/docs/roadmap.md b/docs/roadmap.md
-index 02d42a1..305730b 100644
+index e2d5a98..3c618fc 100644
 --- a/docs/roadmap.md
 +++ b/docs/roadmap.md
-@@ -12,0 +13,12 @@
+@@ -3 +3 @@
+-> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-25）**
++> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-26）**
+@@ -12 +12,13 @@
+-5. `CI-ORACLE-LOCAL-GATE-001` 是已批准的独立治理前置：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
++5. `CI-ORACLE-LOCAL-GATE-001` 已通过 PR #6 merge 为 `main@b3a7e2c`：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
++
 +## 当前已批准执行顺序
 +
 +```text
@@ -44,20 +80,20 @@ index 02d42a1..305730b 100644
 +→ WEB-STATE-UX-001
 +```
 +
-+每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许执行第 1 项。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
-+
++每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许完成第 1 项 PR #5 的固定 Head 门禁与 merge 决策。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
 diff --git a/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
 new file mode 100644
-index 0000000..26e077a
+index 0000000..91d9fcd
 --- /dev/null
 +++ b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,128 @@
 +# BL-110-WS-TENANT-BOUNDARY：实时日志 WebSocket 租户与调度边界
 +
 +- **Task ID**：BL-110-WS-TENANT-BOUNDARY
 +- **Title**：实时日志 WebSocket 握手认证、租户/资源分区与可靠调度
-+- **Status**：ACCEPTED / PR NOT CREATED
++- **Status**：PR #5 / DRAFT / FIXED-HEAD GATES PENDING
 +- **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- **Current PR base**：`main@b3a7e2c493f44f4cb0bde7645d2c79340d019d65`
 +- **Branch / worktree**：`codex/bl-110-ws-tenant-boundary` / `D:\work\PDD_con_data_ws_tenant`
 +
 +## Goal
@@ -88,7 +124,7 @@ index 0000000..26e077a
 +- 扩大到投屏、OTA、全站 WebSocket broker、多实例或 CORS/密码哈希等 BL-110 其他范围；
 +- 信任客户端提交的 Enterprise/Workspace；
 +- 启动后续 Web 队列项、Generic SKU、SKU Schema/P1 数据模型、Phase 6B；
-+- 创建 PR、merge、release。
++- merge、release；PR #5 的证据刷新已由 Product Owner 批准。
 +
 +## Non-goals
 +
@@ -130,7 +166,7 @@ index 0000000..26e077a
 +- [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
 +- [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
 +- [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
-+- [x] 固定并推送 clean Head 后停止，不创建 PR。
++- [ ] 从 `main@b3a7e2c` 更新并固定 clean PR Head；重跑本地 Oracle strict、提交 manifest、Hosted evidence gate 通过后停止。
 +
 +## Test Plan
 +
@@ -171,14 +207,14 @@ index 0000000..26e077a
 +
 +## Stop Condition
 +
-+Independent Review `ACCEPT`、适用门禁通过、固定并推送 clean Head 后停止。不得创建 PR、merge、release；不得启动队列第 2 项，因为其必须从本项 merge 后的 main 开始。
++Independent Review `ACCEPT` 已保持；从 `main@b3a7e2c` 更新后，在固定 PR Head 重新生成本地 Oracle strict manifest 并让 Hosted offline/evidence CI 通过，然后停止。不得 merge、release；不得启动队列第 2 项，因为其必须从本项 merge 后的 main 开始。
 +
 +## Evidence
 +
 +- Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
 +- Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
 +- Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
-+- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；最终证据提交以远端 `codex/bl-110-ws-tenant-boundary` Head 为准；PR 未创建且禁止自动创建。
++- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5)；最终证据以远端 `codex/bl-110-ws-tenant-boundary` 固定 Head 与 PR body manifest 为准。
 diff --git a/server/main.py b/server/main.py
 index 07d93af..5fcfc27 100644
 --- a/server/main.py
