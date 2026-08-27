@@ -9,14 +9,14 @@
 | 项目 | 当前值 |
 |---|---|
 | 主分支 | `main` |
-| 当前主线基线 | `09e717cdc3f67eaaf620d6a5e796445ec0334674` |
+| 当前主线基线 | `f7ba0fda446b6b901eb57de4a38f365dc96bec24` |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
 | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
 | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
 | Golden Sample | PDD `platform_product_id=985843042423` |
 
-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge；当前 `main@09e717c` 已包含 Accepted 的 `BL-110-WS-TENANT-BOUNDARY`。
+PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge为 `main@09e717c`。PR #7 已普通 merge 为当前 `main@f7ba0fd`，`WEB-RESULT-VISIBILITY-001` 正式进入 Accepted 主线。
 
 ## 2. 当前权威主链
 
@@ -91,7 +91,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 - Oracle-sensitive PR 必须在固定 PR Head 的本地隔离 Oracle 上执行 canonical strict command，并在 PR body 提交结构化 manifest；
 - Hosted validator 检查 Head、时效、canonical 九文件集合/计数、字面输出和四制品 hash、rollback 与无持久业务变更；`BLOCKED`/`SKIPPED` 不能冒充 `PASS`；
 - Independent Reviewer 仍必须核验本地运行来源与隔离性。该人工信任边界不等价于 Hosted DB run；
-- 门禁已经进入 main；GitHub Actions 不运行数据库测试。Oracle-sensitive PR 必须由本地隔离 Oracle strict manifest 和 Hosted evidence validator 共同通过。PR #5 正从新 main 更新，并将在固定最终 Head 重新生成本地 Oracle strict 证据。
+- 门禁已经进入 main；GitHub Actions 不运行数据库测试。Oracle-sensitive PR 必须由本地隔离 Oracle strict manifest 和 Hosted evidence validator 共同通过。PR #7 已在固定 Head `2309af8` 完成本地 Oracle 46/46、skipped=0、Hosted evidence validator 与 Independent Review provenance 核验。
 
 ## 8. 文档唯一职责
 
@@ -111,12 +111,12 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 ## 9. 下一交接
 
-`BL-110-WS-TENANT-BOUNDARY` 已通过 PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 普通 merge，Core CI success；当前主线为 `main@09e717c`。
+`WEB-RESULT-VISIBILITY-001` 已通过 PR [#7](https://github.com/sunmings1310/PDD_con_data/pull/7) 普通 merge 为 `main@f7ba0fd`：Independent Review `ACCEPT`、E2E `PASS`、本地隔离 Oracle 46/46（skipped=0，persistent business changes=false），Hosted Core CI [#33050939542](https://github.com/sunmings1310/PDD_con_data/actions/runs/33050939542) 全部适用检查成功。
 
-Product Owner 已批准从该主线启动 `WEB-RESULT-VISIBILITY-001`。Control 已建立独立 Task、分支与 worktree；当前状态为 `IN_PROGRESS`，实现、测试、E2E 与 Independent Review 尚待完成：
+下一开发任务为 `WEB-CLIENT-CONTRACT-001`，状态 `READY / NOT STARTED`。当前停在其启动边界：尚未创建 Task 分支、worktree 或实现，须由 Product Owner/Control 另行启动：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`。
 
-本 Task 只处理结果可见性、Snapshot 正确资源 ID、Task→Raw→Quality 下钻、资料库边界和页面状态；不进入 `WEB-CLIENT-CONTRACT-001`、Excel 导入、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。完成固定 Head 验证与 Independent Review 后停止；merge 仍需 Product Owner 明确批准。
+`WEB-RESULT-VISIBILITY-001` 未进入 `WEB-CLIENT-CONTRACT-001`、Excel 导入、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。release 未获授权。
