@@ -1,41 +1,95 @@
-WEB-CLIENT-CONTRACT-001 TASK SETUP VERIFICATION
+WEB-CLIENT-CONTRACT-001 DEV VERIFICATION
 Date: 2026-08-27
 Branch: codex/web-client-contract-001
-Base/Head before Task setup: 85ba3a56bb3f70b5613d565f8b1a6873198b7ddb
-Changed branch/field: Task launch state READY/UNFROZEN -> IN_PROGRESS/FROZEN; no business code changed by Control.
+Base: origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb
+Setup Head: e5ef1ce4d35522ce93f06cb602d6d56fe19594b5
+Implementation Head: aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc
+Changed branch/field: WEB-CLIENT-CONTRACT-001 fixture READY/UNFROZEN -> REVIEW/FROZEN with HTTP_CONTEXT=UNIFIED, REQUEST_FENCE=GENERATION_ABORT, ERROR_CONTRACT=NORMALIZED, ORACLE_GATE=NOT_APPLICABLE.
 
-ARTIFACTS (repo-relative)
-1. docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
-2. docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch
-3. docs/tasks/WEB-CLIENT-CONTRACT-001-verification/VERIFICATION.txt
-4. docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
+FOUR ARTIFACTS (absolute paths)
+1. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
+2. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch
+3. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/VERIFICATION.txt
+4. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
 
-HASHES
+ARTIFACT HASHES
 Original synthetic fixture SHA-256: 436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
-Modified MODIFIED_FILE SHA-256: 2a05ea24f96519d87ba287924b3c367f8d4b10da15f3e193e075bb5fb8c3d62c
+MODIFIED_FILE SHA-256: f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a
+DIFF_FILE.patch SHA-256: 116a89d5768128a1d0ddb912aab352e6762548d7ed76b3ae1aef99546df47030
+ROLLBACK.sh SHA-256: bc95696fdc32da65456326b74264bb5c860d23b5571dc169b7a47f993eb38d01
 
-BASELINE IDENTITY
-Command: git rev-parse origin/main; git rev-parse HEAD; git branch --show-current
-Input/environment: D:\work\PDD_con_data_web_client_contract after worktree creation, before Task setup commit
+BASELINE
+Command: create docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt as the two-line READY/UNFROZEN original fixture; D:/Git/bin/bash.exe -lc "sha256sum 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt' && cat 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt'"
+Input/environment: D:/work/PDD_con_data_web_client_contract; UTF-8 without BOM; LF line endings.
 Literal output/result:
-85ba3a56bb3f70b5613d565f8b1a6873198b7ddb
-85ba3a56bb3f70b5613d565f8b1a6873198b7ddb
-codex/web-client-contract-001
+436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt
+TASK_STATE=READY
+CONTRACT_STATUS=UNFROZEN
 Exit status: 0
 Status: PASS
 
-BASELINE PYTHON TARGETED
-Command: set offline import-only ORACLE_HOST/PORT/SERVICE/USER/PASSWORD and JWT_SECRET; D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility
-Input/environment: no database connection; existing source at base; dummy values only satisfy import validation
+MODIFIED
+Command: D:/Git/bin/bash.exe -lc "sha256sum 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE' 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch' 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh' && cat 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE'"
+Input/environment: implementation and review-state fixture in D:/work/PDD_con_data_web_client_contract.
 Literal output/result:
-Ran 11 tests in 0.010s
+f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
+116a89d5768128a1d0ddb912aab352e6762548d7ed76b3ae1aef99546df47030 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch
+bc95696fdc32da65456326b74264bb5c860d23b5571dc169b7a47f993eb38d01 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
+TASK_STATE=REVIEW
+CONTRACT_STATUS=FROZEN
+HTTP_CONTEXT=UNIFIED
+REQUEST_FENCE=GENERATION_ABORT
+ERROR_CONTRACT=NORMALIZED
+ORACLE_GATE=NOT_APPLICABLE
+Exit status: 0
+Status: PASS
+
+ROLLBACK
+Command: Copy-Item -LiteralPath docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE -Destination docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt -Force; D:/Git/bin/bash.exe docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt
+Input/environment: rollback_probe.txt is another copy; repository MODIFIED_FILE is not the target.
+Literal output/result:
+target=docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt
+before_sha256=f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a
+after_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
+expected_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
+result=RESTORED
+exit_status=0
+Exit status: 0
+Restored behavior/status: probe restored to READY/UNFROZEN, then removed; repository MODIFIED_FILE remains REVIEW/FROZEN and changed with SHA-256 f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a.
+Status: PASS
+
+IMPLEMENTATION RESULT
+- web/src/api/clientContext.js owns immutable token/Enterprise/Workspace snapshots, storage persistence, request generation/abort and idempotent session lifecycle.
+- web/src/api/clientErrors.js and web/src/api/http.js normalize ApiOk, Axios HTTP and blob JSON errors; HTTP 404 and business NOT_FOUND remain non-enumerable.
+- user store, main bootstrap and AdminLayout clear full client session on 401 and remount route content after tenant switches without router.go reload.
+- router permissions use one AND helper. Excel template/match/export use the shared client and exact action permission hints; no direct Axios/fetch/XMLHttpRequest bypass was added.
+- FastAPI tenant/RBAC/NOT_FOUND logic, Oracle query, Schema, migration, Excel business behavior, WebSocket and Android source were unchanged.
+
+TARGETED NODE
+Command: D:/work/PDD_con_data_web_client_contract/.tools/node-v22.18.0-win-x64/node.exe web/scripts/test-client-contract.mjs
+Input/environment: offline Node 22.18.x; no server/database/account.
+Literal output/result:
+CONTEXT_SNAPSHOT=PASS immutable_headers=true old_abort=true stale_write=false
+REQUEST_KINDS=PASS json=true multipart=true blob=true shared_headers=true
+ERROR_CONTRACT=PASS api_ok=false axios_403=true http_404=true not_found_non_enumerable=true blob_json=true
+SESSION_401=PASS idempotent=true store_reset=1 redirect=1 storage_cleared=true
+ROUTE_PERMISSIONS=PASS perm=true perms_and=true partial_denied=true
+SOURCE_CONTRACT=PASS direct_http_bypass=false excel_permissions=true tenant_remount=true
+Exit status: 0
+Status: PASS
+
+TARGETED PYTHON
+Command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract
+Input/environment: offline import configuration; no Oracle connection.
+Literal output/result:
+Ran 19 tests in 0.021s
 OK
 Exit status: 0
 Status: PASS
 
-BASELINE WEB RACE
-Command: D:/work/PDD_con_data/.tools/node-v22.18.0-win-x64/node.exe web/scripts/test-request-generation.mjs
-Input/environment: existing offline Node test at base
+RESULT-VISIBILITY RACE REGRESSION
+Command: D:/work/PDD_con_data_web_client_contract/.tools/node-v22.18.0-win-x64/node.exe web/scripts/test-request-generation.mjs
+Input/environment: offline executable deferred A/B races.
 Literal output/result:
 STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
 REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false
@@ -43,49 +97,72 @@ TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved
 Exit status: 0
 Status: PASS
 
-BASELINE WEB BUILD
-Command: .\scripts\test-baseline.ps1 -Suite web -Strict
-Input/environment: worktree-local ignored junctions .tools and web/node_modules point to existing approved local runtime/dependencies
+WEB STRICT
+Command: powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite web -Strict
+Input/environment: worktree approved Node 22.18.x/npm 10.x runtime and existing node_modules junction.
 Literal output/result:
-1676 modules transformed.
-built in 5.78s
+1679 modules transformed.
+built in 618ms
 [PASS] web-build: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 Exit status: 0
 Status: PASS
 
-BASELINE STATIC
-Command: git diff --check
-Input/environment: clean base before Task materials
-Literal output/result: no output
+PYTHON STRICT
+Command: set PDD_PYTHON to D:/work/PDD_con_data/.venv-t001/Scripts/python.exe and offline import configuration; powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite python -Strict
+Input/environment: offline; isolated Oracle integration suites remain explicitly skipped by their own environment gates.
+Literal output/result:
+Ran 231 tests in 0.507s
+OK (skipped=24)
+[PASS] python-unit: exit=0
+SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 Exit status: 0
 Status: PASS
 
-FIRST ATTEMPT RECORD
-Python targeted first attempt: FAIL/exit 1 because required import-only ORACLE_* and JWT_SECRET were absent; no test ran.
-Web strict first attempt: BLOCKED/exit 2 with literal '[BLOCKED] web-build: bundled Node 22.18.x/npm 10.x is absent'.
-Resolution changed only ignored worktree runtime wiring and dummy offline import configuration; it did not change tracked source or claim an Oracle PASS.
-
-MODIFIED
-Command: repository-relative Markdown validator; Python PyYAML workflow parse; git diff --check
-Input/environment: Task/backlog/current-state/roadmap and four artifacts only
+ANDROID STRICT
+Command: set ANDROID_SDK_ROOT/ANDROID_HOME to the SDK referenced by the repository local.properties; powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite android -Strict
+Input/environment: existing JDK 17 and Android SDK; no Android source modified and no device used.
 Literal output/result:
-Validated 63 Markdown files
-YAML_VALID
-git diff --check: no output (line-ending conversion warnings are not whitespace errors)
-Exit status: 0 for each command
-Status: PASS
-
-ROLLBACK
-Command: D:/Git/bin/bash.exe docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt
-Input/environment: rollback_probe.txt is another byte-for-byte copy of MODIFIED_FILE; repository MODIFIED_FILE is not the target
-Literal output/result:
-target=docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt
-before_sha256=2a05ea24f96519d87ba287924b3c367f8d4b10da15f3e193e075bb5fb8c3d62c
-after_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
-expected_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
-result=RESTORED
-exit_status=0
+BUILD SUCCESSFUL in 7s
+30 actionable tasks: 1 executed, 29 up-to-date
+[PASS] android-jvm: exit=0
+SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+XML result: tests=70 failures=0 errors=0 skipped=1
 Exit status: 0
-Restored behavior/status: probe restored to READY/UNFROZEN and removed; repository MODIFIED_FILE remains IN_PROGRESS/FROZEN with SHA-256 2a05ea24f96519d87ba287924b3c367f8d4b10da15f3e193e075bb5fb8c3d62c
 Status: PASS
+
+COMPILE / DIFF
+Command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m compileall -q server tests; git diff --check
+Input/environment: final implementation tree before evidence commit.
+Literal output/result: no output; CRLF conversion warnings from Git are not whitespace errors.
+Exit status: 0 for both commands
+Status: PASS
+
+FAILED/BLOCKED ATTEMPTS PRESERVED
+- Direct npm build used system Node 20.11.1 and failed on missing node:util.styleText, exit 1; canonical Web strict used Node 22 and passed.
+- Python strict first returned BLOCKED because PDD_PYTHON was unset, exit 2; explicit approved interpreter then passed.
+- Android strict first returned BLOCKED because SDK discovery was unset, exit 2; the SDK already referenced by repository local.properties then passed.
+
+SENSITIVE / RAW CAPTURE SCAN
+Command: scan every changed tracked/working file against private-key, GitHub/AWS/OpenAI key and literal bearer-token signatures; classify Raw Capture/log/env/pcap/har/xlsx/csv/jsonl candidate paths.
+Input/environment: origin/main through implementation/evidence working tree; generated build output and ignored runtimes excluded.
+Literal output/result:
+SENSITIVE_MATCHES=0
+SENSITIVE_SCAN_EXIT=0
+RAW_CAPTURE_CANDIDATES=0
+Exit status: 0
+Status: PASS
+
+ORACLE GATE
+Required: No
+Classifier command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe .github/scripts/classify_oracle_scope.py <changed paths>
+Literal output/result: ORACLE_GATE=SKIPPED: explicitly not applicable to this change set
+Classifier exit status: 0
+Result: SKIPPED (not applicable), not PASS.
+Reason: no server tenant/auth query, Oracle SQL, Schema or migration changed.
+Persistent business changes: false.
+
+REVIEW/E2E
+Independent Review: pending.
+E2E: pending; exact scope is two authorized tenant contexts plus a limited-permission context, deferred switch race, Excel JSON/multipart/blob headers/download/error behavior, and 401/403/404/NOT_FOUND semantics.
+PR: not created. Merge/release: not performed.

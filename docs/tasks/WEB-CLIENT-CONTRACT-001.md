@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-CLIENT-CONTRACT-001
 - **Title**：统一 tenant-aware Web HTTP client、Excel 请求头与权限路由
-- **Status**：IN_PROGRESS
+- **Status**：REVIEW / DEV SELF-CHECK PASS / PR NOT CREATED
 - **Base**：`origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb`
 - **Branch**：`codex/web-client-contract-001`
 - **Worktree**：`D:\work\PDD_con_data_web_client_contract`
@@ -96,16 +96,16 @@
 
 ## Acceptance Criteria
 
-- [ ] JSON、multipart、Excel template/match/export blob 均由同一 client context 注入有效 Authorization、`X-Enterprise-Id`、`X-Workspace-Id`；无批准的直接 Axios/fetch 旁路。
-- [ ] 请求使用发起时不可变的 context snapshot；tenant/workspace 切换后旧请求会被取消或标记 stale，旧响应不能覆盖新上下文状态。
-- [ ] 401 会幂等清除 Pinia 与 storage 的 token/profile/tenant context，并只触发确定的登录跳转；不会保留可误用的旧权限。
-- [ ] 403 保持 forbidden，404 与服务端 `NOT_FOUND` 保持“资源不存在或不属于当前租户”的不可枚举语义；client normalization 不泄露资源存在性。
-- [ ] Route `perm` 与 `perms` 使用同一 helper，多权限保持 AND；UI guard 不能替代服务端 RBAC。
-- [ ] Excel template/match/export 在 tenant-aware client 下保持原业务输入、输出、文件名与下载行为；blob 内 JSON error 可解释且不下载伪文件。
-- [ ] Excel 页面按钮/route 对 `excel:import`、`excel:match`、`excel:export` 的客户端可见性与服务端要求一致；服务端拒绝仍为最终结果。
-- [ ] tenant 切换会清理或刷新 summary、页面请求与 permission context，不依赖旧请求自然结束。
-- [ ] 不实现模板/解析/导入/下发新功能，不修改 Schema/migration/Excel业务/Android/采集链。
-- [ ] targeted client/route/Excel tests、Python tenant contracts、Web production build、Python full、Android JVM、compile/diff 适用回归通过。
+- [x] JSON、multipart、Excel template/match/export blob 均由同一 client context 注入有效 Authorization、`X-Enterprise-Id`、`X-Workspace-Id`；无批准的直接 Axios/fetch 旁路。
+- [x] 请求使用发起时不可变的 context snapshot；tenant/workspace 切换后旧请求会被取消或标记 stale，旧响应不能覆盖新上下文状态。
+- [x] 401 会幂等清除 Pinia 与 storage 的 token/profile/tenant context，并只触发确定的登录跳转；不会保留可误用的旧权限。
+- [x] 403 保持 forbidden，404 与服务端 `NOT_FOUND` 保持“资源不存在或不属于当前租户”的不可枚举语义；client normalization 不泄露资源存在性。
+- [x] Route `perm` 与 `perms` 使用同一 helper，多权限保持 AND；UI guard 不能替代服务端 RBAC。
+- [x] Excel template/match/export 在 tenant-aware client 下保持原业务输入、输出、文件名与下载行为；blob 内 JSON error 可解释且不下载伪文件。
+- [x] Excel 页面按钮/route 对 `excel:import`、`excel:match`、`excel:export` 的客户端可见性与服务端要求一致；服务端拒绝仍为最终结果。
+- [x] tenant 切换会清理或刷新 summary、页面请求与 permission context，不依赖旧请求自然结束。
+- [x] 不实现模板/解析/导入/下发新功能，不修改 Schema/migration/Excel业务/Android/采集链。
+- [x] targeted client/route/Excel tests、Python tenant contracts、Web production build、Python full、Android JVM、compile/diff 适用回归通过。
 - [ ] 若 server Oracle-backed permission/context query 发生变化，固定 Head 隔离 Oracle strict 与 evidence validator 通过；Independent Review 与 E2E 完成，无新增 P0。
 
 ## Test Plan
@@ -115,23 +115,28 @@
 | Python targeted | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility`，offline import config | existing tenant/result contract | `Ran 11 tests in 0.010s`; `OK`; exit 0 | PASS |
 | Web race | `node web/scripts/test-request-generation.mjs` | result visibility A/B stale fences stay green | 三项 `PASS`; exit 0 | PASS |
 | Web build | `.\scripts\test-baseline.ps1 -Suite web -Strict` | production build | `1676 modules transformed`; `built in 5.78s`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
-| New client unit | executable Node tests for header snapshots, envelope/blob errors, 401/403/404, tenant generation | all contract cases deterministic offline | pending | BLOCKED |
-| Router/Excel contract | source/runtime tests for `perm/perms`, Excel no direct Axios, action permissions | no drift/bypass | pending | BLOCKED |
-| Full regression | canonical Python/Web/Android/compile/diff | no Phase 1～6A or result visibility regression | pending | BLOCKED |
+| New client unit | `node web/scripts/test-client-contract.mjs` | all contract cases deterministic offline | `CONTEXT_SNAPSHOT/REQUEST_KINDS/ERROR_CONTRACT/SESSION_401/ROUTE_PERMISSIONS/SOURCE_CONTRACT=PASS`; exit 0 | PASS |
+| Router/Excel contract | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract` | no drift/bypass | `Ran 19 tests in 0.021s`; `OK`; exit 0 | PASS |
+| Python full | `test-baseline.ps1 -Suite python -Strict`，显式 `PDD_PYTHON` 与 offline import config | no Phase 1～6A/result visibility regression | `Ran 231 tests in 0.507s`; `OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Web full | `test-baseline.ps1 -Suite web -Strict` | production build | `1679 modules transformed`; `built in 618ms`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Android JVM | `test-baseline.ps1 -Suite android -Strict`，SDK 使用仓库既有 `local.properties` 所指 runtime | existing Android regression | `BUILD SUCCESSFUL in 7s`; `30 actionable tasks: 1 executed, 29 up-to-date`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0；XML 70 tests/0 failures/0 errors/1 skipped | PASS |
+| Compile/diff | `python -m compileall -q server tests`; `git diff --check` | syntax/whitespace clean | no output; exits 0 | PASS |
 | E2E | two authorized tenant contexts + limited permission context; switch during deferred request; Excel template/match/export errors | exact headers, no stale write, correct 401/403/404/download behavior | pending | BLOCKED |
 
 首次基线尝试如实记录：缺少 worktree-local ignored runtime 与 offline import config 时，Python import `BLOCKED/FAIL`（缺 `ORACLE_*`/`JWT_SECRET`），Web strict `BLOCKED`（bundled Node absent）；随后仅建立指向既有 `.tools`、`web/node_modules` 的 ignored junction，并使用不连接数据库的 dummy import config，以上基线转为实际 PASS。未把首次 BLOCKED 冒充 PASS。
 
+Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.11.1 启动，因缺少 Node 22 的 `node:util.styleText` 而 `FAIL`/exit 1；改用仓库 canonical Web strict 后由固定 Node 22.18.x 实际 `PASS`。Python strict 首次因未设置 `PDD_PYTHON` 为 `BLOCKED`/exit 2，显式绑定已批准 Python 后实际 `PASS`。Android strict 首次因 worktree 未发现 SDK 为 `BLOCKED`/exit 2，随后使用仓库 `android_collector/local.properties` 已引用的 SDK 实际 `PASS`。这些首次结果未称为 PASS。
+
 ## Oracle Gate
 
-- Required：Conditional；若只修改 Web client/route/Excel调用且 server query/tenant permission DTO 不变，则明确 `No / SKIPPED (not applicable)`。若修改 `server/tenant.py`、`server/routers/auth.py` 的 Oracle-backed selected-context permission/query 或任何 tenant SQL，则为 **Yes**。
-- Reason：客户端 header 与 route tests 可离线验证；服务端 tenant/RBAC query 变更必须由真实 Oracle证明。
-- Local isolated environment identifier：conditional，固定 Head 后记录。
-- Fixed Head SHA：pending
-- Canonical command / test count / literal result hash / exit：pending
-- Evidence generated at / expiry：pending
+- Required：**No / SKIPPED (not applicable)**；未修改 `server/tenant.py`、`server/routers/auth.py`、Oracle query、Schema 或 migration。
+- Reason：本变更仅涉及 Web client/context/route/Excel 调用、离线契约测试与架构说明；服务端 tenant/RBAC/NOT_FOUND 权威行为未改变。
+- Local isolated environment identifier：not applicable。
+- Implementation Head SHA：`aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc`；最终 evidence commit/head 由 Dev push 后核验回报。
+- Canonical command / test count / literal result hash / exit：not applicable；不得把 Oracle `SKIPPED` 称为 PASS。
+- Evidence generated at / expiry：not applicable。
 - Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`；实现阶段更新；禁止持久业务变更。
-- Hosted evidence validator：pending / not applicable after final diff classification
+- Hosted evidence validator：not applicable
 - Independent Reviewer provenance check：pending
 
 ## Real-device Gate
@@ -163,5 +168,5 @@
 
 - Original evidence：`main@85ba3a5` 的 `http.js`、`user.js`、router、AdminLayout、ExcelMatch、tenant/auth/excel endpoints 与现有 tests。
 - Derived artifacts：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`。
-- Review findings：pending
-- Commit / PR：Task setup pending；PR 未创建。
+- Review findings：Independent Review / E2E pending；Dev 未代替独立验收。
+- Commit / PR：implementation `aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc`（包含 `b78556c` 主实现与 `aaab040` edge-case fix）；evidence commit 待本轮提交；PR 未创建。
