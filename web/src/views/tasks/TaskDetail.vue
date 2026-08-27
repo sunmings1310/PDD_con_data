@@ -157,7 +157,7 @@ import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
-import { createRequestGeneration } from '@/utils/requestGeneration'
+import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
 
 const route = useRoute()
 const router = useRouter()
@@ -304,15 +304,17 @@ async function deleteProduct(row){const token=requestGeneration.capture();await 
 async function saveToLibrary(){const token=requestGeneration.capture();const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success(res.message);loadResults()}}
 
 async function requeueFails() {
+  const taskId = String(route.params.id)
   const token = requestGeneration.capture()
   if (!retryItems.value.length) return
-  await ElMessageBox.confirm(
+  const result = await runGuardedAfter(ElMessageBox.confirm(
     `将重新下发 ${retryItems.value.length} 条，并完整保留原批准文号、品名、规格、厂家及任务配置。`,
     '确认重新下发',
     { type: 'warning' },
-  )
-  const res = await http.post(`/api/tasks/${route.params.id}/requeue-failed`, { include_cancelled: true })
-  if (!requestGeneration.isCurrent(token, route.params.id)) return
+  ), requestGeneration, token, taskId, () => http.post(`/api/tasks/${taskId}/requeue-failed`, { include_cancelled: true }))
+  if (result.status === REQUEST_STALE) return
+  const res = result.value
+  if (!requestGeneration.isCurrent(token, taskId)) return
   if (!res.ok) return
   ElMessage.success(`已重新下发 #${res.data.task_id}，保留匹配目标 ${res.data.match_target_count} 条`)
   router.push(`/tasks/${res.data.task_id}`)

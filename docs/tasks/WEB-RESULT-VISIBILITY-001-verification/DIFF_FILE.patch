@@ -1,307 +1,144 @@
-diff --git a/docs/architecture.md b/docs/architecture.md
-index babed49..6191f10 100644
---- a/docs/architecture.md
-+++ b/docs/architecture.md
-@@ -252 +252 @@ Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间
--Task 的业务结果读取使用 `/api/management/tasks/{task_id}/results`，由 `management_queries.task_results()` 在同一 tenant/workspace fence 下合并三类既有事实：可信 Snapshot、Quarantine、以及尚无 strict Snapshot 的 legacy/draft Product。响应同时返回各资源真实 `snapshot_id`、`raw_id`、`quality_result_id`、`quarantine_id` 与持久化的 Product identity；缺失项以 `availability=unavailable + reason` 表达，不从其他 ID 推断。`/api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}` 继续以 Task + tenant/workspace 约束读取只读证据。Web 的 Snapshot、Raw、Quality 和 Quarantine 下钻分别使用自身资源 ID；资料库 `draft/saved` 只描述人工保存状态，不改变采集事实。
-+Task 的业务结果读取使用 `/api/management/tasks/{task_id}/results`，由 `management_queries.task_results()` 在同一 tenant/workspace fence 下合并三类既有事实：可信 Snapshot、Quarantine、以及尚无 strict Snapshot 的 legacy/draft Product。响应同时返回各资源真实 `snapshot_id`、`raw_id`、`quality_result_id`、`quarantine_id` 与持久化的 Product identity；缺失项以 `availability=unavailable + reason` 表达，不从其他 ID 推断。分页顺序使用 `COLLECTED_AT + RESULT_KIND +` 各类型 authoritative ID 形成稳定全序，避免同时间戳、跨类型 ID 碰撞造成重复或漏项。结果列表和 `/api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}` 同时要求 Accepted Phase 4 的 `data:view` 与 `task:view`，并继续执行 Task + tenant/workspace ownership fence。Web 的 Snapshot、Raw、Quality 和 Quarantine 下钻分别使用自身资源 ID；资料库 `draft/saved` 只描述人工保存状态，不改变采集事实。Task Detail、Trace 与 Evidence 使用共享 generation guard，在路由资源切换时先清空旧状态并拒绝乱序旧响应写回。
 diff --git a/docs/tasks/WEB-RESULT-VISIBILITY-001.md b/docs/tasks/WEB-RESULT-VISIBILITY-001.md
-index 0b3e3c5..70f6ca8 100644
+index 70f6ca8..2ef0b33 100644
 --- a/docs/tasks/WEB-RESULT-VISIBILITY-001.md
 +++ b/docs/tasks/WEB-RESULT-VISIBILITY-001.md
 @@ -5 +5 @@
--- **Status**：DEV_SELF_CHECK_COMPLETE（等待 fixed-Head E2E / Independent Review）
-+- **Status**：REVIEW_FIX_DEV_SELF_CHECK_COMPLETE（等待新 fixed-Head E2E / Independent Review）
-@@ -72 +72 @@
--- [ ] 固定 Head Oracle strict（若服务端 Oracle 查询发生变化）和 Independent Review 完成；无新增 P0。
-+- [ ] 新 fixed Head Oracle strict、E2E 与 Independent Review 完成；无新增 P0。
-@@ -78,5 +78,6 @@
--| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | draft/Snapshot/Raw/Quality/Quarantine ID 与权限断言通过 | `Ran 27 tests in 0.008s`；`OK` | 0 | PASS |
--| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS；必要静态契约测试通过 | `1675 modules transformed`；`built in 600ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
--| Python module/full | `$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 222 tests in 0.471s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
--| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；固定 JDK/SDK | 既有测试通过 | `BUILD SUCCESSFUL in 1m21s`；XML `70 tests, failures=0, errors=0, skipped=1`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
--| Real Oracle targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture；本地忽略环境提供凭据 | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 5.244s`；`OK` | 0 | PASS |
-+| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 17 tests in 0.094s`；`OK` | 0 | PASS |
-+| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | A/B deferred response；B 先完成、A 后完成 | reset 完整且 A 不得覆盖 B | `STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit` | 0 | PASS |
-+| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 542ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-+| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.430s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-+| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 24s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-+| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.062s`；`OK` | 0 | PASS |
-@@ -130 +131,6 @@
--- Review findings：等待 E2E / Independent Review；Reviewer 重点核对 Task A/B 隔离、Snapshot/Raw/Quality/Quarantine 自有 ID、draft/Quarantine 可见性、403/NOT_FOUND/stale clearing、四制品与 fixed-Head Oracle 来源。
-+- Review findings（2026-08-27 Review Fix）：
-+  1. **RESOLVED**：Task results `ORDER BY` 增加 `RESULT_KIND` 与 Snapshot/Quarantine/Product/Raw/Quality authoritative ID 全序；同 timestamp、跨 result kind 相同 ID、跨页无重复漏项回归通过。
-+  2. **RESOLVED**：新增可执行 `requestGeneration` helper 与 A/B 乱序 Node 回归；Task Detail/Trace/Evidence 路由切换同步 reset，旧 generation 不得写回。
-+  3. **RESOLVED**：Task result/evidence API 恢复 Accepted Phase 4 `data:view`，与 `task:view` 及 Task/tenant ownership 取交集；task-only 用户返回 403。
-+  4. **PENDING NEW HEAD**：旧 Head Oracle 46/46 仅作为发现证据；Review Fix commit 后独占重跑 canonical strict 并生成新外部 manifest。
-+  5. **RESOLVED**：`VERIFICATION.txt` 可复制命令改用 forward-slash path/PowerShell 变量，移除反斜杠转义歧义；副本 rollback 重测。
-diff --git a/server/management_queries.py b/server/management_queries.py
-index c703d7a..8218217 100644
---- a/server/management_queries.py
-+++ b/server/management_queries.py
-@@ -432 +432,6 @@ def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | No
--                       COALESCE(SNAPSHOT_ID,QUARANTINE_ID,PRODUCT_ID) DESC
-+                       RESULT_KIND ASC,
-+                       NVL(SNAPSHOT_ID,-1) DESC,
-+                       NVL(QUARANTINE_ID,-1) DESC,
-+                       NVL(PRODUCT_ID,-1) DESC,
-+                       NVL(RAW_ID,-1) DESC,
-+                       NVL(QUALITY_RESULT_ID,-1) DESC
-diff --git a/server/routers/management.py b/server/routers/management.py
-index 4663367..6a61386 100644
---- a/server/routers/management.py
-+++ b/server/routers/management.py
-@@ -60 +60 @@ def task_results(
--    tenant=Depends(require_tenant_perms("task:view")),
-+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
-@@ -72 +72 @@ def task_result_resource(
--    tenant=Depends(require_tenant_perms("task:view")),
-+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
-diff --git a/tests/test_phase4_management.py b/tests/test_phase4_management.py
-index ed9198a..395e333 100644
---- a/tests/test_phase4_management.py
-+++ b/tests/test_phase4_management.py
-@@ -202,0 +203,33 @@ class Phase4ManagementTests(unittest.TestCase):
-+    def test_task_results_same_timestamp_cross_kind_id_collision_has_stable_pages(self):
-+        columns = [
-+            "RESULT_KIND", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "SNAPSHOT_ID",
-+            "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID",
-+            "RAW_ID", "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT",
-+        ]
-+        timestamp = "2026-08-27T00:00:00Z"
-+        legacy = ("legacy_product", 5, None, None, None, None, None, 7, None, None, None,
-+                  "draft", "legacy", timestamp)
-+        quarantine = ("quarantine", 5, 8, 80, None, None, None, None, 7, 17, 27,
-+                      "unavailable", "quarantined", timestamp)
-+        snapshot = ("snapshot", 5, 9, 90, 7, 1, 2, None, None, 18, 28,
-+                    "unavailable", "passed", timestamp)
-+        page1 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [legacy, quarantine])])
-+        page2 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [snapshot])])
-+
-+        first = q.task_results(page1, 5, page=1, limit=2, tenant=TENANT_A)
-+        second = q.task_results(page2, 5, page=2, limit=2, tenant=TENANT_A)
-+        identities = [(row["result_kind"], row["result_id"]) for row in first["items"] + second["items"]]
-+
-+        self.assertEqual([("legacy_product", 7), ("quarantine", 7), ("snapshot", 7)], identities)
-+        self.assertEqual(3, len(set(identities)))
-+        order_sql = page1.calls[2][0]
-+        self.assertIn("COLLECTED_AT DESC NULLS LAST, RESULT_KIND ASC", order_sql)
-+        for tie_breaker in (
-+            "NVL(SNAPSHOT_ID,-1) DESC", "NVL(QUARANTINE_ID,-1) DESC",
-+            "NVL(PRODUCT_ID,-1) DESC", "NVL(RAW_ID,-1) DESC",
-+            "NVL(QUALITY_RESULT_ID,-1) DESC",
-+        ):
-+            self.assertIn(tie_breaker, order_sql)
-+        self.assertEqual(0, page1.calls[2][1]["offset"])
-+        self.assertEqual(2, page2.calls[2][1]["offset"])
-+
+-- **Status**：REVIEW_FIX_DEV_SELF_CHECK_COMPLETE（等待新 fixed-Head E2E / Independent Review）
++- **Status**：REVIEW_FIX_2_DEV_SELF_CHECK_COMPLETE（E2E PASS；等待新 fixed-Head Independent Review）
+@@ -63 +63 @@
+-- [x] 有 `task:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
++- [x] 同时有 `task:view + data:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
+@@ -78,6 +78,6 @@
+-| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 17 tests in 0.094s`；`OK` | 0 | PASS |
+-| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | A/B deferred response；B 先完成、A 后完成 | reset 完整且 A 不得覆盖 B | `STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit` | 0 | PASS |
+-| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 542ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+-| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.430s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+-| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 24s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+-| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.062s`；`OK` | 0 | PASS |
++| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.009s`；`OK` | 0 | PASS |
++| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | TaskDetail/TaskTrace A/B deferred response 与 deferred confirm | reset 完整；旧 A 不覆盖/清空 B；stale confirm 不发 POST | `STALE_RACE=PASS ...`；`REQUEUE_CONFIRM_RACE=PASS ... stale_request_sent=false`；`TASK_TRACE_RACE=PASS ... preserved=true` | 0 | PASS |
++| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 584ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.441s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 7s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.185s`；`OK` | 0 | PASS |
+@@ -93,6 +93,6 @@
+-- Fixed Head SHA：最终 commit 后在 Control handoff / PR body manifest 记录，避免提交证据导致 Head 再次移动。
+-- Canonical command / test count / literal result hash / exit：最终 commit 后运行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict` 并在 Control handoff / PR body manifest 记录；当前真实 Oracle targeted 为 1/1、`OK`、exit 0，不冒充全量 Gate。
+-- Evidence generated at / expiry：pending
+-- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 已生成四制品；副本 rollback 恢复 SHA-256 `952a1817...`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
+-- Hosted evidence validator：pending
+-- Independent Reviewer provenance check：pending
++- Fixed Head SHA：Review Fix 2 最终 commit SHA 由外部 manifest 与 Control handoff 绑定，避免提交 manifest 后再次移动 Head。
++- Canonical command / test count / literal result hash / exit：最终 Head 独占执行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict`；外部 manifest 记录完整 literal output/hash、46/46、skipped=0、exit 0。
++- Evidence generated at / expiry：最终 commit 后生成；validator 时效为 72 小时，精确 UTC 时间见外部 manifest。
++- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
++- Hosted evidence validator：外部 manifest 在最终 Head 使用 `.github/scripts/validate_oracle_local_evidence.py` 独立验证；结果随 handoff 提交。
++- Independent Reviewer provenance check：E2E 已 PASS；Reviewer 继续核对最终 Head 本地隔离 Oracle 来源、cleanup、rollback 与四制品 hash。
+@@ -135 +135,3 @@
+-  4. **PENDING NEW HEAD**：旧 Head Oracle 46/46 仅作为发现证据；Review Fix commit 后独占重跑 canonical strict 并生成新外部 manifest。
++  4. **RESOLVED BY FINAL-HEAD EXTERNAL EVIDENCE**：旧 Head Oracle 46/46 只作发现证据；每轮 Review Fix 最终 commit 后独占重跑 canonical strict，并以新 Head 外部 manifest 为唯一有效证据。
++  6. **RESOLVED**：deferred confirm 期间 A→B 切换会在 POST 前返回 stale，固定 `taskId` 不读取实时 route；测试确认 `stale_request_sent=false`。
++  7. **RESOLVED**：TaskTrace fetch outcome 区分 `ok/failed/stale`；只有当前 generation 的真实 `failed` 才清空 selection/attempts/events，旧 A stale 不影响 B。
 diff --git a/tests/test_web_result_visibility.py b/tests/test_web_result_visibility.py
-index 6de2ab4..c51d580 100644
+index c51d580..ee0666e 100644
 --- a/tests/test_web_result_visibility.py
 +++ b/tests/test_web_result_visibility.py
-@@ -38,0 +39,3 @@ class WebResultVisibilityContractTest(unittest.TestCase):
-+        self.assertIn("createRequestGeneration", source)
-+        self.assertIn("watch(()=>String(route.params.id),switchTask,{immediate:true})", source)
-+        self.assertIn("resetTaskState", source)
-@@ -55 +58,2 @@ class WebResultVisibilityContractTest(unittest.TestCase):
--        self.assertIn("if(expected!==String(route.params.id))return false", trace)
-+        self.assertIn("requestGeneration.isCurrent", trace)
-+        self.assertIn("createRequestGeneration", detail)
-@@ -61 +65 @@ class WebResultVisibilityContractTest(unittest.TestCase):
--        self.assertIn("perm: 'task:view'", routes)
-+        self.assertIn("perms: ['task:view', 'data:view']", routes)
-@@ -72 +76 @@ class WebResultVisibilityContractTest(unittest.TestCase):
--            self.assertEqual(("task:view",), inspect.getclosurevars(dependency).nonlocals["needed"])
-+            self.assertEqual(("task:view", "data:view"), inspect.getclosurevars(dependency).nonlocals["needed"])
-@@ -78,0 +83,5 @@ class WebResultVisibilityContractTest(unittest.TestCase):
-+            task_only = TenantContext(11, 101, 1, 1, "viewer", frozenset({"task:view"}))
-+            with patch("server.tenant.load_context", return_value=task_only):
-+                with self.assertRaises(HTTPException) as caught:
-+                    asyncio.run(dependency(request, user={"user_id": 1}))
-+            self.assertEqual(403, caught.exception.status_code)
-diff --git a/web/package.json b/web/package.json
-index c463b45..9fa9ec8 100644
---- a/web/package.json
-+++ b/web/package.json
-@@ -12,0 +13 @@
-+    "test:result-visibility": "node scripts/test-request-generation.mjs",
+@@ -41,0 +42,4 @@ class WebResultVisibilityContractTest(unittest.TestCase):
++        self.assertIn("const taskId = String(route.params.id)", source)
++        self.assertIn("runGuardedAfter", source)
++        self.assertIn("`/api/tasks/${taskId}/requeue-failed`", source)
++        self.assertNotIn("`/api/tasks/${route.params.id}/requeue-failed`", source)
+@@ -58,0 +63,2 @@ class WebResultVisibilityContractTest(unittest.TestCase):
++        self.assertIn("outcome===REQUEST_FAILED", trace)
++        self.assertIn("return REQUEST_STALE", trace)
 diff --git a/web/scripts/test-request-generation.mjs b/web/scripts/test-request-generation.mjs
-new file mode 100644
-index 0000000..38c187d
---- /dev/null
+index 38c187d..a2906e6 100644
+--- a/web/scripts/test-request-generation.mjs
 +++ b/web/scripts/test-request-generation.mjs
-@@ -0,0 +1,35 @@
-+import assert from 'node:assert/strict'
-+import { createRequestGeneration } from '../src/utils/requestGeneration.js'
+@@ -2 +2,3 @@ import assert from 'node:assert/strict'
+-import { createRequestGeneration } from '../src/utils/requestGeneration.js'
++import {
++  createRequestGeneration, REQUEST_FAILED, REQUEST_STALE, runGuardedAfter,
++} from '../src/utils/requestGeneration.js'
+@@ -35,0 +38,33 @@ console.log('STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/lo
 +
-+const guard = createRequestGeneration()
-+const state = { task: null, results: [], logs: [], selection: [1], editOpen: true }
-+const reset = () => Object.assign(state, {
-+  task: null, results: [], logs: [], selection: [], editOpen: false,
-+})
++const confirmGuard = createRequestGeneration()
++const confirmA = deferred()
++const confirmTokenA = confirmGuard.reset('A')
++let postedTask = null
++const guardedPost = runGuardedAfter(
++  confirmA.promise, confirmGuard, confirmTokenA, 'A', async () => { postedTask = 'A' },
++)
++confirmGuard.reset('B')
++confirmA.resolve(true)
++const confirmResult = await guardedPost
++assert.equal(confirmResult.status, REQUEST_STALE)
++assert.equal(postedTask, null)
++console.log('REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false')
 +
-+const deferred = () => {
-+  let resolve
-+  const promise = new Promise((done) => { resolve = done })
-+  return { promise, resolve }
++const traceGuard = createRequestGeneration()
++const traceA = deferred()
++const traceState = { selectedJob: { job_id: 'B-job' }, selectedAttempt: { attempt_id: 'B-attempt' }, attempts: ['B-attempt'], events: ['B-event'] }
++const tokenTraceA = traceGuard.reset('A')
++const fetchTraceA = async () => {
++  await traceA.promise
++  return traceGuard.isCurrent(tokenTraceA, 'A') ? REQUEST_FAILED : REQUEST_STALE
 +}
-+const a = deferred()
-+const b = deferred()
-+const tokenA = guard.reset('A', reset)
-+const write = async (request, token, scope) => {
-+  const value = await request.promise
-+  if (guard.isCurrent(token, scope)) state.task = value
++const loadJobsA = async () => {
++  const outcome = await fetchTraceA()
++  if (outcome === REQUEST_FAILED) Object.assign(traceState, { selectedJob: null, selectedAttempt: null, attempts: [], events: [] })
 +}
-+const writeA = write(a, tokenA, 'A')
-+state.selection = [99]
-+state.editOpen = true
-+const tokenB = guard.reset('B', reset)
-+assert.deepEqual(state, { task: null, results: [], logs: [], selection: [], editOpen: false })
-+const writeB = write(b, tokenB, 'B')
-+b.resolve({ task_id: 'B' })
-+await writeB
-+a.resolve({ task_id: 'A' })
-+await writeA
-+assert.deepEqual(state.task, { task_id: 'B' })
-+assert.equal(guard.isCurrent(tokenA, 'A'), false)
-+assert.equal(guard.isCurrent(tokenB, 'B'), true)
-+console.log('STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit')
-diff --git a/web/src/router/index.js b/web/src/router/index.js
-index 64f766c..43e50cb 100644
---- a/web/src/router/index.js
-+++ b/web/src/router/index.js
-@@ -18 +18 @@ const routes = [
--      { path: 'tasks/:taskId/results/:resourceKind/:resourceId', name: 'task-result-evidence', component: () => import('@/views/management/TaskResultEvidence.vue'), meta: { title: '采集证据', perm: 'task:view' } },
-+      { path: 'tasks/:taskId/results/:resourceKind/:resourceId', name: 'task-result-evidence', component: () => import('@/views/management/TaskResultEvidence.vue'), meta: { title: '采集证据', perms: ['task:view', 'data:view'] } },
-@@ -52 +52,2 @@ router.beforeEach(async (to) => {
--  if (to.meta.perm && !store.hasPerm(to.meta.perm)) {
-+  const requiredPerms = to.meta.perms || (to.meta.perm ? [to.meta.perm] : [])
-+  if (!requiredPerms.every((perm) => store.hasPerm(perm))) {
++const oldLoad = loadJobsA()
++traceGuard.reset('B')
++traceA.resolve(new Error('late A failure'))
++await oldLoad
++assert.deepEqual(traceState, { selectedJob: { job_id: 'B-job' }, selectedAttempt: { attempt_id: 'B-attempt' }, attempts: ['B-attempt'], events: ['B-event'] })
++console.log('TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved=true')
 diff --git a/web/src/utils/requestGeneration.js b/web/src/utils/requestGeneration.js
-new file mode 100644
-index 0000000..905f887
---- /dev/null
+index 905f887..8d09d4d 100644
+--- a/web/src/utils/requestGeneration.js
 +++ b/web/src/utils/requestGeneration.js
-@@ -0,0 +1,22 @@
-+export function createRequestGeneration() {
-+  let generation = 0
-+  let scope = ''
+@@ -22,0 +23,10 @@ export function createRequestGeneration() {
 +
-+  return {
-+    reset(nextScope, resetState) {
-+      scope = String(nextScope)
-+      generation += 1
-+      resetState?.()
-+      return { generation, scope }
-+    },
-+    capture() {
-+      return { generation, scope }
-+    },
-+    isCurrent(token, currentScope = scope) {
-+      return Boolean(token)
-+        && token.generation === generation
-+        && token.scope === scope
-+        && token.scope === String(currentScope)
-+    },
-+  }
++export const REQUEST_OK = 'ok'
++export const REQUEST_FAILED = 'failed'
++export const REQUEST_STALE = 'stale'
++
++export async function runGuardedAfter(pending, guard, token, scope, action) {
++  await pending
++  if (!guard.isCurrent(token, scope)) return { status: REQUEST_STALE, value: undefined }
++  return { status: REQUEST_OK, value: await action() }
 +}
-diff --git a/web/src/views/management/TaskResultEvidence.vue b/web/src/views/management/TaskResultEvidence.vue
-index 5a23415..57238c1 100644
---- a/web/src/views/management/TaskResultEvidence.vue
-+++ b/web/src/views/management/TaskResultEvidence.vue
-@@ -61,0 +62 @@ import http from '@/api/http'
-+import { createRequestGeneration } from '@/utils/requestGeneration'
-@@ -67,0 +69 @@ const error = ref('')
-+const requestGeneration = createRequestGeneration()
-@@ -97,0 +100 @@ async function load() {
-+  const token = requestGeneration.reset(expected, () => { detail.value = null; error.value = ''; loading.value = false })
-@@ -105 +108 @@ async function load() {
--    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
-+    if (!requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) return
-@@ -108 +111 @@ async function load() {
--    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
-+    if (!requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) return
-@@ -112 +115 @@ async function load() {
--    if (expected === `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) loading.value = false
-+    if (requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) loading.value = false
 diff --git a/web/src/views/management/TaskTrace.vue b/web/src/views/management/TaskTrace.vue
-index bbfe2c6..311a087 100644
+index 311a087..e30e939 100644
 --- a/web/src/views/management/TaskTrace.vue
 +++ b/web/src/views/management/TaskTrace.vue
-@@ -47,0 +48 @@ import http from '@/api/http'
-+import { createRequestGeneration } from '@/utils/requestGeneration'
-@@ -49,0 +51 @@ const route=useRoute(),summary=ref(null),summaryLoading=ref(false),summaryError=
-+const requestGeneration=createRequestGeneration()
-@@ -59,2 +61,2 @@ function requestError(e,fallback){if(e.response?.status===403)return `无权限
--async function fetchPage(s,url){const expected=String(route.params.id);s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});if(expected!==String(route.params.id))return false;s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit);return true}catch(e){if(expected!==String(route.params.id))return false;s.items=[];s.total=0;s.error=requestError(e,'加载失败');return false}finally{if(expected===String(route.params.id))s.loading=false}}
--async function loadSummary(){const expected=String(route.params.id);summaryLoading.value=true;summaryError.value='';try{const res=await http.get(`/api/management/tasks/${expected}/trace`);if(expected!==String(route.params.id))return;summary.value=res.data}catch(e){if(expected!==String(route.params.id))return;summary.value=null;summaryError.value=requestError(e,'加载轨迹摘要失败')}finally{if(expected===String(route.params.id))summaryLoading.value=false}}
-+async function fetchPage(s,url){const token=requestGeneration.capture();s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});if(!requestGeneration.isCurrent(token,route.params.id))return false;s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit);return true}catch(e){if(!requestGeneration.isCurrent(token,route.params.id))return false;s.items=[];s.total=0;s.error=requestError(e,'加载失败');return false}finally{if(requestGeneration.isCurrent(token,route.params.id))s.loading=false}}
-+async function loadSummary(){const token=requestGeneration.capture();const expected=String(route.params.id);summaryLoading.value=true;summaryError.value='';try{const res=await http.get(`/api/management/tasks/${expected}/trace`);if(!requestGeneration.isCurrent(token,route.params.id))return;summary.value=res.data}catch(e){if(!requestGeneration.isCurrent(token,route.params.id))return;summary.value=null;summaryError.value=requestError(e,'加载轨迹摘要失败')}finally{if(requestGeneration.isCurrent(token,route.params.id))summaryLoading.value=false}}
-@@ -66 +68 @@ function clearPage(s){s.items=[];s.total=0;s.page=1;s.error='';s.loading=false}
--function loadTaskTrace(){summary.value=null;summaryError.value='';selectedJob.value=null;selectedAttempt.value=null;[taskEvents,jobs,attempts,events].forEach(clearPage);loadSummary();loadTaskEvents();loadJobs()}
-+function loadTaskTrace(taskId){requestGeneration.reset(taskId,()=>{summary.value=null;summaryError.value='';summaryLoading.value=false;selectedJob.value=null;selectedAttempt.value=null;[taskEvents,jobs,attempts,events].forEach(clearPage)});loadSummary();loadTaskEvents();loadJobs()}
+@@ -48 +48 @@ import http from '@/api/http'
+-import { createRequestGeneration } from '@/utils/requestGeneration'
++import { createRequestGeneration, REQUEST_FAILED, REQUEST_OK, REQUEST_STALE } from '@/utils/requestGeneration'
+@@ -61 +61 @@ function requestError(e,fallback){if(e.response?.status===403)return `无权限
+-async function fetchPage(s,url){const token=requestGeneration.capture();s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});if(!requestGeneration.isCurrent(token,route.params.id))return false;s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit);return true}catch(e){if(!requestGeneration.isCurrent(token,route.params.id))return false;s.items=[];s.total=0;s.error=requestError(e,'加载失败');return false}finally{if(requestGeneration.isCurrent(token,route.params.id))s.loading=false}}
++async function fetchPage(s,url){const token=requestGeneration.capture();s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});if(!requestGeneration.isCurrent(token,route.params.id))return REQUEST_STALE;s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit);return REQUEST_OK}catch(e){if(!requestGeneration.isCurrent(token,route.params.id))return REQUEST_STALE;s.items=[];s.total=0;s.error=requestError(e,'加载失败');return REQUEST_FAILED}finally{if(requestGeneration.isCurrent(token,route.params.id))s.loading=false}}
+@@ -63 +63 @@ async function loadSummary(){const token=requestGeneration.capture();const expec
+-async function loadJobs(){const ok=await fetchPage(jobs,`/api/management/tasks/${route.params.id}/jobs`);if(!ok){selectedJob.value=null;selectedAttempt.value=null;clearPage(attempts);clearPage(events)}} async function loadAttempts(){if(!selectedJob.value)return;const ok=await fetchPage(attempts,`/api/management/jobs/${selectedJob.value.job_id}/attempts`);if(!ok){selectedAttempt.value=null;clearPage(events)}} function loadEvents(){return selectedAttempt.value?fetchPage(events,`/api/management/attempts/${selectedAttempt.value.attempt_id}/events`):Promise.resolve()}
++async function loadJobs(){const outcome=await fetchPage(jobs,`/api/management/tasks/${route.params.id}/jobs`);if(outcome===REQUEST_FAILED){selectedJob.value=null;selectedAttempt.value=null;clearPage(attempts);clearPage(events)}} async function loadAttempts(){if(!selectedJob.value)return;const outcome=await fetchPage(attempts,`/api/management/jobs/${selectedJob.value.job_id}/attempts`);if(outcome===REQUEST_FAILED){selectedAttempt.value=null;clearPage(events)}} function loadEvents(){return selectedAttempt.value?fetchPage(events,`/api/management/attempts/${selectedAttempt.value.attempt_id}/events`):Promise.resolve()}
 diff --git a/web/src/views/tasks/TaskDetail.vue b/web/src/views/tasks/TaskDetail.vue
-index 6cb6180..539d27e 100644
+index 539d27e..1e97379 100644
 --- a/web/src/views/tasks/TaskDetail.vue
 +++ b/web/src/views/tasks/TaskDetail.vue
-@@ -154 +154 @@
--import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-@@ -159,0 +160 @@ import { useUserStore } from '@/stores/user'
-+import { createRequestGeneration } from '@/utils/requestGeneration'
-@@ -176,0 +178 @@ let timer
-+const requestGeneration = createRequestGeneration()
-@@ -243,0 +246 @@ async function loadTask() {
-+  const token = requestGeneration.capture()
-@@ -248 +251 @@ async function loadTask() {
--    if (expectedTaskId !== String(route.params.id)) return
-+    if (!requestGeneration.isCurrent(token, route.params.id)) return
-@@ -251 +254 @@ async function loadTask() {
--    if (expectedTaskId !== String(route.params.id)) return
-+    if (!requestGeneration.isCurrent(token, route.params.id)) return
-@@ -255 +258 @@ async function loadTask() {
--    if (expectedTaskId === String(route.params.id)) taskLoading.value = false
-+    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
-@@ -260,0 +264 @@ async function loadResults() {
-+  const token = requestGeneration.capture()
-@@ -267 +271 @@ async function loadResults() {
--    if (expectedTaskId !== String(route.params.id)) return
-+    if (!requestGeneration.isCurrent(token, route.params.id)) return
-@@ -274 +278 @@ async function loadResults() {
--    if (expectedTaskId !== String(route.params.id)) return
-+    if (!requestGeneration.isCurrent(token, route.params.id)) return
-@@ -280 +284 @@ async function loadResults() {
--    if (expectedTaskId === String(route.params.id)) resultsLoading.value = false
-+    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
-@@ -286,0 +291 @@ async function editProduct(row){
-+  const token=requestGeneration.capture()
-@@ -287,0 +293 @@ async function editProduct(row){
-+  if(!requestGeneration.isCurrent(token,route.params.id))return
-@@ -291,0 +298 @@ async function saveProductEdit(){
-+  const token=requestGeneration.capture()
-@@ -294 +301 @@ async function saveProductEdit(){
--  if(res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
-+  if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
-@@ -296,2 +303,2 @@ async function saveProductEdit(){
--async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');loadResults()}}
--async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);loadResults()}}
-+async function deleteProduct(row){const token=requestGeneration.capture();await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});if(!requestGeneration.isCurrent(token,route.params.id))return;const res=await http.delete(`/api/products/${row.product_id}`);if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已删除');loadResults()}}
-+async function saveToLibrary(){const token=requestGeneration.capture();const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success(res.message);loadResults()}}
-@@ -299,0 +307 @@ async function requeueFails() {
-+  const token = requestGeneration.capture()
-@@ -306,0 +315 @@ async function requeueFails() {
-+  if (!requestGeneration.isCurrent(token, route.params.id)) return
-@@ -312,4 +321,9 @@ async function requeueFails() {
--onMounted(() => {
--  load()
--  timer = setInterval(load, 5000)
--})
-+function resetTaskState() {
-+  task.value=null;taskError.value='';taskLoading.value=false
-+  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
-+  selectedProducts.value=[];editVisible.value=false
-+  Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
-+}
-+function switchTask(taskId){requestGeneration.reset(taskId,resetTaskState);load()}
-+watch(()=>String(route.params.id),switchTask,{immediate:true})
-+onMounted(() => { timer = setInterval(load, 5000) })
+@@ -160 +160 @@ import { useUserStore } from '@/stores/user'
+-import { createRequestGeneration } from '@/utils/requestGeneration'
++import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
+@@ -306,0 +307 @@ async function requeueFails() {
++  const taskId = String(route.params.id)
+@@ -309 +310 @@ async function requeueFails() {
+-  await ElMessageBox.confirm(
++  const result = await runGuardedAfter(ElMessageBox.confirm(
+@@ -313,3 +314,4 @@ async function requeueFails() {
+-  )
+-  const res = await http.post(`/api/tasks/${route.params.id}/requeue-failed`, { include_cancelled: true })
+-  if (!requestGeneration.isCurrent(token, route.params.id)) return
++  ), requestGeneration, token, taskId, () => http.post(`/api/tasks/${taskId}/requeue-failed`, { include_cancelled: true }))
++  if (result.status === REQUEST_STALE) return
++  const res = result.value
++  if (!requestGeneration.isCurrent(token, taskId)) return

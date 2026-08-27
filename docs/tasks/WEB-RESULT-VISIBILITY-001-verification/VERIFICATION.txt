@@ -1,8 +1,8 @@
-WEB-RESULT-VISIBILITY-001 REVIEW FIX VERIFICATION
+WEB-RESULT-VISIBILITY-001 REVIEW FIX 2 VERIFICATION
 Date: 2026-08-27
 Branch: codex/web-result-visibility-001
-Review baseline: 6f5ae0138eb14a178918b648745e4e5c1a502e73
-Changed branch/field: stable Task-result pagination, route-generation stale-response fencing, task:view + data:view evidence RBAC intersection, and copy-safe verification commands.
+Review baseline: 73c9e86c9ff2e7504be6d67bf504e7d5240f8c70
+Changed branch/field: captured-task guarded requeue after deferred confirmation and stale-vs-failed TaskTrace outcomes that preserve the current route state.
 
 ARTIFACTS (repo-relative)
 1. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/MODIFIED_FILE.py
@@ -11,61 +11,62 @@ ARTIFACTS (repo-relative)
 4. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh
 
 HASHES
-Review-baseline server/management_queries.py SHA-256:
-eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce
-Modified server/management_queries.py / MODIFIED_FILE.py SHA-256:
-3943db9c221509954ca1218db42f4dfa48a556f1be9c23ac7c84a7e31a5686fe
+Review-baseline web/src/utils/requestGeneration.js SHA-256:
+efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0
+Modified web/src/utils/requestGeneration.js / MODIFIED_FILE.py SHA-256:
+11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968
 
 BASELINE
-Command (PowerShell; directly copyable):
-$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "import subprocess; s=subprocess.check_output(['git','show','6f5ae0138eb14a178918b648745e4e5c1a502e73:server/management_queries.py']).decode('utf-8'); assert 'RESULT_KIND ASC' not in s; print('BASELINE_STABLE_TOTAL_ORDER=ABSENT')"
+Command:
+$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "import subprocess; s=subprocess.check_output(['git','show','73c9e86c9ff2e7504be6d67bf504e7d5240f8c70:web/src/utils/requestGeneration.js']).decode('utf-8'); assert 'runGuardedAfter' not in s and 'REQUEST_STALE' not in s; print('BASELINE_GUARDED_CONFIRM_AND_OUTCOME=ABSENT')"
 Input:
-Review baseline Git blob; no database or mutable business state.
+Review baseline Git blob; no HTTP request, database, or mutable business state.
 Literal output/result:
-BASELINE_STABLE_TOTAL_ORDER=ABSENT
+BASELINE_GUARDED_CONFIRM_AND_OUTCOME=ABSENT
 Exit status: 0
 Observed behavior/status:
-Task-result pagination used timestamp plus a cross-kind numeric COALESCE and did not define a total order for equal timestamps and equal numeric IDs in different result kinds.
+The shared helper could identify generations but could not guard a deferred confirmation action and did not distinguish stale from a current-route failure.
 
 MODIFIED
-Command (PowerShell; directly copyable):
-$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "from pathlib import Path; s=Path('server/management_queries.py').read_text(encoding='utf-8'); assert all(x in s for x in ['RESULT_KIND ASC','NVL(SNAPSHOT_ID,-1) DESC','NVL(QUARANTINE_ID,-1) DESC','NVL(PRODUCT_ID,-1) DESC']); print('MODIFIED_STABLE_TOTAL_ORDER=PRESENT')"
+Command:
+$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "from pathlib import Path; s=Path('web/src/utils/requestGeneration.js').read_text(encoding='utf-8'); assert 'runGuardedAfter' in s and 'REQUEST_STALE' in s and 'REQUEST_FAILED' in s; print('MODIFIED_GUARDED_CONFIRM_AND_OUTCOME=PRESENT')"
 Input:
-Modified workspace file; no database or mutable business state.
+Modified workspace helper; no HTTP request, database, or mutable business state.
 Literal output/result:
-MODIFIED_STABLE_TOTAL_ORDER=PRESENT
+MODIFIED_GUARDED_CONFIRM_AND_OUTCOME=PRESENT
 Exit status: 0
 Observed behavior/status:
-Task-result pagination has RESULT_KIND plus authoritative Snapshot, Quarantine, Product, Raw and Quality tie-breakers. The executable collision regression covers equal timestamps, equal numeric IDs across all three result kinds and two pages without duplicate or missing identities.
+TaskDetail captures taskId/token before confirm and uses runGuardedAfter so stale A never sends POST to B. TaskTrace returns ok/failed/stale and only a current failed outcome clears selection/attempts/events.
 
 ROLLBACK
-Command (PowerShell; directly copyable):
+Command:
 $gitExe=(Get-Command git).Source; $bashExe=Join-Path (Split-Path (Split-Path $gitExe -Parent) -Parent) 'bin/bash.exe'; & $bashExe 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh' 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py'
 Input:
-rollback_probe.py was a byte-for-byte copy of MODIFIED_FILE.py with SHA-256 3943db9c221509954ca1218db42f4dfa48a556f1be9c23ac7c84a7e31a5686fe.
+rollback_probe.py was a byte-for-byte copy of MODIFIED_FILE.py with SHA-256 11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968.
 Literal output/result:
 target=docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py
-before_sha256=3943db9c221509954ca1218db42f4dfa48a556f1be9c23ac7c84a7e31a5686fe
-after_sha256=eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce
-expected_sha256=eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce
+before_sha256=11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968
+after_sha256=efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0
+expected_sha256=efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0
 result=RESTORED
 exit_status=0
 Exit status: 0
 Restored behavior/status:
-The separate probe was restored byte-for-byte to Review baseline behavior. MODIFIED_FILE.py remained changed with SHA-256 3943db9c221509954ca1218db42f4dfa48a556f1be9c23ac7c84a7e31a5686fe. The temporary probe was removed.
+Only the separate probe was restored byte-for-byte to Review baseline. MODIFIED_FILE.py retained SHA-256 11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968. The probe was removed.
 
-REVIEW FINDINGS / REGRESSION RESULTS
-1. Pagination: Python targeted ran 17 tests in 0.094s; OK; exit=0. Equal timestamp/cross-kind equal ID/two-page identity set PASS.
-2. Stale race: .tools/node-v22.18.0-win-x64/node.exe web/scripts/test-request-generation.mjs
-   Literal: STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
+REGRESSION RESULTS
+1. Python targeted: Ran 28 tests in 0.009s; OK; exit=0.
+2. Node executable races:
+   STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
+   REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false
+   TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved=true
    exit=0.
-3. RBAC: route dependencies require ('task:view','data:view'); task-only fixture returns 403; cross-tenant/missing remains indistinguishable; targeted PASS.
-4. Python strict: Ran 223 tests in 0.430s; OK (skipped=24 opt-in gates); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
-5. Web strict: 1676 modules transformed; built in 542ms; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
-6. Android strict: BUILD SUCCESSFUL in 24s; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
-7. Real Oracle targeted: Ran 1 test in 6.062s; OK; exit=0; isolated fixture cleanup completed.
-8. Compile/diff: recorded after final artifact staging; exit=0.
-9. Fixed-Head Oracle: generated only after Review Fix commit so evidence binds the final Head. The external validator manifest records full literal output/hash, 46/46, exit 0, cleanup/no persistent business changes, trust boundary and these four artifact hashes.
+3. Python strict: Ran 223 tests in 0.441s; OK (skipped=24 opt-in environment gates); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
+4. Web strict: 1676 modules transformed; built in 584ms; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
+5. Android strict: BUILD SUCCESSFUL in 7s; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0.
+6. Real Oracle targeted: Ran 1 test in 6.185s; OK; exit=0; isolated fixture cleanup completed.
+7. Fixed-Head Oracle: after the final Review Fix 2 commit, the canonical strict command runs exclusively and the external validator manifest records the fixed Head, generated_at/72-hour expiry, full literal output/hash, 46/46, skipped=0, exit/status, cleanup/persistent_business_changes=false, Reviewer trust boundary and four artifact hashes.
+8. compileall and git diff --check: no output/errors; exit=0.
 
 SCOPE / DATA CHECK
-No Schema, migration, Product/Snapshot/Quality/draft semantic change, role model change, Android behavior, Phase 6B, Generic SKU, Excel refactor, production operation or persistent business write is included. No credential, token, device key, Raw Capture payload, local database, environment file or build output is included.
+No server/Oracle SQL, Schema, migration, product semantics, RBAC model, Android behavior, Phase 6B, production operation or persistent business write changed. No credential, token, device key, Raw Capture payload, environment file, local database or build output is included.

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-BASE_COMMIT="6f5ae0138eb14a178918b648745e4e5c1a502e73"
-SOURCE_PATH="server/management_queries.py"
-EXPECTED_SHA256="eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce"
+BASE_COMMIT="73c9e86c9ff2e7504be6d67bf504e7d5240f8c70"
+SOURCE_PATH="web/src/utils/requestGeneration.js"
+EXPECTED_SHA256="efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0"
 TARGET="${1:?usage: ROLLBACK.sh <rollback-copy-path>}"
 ROOT="$(git rev-parse --show-toplevel)"
 case "$TARGET" in /*) ;; *) TARGET="$ROOT/$TARGET" ;; esac

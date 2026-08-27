@@ -39,6 +39,10 @@ class WebResultVisibilityContractTest(unittest.TestCase):
         self.assertIn("createRequestGeneration", source)
         self.assertIn("watch(()=>String(route.params.id),switchTask,{immediate:true})", source)
         self.assertIn("resetTaskState", source)
+        self.assertIn("const taskId = String(route.params.id)", source)
+        self.assertIn("runGuardedAfter", source)
+        self.assertIn("`/api/tasks/${taskId}/requeue-failed`", source)
+        self.assertNotIn("`/api/tasks/${route.params.id}/requeue-failed`", source)
         for field in ("snapshot_id", "raw_id", "quality_result_id", "quarantine_id"):
             self.assertIn(field, source)
 
@@ -56,6 +60,8 @@ class WebResultVisibilityContractTest(unittest.TestCase):
             self.assertIn(fragment, trace)
         self.assertIn("watch(()=>String(route.params.id),loadTaskTrace,{immediate:true})", trace)
         self.assertIn("requestGeneration.isCurrent", trace)
+        self.assertIn("outcome===REQUEST_FAILED", trace)
+        self.assertIn("return REQUEST_STALE", trace)
         self.assertIn("createRequestGeneration", detail)
         self.assertIn("clearPage(attempts);clearPage(events)", trace)
         self.assertIn("results/${route.params.resourceKind}/${route.params.resourceId}", detail)

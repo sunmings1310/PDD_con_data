@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-RESULT-VISIBILITY-001
 - **Title**：采集结果可见性与证据下钻
-- **Status**：REVIEW_FIX_DEV_SELF_CHECK_COMPLETE（等待新 fixed-Head E2E / Independent Review）
+- **Status**：REVIEW_FIX_2_DEV_SELF_CHECK_COMPLETE（E2E PASS；等待新 fixed-Head Independent Review）
 - **Base**：`origin/main@09e717cdc3f67eaaf620d6a5e796445ec0334674`
 - **Branch**：`codex/web-result-visibility-001`
 - **Worktree**：`D:\work\PDD_con_data_web_result_visibility`
@@ -60,7 +60,7 @@
 
 ## Acceptance Criteria
 
-- [x] 有 `task:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
+- [x] 同时有 `task:view + data:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
 - [x] 页面明确区分“本次采集结果”和“已保存商品资料库”；保存动作不改变已确认采集事实。
 - [x] Snapshot 链接和请求使用服务端返回的真实 `snapshot_id`；Master Product、Enterprise Product、legacy `product_id` 不得冒充 Snapshot ID。
 - [x] Task 结果可用服务端权威 ID 下钻到对应 Raw 与 Quality；缺失证据时展示明确 unavailable 原因，不猜测或拼接 ID。
@@ -75,12 +75,12 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 17 tests in 0.094s`；`OK` | 0 | PASS |
-| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | A/B deferred response；B 先完成、A 后完成 | reset 完整且 A 不得覆盖 B | `STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit` | 0 | PASS |
-| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 542ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.430s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 24s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.062s`；`OK` | 0 | PASS |
+| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.009s`；`OK` | 0 | PASS |
+| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | TaskDetail/TaskTrace A/B deferred response 与 deferred confirm | reset 完整；旧 A 不覆盖/清空 B；stale confirm 不发 POST | `STALE_RACE=PASS ...`；`REQUEUE_CONFIRM_RACE=PASS ... stale_request_sent=false`；`TASK_TRACE_RACE=PASS ... preserved=true` | 0 | PASS |
+| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 584ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.441s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 7s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.185s`；`OK` | 0 | PASS |
 | Static | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests`；`git diff --check` | 当前实现树 | exit 0 | no output / no whitespace errors | 0 | PASS |
 
 开发过程中按 targeted→module 执行；固定实现 Head 后再运行 full/Oracle/Independent Review，不以 `SKIPPED` 或 `BLOCKED` 冒充 `PASS`。
@@ -90,12 +90,12 @@
 - Required：**Yes**。
 - Reason：修改了 Oracle-backed Task/Raw/Quality/Snapshot/Quarantine 管理查询和 tenant-bound 资源 ID 绑定；Hosted CI 不连接数据库。
 - Local isolated environment identifier：本地隔离 writable T003 test schema；凭据来自 ignored environment，未写入仓库；targeted fixture 已清理。
-- Fixed Head SHA：最终 commit 后在 Control handoff / PR body manifest 记录，避免提交证据导致 Head 再次移动。
-- Canonical command / test count / literal result hash / exit：最终 commit 后运行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict` 并在 Control handoff / PR body manifest 记录；当前真实 Oracle targeted 为 1/1、`OK`、exit 0，不冒充全量 Gate。
-- Evidence generated at / expiry：pending
-- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 已生成四制品；副本 rollback 恢复 SHA-256 `952a1817...`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
-- Hosted evidence validator：pending
-- Independent Reviewer provenance check：pending
+- Fixed Head SHA：Review Fix 2 最终 commit SHA 由外部 manifest 与 Control handoff 绑定，避免提交 manifest 后再次移动 Head。
+- Canonical command / test count / literal result hash / exit：最终 Head 独占执行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict`；外部 manifest 记录完整 literal output/hash、46/46、skipped=0、exit 0。
+- Evidence generated at / expiry：最终 commit 后生成；validator 时效为 72 小时，精确 UTC 时间见外部 manifest。
+- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
+- Hosted evidence validator：外部 manifest 在最终 Head 使用 `.github/scripts/validate_oracle_local_evidence.py` 独立验证；结果随 handoff 提交。
+- Independent Reviewer provenance check：E2E 已 PASS；Reviewer 继续核对最终 Head 本地隔离 Oracle 来源、cleanup、rollback 与四制品 hash。
 
 ## Real-device Gate
 
@@ -132,6 +132,8 @@
   1. **RESOLVED**：Task results `ORDER BY` 增加 `RESULT_KIND` 与 Snapshot/Quarantine/Product/Raw/Quality authoritative ID 全序；同 timestamp、跨 result kind 相同 ID、跨页无重复漏项回归通过。
   2. **RESOLVED**：新增可执行 `requestGeneration` helper 与 A/B 乱序 Node 回归；Task Detail/Trace/Evidence 路由切换同步 reset，旧 generation 不得写回。
   3. **RESOLVED**：Task result/evidence API 恢复 Accepted Phase 4 `data:view`，与 `task:view` 及 Task/tenant ownership 取交集；task-only 用户返回 403。
-  4. **PENDING NEW HEAD**：旧 Head Oracle 46/46 仅作为发现证据；Review Fix commit 后独占重跑 canonical strict 并生成新外部 manifest。
+  4. **RESOLVED BY FINAL-HEAD EXTERNAL EVIDENCE**：旧 Head Oracle 46/46 只作发现证据；每轮 Review Fix 最终 commit 后独占重跑 canonical strict，并以新 Head 外部 manifest 为唯一有效证据。
+  6. **RESOLVED**：deferred confirm 期间 A→B 切换会在 POST 前返回 stale，固定 `taskId` 不读取实时 route；测试确认 `stale_request_sent=false`。
+  7. **RESOLVED**：TaskTrace fetch outcome 区分 `ok/failed/stale`；只有当前 generation 的真实 `failed` 才清空 selection/attempts/events，旧 A stale 不影响 B。
   5. **RESOLVED**：`VERIFICATION.txt` 可复制命令改用 forward-slash path/PowerShell 变量，移除反斜杠转义歧义；副本 rollback 重测。
 - Commit / PR：最终 Dev commit 与 push 完成后在 handoff 记录固定 SHA；PR 未创建。
