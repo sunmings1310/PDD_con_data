@@ -98,9 +98,11 @@ class Phase5TenantContractTest(unittest.TestCase):
 
     def test_web_sends_and_selects_enterprise_workspace_context(self):
         http = (ROOT / "web/src/api/http.js").read_text(encoding="utf-8")
+        client_context = (ROOT / "web/src/api/clientContext.js").read_text(encoding="utf-8")
         layout = (ROOT / "web/src/layout/AdminLayout.vue").read_text(encoding="utf-8")
-        self.assertIn("X-Enterprise-Id", http)
-        self.assertIn("X-Workspace-Id", http)
+        self.assertIn("headersForContext(requestContext.snapshot)", http)
+        self.assertIn("X-Enterprise-Id", client_context)
+        self.assertIn("X-Workspace-Id", client_context)
         self.assertIn("tenant-select", layout)
         self.assertIn("enterprise_name", layout)
         self.assertIn("workspace_name", layout)

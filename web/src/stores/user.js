@@ -1,20 +1,32 @@
 import { defineStore } from 'pinia'
 import http from '@/api/http'
+import {
+  activateClientSession,
+  clearClientSession,
+  getClientContext,
+  updateClientContext,
+} from '@/api/clientContext'
+
+const emptySummary = () => ({
+  online_devices: 0,
+  running_tasks: 0,
+  pending_tasks: 0,
+  product_count: 0,
+})
 
 export const useUserStore = defineStore('user', {
-  state: () => ({
-    token: localStorage.getItem('sjzq_token') || '',
-    profile: null,
-    tenantContexts: [],
-    enterpriseId: localStorage.getItem('sjzq_enterprise_id') || '',
-    workspaceId: localStorage.getItem('sjzq_workspace_id') || '',
-    summary: {
-      online_devices: 0,
-      running_tasks: 0,
-      pending_tasks: 0,
-      product_count: 0,
-    },
-  }),
+  state: () => {
+    const context = getClientContext()
+    return {
+      token: context.token,
+      profile: null,
+      tenantContexts: [],
+      enterpriseId: context.enterpriseId,
+      workspaceId: context.workspaceId,
+      contextGeneration: context.generation,
+      summary: emptySummary(),
+    }
+  },
   getters: {
     perms: (s) => s.profile?.perms || [],
     isLogin: (s) => !!s.token,
@@ -27,14 +39,20 @@ export const useUserStore = defineStore('user', {
     },
     async login(username, password) {
       const res = await http.post('/api/auth/login', { username, password })
-      this.token = res.data.token
       this.profile = res.data.user
       this.tenantContexts = this.profile.tenant_contexts || []
-      if (!this.tenantContexts.some(x => String(x.enterprise_id) === this.enterpriseId && String(x.workspace_id) === this.workspaceId)) {
-        const first = this.tenantContexts[0]
-        if (first) this.selectTenant(first.enterprise_id, first.workspace_id)
-      }
-      localStorage.setItem('sjzq_token', this.token)
+      const selected = this.tenantContexts.find(
+        x => String(x.enterprise_id) === this.enterpriseId && String(x.workspace_id) === this.workspaceId,
+      ) || this.tenantContexts[0]
+      const context = activateClientSession({
+        token: res.data.token,
+        enterpriseId: selected?.enterprise_id || '',
+        workspaceId: selected?.workspace_id || '',
+      })
+      this.token = context.token
+      this.enterpriseId = context.enterpriseId
+      this.workspaceId = context.workspaceId
+      this.contextGeneration = context.generation
       await this.refreshSummary()
     },
     async fetchMe() {
@@ -42,6 +60,12 @@ export const useUserStore = defineStore('user', {
       const res = await http.get('/api/auth/me')
       this.profile = res.data
       this.tenantContexts = this.profile.tenant_contexts || []
+      if (!this.tenantContexts.some(
+        x => String(x.enterprise_id) === this.enterpriseId && String(x.workspace_id) === this.workspaceId,
+      )) {
+        const first = this.tenantContexts[0]
+        if (first) this.selectTenant(first.enterprise_id, first.workspace_id)
+      }
     },
     async refreshSummary() {
       if (!this.token || !this.enterpriseId || !this.workspaceId) return
@@ -53,17 +77,24 @@ export const useUserStore = defineStore('user', {
       }
     },
     logout() {
+      clearClientSession()
+    },
+    resetSessionState() {
+      const context = getClientContext()
       this.token = ''
       this.profile = null
-      localStorage.removeItem('sjzq_token')
-      localStorage.removeItem('sjzq_enterprise_id')
-      localStorage.removeItem('sjzq_workspace_id')
+      this.tenantContexts = []
+      this.enterpriseId = ''
+      this.workspaceId = ''
+      this.contextGeneration = context.generation
+      this.summary = emptySummary()
     },
     selectTenant(enterpriseId, workspaceId) {
-      this.enterpriseId = String(enterpriseId)
-      this.workspaceId = String(workspaceId)
-      localStorage.setItem('sjzq_enterprise_id', this.enterpriseId)
-      localStorage.setItem('sjzq_workspace_id', this.workspaceId)
+      const context = updateClientContext({ enterpriseId, workspaceId })
+      this.enterpriseId = context.enterpriseId
+      this.workspaceId = context.workspaceId
+      this.contextGeneration = context.generation
+      this.summary = emptySummary()
     },
   },
 })

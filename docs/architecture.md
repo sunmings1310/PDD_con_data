@@ -79,6 +79,8 @@ flowchart TD
 
 路由按业务域拆分，但路由函数普遍直接书写 SQL、事务逻辑和响应转换；任务与任务项的业务状态例外，由 `task_state.py` 集中定义枚举/迁移/映射，并由 `task_state_service.py` 统一执行 Oracle 条件更新。设备连接/运行态仍由设备域维护。Web 页面也普遍直接调用 URL，前后端契约没有生成式客户端或共享 schema。
 
+Web HTTP 请求统一通过 `web/src/api/http.js` 和 `clientContext.js`：JSON、multipart 与 blob 都使用请求发起时不可变的 token/Enterprise/Workspace snapshot。tenant/workspace 切换递增 context generation、取消在途请求并重挂载路由页面；迟到响应不能写入新上下文。`ApiOk`、Axios HTTP 与 blob JSON 错误归一为稳定的 `status/code/data`，其中 HTTP 404 和业务 `NOT_FOUND` 对客户端保持同一不可枚举文案。401 以幂等 session lifecycle 同时清除 Pinia 与 localStorage 并跳转登录。前端 `perm/perms` 只控制提示性可见性，多权限采用 AND；FastAPI `require_tenant_perms` 始终是授权权威。WebSocket 认证不属于该 HTTP client 边界。
+
 ### 2.3 Android Agent
 
 ```mermaid

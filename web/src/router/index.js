@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { hasRoutePermissions } from './permissions.js'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { public: true } },
@@ -49,8 +50,7 @@ router.beforeEach(async (to) => {
       return '/login'
     }
   }
-  const requiredPerms = to.meta.perms || (to.meta.perm ? [to.meta.perm] : [])
-  if (!requiredPerms.every((perm) => store.hasPerm(perm))) {
+  if (!hasRoutePermissions(to.meta, (permission) => store.hasPerm(permission))) {
     return '/devices'
   }
   return true
