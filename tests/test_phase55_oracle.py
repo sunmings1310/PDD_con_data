@@ -128,17 +128,20 @@ class Phase55OracleFinalGate(unittest.TestCase):
                 cur.execute("""INSERT INTO SJZQ_PRODUCT
                     (PRODUCT_ID,TASK_ID,PLATFORM_CODE,KEYWORD,ITEM_ID,PRODUCT_NAME,PRICE,
                      LIBRARY_STATUS,ENTERPRISE_ID,WORKSPACE_ID)
-                    VALUES (:id,:task,'pinduoduo',:keyword,:item,:name,1,'saved',:e,:w)""",
+                    VALUES (:id,:task,'pinduoduo',:keyword,:item,:name,1,:library_status,:e,:w)""",
                             {"id": product_id, "task": task_id, "keyword": marker,
                              "item": marker + suffix, "name": marker + suffix,
+                             "library_status": "saved",
                              "e": enterprise_id, "w": workspace_id})
 
             resources = []
-            for enterprise_id, workspace_id, task_id, suffix in ((ea, wa, ta, "A"), (eb, wb, tb, "B")):
+            for enterprise_id, workspace_id, task_id, product_id, suffix in (
+                    (ea, wa, ta, pa, "A"), (eb, wb, tb, pb, "B")):
                 master = self._seq(cur, "SJZQ_SEQ_PRODUCT_MASTER")
                 enterprise_product = self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT")
                 raw = self._seq(cur, "SJZQ_SEQ_RAW_COLLECTION")
                 snapshot = self._seq(cur, "SJZQ_SEQ_PRODUCT_SNAPSHOT")
+                snapshot_quality = self._seq(cur, "SJZQ_SEQ_QUALITY_RESULT")
                 qraw = self._seq(cur, "SJZQ_SEQ_RAW_COLLECTION")
                 quality = self._seq(cur, "SJZQ_SEQ_QUALITY_RESULT")
                 quarantine = self._seq(cur, "SJZQ_SEQ_DATA_QUARANTINE")
@@ -149,21 +152,36 @@ class Phase55OracleFinalGate(unittest.TestCase):
                     (ENTERPRISE_PRODUCT_ID,ENTERPRISE_ID,IDENTITY_ID)
                     VALUES (:id,:e,:master)""", {"id": enterprise_product, "e": enterprise_id, "master": master})
                 cur.execute("""INSERT INTO SJZQ_RAW_COLLECTION
-                    (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
-                    VALUES (:id,:request_key,'product',RPAD('a',64,'a'),'{}',SYSTIMESTAMP,:e,:w)""",
+                    (RAW_ID,REQUEST_KEY,TASK_ID,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
+                    VALUES (:id,:request_key,:task_id,'product',RPAD('a',64,'a'),'{}',SYSTIMESTAMP,:e,:w)""",
                             {"id": raw, "request_key": marker + "-snap-" + suffix,
+                             "task_id": task_id,
                              "e": enterprise_id, "w": workspace_id})
                 cur.execute("""INSERT INTO SJZQ_PRODUCT_SNAPSHOT
-                    (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
+                    (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,LEGACY_PRODUCT_ID,TASK_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
                      NORMALIZED_JSON,TITLE,ENTERPRISE_ID,WORKSPACE_ID,ENTERPRISE_PRODUCT_ID)
-                    VALUES (:id,:master,:raw_id,:request_key,SYSTIMESTAMP,RPAD('b',64,'b'),'{}',:title,:e,:w,:ep)""",
-                            {"id": snapshot, "master": master, "raw_id": raw,
+                    VALUES (:id,:master,:raw_id,:product_id,:task_id,:request_key,SYSTIMESTAMP,RPAD('b',64,'b'),'{}',:title,:e,:w,:ep)""",
+                            {"id": snapshot, "master": master, "raw_id": raw, "product_id": product_id,
+                             "task_id": task_id,
                              "request_key": marker + "-snapshot-" + suffix, "title": marker + suffix,
                              "e": enterprise_id, "w": workspace_id, "ep": enterprise_product})
+                cur.execute("""INSERT INTO SJZQ_QUALITY_RESULT
+                    (QUALITY_RESULT_ID,RAW_ID,SNAPSHOT_ID,ACCEPTED,STATUS,PAGE_STATUS,PARSE_STATUS,QUALITY_STATUS,
+                     PARSER_VERSION,QUALITY_RULES_VERSION,ENTERPRISE_ID,WORKSPACE_ID)
+                    VALUES (:id,:raw_id,:snapshot_id,1,'accepted','product','success','passed','p55','p55',:e,:w)""",
+                            {"id": snapshot_quality, "raw_id": raw, "snapshot_id": snapshot,
+                             "e": enterprise_id, "w": workspace_id})
+                cur.execute("""UPDATE SJZQ_PRODUCT
+                                  SET MASTER_PRODUCT_ID=:master,SNAPSHOT_ID=:snapshot,
+                                      ENTERPRISE_PRODUCT_ID=:enterprise_product
+                                WHERE PRODUCT_ID=:product_id""",
+                            {"master": master, "snapshot": snapshot,
+                             "enterprise_product": enterprise_product, "product_id": product_id})
                 cur.execute("""INSERT INTO SJZQ_RAW_COLLECTION
-                    (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
-                    VALUES (:id,:request_key,'product',RPAD('c',64,'c'),'{}',SYSTIMESTAMP,:e,:w)""",
+                    (RAW_ID,REQUEST_KEY,TASK_ID,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
+                    VALUES (:id,:request_key,:task_id,'product',RPAD('c',64,'c'),'{}',SYSTIMESTAMP,:e,:w)""",
                             {"id": qraw, "request_key": marker + "-raw-" + suffix,
+                             "task_id": task_id,
                              "e": enterprise_id, "w": workspace_id})
                 cur.execute("""INSERT INTO SJZQ_QUALITY_RESULT
                     (QUALITY_RESULT_ID,RAW_ID,ACCEPTED,STATUS,PAGE_STATUS,PARSE_STATUS,QUALITY_STATUS,
@@ -178,7 +196,8 @@ class Phase55OracleFinalGate(unittest.TestCase):
                              "task": task_id, "request_key": marker + "-quarantine-" + suffix,
                              "reason": marker + suffix, "e": enterprise_id, "w": workspace_id,
                              "ep": enterprise_product})
-                resources.append((enterprise_product, snapshot, quarantine))
+                resources.append((enterprise_product, snapshot, quarantine, raw, snapshot_quality,
+                                  qraw, quality, product_id, master))
 
         ctx_a, ctx_b = self._ctx(ea, wa), self._ctx(eb, wb)
         user = {"user_id": 1}
@@ -190,11 +209,71 @@ class Phase55OracleFinalGate(unittest.TestCase):
         self.assertEqual(1, dashboard.summary(tenant=ctx_a).data["pending_tasks"])
         with get_conn() as conn:
             cur = conn.cursor()
+            job_id = create_jobs_for_task(cur, task_id=ta)[0]
+            attempt_id = self._seq(cur, "SJZQ_SEQ_COLLECTION_ATTEMPT")
+            lease_hash = uuid.uuid4().hex + uuid.uuid4().hex
+            cur.execute("""INSERT INTO SJZQ_COLLECTION_ATTEMPT
+                (ATTEMPT_ID,JOB_ID,ATTEMPT_NO,LEASE_TOKEN_HASH,TRACE_ID,STATUS,
+                 LEASE_EXPIRES_AT,FINISHED_AT,FINAL_CHECKPOINT_VERSION,ENTERPRISE_ID,WORKSPACE_ID)
+                VALUES (:attempt_id,:job_id,1,:lease_hash,:trace_id,'success',
+                        SYSTIMESTAMP,SYSTIMESTAMP,0,:enterprise_id,:workspace_id)""",
+                        {"attempt_id": attempt_id, "job_id": job_id, "lease_hash": lease_hash,
+                         "trace_id": marker + "-trace", "enterprise_id": ea, "workspace_id": wa})
+            cur.execute("""UPDATE SJZQ_RAW_COLLECTION
+                              SET JOB_ID=:job_id,ATTEMPT_ID=:attempt_id
+                            WHERE RAW_ID=:raw_id""",
+                        {"job_id": job_id, "attempt_id": attempt_id, "raw_id": resources[0][3]})
+            cur.execute("""UPDATE SJZQ_PRODUCT_SNAPSHOT
+                              SET JOB_ID=:job_id,ATTEMPT_ID=:attempt_id
+                            WHERE SNAPSHOT_ID=:snapshot_id""",
+                        {"job_id": job_id, "attempt_id": attempt_id, "snapshot_id": resources[0][1]})
+            cur.execute("""UPDATE SJZQ_COLLECTION_JOB
+                              SET STATUS='retry_wait',ATTEMPT_COUNT=1,NEXT_RUN_AT=SYSTIMESTAMP
+                            WHERE JOB_ID=:job_id""",
+                        {"job_id": job_id})
             self.assertIsNotNone(management_queries.task_trace(cur, ta, tenant=ctx_a))
             self.assertIsNone(management_queries.task_trace(cur, tb, tenant=ctx_a))
             own_snapshots = management_queries.list_snapshots(cur, resources[0][0], page=1, limit=10, tenant=ctx_a)
             cross_snapshots = management_queries.list_snapshots(cur, resources[1][0], page=1, limit=10, tenant=ctx_a)
             self.assertEqual((1, 0), (own_snapshots["total"], cross_snapshots["total"]))
+            cur.execute("UPDATE SJZQ_PRODUCT SET LIBRARY_STATUS='draft' WHERE PRODUCT_ID=:product_id",
+                        {"product_id": resources[0][7]})
+            task_result_page = management_queries.task_results(cur, ta, page=1, limit=10, tenant=ctx_a)
+            cross_task_result_page = management_queries.task_results(cur, tb, page=1, limit=10, tenant=ctx_a)
+            self.assertEqual((2, 0), (task_result_page["total"], cross_task_result_page["total"]))
+            result_by_kind = {item["result_kind"]: item for item in task_result_page["items"]}
+            accepted_result = result_by_kind["snapshot"]
+            quarantined_result = result_by_kind["quarantine"]
+            self.assertEqual(
+                (resources[0][1], resources[0][3], resources[0][4], resources[0][7], "draft", True),
+                (int(accepted_result["snapshot_id"]), int(accepted_result["raw_id"]),
+                 int(accepted_result["quality_result_id"]), int(accepted_result["product_id"]),
+                 accepted_result["library"]["status"], accepted_result["library"]["can_save"]),
+            )
+            self.assertEqual(
+                (resources[0][2], resources[0][5], resources[0][6], "unavailable"),
+                (int(quarantined_result["quarantine_id"]), int(quarantined_result["raw_id"]),
+                 int(quarantined_result["quality_result_id"]), quarantined_result["library"]["status"]),
+            )
+            snapshot_resource = management_queries.task_result_resource(
+                cur, ta, "snapshot", resources[0][1], tenant=ctx_a)
+            raw_resource = management_queries.task_result_resource(
+                cur, ta, "raw", resources[0][3], tenant=ctx_a)
+            quality_resource = management_queries.task_result_resource(
+                cur, ta, "quality", resources[0][4], tenant=ctx_a)
+            quarantine_resource = management_queries.task_result_resource(
+                cur, ta, "quarantine", resources[0][2], tenant=ctx_a)
+            cross_resource = management_queries.task_result_resource(
+                cur, ta, "snapshot", resources[1][1], tenant=ctx_a)
+            self.assertEqual(
+                (resources[0][1], resources[0][3], resources[0][4], resources[0][2], None),
+                (snapshot_resource["resource_id"], raw_resource["resource_id"],
+                 quality_resource["resource_id"], quarantine_resource["resource_id"], cross_resource),
+            )
+            task_job_page = management_queries.task_jobs(cur, ta, 1, 10, tenant=ctx_a)
+            attempt_page = management_queries.job_attempts(cur, job_id, 1, 10, tenant=ctx_a)
+            self.assertEqual(resources[0][1], int(task_job_page["items"][0]["business_results"][0]["snapshot_id"]))
+            self.assertEqual(resources[0][3], int(attempt_page["items"][0]["business_results"][0]["raw_id"]))
             own_quarantine = management_queries.list_quarantines(cur, page=1, limit=10,
                                                                   filters={"failure_reason": marker}, tenant=ctx_a)
             other_quarantine = management_queries.list_quarantines(cur, page=1, limit=10,

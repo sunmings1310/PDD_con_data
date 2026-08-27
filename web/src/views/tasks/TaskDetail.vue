@@ -7,7 +7,12 @@
         <el-button type="success" @click="$router.push(`/tasks/${route.params.id}/trace`)">查看执行轨迹</el-button>
         <el-button v-if="task?.device_id && store.hasPerm('device:cast')" @click="$router.push(`/devices/${task.device_id}/cast`)">关联设备投屏</el-button>
       </div>
-      <el-descriptions v-if="task" :column="3" border>
+      <el-alert v-if="taskError" :title="taskError" type="error" show-icon :closable="false">
+        <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+      </el-alert>
+      <div v-loading="taskLoading">
+      <el-empty v-if="!taskLoading && !taskError && !task" description="任务不存在或当前租户不可见" />
+      <el-descriptions v-else-if="task" :column="3" border>
         <el-descriptions-item label="任务">#{{ task.task_id }} {{ task.task_name }}</el-descriptions-item>
         <el-descriptions-item label="平台">{{ task.platform_code }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
@@ -26,6 +31,7 @@
         </el-descriptions-item>
       </el-descriptions>
       <el-progress v-if="task" style="margin-top:12px" :percentage="percent" />
+      </div>
     </div>
 
     <div class="page-card">
@@ -39,17 +45,43 @@
       </el-table>
     </div>
 
-    <div class="page-card" v-if="taskProducts.length">
-      <div class="toolbar"><h3 class="section-title" style="margin:0;flex:1">本次采集商品（{{ taskProducts.length }}）</h3><el-button v-if="task?.can_manage_results" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button></div>
-      <el-table :data="taskProducts" border stripe @selection-change="selectedProducts=$event">
-        <el-table-column type="selection" width="48" :selectable="row=>row.library_status!=='saved'" />
-        <el-table-column prop="product_id" label="ID" width="80" /><el-table-column prop="canonical_name" label="规范商品名称" min-width="170" /><el-table-column prop="platform_title" label="平台完整标题" min-width="190" show-overflow-tooltip /><el-table-column prop="product_attribute_spec" label="商品属性规格" width="150" /><el-table-column prop="approval_number" label="批准文号" width="180" /><el-table-column prop="manufacturer" label="生产厂家" min-width="170" />
-        <el-table-column label="状态" width="100"><template #default="{row}"><el-tag :type="row.library_status==='saved'?'success':'warning'">{{ row.library_status==='saved'?'已入库':'待保存' }}</el-tag></template></el-table-column>
-        <el-table-column v-if="task?.can_manage_results" label="操作" width="140"><template #default="{row}"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template></el-table-column>
+    <div class="page-card" v-loading="resultsLoading">
+      <div class="toolbar">
+        <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
+        <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
+        <el-button v-if="canManageResults" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button>
+      </div>
+      <el-alert title="本次采集事实与商品资料库分开读取；draft/待保存和 Quarantine 不会因尚未入库而消失。人工保存只改变资料库状态，不改变 Snapshot、Raw 或 Quality。" type="info" show-icon :closable="false" />
+      <el-alert v-if="resultsError" :title="resultsError" type="error" show-icon :closable="false">
+        <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
+      </el-alert>
+      <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
+        <template #empty><el-empty :description="resultsLoading ? '正在加载本次采集结果' : '该 Task 暂无采集结果'" /></template>
+        <el-table-column type="selection" width="48" :selectable="canSelectResult" />
+        <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
+        <el-table-column prop="canonical_name" label="规范商品名称" min-width="160" />
+        <el-table-column prop="platform_title" label="平台完整标题" min-width="190" show-overflow-tooltip />
+        <el-table-column prop="product_attribute_spec" label="商品属性规格" width="150" />
+        <el-table-column prop="approval_number" label="批准文号" width="170" show-overflow-tooltip />
+        <el-table-column prop="manufacturer" label="生产厂家" min-width="170" show-overflow-tooltip />
+        <el-table-column label="资料库状态" width="120"><template #default="{row}"><el-tag :type="libraryType(row)">{{ libraryLabel(row) }}</el-tag></template></el-table-column>
+        <el-table-column label="权威证据资源" min-width="350">
+          <template #default="{row}">
+            <el-space wrap>
+              <el-button v-if="row.snapshot_id" link type="primary" @click="openEvidence('snapshot', row.snapshot_id)">Snapshot #{{ row.snapshot_id }}</el-button>
+              <el-button v-if="row.raw_id" link type="primary" @click="openEvidence('raw', row.raw_id)">Raw #{{ row.raw_id }}</el-button>
+              <el-button v-if="row.quality_result_id" link type="primary" @click="openEvidence('quality', row.quality_result_id)">Quality #{{ row.quality_result_id }}</el-button>
+              <el-button v-if="row.quarantine_id" link type="danger" @click="openEvidence('quarantine', row.quarantine_id)">Quarantine #{{ row.quarantine_id }}</el-button>
+              <span v-if="!hasEvidence(row)" class="unavailable">unavailable：{{ unavailableReason(row) }}</span>
+            </el-space>
+          </template>
+        </el-table-column>
+        <el-table-column prop="failure_reason" label="隔离/说明" min-width="180" show-overflow-tooltip />
+        <el-table-column v-if="canManageResults" label="稳定资料操作" width="140"><template #default="{row}"><template v-if="row.product_id"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template><span v-else>-</span></template></el-table-column>
       </el-table>
-      <el-pagination v-model:current-page="productPage" v-model:page-size="productLimit"
-        :total="productTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
-        style="margin-top:16px;justify-content:flex-end" @change="loadProducts" />
+      <el-pagination :current-page="resultPage" :page-size="resultLimit"
+        :total="resultTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
+        style="margin-top:16px;justify-content:flex-end" @update:current-page="changeResultPage" @update:page-size="changeResultLimit" />
     </div>
 
     <div class="page-card" v-if="task?.anomalies?.length">
@@ -119,25 +151,31 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
+import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
 
 const route = useRoute()
 const router = useRouter()
 const store = useUserStore()
 const task = ref(null)
-const taskProducts = ref([])
+const taskLoading = ref(false)
+const taskError = ref('')
+const taskResults = ref([])
+const resultsLoading = ref(false)
+const resultsError = ref('')
 const selectedProducts = ref([])
-const productPage = ref(1)
-const productLimit = ref(50)
-const productTotal = ref(0)
+const resultPage = ref(1)
+const resultLimit = ref(50)
+const resultTotal = ref(0)
 const editVisible = ref(false)
 const editForm = reactive({product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 let timer
+const requestGeneration = createRequestGeneration()
 
 const items = computed(() => task.value?.items || [])
 const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
@@ -148,6 +186,7 @@ const isMatchTask = computed(() => items.value.some((x) => x.target_approval && 
 const matchOkItems = computed(() => okItems.value.filter((x) => x.target_approval && x.target_spec))
 const matchFailItems = computed(() => failItems.value.filter((x) => x.target_approval && x.target_spec))
 const matchPendingItems = computed(() => pendingItems.value.filter((x) => x.target_approval && x.target_spec))
+const canManageResults = computed(() => Boolean(task.value?.can_manage_results && store.hasPerm('data:view')))
 const percent = computed(() => {
   if (!items.value.length) return 0
   return Math.min(100, Math.round(((okItems.value.length + failItems.value.length) / items.value.length) * 100))
@@ -176,46 +215,119 @@ function taskStatusType(status) {
   return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
 }
 
-async function load() {
-  const [res] = await Promise.all([http.get(`/api/tasks/${route.params.id}`), loadProducts()])
-  task.value = res.data
+function requestError(e, fallback) {
+  if (e.response?.status === 403) return `无权限（403）：${fallback}`
+  if (e.response?.status === 404 || e.data?.error_code === 'NOT_FOUND' || e.response?.data?.data?.error_code === 'NOT_FOUND') {
+    return '资源不存在，或不属于当前 Task / 租户'
+  }
+  return e.response?.data?.detail || e.message || fallback
+}
+function resultLabel(row) { return { snapshot: '已确认 Snapshot', quarantine: 'Quarantine', legacy_product: '兼容采集结果' }[row.result_kind] || row.result_kind || '-' }
+function resultType(row) { return row.result_kind === 'snapshot' ? 'success' : row.result_kind === 'quarantine' ? 'danger' : 'info' }
+function libraryLabel(row) { return { saved: '已保存资料库', draft: 'draft / 待保存', unavailable: 'unavailable' }[row.library?.status || row.library_status] || 'unavailable' }
+function libraryType(row) { return row.library?.status === 'saved' ? 'success' : row.library?.status === 'draft' ? 'warning' : 'info' }
+function canSelectResult(row) { return canManageResults.value && Boolean(row.library?.can_save && row.product_id) }
+function hasEvidence(row) { return Boolean(row.snapshot_id || row.raw_id || row.quality_result_id || row.quarantine_id) }
+function unavailableReason(row) {
+  const refs = ['snapshot', 'raw', 'quality', 'quarantine'].map((key) => row.resources?.[key]).filter(Boolean)
+  return refs.find((ref) => ref.availability === 'unavailable')?.reason || '服务端未返回资源 ID'
+}
+function openEvidence(kind, id) {
+  if (!kind || id === null || id === undefined) return
+  router.push(`/tasks/${route.params.id}/results/${kind}/${id}`)
 }
 
-async function loadProducts() {
-  const products = await http.get(`/api/products?task_id=${route.params.id}&page=${productPage.value}&limit=${productLimit.value}`)
-  taskProducts.value = products.data?.items || []
-  productTotal.value = Number(products.data?.total || 0)
+async function load() {
+  await Promise.all([loadTask(), loadResults()])
 }
+
+async function loadTask() {
+  const expectedTaskId = String(route.params.id)
+  const token = requestGeneration.capture()
+  taskLoading.value = true
+  taskError.value = ''
+  try {
+    const res = await http.get(`/api/tasks/${expectedTaskId}`)
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    task.value = res.data || null
+  } catch (e) {
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    task.value = null
+    taskError.value = requestError(e, '加载任务失败')
+  } finally {
+    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
+  }
+}
+
+async function loadResults() {
+  const expectedTaskId = String(route.params.id)
+  const token = requestGeneration.capture()
+  resultsLoading.value = true
+  resultsError.value = ''
+  try {
+    const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
+      params: { page: resultPage.value, limit: resultLimit.value },
+    })
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    taskResults.value = res.data?.items || []
+    resultTotal.value = Number(res.data?.total || 0)
+    resultPage.value = Number(res.data?.page || resultPage.value)
+    resultLimit.value = Number(res.data?.limit || resultLimit.value)
+    selectedProducts.value = []
+  } catch (e) {
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    taskResults.value = []
+    selectedProducts.value = []
+    resultTotal.value = 0
+    resultsError.value = requestError(e, '加载本次采集结果失败')
+  } finally {
+    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
+  }
+}
+function changeResultPage(value) { resultPage.value = value; loadResults() }
+function changeResultLimit(value) { resultLimit.value = value; resultPage.value = 1; loadResults() }
 
 async function editProduct(row){
+  const token=requestGeneration.capture()
   const res=await http.get(`/api/products/${row.product_id}/edit?scope=capture`)
+  if(!requestGeneration.isCurrent(token,route.params.id))return
   Object.assign(editForm,res.data)
   editVisible.value=true
 }
 async function saveProductEdit(){
+  const token=requestGeneration.capture()
   const {product_id,...payload}=editForm
   const res=await http.put(`/api/products/${product_id}`,payload)
-  if(res.ok){ElMessage.success('已保存');editVisible.value=false;load()}
+  if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
 }
-async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');load()}}
-async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);load()}}
+async function deleteProduct(row){const token=requestGeneration.capture();await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});if(!requestGeneration.isCurrent(token,route.params.id))return;const res=await http.delete(`/api/products/${row.product_id}`);if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已删除');loadResults()}}
+async function saveToLibrary(){const token=requestGeneration.capture();const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success(res.message);loadResults()}}
 
 async function requeueFails() {
+  const taskId = String(route.params.id)
+  const token = requestGeneration.capture()
   if (!retryItems.value.length) return
-  await ElMessageBox.confirm(
+  const result = await runGuardedAfter(ElMessageBox.confirm(
     `将重新下发 ${retryItems.value.length} 条，并完整保留原批准文号、品名、规格、厂家及任务配置。`,
     '确认重新下发',
     { type: 'warning' },
-  )
-  const res = await http.post(`/api/tasks/${route.params.id}/requeue-failed`, { include_cancelled: true })
+  ), requestGeneration, token, taskId, () => http.post(`/api/tasks/${taskId}/requeue-failed`, { include_cancelled: true }))
+  if (result.status === REQUEST_STALE) return
+  const res = result.value
+  if (!requestGeneration.isCurrent(token, taskId)) return
   if (!res.ok) return
   ElMessage.success(`已重新下发 #${res.data.task_id}，保留匹配目标 ${res.data.match_target_count} 条`)
   router.push(`/tasks/${res.data.task_id}`)
 }
 
-onMounted(() => {
-  load()
-  timer = setInterval(load, 5000)
-})
+function resetTaskState() {
+  task.value=null;taskError.value='';taskLoading.value=false
+  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
+  selectedProducts.value=[];editVisible.value=false
+  Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
+}
+function switchTask(taskId){requestGeneration.reset(taskId,resetTaskState);load()}
+watch(()=>String(route.params.id),switchTask,{immediate:true})
+onMounted(() => { timer = setInterval(load, 5000) })
 onUnmounted(() => clearInterval(timer))
 </script>

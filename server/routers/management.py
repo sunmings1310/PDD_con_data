@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from fastapi import APIRouter, Depends, Query
 
 from server.tenant import require_tenant_perms
 from server.db import get_conn
-from server.schemas import ApiOk
+from server.schemas import ApiOk, TaskResultResourceDetailDTO, TaskResultsPageDTO
 from server import management_queries as queries
 
 router = APIRouter(prefix="/api/management", tags=["management"])
@@ -48,6 +49,40 @@ def metrics(start_at:datetime|None=None,end_at:datetime|None=None,platform:str|N
 def trace(task_id:int,tenant=Depends(require_tenant_perms("task:view"))):
     result=_run(lambda cur: queries.task_trace(cur,task_id,tenant=tenant))
     if result.data is None: return ApiOk(ok=False,message="task not found",data={"error_code":"NOT_FOUND"})
+    return result
+
+
+@router.get("/tasks/{task_id}/results")
+def task_results(
+    task_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
+):
+    result = _run(lambda cur: queries.task_results(cur, task_id, page, limit, tenant=tenant))
+    result.data = TaskResultsPageDTO.model_validate(result.data).model_dump(mode="json")
+    return result
+
+
+@router.get("/tasks/{task_id}/results/{resource_kind}/{resource_id}")
+def task_result_resource(
+    task_id: int,
+    resource_kind: Literal["snapshot", "raw", "quality", "quarantine"],
+    resource_id: int,
+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
+):
+    result = _run(
+        lambda cur: queries.task_result_resource(
+            cur, task_id, resource_kind, resource_id, tenant=tenant
+        )
+    )
+    if result.data is None:
+        return ApiOk(
+            ok=False,
+            message="task result resource not found",
+            data={"error_code": "NOT_FOUND"},
+        )
+    result.data = TaskResultResourceDetailDTO.model_validate(result.data).model_dump(mode="json")
     return result
 
 

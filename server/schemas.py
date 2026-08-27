@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 from server.task_state import TaskItemStatus, TaskStatus
@@ -295,6 +295,79 @@ class ProductEditRequest(BaseModel):
 
 class CaptureResultDTO(ProductDetailDTO):
     """Full collection result; capture_context distinguishes draft/saved state."""
+
+
+class ResourceReferenceDTO(BaseModel):
+    resource_id: Optional[int] = None
+    availability: Literal["available", "unavailable"]
+    reason: Optional[str] = None
+
+
+class TaskResultResourcesDTO(BaseModel):
+    snapshot: ResourceReferenceDTO
+    master_product: ResourceReferenceDTO
+    enterprise_product: ResourceReferenceDTO
+    product: ResourceReferenceDTO
+    raw: ResourceReferenceDTO
+    quality: ResourceReferenceDTO
+    quarantine: ResourceReferenceDTO
+
+
+class TaskResultLibraryDTO(BaseModel):
+    status: Literal["draft", "saved", "unavailable"]
+    product_id: Optional[int] = None
+    is_saved: bool = False
+    can_save: bool = False
+    reason: Optional[str] = None
+
+
+class TaskResultDTO(BaseModel):
+    result_kind: Literal["snapshot", "quarantine", "legacy_product"]
+    result_id: int
+    task_id: int
+    job_id: Optional[int] = None
+    attempt_id: Optional[int] = None
+    snapshot_id: Optional[int] = None
+    master_product_id: Optional[int] = None
+    enterprise_product_id: Optional[int] = None
+    product_id: Optional[int] = None
+    quarantine_id: Optional[int] = None
+    raw_id: Optional[int] = None
+    quality_result_id: Optional[int] = None
+    library_status: Literal["draft", "saved", "unavailable"]
+    quality_status: Optional[str] = None
+    platform_title: Optional[str] = None
+    canonical_name: Optional[str] = None
+    product_attribute_spec: Optional[str] = None
+    brand: Optional[str] = None
+    approval_number: Optional[str] = None
+    manufacturer: Optional[str] = None
+    failure_reason: Optional[str] = None
+    collected_at: Optional[Any] = None
+    resources: TaskResultResourcesDTO
+    library: TaskResultLibraryDTO
+
+
+class TaskResultsPageDTO(BaseModel):
+    items: list[TaskResultDTO] = Field(default_factory=list)
+    total: int
+    page: int
+    limit: int
+
+
+class TaskResultResourceDetailDTO(BaseModel):
+    resource_kind: Literal["snapshot", "raw", "quality", "quarantine"]
+    resource_id: int
+    task_id: int
+    snapshot_id: Optional[int] = None
+    master_product_id: Optional[int] = None
+    enterprise_product_id: Optional[int] = None
+    product_id: Optional[int] = None
+    quarantine_id: Optional[int] = None
+    raw_id: Optional[int] = None
+    quality_result_id: Optional[int] = None
+    resources: TaskResultResourcesDTO
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApiOk(BaseModel):

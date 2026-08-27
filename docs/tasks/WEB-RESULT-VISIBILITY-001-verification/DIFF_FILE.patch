@@ -1,0 +1,13 @@
+diff --git a/docs/tasks/WEB-RESULT-VISIBILITY-001.md b/docs/tasks/WEB-RESULT-VISIBILITY-001.md
+index 2ef0b33..b11d6b8 100644
+--- a/docs/tasks/WEB-RESULT-VISIBILITY-001.md
++++ b/docs/tasks/WEB-RESULT-VISIBILITY-001.md
+@@ -78 +78 @@
+-| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.009s`；`OK` | 0 | PASS |
++| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.010s`；`OK` | 0 | PASS |
+@@ -96 +96 @@
+-- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
++- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
+@@ -130 +130 @@
+-- Tests：offline targeted 27/27、Python 222/222（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。
++- Tests：offline targeted 28/28、Python 223/223（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。

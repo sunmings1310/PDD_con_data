@@ -1,0 +1,68 @@
+WEB-RESULT-VISIBILITY-001 FINAL REVIEW FIX 3 VERIFICATION
+Date: 2026-08-27
+Branch: codex/web-result-visibility-001
+Review baseline: 959f32d8f088e599382be8315fef59f6818db6c9
+Changed branch/field: Task evidence documentation now uses the current rollback baseline hash and final targeted/Python test totals.
+
+ARTIFACTS (repo-relative)
+1. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/MODIFIED_FILE.py
+2. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/DIFF_FILE.patch
+3. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/VERIFICATION.txt
+4. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh
+
+HASHES
+Review-baseline docs/tasks/WEB-RESULT-VISIBILITY-001.md SHA-256:
+ee5c0f751d4db9e090659a1b25f69616a9faa42aacaaf0edb02d4d97c9628e36
+Modified docs/tasks/WEB-RESULT-VISIBILITY-001.md / MODIFIED_FILE.py SHA-256:
+8e1972aa73e52bb77447e7be2084caa3b2394f1d84dc9372673c1cf4a18e6e50
+
+BASELINE
+Command:
+$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "import subprocess; s=subprocess.check_output(['git','show','959f32d8f088e599382be8315fef59f6818db6c9:docs/tasks/WEB-RESULT-VISIBILITY-001.md']).decode('utf-8'); assert 'eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce' in s and 'targeted 27/27、Python 222/222' in s; print('BASELINE_DOC_ROLLBACK_AND_COUNTS=STALE')"
+Input:
+Review baseline Task document Git blob; no database or mutable business state.
+Literal output/result:
+BASELINE_DOC_ROLLBACK_AND_COUNTS=STALE
+Exit status: 0
+Observed behavior/status:
+The Task summary retained the previous review round rollback hash and obsolete targeted/Python totals.
+
+MODIFIED
+Command:
+$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -c "from pathlib import Path; s=Path('docs/tasks/WEB-RESULT-VISIBILITY-001.md').read_text(encoding='utf-8'); assert 'efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0' in s and 'targeted 28/28、Python 223/223' in s; print('MODIFIED_DOC_ROLLBACK_AND_COUNTS=CURRENT')"
+Input:
+Modified Task document; no database or mutable business state.
+Literal output/result:
+MODIFIED_DOC_ROLLBACK_AND_COUNTS=CURRENT
+Exit status: 0
+Observed behavior/status:
+The Task summary records rollback baseline efc9ed... and the actual 28/28 targeted and 223/223 Python totals.
+
+ROLLBACK
+Command:
+$gitExe=(Get-Command git).Source; $bashExe=Join-Path (Split-Path (Split-Path $gitExe -Parent) -Parent) 'bin/bash.exe'; & $bashExe 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh' 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py'
+Input:
+rollback_probe.py was a byte-for-byte copy of MODIFIED_FILE.py with SHA-256 8e1972aa73e52bb77447e7be2084caa3b2394f1d84dc9372673c1cf4a18e6e50.
+Literal output/result:
+target=docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py
+before_sha256=8e1972aa73e52bb77447e7be2084caa3b2394f1d84dc9372673c1cf4a18e6e50
+after_sha256=ee5c0f751d4db9e090659a1b25f69616a9faa42aacaaf0edb02d4d97c9628e36
+expected_sha256=ee5c0f751d4db9e090659a1b25f69616a9faa42aacaaf0edb02d4d97c9628e36
+result=RESTORED
+exit_status=0
+Exit status: 0
+Restored behavior/status:
+Only the separate probe was restored byte-for-byte to Review baseline. MODIFIED_FILE.py retained SHA-256 8e1972aa73e52bb77447e7be2084caa3b2394f1d84dc9372673c1cf4a18e6e50. The probe was removed.
+
+REGRESSION RESULTS
+1. Python targeted: Ran 28 tests in 0.010s; OK; exit=0.
+2. Node executable races:
+   STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
+   REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false
+   TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved=true
+   exit=0.
+3. git diff --check: no whitespace errors; exit=0.
+4. Fixed-Head Oracle: after the final documentation commit, canonical strict runs on the new Head and an external validator manifest records 46/46, skipped=0, persistent_business_changes=false, literal output/hash, artifact hashes and Reviewer trust boundary.
+
+SCOPE / DATA CHECK
+Documentation and verification artifacts only. No business code, server SQL, Schema, migration, RBAC, Android behavior, production operation or persistent business write changed. No credential, token, Raw Capture payload, environment file, local database or build output is included.

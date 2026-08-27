@@ -249,6 +249,8 @@ flowchart LR
 
 Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间线和 Task Trace。增长列表统一使用服务端 `page/limit/total`；页面必须显示 loading、error、empty，并通过稳定 ID 在 Task、Job、Attempt、Product 和 Quarantine 之间导航。详细语义见 `docs/decisions/phase4-management-observability.md`。
 
+Task 的业务结果读取使用 `/api/management/tasks/{task_id}/results`，由 `management_queries.task_results()` 在同一 tenant/workspace fence 下合并三类既有事实：可信 Snapshot、Quarantine、以及尚无 strict Snapshot 的 legacy/draft Product。响应同时返回各资源真实 `snapshot_id`、`raw_id`、`quality_result_id`、`quarantine_id` 与持久化的 Product identity；缺失项以 `availability=unavailable + reason` 表达，不从其他 ID 推断。分页顺序使用 `COLLECTED_AT + RESULT_KIND +` 各类型 authoritative ID 形成稳定全序，避免同时间戳、跨类型 ID 碰撞造成重复或漏项。结果列表和 `/api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}` 同时要求 Accepted Phase 4 的 `data:view` 与 `task:view`，并继续执行 Task + tenant/workspace ownership fence。Web 的 Snapshot、Raw、Quality 和 Quarantine 下钻分别使用自身资源 ID；资料库 `draft/saved` 只描述人工保存状态，不改变采集事实。Task Detail、Trace 与 Evidence 使用共享 generation guard，在路由资源切换时先清空旧状态并拒绝乱序旧响应写回。
+
 ## Accepted Raw Capture foundation
 
 Android PDD Collector 在正常详情采集内生成受控 `RawSource`，当前默认来源包括 SEARCH、DETAIL、SHOP、PROMOTION、MEDIA、EMBEDDED 和 OTHER。通用 `RawSource.schemaHint` 默认为空，PDD Adapter 对自身来源显式写入 `pdd-a11y-v1`，未来 Adapter 不会继承 PDD provenance。Outbox 在上传前执行敏感字段过滤，并携带 capture identity、source metadata 和 parser/collector version。

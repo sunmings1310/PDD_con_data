@@ -286,11 +286,323 @@ def _simple_page(cur: Any, table: str, id_col: str, where_col: str, value: int, 
                  params, page, limit)
 
 
+def _resource_ref(value: Any, reason: str) -> dict[str, Any]:
+    if value is None:
+        return {"resource_id": None, "availability": "unavailable", "reason": reason}
+    return {"resource_id": int(value), "availability": "available", "reason": None}
+
+
+def _result_resources(row: dict[str, Any], result_kind: str) -> dict[str, dict[str, Any]]:
+    is_legacy = result_kind == "legacy_product"
+    is_quarantine = result_kind == "quarantine" or row.get("quarantine_id") is not None
+    missing_strict = "not_captured_by_strict_protocol" if is_legacy else "not_recorded"
+    return {
+        "snapshot": _resource_ref(
+            row.get("snapshot_id"),
+            "no_normal_snapshot_for_quarantine" if is_quarantine else missing_strict,
+        ),
+        "master_product": _resource_ref(row.get("master_product_id"), "product_identity_unavailable"),
+        "enterprise_product": _resource_ref(
+            row.get("enterprise_product_id"), "tenant_product_identity_unavailable"
+        ),
+        "product": _resource_ref(
+            row.get("product_id"),
+            "no_normal_product_for_quarantine" if is_quarantine else "library_product_unavailable",
+        ),
+        "raw": _resource_ref(row.get("raw_id"), missing_strict),
+        "quality": _resource_ref(row.get("quality_result_id"), missing_strict),
+        "quarantine": _resource_ref(
+            row.get("quarantine_id"),
+            "not_applicable_for_accepted_snapshot" if result_kind == "snapshot" else missing_strict,
+        ),
+    }
+
+
+def _shape_task_result(row: dict[str, Any]) -> dict[str, Any]:
+    kind = str(row.get("result_kind") or "legacy_product")
+    library_status = str(row.get("library_status") or "unavailable").lower()
+    if library_status not in {"draft", "saved"}:
+        library_status = "unavailable"
+    product_id = int(row["product_id"]) if row.get("product_id") is not None else None
+    row["result_kind"] = kind
+    row["result_id"] = int(
+        row.get("snapshot_id") or row.get("quarantine_id") or row.get("product_id")
+    )
+    row["resources"] = _result_resources(row, kind)
+    row["library"] = {
+        "status": library_status,
+        "product_id": product_id,
+        "is_saved": library_status == "saved",
+        "can_save": library_status == "draft" and product_id is not None,
+        "reason": "normal_product_not_created" if kind == "quarantine" else (
+            "library_product_unavailable" if product_id is None else None
+        ),
+    }
+    row["library_status"] = library_status
+    return row
+
+
+def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | None = None) -> dict:
+    """Return every Task business result without requiring library persistence.
+
+    Accepted Snapshot, Quarantine and pre-strict/legacy Product facts remain
+    separate rows.  Missing resource identities are reported as unavailable by
+    ``_shape_task_result`` and are never inferred from another ID type.
+    """
+    if not _owns(cur, "SJZQ_TASK", "TASK_ID", task_id, tenant):
+        return {"items": [], "total": 0, "page": page, "limit": limit}
+    params = {"task_id": task_id, **_tenant_binds(tenant)}
+    tenant_snapshot = (
+        " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id"
+        if tenant is not None else ""
+    )
+    tenant_quarantine = (
+        " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id"
+        if tenant is not None else ""
+    )
+    tenant_product = (
+        " AND p.ENTERPRISE_ID=:enterprise_id AND p.WORKSPACE_ID=:workspace_id"
+        if tenant is not None else ""
+    )
+    joined_tenant_product = (
+        " AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID"
+        if tenant is not None else ""
+    )
+    joined_tenant_quality = (
+        " AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID"
+        if tenant is not None else ""
+    )
+    duplicate_tenant = (
+        " AND sx.ENTERPRISE_ID=p.ENTERPRISE_ID AND sx.WORKSPACE_ID=p.WORKSPACE_ID"
+        if tenant is not None else ""
+    )
+    facts_sql = f"""
+        SELECT 'snapshot' RESULT_KIND,s.TASK_ID,s.JOB_ID,s.ATTEMPT_ID,s.SNAPSHOT_ID,
+               s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,p.PRODUCT_ID,
+               CAST(NULL AS NUMBER) QUARANTINE_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
+               NVL(p.LIBRARY_STATUS,'unavailable') LIBRARY_STATUS,s.QUALITY_STATUS,
+               COALESCE(p.SELL_NAME,s.TITLE) PLATFORM_TITLE,p.PRODUCT_NAME CANONICAL_NAME,
+               p.SPEC_TEXT PRODUCT_ATTRIBUTE_SPEC,p.BRAND,p.APPROVAL_NO APPROVAL_NUMBER,
+               p.MANUFACTURER,CAST(NULL AS VARCHAR2(2000)) FAILURE_REASON,
+               s.COLLECTED_AT
+          FROM SJZQ_PRODUCT_SNAPSHOT s
+          LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID{joined_tenant_quality}
+          LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
+               AND NVL(p.IS_DELETED,0)=0{joined_tenant_product}
+         WHERE s.TASK_ID=:task_id{tenant_snapshot}
+        UNION ALL
+        SELECT 'quarantine' RESULT_KIND,q.TASK_ID,q.JOB_ID,q.ATTEMPT_ID,
+               CAST(NULL AS NUMBER) SNAPSHOT_ID,q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID,
+               CAST(NULL AS NUMBER) PRODUCT_ID,q.QUARANTINE_ID,q.RAW_ID,q.QUALITY_RESULT_ID,
+               'unavailable' LIBRARY_STATUS,'quarantined' QUALITY_STATUS,
+               JSON_VALUE(q.EVIDENCE_JSON,'$.title' RETURNING VARCHAR2(512)) PLATFORM_TITLE,
+               CAST(NULL AS VARCHAR2(512)) CANONICAL_NAME,
+               CAST(NULL AS VARCHAR2(512)) PRODUCT_ATTRIBUTE_SPEC,
+               CAST(NULL AS VARCHAR2(128)) BRAND,CAST(NULL AS VARCHAR2(128)) APPROVAL_NUMBER,
+               CAST(NULL AS VARCHAR2(256)) MANUFACTURER,q.FAILURE_REASON,q.COLLECTED_AT
+          FROM SJZQ_DATA_QUARANTINE q
+         WHERE q.TASK_ID=:task_id{tenant_quarantine}
+        UNION ALL
+        SELECT 'legacy_product' RESULT_KIND,p.TASK_ID,CAST(NULL AS NUMBER) JOB_ID,
+               CAST(NULL AS NUMBER) ATTEMPT_ID,CAST(NULL AS NUMBER) SNAPSHOT_ID,
+               p.MASTER_PRODUCT_ID,p.ENTERPRISE_PRODUCT_ID,p.PRODUCT_ID,
+               CAST(NULL AS NUMBER) QUARANTINE_ID,CAST(NULL AS NUMBER) RAW_ID,
+               CAST(NULL AS NUMBER) QUALITY_RESULT_ID,NVL(p.LIBRARY_STATUS,'saved') LIBRARY_STATUS,
+               NVL(p.QUALITY_STATUS,'legacy') QUALITY_STATUS,p.SELL_NAME PLATFORM_TITLE,
+               p.PRODUCT_NAME CANONICAL_NAME,p.SPEC_TEXT PRODUCT_ATTRIBUTE_SPEC,p.BRAND,
+               p.APPROVAL_NO APPROVAL_NUMBER,p.MANUFACTURER,
+               CAST(NULL AS VARCHAR2(2000)) FAILURE_REASON,p.COLLECT_TIME COLLECTED_AT
+          FROM SJZQ_PRODUCT p
+         WHERE p.TASK_ID=:task_id AND NVL(p.IS_DELETED,0)=0{tenant_product}
+           AND NOT EXISTS (
+               SELECT 1 FROM SJZQ_PRODUCT_SNAPSHOT sx
+                WHERE sx.LEGACY_PRODUCT_ID=p.PRODUCT_ID{duplicate_tenant}
+           )
+    """
+    result = _page(
+        cur,
+        f"SELECT COUNT(*) FROM ({facts_sql})",
+        f"""SELECT RESULT_KIND,TASK_ID,JOB_ID,ATTEMPT_ID,SNAPSHOT_ID,MASTER_PRODUCT_ID,
+                    ENTERPRISE_PRODUCT_ID,PRODUCT_ID,QUARANTINE_ID,RAW_ID,QUALITY_RESULT_ID,
+                    LIBRARY_STATUS,QUALITY_STATUS,PLATFORM_TITLE,CANONICAL_NAME,
+                    PRODUCT_ATTRIBUTE_SPEC,BRAND,APPROVAL_NUMBER,MANUFACTURER,
+                    FAILURE_REASON,COLLECTED_AT
+               FROM ({facts_sql})
+              ORDER BY COLLECTED_AT DESC NULLS LAST,
+                       RESULT_KIND ASC,
+                       NVL(SNAPSHOT_ID,-1) DESC,
+                       NVL(QUARANTINE_ID,-1) DESC,
+                       NVL(PRODUCT_ID,-1) DESC,
+                       NVL(RAW_ID,-1) DESC,
+                       NVL(QUALITY_RESULT_ID,-1) DESC
+              OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY""",
+        params,
+        page,
+        limit,
+    )
+    result["items"] = [_shape_task_result(item) for item in result["items"]]
+    return result
+
+
+def _shape_task_result_resource(kind: str, resource_id: int, row: dict[str, Any]) -> dict[str, Any]:
+    details = dict(row)
+    if "raw_json" in details:
+        details["raw_data"] = _json(details.pop("raw_json", None), {})
+    for source, target, default in (
+        ("normalized_json", "normalized", {}),
+        ("sku_json", "sku", None),
+        ("field_sources", "field_sources", {}),
+        ("missing_fields_json", "missing_fields", []),
+        ("error_codes_json", "error_codes", []),
+        ("warnings_json", "warnings", []),
+    ):
+        if source in details:
+            value = details.pop(source, None)
+            details[target] = _json(value, default)
+    synthetic = {**row, "result_kind": kind}
+    if synthetic.get("product_id") is None and synthetic.get("legacy_product_id") is not None:
+        synthetic["product_id"] = synthetic["legacy_product_id"]
+    if kind == "raw": synthetic["raw_id"] = resource_id
+    elif kind == "quality": synthetic["quality_result_id"] = resource_id
+    elif kind == "snapshot": synthetic["snapshot_id"] = resource_id
+    elif kind == "quarantine": synthetic["quarantine_id"] = resource_id
+    return {
+        "resource_kind": kind,
+        "resource_id": int(resource_id),
+        "task_id": int(row["task_id"]),
+        "snapshot_id": synthetic.get("snapshot_id"),
+        "master_product_id": synthetic.get("master_product_id"),
+        "enterprise_product_id": synthetic.get("enterprise_product_id"),
+        "product_id": synthetic.get("product_id"),
+        "quarantine_id": synthetic.get("quarantine_id"),
+        "raw_id": synthetic.get("raw_id"),
+        "quality_result_id": synthetic.get("quality_result_id"),
+        "resources": _result_resources(synthetic, kind),
+        "details": details,
+    }
+
+
+def task_result_resource(
+    cur: Any,
+    task_id: int,
+    resource_kind: str,
+    resource_id: int,
+    tenant: Any | None = None,
+) -> dict[str, Any] | None:
+    """Read one evidence resource through its owning Task and tenant fence."""
+    if resource_kind not in {"snapshot", "raw", "quality", "quarantine"}:
+        raise ValueError("unsupported task result resource")
+    if not _owns(cur, "SJZQ_TASK", "TASK_ID", task_id, tenant):
+        return None
+    params = {"resource_id": resource_id, "task_id": task_id, **_tenant_binds(tenant)}
+    tenant_r = " AND r.ENTERPRISE_ID=:enterprise_id AND r.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+    tenant_s = " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+    tenant_qr = " AND qr.ENTERPRISE_ID=:enterprise_id AND qr.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+    tenant_q = " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+    if resource_kind == "raw":
+        cur.execute(
+            f"""SELECT 'raw' RESOURCE_KIND,r.RAW_ID,r.TASK_ID,r.JOB_ID,r.ATTEMPT_ID,r.DEVICE_ID,
+                       r.REQUEST_KEY,r.SOURCE_TYPE,r.PAYLOAD_SHA256,r.RAW_JSON,r.COLLECTED_AT,
+                       s.SNAPSHOT_ID,s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,
+                       qr.QUALITY_RESULT_ID,q.QUARANTINE_ID
+                  FROM SJZQ_RAW_COLLECTION r
+                  LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=r.RAW_ID
+                       AND qr.ENTERPRISE_ID=r.ENTERPRISE_ID AND qr.WORKSPACE_ID=r.WORKSPACE_ID
+                  LEFT JOIN SJZQ_PRODUCT_SNAPSHOT s ON s.RAW_ID=r.RAW_ID
+                       AND s.ENTERPRISE_ID=r.ENTERPRISE_ID AND s.WORKSPACE_ID=r.WORKSPACE_ID
+                  LEFT JOIN SJZQ_DATA_QUARANTINE q ON q.RAW_ID=r.RAW_ID
+                       AND q.ENTERPRISE_ID=r.ENTERPRISE_ID AND q.WORKSPACE_ID=r.WORKSPACE_ID
+                 WHERE r.RAW_ID=:resource_id AND r.TASK_ID=:task_id{tenant_r}""",
+            params,
+        )
+        row = row_as_dict(cur)
+    elif resource_kind == "quality":
+        cur.execute(
+            f"""SELECT 'quality' RESOURCE_KIND,qr.QUALITY_RESULT_ID,qr.RAW_ID,r.TASK_ID,
+                       r.JOB_ID,r.ATTEMPT_ID,qr.SNAPSHOT_ID,q.QUARANTINE_ID,
+                       s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,
+                       qr.ACCEPTED,qr.STATUS,qr.PAGE_STATUS,qr.PARSE_STATUS,qr.QUALITY_STATUS,
+                       qr.PARSER_VERSION,qr.QUALITY_RULES_VERSION,qr.MISSING_FIELDS_JSON,
+                       qr.ERROR_CODES_JSON,qr.WARNINGS_JSON,qr.CREATE_TIME
+                  FROM SJZQ_QUALITY_RESULT qr
+                  JOIN SJZQ_RAW_COLLECTION r ON r.RAW_ID=qr.RAW_ID
+                       AND r.ENTERPRISE_ID=qr.ENTERPRISE_ID AND r.WORKSPACE_ID=qr.WORKSPACE_ID
+                  LEFT JOIN SJZQ_PRODUCT_SNAPSHOT s ON s.SNAPSHOT_ID=qr.SNAPSHOT_ID
+                       AND s.ENTERPRISE_ID=qr.ENTERPRISE_ID AND s.WORKSPACE_ID=qr.WORKSPACE_ID
+                  LEFT JOIN SJZQ_DATA_QUARANTINE q ON q.QUALITY_RESULT_ID=qr.QUALITY_RESULT_ID
+                       AND q.ENTERPRISE_ID=qr.ENTERPRISE_ID AND q.WORKSPACE_ID=qr.WORKSPACE_ID
+                 WHERE qr.QUALITY_RESULT_ID=:resource_id AND r.TASK_ID=:task_id{tenant_qr}{tenant_r}""",
+            params,
+        )
+        row = row_as_dict(cur)
+    elif resource_kind == "snapshot":
+        cur.execute(
+            f"""SELECT 'snapshot' RESOURCE_KIND,s.SNAPSHOT_ID,s.MASTER_PRODUCT_ID,
+                       s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
+                       s.TASK_ID,s.JOB_ID,s.ATTEMPT_ID,s.REQUEST_KEY,s.COLLECTED_AT,
+                       s.NORMALIZED_JSON,s.TITLE,s.SHOP_NAME,s.SHOP_ID,s.AVAILABILITY,
+                       s.PRICE,s.DISPLAY_PRICE,s.GROUP_PRICE,s.DEAL_PRICE,s.ORIGINAL_PRICE,
+                       s.SALES_NUM,s.SKU_JSON,s.FIELD_SOURCES,s.PARSER_VERSION,
+                       s.QUALITY_RULES_VERSION,s.PARSE_STATUS,s.PAGE_STATUS,s.QUALITY_STATUS,
+                       s.PREVIOUS_SNAPSHOT_ID,p.LIBRARY_STATUS
+                  FROM SJZQ_PRODUCT_SNAPSHOT s
+                  JOIN SJZQ_RAW_COLLECTION r ON r.RAW_ID=s.RAW_ID
+                       AND r.ENTERPRISE_ID=s.ENTERPRISE_ID AND r.WORKSPACE_ID=s.WORKSPACE_ID
+                  LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID
+                       AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID
+                  LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
+                       AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID
+                 WHERE s.SNAPSHOT_ID=:resource_id AND s.TASK_ID=:task_id{tenant_s}{tenant_r}""",
+            params,
+        )
+        row = row_as_dict(cur)
+        if row:
+            cur.execute(
+                f"""SELECT DIFF_ID,PREVIOUS_SNAPSHOT_ID,CHANGED_FIELDS_JSON,PRICE_CHANGED,
+                            SALES_CHANGED,SKU_CHANGED,AVAILABILITY_CHANGED,TITLE_CHANGED,SHOP_CHANGED
+                       FROM SJZQ_SNAPSHOT_DIFF
+                      WHERE SNAPSHOT_ID=:resource_id""",
+                {"resource_id": resource_id},
+            )
+            difference = row_as_dict(cur)
+            if difference:
+                difference["changes"] = _json(difference.pop("changed_fields_json", None), {})
+            row["difference"] = difference
+            cur.execute(
+                """SELECT FIELD_NAME,SOURCE_TYPE,SOURCE_REF,TRANSFORMATION
+                     FROM SJZQ_FIELD_PROVENANCE WHERE SNAPSHOT_ID=:resource_id
+                    ORDER BY FIELD_NAME""",
+                {"resource_id": resource_id},
+            )
+            row["provenance"] = rows_as_dicts(cur)
+    else:
+        cur.execute(
+            f"""SELECT q.QUARANTINE_ID,q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID
+                  FROM SJZQ_DATA_QUARANTINE q
+                 WHERE q.QUARANTINE_ID=:resource_id AND q.TASK_ID=:task_id{tenant_q}""",
+            params,
+        )
+        binding = cur.fetchone()
+        if not binding:
+            return None
+        row = quarantine_detail(cur, resource_id, tenant=tenant)
+        if row:
+            # Task result DTOs expose only persisted resource bindings.  The
+            # legacy quarantine detail may infer a global Master from evidence
+            # for display, but that inference must not become a navigable ID.
+            row["master_product_id"] = int(binding[1]) if binding[1] is not None else None
+            row["enterprise_product_id"] = int(binding[2]) if binding[2] is not None else None
+            row["resource_kind"] = "quarantine"
+    if not row:
+        return None
+    return _shape_task_result_resource(resource_kind, resource_id, row)
+
+
 def task_jobs(cur: Any, task_id: int, page: int, limit: int, tenant: Any | None = None) -> dict:
     if not _owns(cur, "SJZQ_TASK", "TASK_ID", task_id, tenant): return {"items":[],"total":0,"page":page,"limit":limit}
     cols = "JOB_ID,TASK_ID,TASK_ITEM_ID,DEVICE_ID,JOB_KEY,JOB_TYPE,STATUS,PRIORITY,MAX_ATTEMPTS,ATTEMPT_COUNT,NEXT_RUN_AT,ACTIVE_ATTEMPT_ID,LEASED_AT,LEASE_EXPIRES_AT,LAST_HEARTBEAT_AT,CHECKPOINT_VERSION,RESULT_RECEIPT_KEY,RESULT_PRODUCT_ID,PAUSE_REQUESTED,LAST_ERROR_CLASS,LAST_ERROR_CODE,LAST_ERROR_MESSAGE,CREATE_TIME,UPDATE_TIME"
     result = _simple_page(cur,"SJZQ_COLLECTION_JOB","JOB_ID","TASK_ID",task_id,cols,"CREATE_TIME DESC,JOB_ID DESC",page,limit)
-    _attach_business_results(cur, result["items"], "job_id")
+    _attach_business_results(cur, result["items"], "job_id", tenant=tenant)
     return result
 
 
@@ -298,11 +610,11 @@ def job_attempts(cur: Any, job_id: int, page: int, limit: int, tenant: Any | Non
     if not _owns(cur, "SJZQ_COLLECTION_JOB", "JOB_ID", job_id, tenant): return {"items":[],"total":0,"page":page,"limit":limit}
     cols = "ATTEMPT_ID,JOB_ID,ATTEMPT_NO,DEVICE_ID,WORKER_ID,TRACE_ID,STATUS,LEASED_AT,STARTED_AT,HEARTBEAT_AT,LEASE_EXPIRES_AT,FINISHED_AT,ERROR_CLASS,ERROR_CODE,ERROR_MESSAGE,RETRYABLE,RETRY_DELAY_SECONDS,START_CHECKPOINT_VERSION,FINAL_CHECKPOINT_VERSION,CREATE_TIME"
     result = _simple_page(cur,"SJZQ_COLLECTION_ATTEMPT","ATTEMPT_ID","JOB_ID",job_id,cols,"ATTEMPT_NO DESC,ATTEMPT_ID DESC",page,limit)
-    _attach_business_results(cur, result["items"], "attempt_id")
+    _attach_business_results(cur, result["items"], "attempt_id", tenant=tenant)
     return result
 
 
-def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+def _attach_business_results(cur: Any, items: list[dict], key: str, tenant: Any | None = None) -> None:
     """Attach Snapshot/Quarantine facts to a page in one bounded query."""
     if not items:
         return
@@ -310,27 +622,36 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
     by_id: dict[int, list[dict]] = {value: [] for value in ids}
     binds = ",".join(f":bid{i}" for i in range(len(ids)))
     params = {f"bid{i}": value for i, value in enumerate(ids)}
+    params.update(_tenant_binds(tenant))
     column = "JOB_ID" if key == "job_id" else "ATTEMPT_ID"
+    snapshot_tenant = " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+    quarantine_tenant = " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
     cur.execute(f"""SELECT JOB_ID,ATTEMPT_ID,RESULT_KIND,SNAPSHOT_ID,MASTER_PRODUCT_ID,
-                           QUARANTINE_ID,QUALITY_STATUS,COLLECTED_AT
+                           ENTERPRISE_PRODUCT_ID,PRODUCT_ID,QUARANTINE_ID,RAW_ID,
+                           QUALITY_RESULT_ID,LIBRARY_STATUS,QUALITY_STATUS,COLLECTED_AT
                       FROM (
                         SELECT s.JOB_ID,s.ATTEMPT_ID,'snapshot' RESULT_KIND,s.SNAPSHOT_ID,
-                               s.MASTER_PRODUCT_ID,CAST(NULL AS NUMBER) QUARANTINE_ID,
+                               s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID PRODUCT_ID,
+                               CAST(NULL AS NUMBER) QUARANTINE_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
+                               NVL(p.LIBRARY_STATUS,'unavailable') LIBRARY_STATUS,
                                s.QUALITY_STATUS,s.COLLECTED_AT
-                          FROM SJZQ_PRODUCT_SNAPSHOT s WHERE s.{column} IN ({binds})
+                          FROM SJZQ_PRODUCT_SNAPSHOT s
+                          LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID
+                               AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID
+                          LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
+                               AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID
+                         WHERE s.{column} IN ({binds}){snapshot_tenant}
                         UNION ALL
                         SELECT q.JOB_ID,q.ATTEMPT_ID,'quarantine' RESULT_KIND,CAST(NULL AS NUMBER) SNAPSHOT_ID,
-                               COALESCE(q.MASTER_PRODUCT_ID,m.MASTER_PRODUCT_ID) MASTER_PRODUCT_ID,
-                               q.QUARANTINE_ID,'quarantined' QUALITY_STATUS,q.COLLECTED_AT
+                               q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID,CAST(NULL AS NUMBER) PRODUCT_ID,
+                               q.QUARANTINE_ID,q.RAW_ID,q.QUALITY_RESULT_ID,
+                               'unavailable' LIBRARY_STATUS,'quarantined' QUALITY_STATUS,q.COLLECTED_AT
                           FROM SJZQ_DATA_QUARANTINE q
-                          LEFT JOIN SJZQ_PRODUCT_MASTER m ON m.MASTER_PRODUCT_ID=q.MASTER_PRODUCT_ID
-                            OR (q.MASTER_PRODUCT_ID IS NULL
-                                AND m.PLATFORM_CODE=JSON_VALUE(q.EVIDENCE_JSON,'$.platform_code' RETURNING VARCHAR2(32))
-                                AND m.PLATFORM_PRODUCT_ID=JSON_VALUE(q.EVIDENCE_JSON,'$.platform_product_id' RETURNING VARCHAR2(128)))
-                         WHERE q.{column} IN ({binds})
+                         WHERE q.{column} IN ({binds}){quarantine_tenant}
                       ) ORDER BY COLLECTED_AT DESC,
                          COALESCE(SNAPSHOT_ID,QUARANTINE_ID) DESC""", params)
     for fact in rows_as_dicts(cur):
+        _shape_task_result(fact)
         owner = fact.get(key)
         if owner is not None and int(owner) in by_id:
             by_id[int(owner)].append(fact)

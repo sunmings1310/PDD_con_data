@@ -11,6 +11,10 @@ for _key, _value in {
     os.environ.setdefault(_key, _value)
 
 from server import management_queries as q
+from server.tenant import TenantContext
+
+
+TENANT_A = TenantContext(11, 101, 1, 1, "viewer", frozenset({"task:view"}))
 
 
 class Cursor:
@@ -120,14 +124,17 @@ class Phase4ManagementTests(unittest.TestCase):
 
     def test_trace_pages_never_select_lease_token_hash(self):
         business_cols = ["JOB_ID", "ATTEMPT_ID", "RESULT_KIND", "SNAPSHOT_ID", "MASTER_PRODUCT_ID",
-                         "QUARANTINE_ID", "QUALITY_STATUS", "COLLECTED_AT"]
+                         "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID", "RAW_ID",
+                         "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT"]
         cur = Cursor([(["COUNT"], [(1,)]), (["ATTEMPT_ID", "TRACE_ID"], [(4, "trace-4")]),
-                      (business_cols, [(3, 4, "snapshot", 12, 7, None, "passed", "t"),
-                                       (3, 4, "quarantine", None, 7, 19, "quarantined", "u")])])
+                      (business_cols, [(3, 4, "snapshot", 12, 7, 70, 17, None, 21, 31, "draft", "passed", "t"),
+                                       (3, 4, "quarantine", None, 7, 70, None, 19, 22, 32, "unavailable", "quarantined", "u")])])
         result = q.job_attempts(cur, 3, 1, 50)
         self.assertEqual(result["items"][0]["trace_id"], "trace-4")
         self.assertEqual([x["result_kind"] for x in result["items"][0]["business_results"]],
                          ["snapshot", "quarantine"])
+        self.assertEqual(21, result["items"][0]["business_results"][0]["raw_id"])
+        self.assertEqual(31, result["items"][0]["business_results"][0]["quality_result_id"])
         self.assertNotIn("LEASE_TOKEN_HASH", cur.calls[1][0])
         self.assertIn("ATTEMPT_NO DESC,ATTEMPT_ID DESC", cur.calls[1][0])
         self.assertIn("UNION ALL", cur.calls[2][0])
@@ -135,15 +142,181 @@ class Phase4ManagementTests(unittest.TestCase):
     def test_task_jobs_batch_business_results_without_changing_page_total(self):
         job_cols = ["JOB_ID", "STATUS"]
         business_cols = ["JOB_ID", "ATTEMPT_ID", "RESULT_KIND", "SNAPSHOT_ID", "MASTER_PRODUCT_ID",
-                         "QUARANTINE_ID", "QUALITY_STATUS", "COLLECTED_AT"]
+                         "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID", "RAW_ID",
+                         "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT"]
         cur = Cursor([(["COUNT"], [(2,)]), (job_cols, [(8, "success"), (7, "quarantined")]),
-                      (business_cols, [(8, 81, "snapshot", 100, 10, None, "passed", "t"),
-                                       (7, 71, "quarantine", None, 11, 101, "quarantined", "t")])])
+                      (business_cols, [(8, 81, "snapshot", 100, 10, 110, 1000, None, 200, 300, "saved", "passed", "t"),
+                                       (7, 71, "quarantine", None, 11, 111, None, 101, 201, 301, "unavailable", "quarantined", "t")])])
         result = q.task_jobs(cur, 5, 1, 20)
         self.assertEqual(result["total"], 2)
         self.assertEqual(result["items"][0]["business_results"][0]["snapshot_id"], 100)
         self.assertEqual(result["items"][1]["business_results"][0]["quarantine_id"], 101)
+        self.assertEqual("available", result["items"][0]["business_results"][0]["resources"]["snapshot"]["availability"])
+        self.assertEqual("saved", result["items"][0]["business_results"][0]["library"]["status"])
         self.assertEqual(cur.calls[2][1], {"bid0": 8, "bid1": 7})
+
+    def test_task_results_include_snapshot_draft_quarantine_and_explicit_unavailable_resources(self):
+        columns = [
+            "RESULT_KIND", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "SNAPSHOT_ID",
+            "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID",
+            "RAW_ID", "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS",
+            "PLATFORM_TITLE", "CANONICAL_NAME", "PRODUCT_ATTRIBUTE_SPEC", "FAILURE_REASON",
+            "COLLECTED_AT",
+        ]
+        rows = [
+            ("snapshot", 5, 8, 81, 100, 10, 110, 1000, None, 200, 300, "draft",
+             "passed", "完整标题", "规范名", "10ml", None, "t3"),
+            ("quarantine", 5, 7, 71, None, 11, 111, None, 101, 201, 301, "unavailable",
+             "quarantined", None, None, None, "MISSING_PRICE", "t2"),
+            ("legacy_product", 5, None, None, None, None, None, 1001, None, None, None, "saved",
+             "legacy", "旧标题", "旧规范名", "20ml", None, "t1"),
+        ]
+        cur = Cursor([
+            (["OWNED"], [(1,)]),
+            (["COUNT"], [(3,)]),
+            (columns, rows),
+        ])
+
+        result = q.task_results(cur, 5, page=1, limit=20, tenant=TENANT_A)
+
+        self.assertEqual((3, 1, 20), (result["total"], result["page"], result["limit"]))
+        snapshot, quarantine, legacy = result["items"]
+        self.assertEqual(100, snapshot["snapshot_id"])
+        self.assertEqual(200, snapshot["raw_id"])
+        self.assertEqual(300, snapshot["quality_result_id"])
+        self.assertEqual("draft", snapshot["library"]["status"])
+        self.assertTrue(snapshot["library"]["can_save"])
+        self.assertEqual("available", snapshot["resources"]["snapshot"]["availability"])
+        self.assertEqual("unavailable", snapshot["resources"]["quarantine"]["availability"])
+        self.assertEqual("not_applicable_for_accepted_snapshot", snapshot["resources"]["quarantine"]["reason"])
+        self.assertEqual("unavailable", quarantine["library"]["status"])
+        self.assertEqual("available", quarantine["resources"]["raw"]["availability"])
+        self.assertEqual("available", quarantine["resources"]["quality"]["availability"])
+        self.assertEqual("no_normal_snapshot_for_quarantine", quarantine["resources"]["snapshot"]["reason"])
+        self.assertEqual("saved", legacy["library"]["status"])
+        self.assertEqual("not_captured_by_strict_protocol", legacy["resources"]["raw"]["reason"])
+        self.assertIn("p.ENTERPRISE_ID=:enterprise_id", cur.calls[1][0])
+        self.assertIn("NOT EXISTS", cur.calls[1][0])
+        self.assertEqual(11, cur.calls[2][1]["enterprise_id"])
+        self.assertEqual(101, cur.calls[2][1]["workspace_id"])
+
+    def test_task_results_same_timestamp_cross_kind_id_collision_has_stable_pages(self):
+        columns = [
+            "RESULT_KIND", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "SNAPSHOT_ID",
+            "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID",
+            "RAW_ID", "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT",
+        ]
+        timestamp = "2026-08-27T00:00:00Z"
+        legacy = ("legacy_product", 5, None, None, None, None, None, 7, None, None, None,
+                  "draft", "legacy", timestamp)
+        quarantine = ("quarantine", 5, 8, 80, None, None, None, None, 7, 17, 27,
+                      "unavailable", "quarantined", timestamp)
+        snapshot = ("snapshot", 5, 9, 90, 7, 1, 2, None, None, 18, 28,
+                    "unavailable", "passed", timestamp)
+        page1 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [legacy, quarantine])])
+        page2 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [snapshot])])
+
+        first = q.task_results(page1, 5, page=1, limit=2, tenant=TENANT_A)
+        second = q.task_results(page2, 5, page=2, limit=2, tenant=TENANT_A)
+        identities = [(row["result_kind"], row["result_id"]) for row in first["items"] + second["items"]]
+
+        self.assertEqual([("legacy_product", 7), ("quarantine", 7), ("snapshot", 7)], identities)
+        self.assertEqual(3, len(set(identities)))
+        order_sql = page1.calls[2][0]
+        self.assertIn("COLLECTED_AT DESC NULLS LAST, RESULT_KIND ASC", order_sql)
+        for tie_breaker in (
+            "NVL(SNAPSHOT_ID,-1) DESC", "NVL(QUARANTINE_ID,-1) DESC",
+            "NVL(PRODUCT_ID,-1) DESC", "NVL(RAW_ID,-1) DESC",
+            "NVL(QUALITY_RESULT_ID,-1) DESC",
+        ):
+            self.assertIn(tie_breaker, order_sql)
+        self.assertEqual(0, page1.calls[2][1]["offset"])
+        self.assertEqual(2, page2.calls[2][1]["offset"])
+
+    def test_task_result_resource_is_task_and_tenant_bound_and_parses_raw(self):
+        columns = [
+            "RESOURCE_KIND", "RAW_ID", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "DEVICE_ID",
+            "REQUEST_KEY", "SOURCE_TYPE", "PAYLOAD_SHA256", "RAW_JSON", "COLLECTED_AT",
+        ]
+        cur = Cursor([
+            (["OWNED"], [(1,)]),
+            (columns, [("raw", 200, 5, 8, 81, 2, "request-1", "product", "a" * 64,
+                        '{"platform_code":"pinduoduo"}', "t")]),
+        ])
+
+        result = q.task_result_resource(cur, 5, "raw", 200, tenant=TENANT_A)
+
+        self.assertEqual("raw", result["resource_kind"])
+        self.assertEqual(200, result["resource_id"])
+        self.assertEqual({"platform_code": "pinduoduo"}, result["details"]["raw_data"])
+        self.assertEqual("available", result["resources"]["raw"]["availability"])
+        resource_sql, resource_params = cur.calls[1]
+        self.assertIn("r.RAW_ID=:resource_id", resource_sql)
+        self.assertIn("r.TASK_ID=:task_id", resource_sql)
+        self.assertIn("r.ENTERPRISE_ID=:enterprise_id", resource_sql)
+        self.assertIn("r.WORKSPACE_ID=:workspace_id", resource_sql)
+        self.assertEqual({"resource_id": 200, "task_id": 5, "enterprise_id": 11, "workspace_id": 101},
+                         resource_params)
+
+    def test_task_result_resource_cross_tenant_and_missing_are_indistinguishable(self):
+        cross_tenant = Cursor([(["OWNED"], [])])
+        self.assertIsNone(q.task_result_resource(cross_tenant, 5, "snapshot", 100, tenant=TENANT_A))
+        self.assertEqual(1, len(cross_tenant.calls))
+
+        missing = Cursor([(["OWNED"], [(1,)]), (["SNAPSHOT_ID"], [])])
+        self.assertIsNone(q.task_result_resource(missing, 5, "snapshot", 100, tenant=TENANT_A))
+        self.assertIn("s.SNAPSHOT_ID=:resource_id", missing.calls[1][0])
+        self.assertIn("s.TASK_ID=:task_id", missing.calls[1][0])
+
+    def test_snapshot_resource_uses_snapshot_id_and_keeps_diff_and_provenance(self):
+        columns = [
+            "RESOURCE_KIND", "SNAPSHOT_ID", "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID",
+            "LEGACY_PRODUCT_ID", "RAW_ID", "QUALITY_RESULT_ID", "TASK_ID", "JOB_ID",
+            "ATTEMPT_ID", "NORMALIZED_JSON", "SKU_JSON", "FIELD_SOURCES", "QUALITY_STATUS",
+        ]
+        row = ("snapshot", 100, 10, 110, 1000, 200, 300, 5, 8, 81,
+               '{"title":"完整标题"}', '[{"name":"1盒"}]', '{"title":"detail_response"}', "passed")
+        diff_columns = ["DIFF_ID", "CHANGED_FIELDS_JSON", "PRICE_CHANGED"]
+        provenance_columns = ["FIELD_NAME", "SOURCE_TYPE", "SOURCE_REF", "TRANSFORMATION"]
+        cur = Cursor([
+            (["OWNED"], [(1,)]),
+            (columns, [row]),
+            (diff_columns, [(400, '{"price":{"before":1,"after":2}}', 1)]),
+            (provenance_columns, [("title", "detail_response", "raw:200", None)]),
+        ])
+
+        result = q.task_result_resource(cur, 5, "snapshot", 100, tenant=TENANT_A)
+
+        self.assertEqual(("snapshot", 100), (result["resource_kind"], result["resource_id"]))
+        self.assertEqual(100, result["snapshot_id"])
+        self.assertEqual(200, result["raw_id"])
+        self.assertEqual(300, result["quality_result_id"])
+        self.assertEqual({"title": "完整标题"}, result["details"]["normalized"])
+        self.assertEqual("detail_response", result["details"]["provenance"][0]["source_type"])
+        self.assertEqual(2, result["details"]["difference"]["changes"]["price"]["after"])
+        self.assertEqual({"resource_id": 100, "task_id": 5, "enterprise_id": 11, "workspace_id": 101},
+                         cur.calls[1][1])
+
+    def test_quality_resource_exposes_raw_snapshot_or_quarantine_ids_without_guessing(self):
+        columns = [
+            "RESOURCE_KIND", "QUALITY_RESULT_ID", "RAW_ID", "TASK_ID", "JOB_ID", "ATTEMPT_ID",
+            "SNAPSHOT_ID", "QUARANTINE_ID", "ACCEPTED", "STATUS", "MISSING_FIELDS_JSON",
+            "ERROR_CODES_JSON", "WARNINGS_JSON",
+        ]
+        cur = Cursor([
+            (["OWNED"], [(1,)]),
+            (columns, [("quality", 301, 201, 5, 7, 71, None, 101, 0, "rejected",
+                        '["price"]', '["MISSING_PRICE"]', '[]')]),
+        ])
+
+        result = q.task_result_resource(cur, 5, "quality", 301, tenant=TENANT_A)
+
+        self.assertEqual(301, result["quality_result_id"])
+        self.assertEqual(201, result["raw_id"])
+        self.assertEqual(101, result["quarantine_id"])
+        self.assertIsNone(result["snapshot_id"])
+        self.assertEqual("no_normal_snapshot_for_quarantine", result["resources"]["snapshot"]["reason"])
+        self.assertEqual(["MISSING_PRICE"], result["details"]["error_codes"])
 
     def test_task_events_are_complete_and_stably_ordered(self):
         cur = Cursor([(["COUNT"], [(1,)]), (["EVENT_ID", "DETAIL_JSON"], [(1, '{"paused_jobs":2}')])])

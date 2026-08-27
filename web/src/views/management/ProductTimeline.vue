@@ -4,7 +4,7 @@
       <div class="toolbar"><el-button @click="$router.back()">返回</el-button><el-button type="primary" @click="load">刷新</el-button></div>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="load">重试</el-button></template></el-alert>
       <el-descriptions v-if="product" :column="3" border>
-        <el-descriptions-item label="Product">#{{ product.master_product_id || route.params.id }}</el-descriptions-item>
+        <el-descriptions-item label="资料库商品资源">#{{ route.params.id }}</el-descriptions-item>
         <el-descriptions-item label="平台">{{ product.platform_code || '-' }}</el-descriptions-item>
         <el-descriptions-item label="商品标识">{{ product.platform_product_id || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -35,7 +35,7 @@ function parsed(v){if(!v)return null;if(typeof v!=='string')return v;try{return 
 function sku(r){return r.sku_json||r.sku||r.normalized_json?.sku} function changes(r){return r.difference?.changes||r.diff?.changes||r.diff?.changed_fields||r.changed_fields||r.changed_fields_json}
 function diffs(r){const d=r.difference||r.diff||{};const v=d.changed_fields||r.changed_fields||r.changed_fields_json;const x=parsed(v);if(Array.isArray(x))return x;if(x&&typeof x==='object')return Object.keys(x);return ['price_changed','sales_changed','sku_changed','availability_changed','title_changed','shop_changed'].filter(k=>d[k])}
 function diffLabel(v){return ({price_changed:'价格变化',sales_changed:'销量变化',sku_changed:'SKU 变化',availability_changed:'状态变化',title_changed:'标题变化',shop_changed:'店铺变化'})[v]||v} function qualityType(v){return v==='passed'?'success':v==='warning'?'warning':'danger'}
-async function load(){loading.value=true;error.value='';try{const res=await http.get(`/api/management/products/${route.params.id}/snapshots`,{params:{page:page.value,limit:limit.value}});items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);product.value=res.data?.product||items.value[0]||product.value}catch(e){items.value=[];total.value=0;error.value=e.response?.data?.detail||e.message||'加载 Snapshot 时间线失败'}finally{loading.value=false}}
+async function load(){loading.value=true;error.value='';product.value=null;try{const res=await http.get(`/api/management/products/${route.params.id}/snapshots`,{params:{page:page.value,limit:limit.value}});items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);product.value=res.data?.product||items.value[0]||null}catch(e){items.value=[];total.value=0;product.value=null;error.value=e.response?.status===403?'无权限查看 Snapshot（403）':e.response?.data?.detail||e.message||'加载 Snapshot 时间线失败'}finally{loading.value=false}}
 function changePage(v){page.value=v;load()}function changeLimit(v){limit.value=v;page.value=1;load()}onMounted(load)
 </script>
 <style scoped>.snapshot-head{display:flex;justify-content:space-between;gap:12px}.diff-tag{margin-left:6px}.pager{margin-top:16px;justify-content:flex-end}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fa;padding:10px}</style>
