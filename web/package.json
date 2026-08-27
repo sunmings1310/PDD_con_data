@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:result-visibility": "node scripts/test-request-generation.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

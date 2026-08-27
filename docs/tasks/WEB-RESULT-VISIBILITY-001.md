@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-RESULT-VISIBILITY-001
 - **Title**：采集结果可见性与证据下钻
-- **Status**：DEV_SELF_CHECK_COMPLETE（等待 fixed-Head E2E / Independent Review）
+- **Status**：REVIEW_FIX_DEV_SELF_CHECK_COMPLETE（等待新 fixed-Head E2E / Independent Review）
 - **Base**：`origin/main@09e717cdc3f67eaaf620d6a5e796445ec0334674`
 - **Branch**：`codex/web-result-visibility-001`
 - **Worktree**：`D:\work\PDD_con_data_web_result_visibility`
@@ -69,17 +69,18 @@
 - [x] 所有读取继续执行 enterprise/workspace 所有权校验；跨租户、无权限及不存在资源不泄露数据。
 - [x] 不改变写入、Task 完成、人工保存、Schema/migration、默认 PDD 采集路径或 Android 行为。
 - [x] targeted、Python module/full、Web production build、Python compile、Android JVM 与 `git diff --check` 按适用门禁通过。
-- [ ] 固定 Head Oracle strict（若服务端 Oracle 查询发生变化）和 Independent Review 完成；无新增 P0。
+- [ ] 新 fixed Head Oracle strict、E2E 与 Independent Review 完成；无新增 P0。
 
 ## Test Plan
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | draft/Snapshot/Raw/Quality/Quarantine ID 与权限断言通过 | `Ran 27 tests in 0.008s`；`OK` | 0 | PASS |
-| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS；必要静态契约测试通过 | `1675 modules transformed`；`built in 600ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Python module/full | `$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 222 tests in 0.471s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；固定 JDK/SDK | 既有测试通过 | `BUILD SUCCESSFUL in 1m21s`；XML `70 tests, failures=0, errors=0, skipped=1`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
-| Real Oracle targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture；本地忽略环境提供凭据 | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 5.244s`；`OK` | 0 | PASS |
+| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 17 tests in 0.094s`；`OK` | 0 | PASS |
+| Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | A/B deferred response；B 先完成、A 后完成 | reset 完整且 A 不得覆盖 B | `STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit` | 0 | PASS |
+| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 542ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.430s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Android JVM | 设置固定 JDK/SDK 后 `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；JDK 17/SDK 34 | 既有测试通过 | `BUILD SUCCESSFUL in 24s`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Real Oracle targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 6.062s`；`OK` | 0 | PASS |
 | Static | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests`；`git diff --check` | 当前实现树 | exit 0 | no output / no whitespace errors | 0 | PASS |
 
 开发过程中按 targeted→module 执行；固定实现 Head 后再运行 full/Oracle/Independent Review，不以 `SKIPPED` 或 `BLOCKED` 冒充 `PASS`。
@@ -127,5 +128,10 @@
 - Derived artifacts：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/`：`MODIFIED_FILE.py`、`DIFF_FILE.patch`、`VERIFICATION.txt`、executable `ROLLBACK.sh`；baseline/modified/rollback 命令、字面结果、exit 和 restored status 见 `VERIFICATION.txt`。
 - Implementation evidence：新增 tenant-bound `GET /api/management/tasks/{task_id}/results` 与 `GET /api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}`；DTO 明确 exact ID/unavailable/library state；Task Detail/Trace 不再以列表行或 Master Product 冒充结果资源；新证据页为只读。
 - Tests：offline targeted 27/27、Python 222/222（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。
-- Review findings：等待 E2E / Independent Review；Reviewer 重点核对 Task A/B 隔离、Snapshot/Raw/Quality/Quarantine 自有 ID、draft/Quarantine 可见性、403/NOT_FOUND/stale clearing、四制品与 fixed-Head Oracle 来源。
+- Review findings（2026-08-27 Review Fix）：
+  1. **RESOLVED**：Task results `ORDER BY` 增加 `RESULT_KIND` 与 Snapshot/Quarantine/Product/Raw/Quality authoritative ID 全序；同 timestamp、跨 result kind 相同 ID、跨页无重复漏项回归通过。
+  2. **RESOLVED**：新增可执行 `requestGeneration` helper 与 A/B 乱序 Node 回归；Task Detail/Trace/Evidence 路由切换同步 reset，旧 generation 不得写回。
+  3. **RESOLVED**：Task result/evidence API 恢复 Accepted Phase 4 `data:view`，与 `task:view` 及 Task/tenant ownership 取交集；task-only 用户返回 403。
+  4. **PENDING NEW HEAD**：旧 Head Oracle 46/46 仅作为发现证据；Review Fix commit 后独占重跑 canonical strict 并生成新外部 manifest。
+  5. **RESOLVED**：`VERIFICATION.txt` 可复制命令改用 forward-slash path/PowerShell 变量，移除反斜杠转义歧义；副本 rollback 重测。
 - Commit / PR：最终 Dev commit 与 push 完成后在 handoff 记录固定 SHA；PR 未创建。

@@ -59,12 +59,14 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http from '@/api/http'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const route = useRoute()
 const router = useRouter()
 const detail = ref(null)
 const loading = ref(false)
 const error = ref('')
+const requestGeneration = createRequestGeneration()
 const taskId = computed(() => String(route.params.taskId))
 const routeKinds = { snapshot: 'snapshot', raw: 'raw', quality: 'quality', quarantine: 'quarantine' }
 const labels = {
@@ -95,6 +97,7 @@ function openResource(kind, id) {
 }
 async function load() {
   const expected = `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`
+  const token = requestGeneration.reset(expected, () => { detail.value = null; error.value = ''; loading.value = false })
   loading.value = true
   error.value = ''
   detail.value = null
@@ -102,14 +105,14 @@ async function load() {
     const res = await http.get(
       `/api/management/tasks/${route.params.taskId}/results/${route.params.resourceKind}/${route.params.resourceId}`,
     )
-    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
+    if (!requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) return
     detail.value = res.data || null
   } catch (e) {
-    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
+    if (!requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) return
     detail.value = null
     error.value = requestError(e)
   } finally {
-    if (expected === `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) loading.value = false
+    if (requestGeneration.isCurrent(token, `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`)) loading.value = false
   }
 }
 

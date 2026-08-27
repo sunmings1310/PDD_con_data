@@ -151,12 +151,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
+import { createRequestGeneration } from '@/utils/requestGeneration'
 
 const route = useRoute()
 const router = useRouter()
@@ -174,6 +175,7 @@ const resultTotal = ref(0)
 const editVisible = ref(false)
 const editForm = reactive({product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 let timer
+const requestGeneration = createRequestGeneration()
 
 const items = computed(() => task.value?.items || [])
 const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
@@ -241,62 +243,68 @@ async function load() {
 
 async function loadTask() {
   const expectedTaskId = String(route.params.id)
+  const token = requestGeneration.capture()
   taskLoading.value = true
   taskError.value = ''
   try {
     const res = await http.get(`/api/tasks/${expectedTaskId}`)
-    if (expectedTaskId !== String(route.params.id)) return
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
     task.value = res.data || null
   } catch (e) {
-    if (expectedTaskId !== String(route.params.id)) return
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
     task.value = null
     taskError.value = requestError(e, '加载任务失败')
   } finally {
-    if (expectedTaskId === String(route.params.id)) taskLoading.value = false
+    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
   }
 }
 
 async function loadResults() {
   const expectedTaskId = String(route.params.id)
+  const token = requestGeneration.capture()
   resultsLoading.value = true
   resultsError.value = ''
   try {
     const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
       params: { page: resultPage.value, limit: resultLimit.value },
     })
-    if (expectedTaskId !== String(route.params.id)) return
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
     taskResults.value = res.data?.items || []
     resultTotal.value = Number(res.data?.total || 0)
     resultPage.value = Number(res.data?.page || resultPage.value)
     resultLimit.value = Number(res.data?.limit || resultLimit.value)
     selectedProducts.value = []
   } catch (e) {
-    if (expectedTaskId !== String(route.params.id)) return
+    if (!requestGeneration.isCurrent(token, route.params.id)) return
     taskResults.value = []
     selectedProducts.value = []
     resultTotal.value = 0
     resultsError.value = requestError(e, '加载本次采集结果失败')
   } finally {
-    if (expectedTaskId === String(route.params.id)) resultsLoading.value = false
+    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
   }
 }
 function changeResultPage(value) { resultPage.value = value; loadResults() }
 function changeResultLimit(value) { resultLimit.value = value; resultPage.value = 1; loadResults() }
 
 async function editProduct(row){
+  const token=requestGeneration.capture()
   const res=await http.get(`/api/products/${row.product_id}/edit?scope=capture`)
+  if(!requestGeneration.isCurrent(token,route.params.id))return
   Object.assign(editForm,res.data)
   editVisible.value=true
 }
 async function saveProductEdit(){
+  const token=requestGeneration.capture()
   const {product_id,...payload}=editForm
   const res=await http.put(`/api/products/${product_id}`,payload)
-  if(res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
+  if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
 }
-async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');loadResults()}}
-async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);loadResults()}}
+async function deleteProduct(row){const token=requestGeneration.capture();await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});if(!requestGeneration.isCurrent(token,route.params.id))return;const res=await http.delete(`/api/products/${row.product_id}`);if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success('已删除');loadResults()}}
+async function saveToLibrary(){const token=requestGeneration.capture();const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(requestGeneration.isCurrent(token,route.params.id)&&res.ok){ElMessage.success(res.message);loadResults()}}
 
 async function requeueFails() {
+  const token = requestGeneration.capture()
   if (!retryItems.value.length) return
   await ElMessageBox.confirm(
     `将重新下发 ${retryItems.value.length} 条，并完整保留原批准文号、品名、规格、厂家及任务配置。`,
@@ -304,14 +312,20 @@ async function requeueFails() {
     { type: 'warning' },
   )
   const res = await http.post(`/api/tasks/${route.params.id}/requeue-failed`, { include_cancelled: true })
+  if (!requestGeneration.isCurrent(token, route.params.id)) return
   if (!res.ok) return
   ElMessage.success(`已重新下发 #${res.data.task_id}，保留匹配目标 ${res.data.match_target_count} 条`)
   router.push(`/tasks/${res.data.task_id}`)
 }
 
-onMounted(() => {
-  load()
-  timer = setInterval(load, 5000)
-})
+function resetTaskState() {
+  task.value=null;taskError.value='';taskLoading.value=false
+  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
+  selectedProducts.value=[];editVisible.value=false
+  Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
+}
+function switchTask(taskId){requestGeneration.reset(taskId,resetTaskState);load()}
+watch(()=>String(route.params.id),switchTask,{immediate:true})
+onMounted(() => { timer = setInterval(load, 5000) })
 onUnmounted(() => clearInterval(timer))
 </script>

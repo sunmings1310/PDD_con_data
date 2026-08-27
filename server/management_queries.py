@@ -429,7 +429,12 @@ def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | No
                     FAILURE_REASON,COLLECTED_AT
                FROM ({facts_sql})
               ORDER BY COLLECTED_AT DESC NULLS LAST,
-                       COALESCE(SNAPSHOT_ID,QUARANTINE_ID,PRODUCT_ID) DESC
+                       RESULT_KIND ASC,
+                       NVL(SNAPSHOT_ID,-1) DESC,
+                       NVL(QUARANTINE_ID,-1) DESC,
+                       NVL(PRODUCT_ID,-1) DESC,
+                       NVL(RAW_ID,-1) DESC,
+                       NVL(QUALITY_RESULT_ID,-1) DESC
               OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY""",
         params,
         page,

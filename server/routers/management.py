@@ -57,7 +57,7 @@ def task_results(
     task_id: int,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
-    tenant=Depends(require_tenant_perms("task:view")),
+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
 ):
     result = _run(lambda cur: queries.task_results(cur, task_id, page, limit, tenant=tenant))
     result.data = TaskResultsPageDTO.model_validate(result.data).model_dump(mode="json")
@@ -69,7 +69,7 @@ def task_result_resource(
     task_id: int,
     resource_kind: Literal["snapshot", "raw", "quality", "quarantine"],
     resource_id: int,
-    tenant=Depends(require_tenant_perms("task:view")),
+    tenant=Depends(require_tenant_perms("task:view", "data:view")),
 ):
     result = _run(
         lambda cur: queries.task_result_resource(

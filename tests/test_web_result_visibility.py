@@ -36,6 +36,9 @@ class WebResultVisibilityContractTest(unittest.TestCase):
         self.assertIn("draft/待保存和 Quarantine", source)
         self.assertIn("taskResults.value = []", source)
         self.assertIn("resultsError.value = requestError", source)
+        self.assertIn("createRequestGeneration", source)
+        self.assertIn("watch(()=>String(route.params.id),switchTask,{immediate:true})", source)
+        self.assertIn("resetTaskState", source)
         for field in ("snapshot_id", "raw_id", "quality_result_id", "quarantine_id"):
             self.assertIn(field, source)
 
@@ -52,13 +55,14 @@ class WebResultVisibilityContractTest(unittest.TestCase):
         ):
             self.assertIn(fragment, trace)
         self.assertIn("watch(()=>String(route.params.id),loadTaskTrace,{immediate:true})", trace)
-        self.assertIn("if(expected!==String(route.params.id))return false", trace)
+        self.assertIn("requestGeneration.isCurrent", trace)
+        self.assertIn("createRequestGeneration", detail)
         self.assertIn("clearPage(attempts);clearPage(events)", trace)
         self.assertIn("results/${route.params.resourceKind}/${route.params.resourceId}", detail)
         self.assertIn("detail.value = null", detail)
         self.assertIn("无权限查看该 Task 证据（403）", detail)
         self.assertIn("tasks/:taskId/results/:resourceKind/:resourceId", routes)
-        self.assertIn("perm: 'task:view'", routes)
+        self.assertIn("perms: ['task:view', 'data:view']", routes)
 
     def test_management_routes_require_task_view_permission(self):
         paths = {
@@ -69,10 +73,15 @@ class WebResultVisibilityContractTest(unittest.TestCase):
         self.assertEqual(paths, {route.path for route in matched})
         for route in matched:
             dependency = route.dependant.dependencies[0].call
-            self.assertEqual(("task:view",), inspect.getclosurevars(dependency).nonlocals["needed"])
+            self.assertEqual(("task:view", "data:view"), inspect.getclosurevars(dependency).nonlocals["needed"])
             request = Request({"type": "http", "method": "GET", "path": route.path, "headers": []})
             denied = TenantContext(11, 101, 1, 1, "viewer", frozenset())
             with patch("server.tenant.load_context", return_value=denied):
+                with self.assertRaises(HTTPException) as caught:
+                    asyncio.run(dependency(request, user={"user_id": 1}))
+            self.assertEqual(403, caught.exception.status_code)
+            task_only = TenantContext(11, 101, 1, 1, "viewer", frozenset({"task:view"}))
+            with patch("server.tenant.load_context", return_value=task_only):
                 with self.assertRaises(HTTPException) as caught:
                     asyncio.run(dependency(request, user={"user_id": 1}))
             self.assertEqual(403, caught.exception.status_code)

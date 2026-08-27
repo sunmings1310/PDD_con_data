@@ -200,6 +200,39 @@ class Phase4ManagementTests(unittest.TestCase):
         self.assertEqual(11, cur.calls[2][1]["enterprise_id"])
         self.assertEqual(101, cur.calls[2][1]["workspace_id"])
 
+    def test_task_results_same_timestamp_cross_kind_id_collision_has_stable_pages(self):
+        columns = [
+            "RESULT_KIND", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "SNAPSHOT_ID",
+            "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID",
+            "RAW_ID", "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT",
+        ]
+        timestamp = "2026-08-27T00:00:00Z"
+        legacy = ("legacy_product", 5, None, None, None, None, None, 7, None, None, None,
+                  "draft", "legacy", timestamp)
+        quarantine = ("quarantine", 5, 8, 80, None, None, None, None, 7, 17, 27,
+                      "unavailable", "quarantined", timestamp)
+        snapshot = ("snapshot", 5, 9, 90, 7, 1, 2, None, None, 18, 28,
+                    "unavailable", "passed", timestamp)
+        page1 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [legacy, quarantine])])
+        page2 = Cursor([(["OWNED"], [(1,)]), (["COUNT"], [(3,)]), (columns, [snapshot])])
+
+        first = q.task_results(page1, 5, page=1, limit=2, tenant=TENANT_A)
+        second = q.task_results(page2, 5, page=2, limit=2, tenant=TENANT_A)
+        identities = [(row["result_kind"], row["result_id"]) for row in first["items"] + second["items"]]
+
+        self.assertEqual([("legacy_product", 7), ("quarantine", 7), ("snapshot", 7)], identities)
+        self.assertEqual(3, len(set(identities)))
+        order_sql = page1.calls[2][0]
+        self.assertIn("COLLECTED_AT DESC NULLS LAST, RESULT_KIND ASC", order_sql)
+        for tie_breaker in (
+            "NVL(SNAPSHOT_ID,-1) DESC", "NVL(QUARANTINE_ID,-1) DESC",
+            "NVL(PRODUCT_ID,-1) DESC", "NVL(RAW_ID,-1) DESC",
+            "NVL(QUALITY_RESULT_ID,-1) DESC",
+        ):
+            self.assertIn(tie_breaker, order_sql)
+        self.assertEqual(0, page1.calls[2][1]["offset"])
+        self.assertEqual(2, page2.calls[2][1]["offset"])
+
     def test_task_result_resource_is_task_and_tenant_bound_and_parses_raw(self):
         columns = [
             "RESOURCE_KIND", "RAW_ID", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "DEVICE_ID",

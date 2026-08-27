@@ -15,7 +15,7 @@ const routes = [
       { path: 'tasks/create', name: 'task-create', component: () => import('@/views/tasks/TaskCreate.vue'), meta: { title: '创建任务', perm: 'task:create' } },
       { path: 'tasks/:id', name: 'task-detail', component: () => import('@/views/tasks/TaskDetail.vue'), meta: { title: '任务详情', perm: 'task:view' } },
       { path: 'tasks/:id/trace', name: 'task-trace', component: () => import('@/views/management/TaskTrace.vue'), meta: { title: '执行轨迹', perm: 'task:view' } },
-      { path: 'tasks/:taskId/results/:resourceKind/:resourceId', name: 'task-result-evidence', component: () => import('@/views/management/TaskResultEvidence.vue'), meta: { title: '采集证据', perm: 'task:view' } },
+      { path: 'tasks/:taskId/results/:resourceKind/:resourceId', name: 'task-result-evidence', component: () => import('@/views/management/TaskResultEvidence.vue'), meta: { title: '采集证据', perms: ['task:view', 'data:view'] } },
       { path: 'products', name: 'products', component: () => import('@/views/data/ProductList.vue'), meta: { title: '商品资料库', perm: 'data:view' } },
       { path: 'products/:id/timeline', name: 'product-timeline', component: () => import('@/views/management/ProductTimeline.vue'), meta: { title: '商品快照时间线', perm: 'data:view' } },
       { path: 'quality', name: 'quality', component: () => import('@/views/management/QualityDashboard.vue'), meta: { title: '数据质量', perm: 'data:view' } },
@@ -49,7 +49,8 @@ router.beforeEach(async (to) => {
       return '/login'
     }
   }
-  if (to.meta.perm && !store.hasPerm(to.meta.perm)) {
+  const requiredPerms = to.meta.perms || (to.meta.perm ? [to.meta.perm] : [])
+  if (!requiredPerms.every((perm) => store.hasPerm(perm))) {
     return '/devices'
   }
   return true
