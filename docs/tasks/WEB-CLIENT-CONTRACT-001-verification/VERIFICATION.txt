@@ -1,10 +1,12 @@
-WEB-CLIENT-CONTRACT-001 DEV VERIFICATION
+WEB-CLIENT-CONTRACT-001 REVIEW FIX VERIFICATION
 Date: 2026-08-27
 Branch: codex/web-client-contract-001
 Base: origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb
 Setup Head: e5ef1ce4d35522ce93f06cb602d6d56fe19594b5
-Implementation Head: aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc
-Changed branch/field: WEB-CLIENT-CONTRACT-001 fixture READY/UNFROZEN -> REVIEW/FROZEN with HTTP_CONTEXT=UNIFIED, REQUEST_FENCE=GENERATION_ABORT, ERROR_CONTRACT=NORMALIZED, ORACLE_GATE=NOT_APPLICABLE.
+Review Fix Start Head: 1ca34230b0075105da123baaa92a8378f10dc029
+Review Fix Implementation Head: 3e7563413dcc80a98b3502571a4aa9c70cf9e730
+Final evidence Head: the commit containing this file; the exact immutable SHA is bound after commit by the external Oracle manifest and verified against local/upstream/remote.
+Changed branch/field: WEB-CLIENT-CONTRACT-001 fixture READY/UNFROZEN -> REREVIEW/FROZEN with HTTP_CONTEXT=UNIFIED, REQUEST_FENCE=GENERATION_ABORT, TENANT_PERMISSIONS=SELECTED_CONTEXT, ERROR_PRECEDENCE=HTTP_STATUS, FILE_RESPONSE=TRUSTED_CONTRACT, ORACLE_GATE=REQUIRED.
 
 FOUR ARTIFACTS (absolute paths)
 1. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
@@ -12,15 +14,16 @@ FOUR ARTIFACTS (absolute paths)
 3. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/VERIFICATION.txt
 4. D:/work/PDD_con_data_web_client_contract/docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
 
-ARTIFACT HASHES
+ARTIFACT HASHES BEFORE FINAL COMMIT
 Original synthetic fixture SHA-256: 436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
-MODIFIED_FILE SHA-256: f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a
-DIFF_FILE.patch SHA-256: 116a89d5768128a1d0ddb912aab352e6762548d7ed76b3ae1aef99546df47030
-ROLLBACK.sh SHA-256: bc95696fdc32da65456326b74264bb5c860d23b5571dc169b7a47f993eb38d01
+MODIFIED_FILE SHA-256: d4e0ea1c0b21fd72ceb7e86b09b4c514ac7d385b9c8c6ba40103252611bb538d
+DIFF_FILE.patch SHA-256: 8e3073b77f382784ed3ffdcf3d5590a15f381dfa01f352f382a4a6b3a7806457
+ROLLBACK.sh SHA-256: 0d6275edad425cea5b062585d5c98675ca575fec76f3fbad400de3e203de8e48
+VERIFICATION.txt SHA-256: recorded in the final fixed-Head external Oracle manifest to avoid a self-referential file hash.
 
 BASELINE
-Command: create docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt as the two-line READY/UNFROZEN original fixture; D:/Git/bin/bash.exe -lc "sha256sum 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt' && cat 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt'"
-Input/environment: D:/work/PDD_con_data_web_client_contract; UTF-8 without BOM; LF line endings.
+Command: create docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt as UTF-8 without BOM/LF two-line fixture; D:/Git/bin/bash.exe -lc "sha256sum 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt' && cat 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt'"
+Input/environment: D:/work/PDD_con_data_web_client_contract; bytes are TASK_STATE=READY\nCONTRACT_STATUS=UNFROZEN\n.
 Literal output/result:
 436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/baseline_probe.txt
 TASK_STATE=READY
@@ -30,17 +33,19 @@ Status: PASS
 
 MODIFIED
 Command: D:/Git/bin/bash.exe -lc "sha256sum 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE' 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch' 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh' && cat 'docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE'"
-Input/environment: implementation and review-state fixture in D:/work/PDD_con_data_web_client_contract.
+Input/environment: Review Fix fixture and executable rollback in D:/work/PDD_con_data_web_client_contract.
 Literal output/result:
-f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
-116a89d5768128a1d0ddb912aab352e6762548d7ed76b3ae1aef99546df47030 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch
-bc95696fdc32da65456326b74264bb5c860d23b5571dc169b7a47f993eb38d01 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
-TASK_STATE=REVIEW
+d4e0ea1c0b21fd72ceb7e86b09b4c514ac7d385b9c8c6ba40103252611bb538d *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/MODIFIED_FILE
+8e3073b77f382784ed3ffdcf3d5590a15f381dfa01f352f382a4a6b3a7806457 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/DIFF_FILE.patch
+0d6275edad425cea5b062585d5c98675ca575fec76f3fbad400de3e203de8e48 *docs/tasks/WEB-CLIENT-CONTRACT-001-verification/ROLLBACK.sh
+TASK_STATE=REREVIEW
 CONTRACT_STATUS=FROZEN
 HTTP_CONTEXT=UNIFIED
 REQUEST_FENCE=GENERATION_ABORT
-ERROR_CONTRACT=NORMALIZED
-ORACLE_GATE=NOT_APPLICABLE
+TENANT_PERMISSIONS=SELECTED_CONTEXT
+ERROR_PRECEDENCE=HTTP_STATUS
+FILE_RESPONSE=TRUSTED_CONTRACT
+ORACLE_GATE=REQUIRED
 Exit status: 0
 Status: PASS
 
@@ -49,40 +54,54 @@ Command: Copy-Item -LiteralPath docs/tasks/WEB-CLIENT-CONTRACT-001-verification/
 Input/environment: rollback_probe.txt is another copy; repository MODIFIED_FILE is not the target.
 Literal output/result:
 target=docs/tasks/WEB-CLIENT-CONTRACT-001-verification/rollback_probe.txt
-before_sha256=f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a
+before_sha256=d4e0ea1c0b21fd72ceb7e86b09b4c514ac7d385b9c8c6ba40103252611bb538d
 after_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
 expected_sha256=436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d
 result=RESTORED
 exit_status=0
 Exit status: 0
-Restored behavior/status: probe restored to READY/UNFROZEN, then removed; repository MODIFIED_FILE remains REVIEW/FROZEN and changed with SHA-256 f7ebfd21f070ae13f9f18a180c9a1c108de9cdbf8ead826ca2d727953eb4755a.
+Restored behavior/status: rollback_probe.txt restored to READY/UNFROZEN and is removed after verification; repository MODIFIED_FILE remains REREVIEW/FROZEN and changed with SHA-256 d4e0ea1c0b21fd72ceb7e86b09b4c514ac7d385b9c8c6ba40103252611bb538d.
 Status: PASS
 
-IMPLEMENTATION RESULT
-- web/src/api/clientContext.js owns immutable token/Enterprise/Workspace snapshots, storage persistence, request generation/abort and idempotent session lifecycle.
-- web/src/api/clientErrors.js and web/src/api/http.js normalize ApiOk, Axios HTTP and blob JSON errors; HTTP 404 and business NOT_FOUND remain non-enumerable.
-- user store, main bootstrap and AdminLayout clear full client session on 401 and remount route content after tenant switches without router.go reload.
-- router permissions use one AND helper. Excel template/match/export use the shared client and exact action permission hints; no direct Axios/fetch/XMLHttpRequest bypass was added.
-- FastAPI tenant/RBAC/NOT_FOUND logic, Oracle query, Schema, migration, Excel business behavior, WebSocket and Android source were unchanged.
+REVIEW FINDINGS CLOSED
+1. TENANT_CONTEXT_LIST_HAS_PERMS / FETCHME_SELECTS_CONTEXT_PERMS
+   - server/tenant.py list_user_contexts() returns each membership ROLE_ID permission snapshot and caches repeated role queries within one context listing.
+   - user store contextPermissions comes only from the selected Enterprise/Workspace; unknown context is empty and never falls back to profile.perms.
+   - AdminLayout immediately reauthorizes the current route on selection and again after refreshed server context; server require_tenant_perms remains authoritative.
+2. ERROR_PRECEDENCE_EXIT=1
+   - HTTP 401/403/404 now win over contradictory payload error_code.
+   - HTTP 404 and business NOT_FOUND return the same canonical sanitized data; payload detail/original conflicting code is not exposed.
+3. BLOB_NON_FILE outcome=RESOLVED
+   - xlsx/zip downloads require explicit expectedFile contract.
+   - text/plain, text/html, JSON/recognizable JSON and untrusted octet-stream reject as UNEXPECTED_RESPONSE; octet-stream requires attachment filename with allowed extension.
+4. Node gate did not import http.js
+   - web/scripts/test-client-contract.mjs imports and calls the real http instance with deterministic Axios adapters for JSON, FormData, blob, A/B stale/abort, caller cancel, concurrent 401, error precedence and valid/fake file responses.
 
-TARGETED NODE
+TARGETED NODE (REAL HTTP INSTANCE)
 Command: D:/work/PDD_con_data_web_client_contract/.tools/node-v22.18.0-win-x64/node.exe web/scripts/test-client-contract.mjs
-Input/environment: offline Node 22.18.x; no server/database/account.
+Input/environment: offline Node 22.18.x; deterministic Axios adapters; no server/database/account.
 Literal output/result:
-CONTEXT_SNAPSHOT=PASS immutable_headers=true old_abort=true stale_write=false
-REQUEST_KINDS=PASS json=true multipart=true blob=true shared_headers=true
-ERROR_CONTRACT=PASS api_ok=false axios_403=true http_404=true not_found_non_enumerable=true blob_json=true
-SESSION_401=PASS idempotent=true store_reset=1 redirect=1 storage_cleared=true
-ROUTE_PERMISSIONS=PASS perm=true perms_and=true partial_denied=true
-SOURCE_CONTRACT=PASS direct_http_bypass=false excel_permissions=true tenant_remount=true
+TENANT_CONTEXT_LIST_HAS_PERMS=PASS A=data:view B=task:view,task:create
+FETCHME_SELECTS_CONTEXT_PERMS=PASS unknown_context=empty no_global_fallback=true
+HTTP_REAL_INSTANCE=PASS imported=http.js adapter=deterministic json=true multipart=true
+CONTEXT_A_TO_B=PASS A_aborted=true A_stale=true B_headers=22/202
+CALLER_CANCELLATION=PASS code=REQUEST_CANCELLED context_current=true
+ERROR_PRECEDENCE=PASS status403=FORBIDDEN status404=NOT_FOUND business_not_found=sanitized
+ERROR_PRECEDENCE_EXIT=0
+CONCURRENT_401=PASS reset=1 redirect=1 conflicting_payload_cannot_override=true
+BLOB_VALID_FILES=PASS template=xlsx export=zip trusted_octet_stream=true
+BLOB_NON_FILE=PASS outcome=REJECTED text_plain=true text_html=true octet_untrusted=true json_spoof=true
+ROUTE_PERMISSIONS=PASS perms_and=true context_reauthorization=true
+SOURCE_CONTRACT=PASS http_imported=true direct_bypass=false selected_context_permissions=true
+NODE_EXIT=0
 Exit status: 0
 Status: PASS
 
 TARGETED PYTHON
-Command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract
-Input/environment: offline import configuration; no Oracle connection.
+Command: with offline import-only ORACLE_USER/ORACLE_PASSWORD/ORACLE_DSN/JWT_SECRET values, D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract
+Input/environment: deterministic unit/source contracts; no Oracle connection.
 Literal output/result:
-Ran 19 tests in 0.021s
+Ran 22 tests in 0.021s
 OK
 Exit status: 0
 Status: PASS
@@ -97,72 +116,81 @@ TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved
 Exit status: 0
 Status: PASS
 
-WEB STRICT
-Command: powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite web -Strict
-Input/environment: worktree approved Node 22.18.x/npm 10.x runtime and existing node_modules junction.
-Literal output/result:
-1679 modules transformed.
-built in 618ms
-[PASS] web-build: exit=0
-SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-Exit status: 0
-Status: PASS
-
 PYTHON STRICT
-Command: set PDD_PYTHON to D:/work/PDD_con_data/.venv-t001/Scripts/python.exe and offline import configuration; powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite python -Strict
-Input/environment: offline; isolated Oracle integration suites remain explicitly skipped by their own environment gates.
+Command: set PDD_PYTHON to D:/work/PDD_con_data/.venv-t001/Scripts/python.exe and offline import-only configuration; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+Input/environment: offline; Oracle integration suites follow their own environment gates.
 Literal output/result:
-Ran 231 tests in 0.507s
+Ran 234 tests in 0.475s
 OK (skipped=24)
 [PASS] python-unit: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 Exit status: 0
 Status: PASS
 
-ANDROID STRICT
-Command: set ANDROID_SDK_ROOT/ANDROID_HOME to the SDK referenced by the repository local.properties; powershell -NoProfile -File ./scripts/test-baseline.ps1 -Suite android -Strict
-Input/environment: existing JDK 17 and Android SDK; no Android source modified and no device used.
+WEB STRICT
+Command: powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+Input/environment: worktree approved Node 22.18.x/npm 10.x runtime and existing node_modules junction.
 Literal output/result:
-BUILD SUCCESSFUL in 7s
+1681 modules transformed.
+built in 586ms
+[PASS] web-build: exit=0
+SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+Exit status: 0
+Status: PASS
+
+ANDROID STRICT
+Command: set ANDROID_SDK_ROOT/ANDROID_HOME to D:/work/pda-picking/tools/android-sdk; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+Input/environment: JDK 17 and existing Android SDK; no Android source modified and no device used.
+Literal output/result:
+BUILD SUCCESSFUL in 8s
 30 actionable tasks: 1 executed, 29 up-to-date
 [PASS] android-jvm: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-XML result: tests=70 failures=0 errors=0 skipped=1
 Exit status: 0
 Status: PASS
 
 COMPILE / DIFF
 Command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m compileall -q server tests; git diff --check
-Input/environment: final implementation tree before evidence commit.
-Literal output/result: no output; CRLF conversion warnings from Git are not whitespace errors.
+Input/environment: Review Fix implementation tree.
+Literal output/result: no output other than Git line-ending notices; no syntax/whitespace errors.
 Exit status: 0 for both commands
 Status: PASS
 
-FAILED/BLOCKED ATTEMPTS PRESERVED
-- Direct npm build used system Node 20.11.1 and failed on missing node:util.styleText, exit 1; canonical Web strict used Node 22 and passed.
-- Python strict first returned BLOCKED because PDD_PYTHON was unset, exit 2; explicit approved interpreter then passed.
-- Android strict first returned BLOCKED because SDK discovery was unset, exit 2; the SDK already referenced by repository local.properties then passed.
-
 SENSITIVE / RAW CAPTURE SCAN
-Command: scan every changed tracked/working file against private-key, GitHub/AWS/OpenAI key and literal bearer-token signatures; classify Raw Capture/log/env/pcap/har/xlsx/csv/jsonl candidate paths.
-Input/environment: origin/main through implementation/evidence working tree; generated build output and ignored runtimes excluded.
+Command: scan every path changed from origin/main to final branch tip against private-key, GitHub/AWS/OpenAI key and literal bearer-token signatures; classify Raw Capture/log/env/pcap/har/xlsx/csv/jsonl candidate paths; exclude generated/ignored runtimes.
+Input/environment: repository tracked Review Fix paths only; no secret values are printed.
 Literal output/result:
 SENSITIVE_MATCHES=0
 SENSITIVE_SCAN_EXIT=0
 RAW_CAPTURE_CANDIDATES=0
+RAW_CAPTURE_SCAN_EXIT=0
 Exit status: 0
 Status: PASS
 
 ORACLE GATE
-Required: No
-Classifier command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe .github/scripts/classify_oracle_scope.py <changed paths>
-Literal output/result: ORACLE_GATE=SKIPPED: explicitly not applicable to this change set
-Classifier exit status: 0
-Result: SKIPPED (not applicable), not PASS.
-Reason: no server tenant/auth query, Oracle SQL, Schema or migration changed.
-Persistent business changes: false.
+Required: Yes
+Classifier reason: server/tenant.py Oracle-backed selected-context membership permission query changed; no Schema/migration.
+Canonical command: powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+Input/environment: exclusive local-isolated Oracle; credentials stay outside repository/output; cleanup required; persistent_business_changes=false.
+Literal decisive result:
+Ran 46 tests
+OK
+[PASS] oracle-integration: exit=0
+SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+Exit status: 0
+Status: PASS
+Full literal output, SHA-256, final fixed Head, generated_at/expiry, 46/46 with failures=errors=skipped=blocked=0, cleanup, Reviewer trust boundary and all four artifact hashes are stored in:
+%TEMP%/WEB-CLIENT-CONTRACT-001-review-fix-<fixed-head>-oracle-evidence.json
+%TEMP%/WEB-CLIENT-CONTRACT-001-review-fix-<fixed-head>-oracle-output.txt
+Validator command: D:/work/PDD_con_data/.venv-t001/Scripts/python.exe .github/scripts/validate_oracle_local_evidence.py --manifest <absolute-manifest-path> --expected-head <fixed-head> --repository .
+Validator result: ORACLE_LOCAL_EVIDENCE=PASS head=<fixed-head>; exit 0.
 
-REVIEW/E2E
-Independent Review: pending.
-E2E: pending; exact scope is two authorized tenant contexts plus a limited-permission context, deferred switch race, Excel JSON/multipart/blob headers/download/error behavior, and 401/403/404/NOT_FOUND semantics.
+FAILED/BLOCKED ATTEMPTS PRESERVED
+- Initial rewritten Node gate used an ApiOk false recognizable-JSON fixture. The real response interceptor correctly returned its business REQUEST_FAILED code rather than the test's expected UNEXPECTED_RESPONSE, so that attempt failed. The fixture was corrected to an ApiOk true pseudo-file, proving file rejection rather than business-envelope handling; the final Node gate above passes.
+- Earlier baseline attempts from the initial Dev pass remain recorded: system Node 20 build failed on node:util.styleText; unset PDD_PYTHON and SDK discovery returned BLOCKED. Canonical approved runtimes subsequently passed and no earlier FAIL/BLOCKED is relabeled PASS.
+
+E2E / REVIEW / PUSH
+E2E: PASS (Control-provided accepted gate state for this review cycle).
+Independent Review: CHANGES REQUIRED findings are closed in code/tests; INDEPENDENT RE-REVIEW REQUIRED.
+Push: final branch tip is pushed and verified local/upstream/remote identical as the final transaction after fixed-Head Oracle evidence.
 PR: not created. Merge/release: not performed.

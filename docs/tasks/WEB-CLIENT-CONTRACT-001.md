@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-CLIENT-CONTRACT-001
 - **Title**：统一 tenant-aware Web HTTP client、Excel 请求头与权限路由
-- **Status**：REVIEW / DEV SELF-CHECK PASS / PR NOT CREATED
+- **Status**：REVIEW FIX / DEV SELF-CHECK PASS / E2E PASS / INDEPENDENT RE-REVIEW REQUIRED / PR NOT CREATED
 - **Base**：`origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb`
 - **Branch**：`codex/web-client-contract-001`
 - **Worktree**：`D:\work\PDD_con_data_web_client_contract`
@@ -106,7 +106,7 @@
 - [x] tenant 切换会清理或刷新 summary、页面请求与 permission context，不依赖旧请求自然结束。
 - [x] 不实现模板/解析/导入/下发新功能，不修改 Schema/migration/Excel业务/Android/采集链。
 - [x] targeted client/route/Excel tests、Python tenant contracts、Web production build、Python full、Android JVM、compile/diff 适用回归通过。
-- [ ] 若 server Oracle-backed permission/context query 发生变化，固定 Head 隔离 Oracle strict 与 evidence validator 通过；Independent Review 与 E2E 完成，无新增 P0。
+- [x] `server/tenant.py` 的 membership permission query 变化已分类为 Oracle Gate=Required；最终固定 Head 以隔离 Oracle strict 46/46、skipped=0、persistent business changes=false 和外部 evidence validator 作为重审证据。E2E 已 PASS；Independent Review 的四项 finding 已最小修复并等待 re-review。
 
 ## Test Plan
 
@@ -115,13 +115,14 @@
 | Python targeted | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility`，offline import config | existing tenant/result contract | `Ran 11 tests in 0.010s`; `OK`; exit 0 | PASS |
 | Web race | `node web/scripts/test-request-generation.mjs` | result visibility A/B stale fences stay green | 三项 `PASS`; exit 0 | PASS |
 | Web build | `.\scripts\test-baseline.ps1 -Suite web -Strict` | production build | `1676 modules transformed`; `built in 5.78s`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
-| New client unit | `node web/scripts/test-client-contract.mjs` | all contract cases deterministic offline | `CONTEXT_SNAPSHOT/REQUEST_KINDS/ERROR_CONTRACT/SESSION_401/ROUTE_PERMISSIONS/SOURCE_CONTRACT=PASS`; exit 0 | PASS |
-| Router/Excel contract | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract` | no drift/bypass | `Ran 19 tests in 0.021s`; `OK`; exit 0 | PASS |
-| Python full | `test-baseline.ps1 -Suite python -Strict`，显式 `PDD_PYTHON` 与 offline import config | no Phase 1～6A/result visibility regression | `Ran 231 tests in 0.507s`; `OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
-| Web full | `test-baseline.ps1 -Suite web -Strict` | production build | `1679 modules transformed`; `built in 618ms`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
-| Android JVM | `test-baseline.ps1 -Suite android -Strict`，SDK 使用仓库既有 `local.properties` 所指 runtime | existing Android regression | `BUILD SUCCESSFUL in 7s`; `30 actionable tasks: 1 executed, 29 up-to-date`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0；XML 70 tests/0 failures/0 errors/1 skipped | PASS |
+| New client unit | `node web/scripts/test-client-contract.mjs` | actual `http.js` instance + deterministic Axios adapter | `HTTP_REAL_INSTANCE/CONTEXT_A_TO_B/CALLER_CANCELLATION/CONCURRENT_401/BLOB_VALID_FILES/BLOB_NON_FILE/ROUTE_PERMISSIONS/SOURCE_CONTRACT=PASS`; `ERROR_PRECEDENCE_EXIT=0`; `NODE_EXIT=0` | PASS |
+| Router/Excel contract | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract` | no drift/bypass; membership permission query contract | `Ran 22 tests in 0.021s`; `OK`; exit 0 | PASS |
+| Python full | `test-baseline.ps1 -Suite python -Strict`，显式 `PDD_PYTHON` 与 offline import config | no Phase 1～6A/result visibility regression | `Ran 234 tests in 0.475s`; `OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Web full | `test-baseline.ps1 -Suite web -Strict` | production build | `1681 modules transformed`; `built in 586ms`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Android JVM | `test-baseline.ps1 -Suite android -Strict`，SDK 使用仓库既有 `local.properties` 所指 runtime | existing Android regression | `BUILD SUCCESSFUL in 8s`; `30 actionable tasks: 1 executed, 29 up-to-date`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
 | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | syntax/whitespace clean | no output; exits 0 | PASS |
-| E2E | two authorized tenant contexts + limited permission context; switch during deferred request; Excel template/match/export errors | exact headers, no stale write, correct 401/403/404/download behavior | pending | BLOCKED |
+| Oracle strict | `powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` on final fixed Head | membership-role permission query remains Oracle-compatible | external manifest bound to final branch tip; 46/46, skipped=0, persistent business changes=false, validator exit 0 | PASS |
+| E2E | two authorized tenant contexts + limited permission context; switch during deferred request; Excel template/match/export errors | exact headers, no stale write, correct 401/403/404/download behavior | Control-provided gate result: `E2E=PASS` | PASS |
 
 首次基线尝试如实记录：缺少 worktree-local ignored runtime 与 offline import config 时，Python import `BLOCKED/FAIL`（缺 `ORACLE_*`/`JWT_SECRET`），Web strict `BLOCKED`（bundled Node absent）；随后仅建立指向既有 `.tools`、`web/node_modules` 的 ignored junction，并使用不连接数据库的 dummy import config，以上基线转为实际 PASS。未把首次 BLOCKED 冒充 PASS。
 
@@ -129,15 +130,14 @@ Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.1
 
 ## Oracle Gate
 
-- Required：**No / SKIPPED (not applicable)**；未修改 `server/tenant.py`、`server/routers/auth.py`、Oracle query、Schema 或 migration。
-- Reason：本变更仅涉及 Web client/context/route/Excel 调用、离线契约测试与架构说明；服务端 tenant/RBAC/NOT_FOUND 权威行为未改变。
-- Local isolated environment identifier：not applicable。
-- Implementation Head SHA：`aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc`；最终 evidence commit/head 由 Dev push 后核验回报。
-- Canonical command / test count / literal result hash / exit：not applicable；不得把 Oracle `SKIPPED` 称为 PASS。
-- Evidence generated at / expiry：not applicable。
-- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`；实现阶段更新；禁止持久业务变更。
-- Hosted evidence validator：not applicable
-- Independent Reviewer provenance check：pending
+- Required：**Yes**；Review Fix 修改了 `server/tenant.py::list_user_contexts()` 的 Oracle-backed membership role permission query，但没有 Schema/migration。
+- Reason：每个 Enterprise/Workspace context 现在返回其 membership `ROLE_ID` 对应的 `SJZQ_ROLE_PERM.PERM_CODE` 快照，客户端不再以全局 `profile.perms` 代替 selected-context permissions。
+- Local isolated environment identifier：由最终固定 Head 外部 manifest 记录；禁止写入凭据。
+- Implementation Head SHA：`3e7563413dcc80a98b3502571a4aa9c70cf9e730`。Final evidence Head 是包含本 Task/四制品的 branch tip；精确 SHA、generated_at/expiry、literal output hash 与 46/46 结果由提交后生成的外部 manifest 绑定。
+- Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`；期望/验收为 46/46、failures=0、errors=0、skipped=0、exit 0。
+- Evidence：`%TEMP%\WEB-CLIENT-CONTRACT-001-review-fix-<fixed-head>-oracle-evidence.json` 及对应 `oracle-output.txt`；由 `.github/scripts/validate_oracle_local_evidence.py` 对 final fixed Head 与四制品 hash 独立验证。
+- Cleanup / persistent business changes：`true / false`。
+- Reviewer trust boundary：manifest 明确记录本地执行者与 Independent Reviewer 的证据边界；不得回显 secret value。
 
 ## Real-device Gate
 
@@ -167,6 +167,6 @@ Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.1
 ## Evidence
 
 - Original evidence：`main@85ba3a5` 的 `http.js`、`user.js`、router、AdminLayout、ExcelMatch、tenant/auth/excel endpoints 与现有 tests。
-- Derived artifacts：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`。
-- Review findings：Independent Review / E2E pending；Dev 未代替独立验收。
-- Commit / PR：implementation `aaab040f4e52ffd0e7de7dbcb9e25075f6a22fdc`（包含 `b78556c` 主实现与 `aaab040` edge-case fix）；evidence commit 待本轮提交；PR 未创建。
+- Derived artifacts：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`；四制品已按 Review Fix 重建，rollback 只作用于副本，`MODIFIED_FILE` 保持 changed。
+- Review findings：Independent Review 的 selected-context permissions、HTTP error precedence、trusted file contract、real Axios adapter 四项 finding 已修复；状态为 `INDEPENDENT RE-REVIEW REQUIRED`。Control 提供的 E2E gate 状态为 `PASS`。
+- Commit / PR：主实现 `b78556c`，edge-case fix `aaab040`，首轮 evidence `1ca3423`，Review Fix implementation `3e7563413dcc80a98b3502571a4aa9c70cf9e730`；final evidence commit 是包含本段和四制品的 branch tip，push 后以 local/upstream/remote 三方相同核验。PR 未创建。
