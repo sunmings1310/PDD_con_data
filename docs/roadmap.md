@@ -21,7 +21,7 @@ BL-110-WS-TENANT-BOUNDARY
 → WEB-STATE-UX-001
 ```
 
-每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge 为 `main@f7ba0fd`。第 3 项 `WEB-CLIENT-CONTRACT-001` 已获批准并从 `main@85ba3a5` 独立启动；后续 `WEB-TASK-IMPORT-001` 仍为等待依赖且未启动。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
+每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`。第 4 项 `WEB-TASK-IMPORT-001` 的依赖已满足，当前为 `READY / NOT STARTED`，尚未建立分支、worktree 或实现。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
 
 > 制定日期：2026-08-13
 > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`
