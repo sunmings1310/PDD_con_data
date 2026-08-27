@@ -23,7 +23,7 @@
 |---:|---|---|---|
 | 1 | BL-110-WS-TENANT-BOUNDARY | MERGED / ACCEPTED / P0 | PR #5 已普通 merge；`main@09e717c` 已包含实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性 |
 | 2 | WEB-RESULT-VISIBILITY-001 | MERGED / ACCEPTED / P1 | PR #7 已普通 merge 为 `main@f7ba0fd`；draft 结果、Snapshot exact ID、Task→Raw→Quality/Quarantine 下钻、资料库边界及页面状态已通过 Review/E2E/Oracle/Hosted CI |
-| 3 | WEB-CLIENT-CONTRACT-001 | READY / NOT STARTED / P1 | 下一开发任务；统一 tenant-aware Web client、Excel 请求头与权限路由。须由 Product Owner/Control 另行启动独立 Task/分支，不在本 Task 自动开始 |
+| 3 | WEB-CLIENT-CONTRACT-001 | IN_PROGRESS / P1 | 已从 `main@85ba3a5` 建立独立 Task/分支；统一 tenant-aware Web HTTP client、Excel 请求头、权限路由及切换租户时的 stale-state 边界，不实现 Excel 导入业务 |
 | 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
 | 5 | WEB-STATE-UX-001 | APPROVED / WAITING FOR #4 MERGE / P2 | 收口页面 loading/error/empty/retry、状态文案与刷新；依赖 #4 merge |
 

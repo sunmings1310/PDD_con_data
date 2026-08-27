@@ -113,10 +113,10 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 `WEB-RESULT-VISIBILITY-001` 已通过 PR [#7](https://github.com/sunmings1310/PDD_con_data/pull/7) 普通 merge 为 `main@f7ba0fd`：Independent Review `ACCEPT`、E2E `PASS`、本地隔离 Oracle 46/46（skipped=0，persistent business changes=false），Hosted Core CI [#33050939542](https://github.com/sunmings1310/PDD_con_data/actions/runs/33050939542) 全部适用检查成功。
 
-下一开发任务为 `WEB-CLIENT-CONTRACT-001`，状态 `READY / NOT STARTED`。当前停在其启动边界：尚未创建 Task 分支、worktree 或实现，须由 Product Owner/Control 另行启动：
+Product Owner 已批准启动 `WEB-CLIENT-CONTRACT-001`。Control 已从 `main@85ba3a5` 建立独立 Task、分支与 worktree，当前状态为 `IN_PROGRESS`；Dev 尚未完成实现、自检或固定 Head Review/E2E：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`。
 
-`WEB-RESULT-VISIBILITY-001` 未进入 `WEB-CLIENT-CONTRACT-001`、Excel 导入、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。release 未获授权。
+本 Task 只统一 tenant-aware Web HTTP client、现有 Excel 请求头、权限路由、错误映射和租户切换 stale-state；不实现 `WEB-TASK-IMPORT-001`、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。release 未获授权。
