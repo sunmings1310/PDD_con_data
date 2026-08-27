@@ -1,6 +1,6 @@
 # 稳定数据采集系统升级路线图
 
-> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-25）**
+> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-26）**
 > 本文是未来阶段的权威入口，但路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前产品、实现和开放缺口分别见 [`../PRODUCT.md`](../PRODUCT.md)、[`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
 
 ## 当前未来阶段边界
@@ -9,7 +9,19 @@
 2. `REPO-GOV-ALIGN-001` 只对齐治理基线，不改变业务路线。
 3. Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台均为 NOT STARTED。
 4. 下一业务阶段必须创建 Task/ADR、满足对应证据门禁并经 Product Owner 批准；下文旧 M0～M5 条目不构成授权。
-5. `CI-ORACLE-LOCAL-GATE-001` 是已批准的独立治理前置：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
+5. `CI-ORACLE-LOCAL-GATE-001` 已通过 PR #6 merge 为 `main@b3a7e2c`：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
+
+## 当前已批准执行顺序
+
+```text
+BL-110-WS-TENANT-BOUNDARY
+→ WEB-RESULT-VISIBILITY-001
+→ WEB-CLIENT-CONTRACT-001
+→ WEB-TASK-IMPORT-001
+→ WEB-STATE-UX-001
+```
+
+每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许完成第 1 项 PR #5 的固定 Head 门禁与 merge 决策。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
 
 > 制定日期：2026-08-13
 > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`

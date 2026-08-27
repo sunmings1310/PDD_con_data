@@ -1,0 +1,1143 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index 8363dba..fcafdbb 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -4 +4 @@
+-> 更新日期：2026-08-25
++> 更新日期：2026-08-26
+@@ -12 +12 @@
+-| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
++| 当前主线基线 | `b3a7e2c493f44f4cb0bde7645d2c79340d019d65` |
+@@ -15 +15 @@
+-| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：PR / DRAFT` |
++| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
+@@ -19 +19 @@
+-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`；业务能力未改变。
++PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate；业务能力未改变。
+@@ -86 +86 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-## 7. Oracle 本地证据门禁候选状态
++## 7. Oracle 本地证据门禁状态
+@@ -88 +88 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
++`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准并通过 PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6) merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
+@@ -94 +94 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-- 当前状态为 Draft PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6)，尚未进入 main；Head `ec01d90` 的 push 与 pull_request Hosted Core CI 均成功，Oracle applicability 成功且本治理的 evidence job 明确 `skipped`，没有数据库 job。merge 仍需 Product Owner 明确批准。PR #5 保持 Draft/BLOCKED，待本治理 merge 后从新 main 更新并在其最终 Head 重跑本地 Oracle strict。
++- 门禁已经进入 main；GitHub Actions 不运行数据库测试。Oracle-sensitive PR 必须由本地隔离 Oracle strict manifest 和 Hosted evidence validator 共同通过。PR #5 正从新 main 更新，并将在固定最终 Head 重新生成本地 Oracle strict 证据。
+@@ -114 +114,3 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-治理基线已进入 main；`CI-ORACLE-LOCAL-GATE-001` 正在独立 Review，不自动启动新业务阶段：
++`BL-110-WS-TENANT-BOUNDARY` 已在 Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 完成本地实现与 Independent Review `ACCEPT`；当前从 `main@b3a7e2c` 更新，重新生成固定 Head 的本地 Oracle strict 证据并运行 Hosted evidence gate。该能力尚未 merge 或 release，因此 main 仍不包含它。
++
++当前执行队列保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 main 开始。本轮完成 PR #5 固定 Head 门禁后停止，merge 仍需 Product Owner 明确批准：
+@@ -120 +122 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-先完成本地 Oracle evidence gate 的 Review、Draft PR 与 Hosted offline CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
++先完成 PR #5 固定 Head 的本地 Oracle evidence manifest 与 Hosted offline/evidence CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 09462cd..675dec4 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -3 +3 @@
+-> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-25）**
++> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-26）**
+@@ -6 +6 @@
+-## Active governance tasks
++## Completed governance tasks
+@@ -10 +10 @@
+-| CI-ORACLE-LOCAL-GATE-001 | PR / DRAFT | 将 Oracle merge 门禁改为固定 Head 的本地隔离 Oracle strict 证据；GitHub 不连接数据库 | Draft PR #6；Hosted offline CI 已通过；merge 前停止等待 Product Owner |
++| CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
+@@ -17,0 +18,14 @@
++## Product-approved Web execution queue（2026-08-25）
++
++严格按以下依赖顺序执行；后项必须从前项 merge 后的 `main` 建立独立 Task/分支，不在未合并依赖上串接：
++
++| 顺序 | Task | 状态 | 范围与依赖 |
++|---:|---|---|---|
++| 1 | BL-110-WS-TENANT-BOUNDARY | PR #5 / DRAFT / EVIDENCE REFRESH / P0 | 实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性；从 `main@b3a7e2c` 更新后重跑固定 Head 本地 Oracle 与 Hosted evidence gate |
++| 2 | WEB-RESULT-VISIBILITY-001 | APPROVED / WAITING FOR #1 MERGE / P1 | 修复 draft 结果可见性、Snapshot 资源 ID、Task/Raw/Quality 下钻；依赖 #1 merge |
++| 3 | WEB-CLIENT-CONTRACT-001 | APPROVED / WAITING FOR #2 MERGE / P1 | 统一 tenant-aware Web client、Excel 请求头与权限路由；依赖 #2 merge |
++| 4 | WEB-TASK-IMPORT-001 | APPROVED / WAITING FOR #2 AND #3 MERGE / P1-P2 | 创建/下发任务内统一手动输入与 Excel 导入；依赖 #2、#3 merge |
++| 5 | WEB-STATE-UX-001 | APPROVED / WAITING FOR #4 MERGE / P2 | 收口页面 loading/error/empty/retry、状态文案与刷新；依赖 #4 merge |
++
++`WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
++
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index e2d5a98..3c618fc 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -3 +3 @@
+-> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-25）**
++> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-26）**
+@@ -12 +12,13 @@
+-5. `CI-ORACLE-LOCAL-GATE-001` 是已批准的独立治理前置：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
++5. `CI-ORACLE-LOCAL-GATE-001` 已通过 PR #6 merge 为 `main@b3a7e2c`：Oracle-sensitive PR 必须在固定 Head 本地隔离 Oracle strict 通过并提交 manifest；GitHub Actions 不连接数据库。该治理不启动或改变 Generic SKU、P1、P2、Phase 6B。
++
++## 当前已批准执行顺序
++
++```text
++BL-110-WS-TENANT-BOUNDARY
++→ WEB-RESULT-VISIBILITY-001
++→ WEB-CLIENT-CONTRACT-001
++→ WEB-TASK-IMPORT-001
++→ WEB-STATE-UX-001
++```
++
++每项必须从前项 merge 后的 `main` 建立独立分支；当前只允许完成第 1 项 PR #5 的固定 Head 门禁与 merge 决策。`WEB-TASK-IMPORT-001` 只统一手动输入与 Excel 导入到创建/下发任务流程，导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [`backlog.md`](backlog.md) 为准。
+diff --git a/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
+new file mode 100644
+index 0000000..91d9fcd
+--- /dev/null
++++ b/docs/tasks/BL-110-WS-TENANT-BOUNDARY.md
+@@ -0,0 +1,128 @@
++# BL-110-WS-TENANT-BOUNDARY：实时日志 WebSocket 租户与调度边界
++
++- **Task ID**：BL-110-WS-TENANT-BOUNDARY
++- **Title**：实时日志 WebSocket 握手认证、租户/资源分区与可靠调度
++- **Status**：PR #5 / DRAFT / FIXED-HEAD GATES PENDING
++- **Approved base**：`main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- **Current PR base**：`main@b3a7e2c493f44f4cb0bde7645d2c79340d019d65`
++- **Branch / worktree**：`codex/bl-110-ws-tenant-boundary` / `D:\work\PDD_con_data_ws_tenant`
++
++## Goal
++
++关闭 `/ws/realtime` 的未认证全局广播 P0：由服务端依据登录身份和目标 Device/Task 的 Oracle 归属确定 Enterprise/Workspace scope，按租户和资源隔离订阅与投递，并把同步 handler 到 FastAPI app event loop 的调度变为可靠、可测试、失败可观察。
++
++## Context
++
++当前所有实时日志连接进入同一全局集合，握手没有认证、权限、membership、设备撤销或资源归属校验；Task 日志不带服务端 scope；`notify_sync()` 依赖线程本地 event loop 并吞掉异常。Product Owner 已批准本 P0 为 Web 队列第 1 项，后续任务必须等待本项 merge 后再从 main 开始。
++
++## Scope
++
++### Allowed
++
++- `/ws/realtime` 握手认证与 `device:view`；
++- 从服务端 JWT identity + Oracle Device/Task ownership 推导 scope；
++- Enterprise/Workspace membership、Workspace membership、用户/设备撤销与资源错配门禁；
++- Hub 按 Enterprise/Workspace/Device 资源分区；
++- Task 日志事件的服务端权威 scope 与 Task/Device 一致性；
++- FastAPI lifespan 绑定 app event loop，线程安全调度与失败计数/日志；
++- Web `DeviceLive` 携带 token 与 device resource id，但不提交或决定 tenant scope；
++- 离线单元/契约测试、隔离 Oracle 资源归属测试、Web build 和全量回归；
++- 本 Task、backlog、roadmap、CURRENT_STATE 和验证制品随状态更新。
++
++### Forbidden
++
++- 修改 Schema/migration、业务数据、Task/Product 成功语义；
++- 扩大到投屏、OTA、全站 WebSocket broker、多实例或 CORS/密码哈希等 BL-110 其他范围；
++- 信任客户端提交的 Enterprise/Workspace；
++- 启动后续 Web 队列项、Generic SKU、SKU Schema/P1 数据模型、Phase 6B；
++- merge、release；PR #5 的证据刷新已由 Product Owner 批准。
++
++## Non-goals
++
++- 不建设跨实例消息 broker；保持当前单实例实时通知约束；
++- 不以 WebSocket 代替 Oracle 权威状态或 8 秒 HTTP 恢复轮询；
++- 不修改投屏 publisher/viewer 协议；
++- 不处理 WEB-AUDIT-001 的其他 P1/P2 finding。
++
++## Dependencies
++
++- `main@42610e15cf683158eb2f96a3dc3d08e8b1f5e018`
++- 已 Accepted 的 Enterprise/Workspace membership、设备 revoke 和 Task/Device tenant columns
++- 现有 JWT 与 `device:view` permission
++- 隔离、可写、可清理 Oracle 测试 Schema
++
++## Affected Modules
++
++- `server/ws_hub.py`
++- `server/main.py`
++- `server/routers/tasks.py`
++- `web/src/views/devices/DeviceLive.vue`
++- `tests/test_realtime_ws_tenant.py`
++- `tests/test_realtime_ws_tenant_oracle.py`
++- `docs/backlog.md`、`docs/roadmap.md`、本 Task、验收状态与验证制品
++
++## ADR
++
++不新增长期多实例 ADR；本 Task 只落实现有 Product tenant 不变量与 BL-110 最小边界。多实例方案仍归 BL-203。
++
++## Acceptance Criteria
++
++- [x] 缺 token、无效 token、disabled user 均以 WS policy violation 拒绝；
++- [x] 缺 `device:view`、非 Enterprise/Workspace member、Workspace membership 不匹配均拒绝；
++- [x] revoked/missing Device、跨租户 Device/Task、Task/Device 资源错配均拒绝或不投递；
++- [x] 客户端不提交 Enterprise/Workspace，scope 只由服务端 identity 与资源归属确定；
++- [x] 同 Enterprise/Workspace 且同 Device 的已授权连接收到正确 Task 日志；其他租户、Workspace 或 Device 不收到；
++- [x] 握手后 token expiry、用户/Membership/权限或 Device 撤销会在下一次投递前重验，1008 断开且不投递；
++- [x] app loop 绑定、线程安全调度、未绑定/关闭 loop、投递异常都有确定结果、日志和计数；不吞异常；
++- [x] scope mismatch 在 progress receipt claim 前拒绝，不消费幂等 ID；Oracle commit 后才调度通知；
++- [x] HTTP 轮询继续作为恢复路径，WS 不成为业务完成或状态真相；
++- [x] targeted、Python full、Web build、适用 Oracle Gate、Independent Review 全部完成；
++- [ ] 从 `main@b3a7e2c` 更新并固定 clean PR Head；重跑本地 Oracle strict、提交 manifest、Hosted evidence gate 通过后停止。
++
++## Test Plan
++
++| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
++|---|---|---|---|---|---:|---|
++| Targeted | `python -m unittest -v tests.test_realtime_ws_tenant tests.test_task_state_r1` | dummy config；fake WebSocket/DB/loop | 认证、权限、跨租户、撤销、资源、分区、receipt 与调度矩阵通过 | `Ran 32 tests ... OK` | 0 | PASS |
++| Oracle targeted | `python -m unittest -v tests.test_realtime_ws_tenant_oracle` | 批准的隔离 Oracle；opt-in env | 真实 membership/permission/tenant/workspace/device/task 矩阵通过并 rollback | `Ran 1 test ... OK` | 0 | PASS |
++| Module | `python scripts/run_python_unit_tests.py` | Python 3.10.6；Oracle opt-in off | 全量 offline Python 通过 | `Ran 213 tests ... OK (skipped=24)` | 0 | PASS |
++| Web | `npm ci`; `npm run build` | Node 22.18.0/npm 10.9.3 | Web production build 通过 | `1673 modules transformed`；built successfully | 0 | PASS |
++| Full regression | `scripts/test-baseline.ps1 -Strict` | 固定 Python/JDK/Android/Node；批准的 Phase 1～6A Oracle env | 全量适用门禁通过 | `PASS=4 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
++| Diff | `git diff --check`、验证/rollback artifact | 完整 Task delta | 无 whitespace error，可恢复 | 无输出；rollback 恢复 baseline probe | 0 | PASS |
++
++## Oracle Gate
++
++- Required：Yes
++- Reason：权限、Membership、撤销和 Task/Device tenant ownership 必须在真实 Oracle 方言/约束下验证。
++- Environment：隔离、可写、可清理测试 Schema；测试记录均在事务中并 rollback。
++- Command / result / exit：`python -m unittest -v tests.test_realtime_ws_tenant_oracle`；`Ran 1 test in 3.972s / OK`；exit 0。数据在测试事务 `finally` rollback。
++
++## Real-device Gate
++
++- Required：No
++- Device/scenario：本 Task 不改变 Android 或真实 App 行为；WebSocket browser/ASGI 与 Oracle contract 可离线验证。
++- Command or steps / result：SKIPPED（差异不涉及真机）。
++
++## Rollback
++
++- Code rollback：按提交逆序 revert；恢复旧 `/ws/realtime` 客户端与 server 文件仅用于紧急代码回退，回退后 P0 重新开放，不能作为安全运行状态。
++- Configuration rollback：无配置/secret 变更。
++- Data recovery：测试事务 rollback；无业务数据迁移。
++- Irreversible items：无。
++
++## Human Decision Points
++
++- PR、merge、release 需 Product Owner 明确批准；
++- 若需要多实例 broker、token transport 产品方案变化或扩大到 cast/OTA，停止并拆分 Task；
++- 若无法在现有 JWT/membership/device resource 模型内建立服务端权威 scope，停止升级。
++
++## Stop Condition
++
++Independent Review `ACCEPT` 已保持；从 `main@b3a7e2c` 更新后，在固定 PR Head 重新生成本地 Oracle strict manifest 并让 Hosted offline/evidence CI 通过，然后停止。不得 merge、release；不得启动队列第 2 项，因为其必须从本项 merge 后的 main 开始。
++
++## Evidence
++
++- Original evidence：`server/ws_hub.py` 未认证全局 client set；`DeviceLive.vue` 无 token/resource scope；Task progress event 无 tenant；`notify_sync` 吞异常。
++- Derived artifacts：`docs/tasks/BL-110-WS-TENANT-BOUNDARY-verification/`（MODIFIED_FILE、DIFF_FILE、VERIFICATION、ROLLBACK）。
++- Review findings：首轮 `CHANGES REQUIRED` 发现握手后撤销未重验（P0）、scope mismatch 可能先消费 progress receipt（P1）、Oracle 两条隔离轴不足（P2）；均在 `dc268b275411968c067cdacdcd9c00031198471b` 修复。独立 re-review：`ACCEPT`，无阻断 finding。
++- Commit / PR：实现 Review Head `dc268b275411968c067cdacdcd9c00031198471b`；Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5)；最终证据以远端 `codex/bl-110-ws-tenant-boundary` 固定 Head 与 PR body manifest 为准。
+diff --git a/server/main.py b/server/main.py
+index 07d93af..5fcfc27 100644
+--- a/server/main.py
++++ b/server/main.py
+@@ -18 +18 @@ from server.routers import accounts, auth, cast, dashboard, devices, excel_match
+-from server.ws_hub import router as ws_router
++from server.ws_hub import hub as realtime_hub, router as ws_router
+@@ -49,0 +50,2 @@ async def lifespan(_: FastAPI):
++    app_loop = asyncio.get_running_loop()
++    realtime_hub.bind_loop(app_loop)
+@@ -51,5 +53,8 @@ async def lifespan(_: FastAPI):
+-    yield
+-    reconciliation_task.cancel()
+-    with suppress(asyncio.CancelledError):
+-        await reconciliation_task
+-    close_pool()
++    try:
++        yield
++    finally:
++        realtime_hub.unbind_loop(app_loop)
++        reconciliation_task.cancel()
++        with suppress(asyncio.CancelledError):
++            await reconciliation_task
++        close_pool()
+diff --git a/server/routers/tasks.py b/server/routers/tasks.py
+index 475be60..10a681e 100644
+--- a/server/routers/tasks.py
++++ b/server/routers/tasks.py
+@@ -26 +26 @@ from server.services import (
+-from server.ws_hub import notify_sync
++from server.ws_hub import notify_sync, resolve_task_event_channel
+@@ -854,0 +855 @@ def task_progress(body: TaskProgressIn):
++    event_channel = None
+@@ -876,0 +878,8 @@ def task_progress(body: TaskProgressIn):
++        event_channel = resolve_task_event_channel(cur, body.task_id, int(device["device_id"]))
++        if event_channel is None:
++            return ApiOk(
++                ok=False,
++                message="task/device realtime scope mismatch",
++                data={"error_code": "REALTIME_SCOPE_MISMATCH"},
++            )
++        if has_delta:
+@@ -935,10 +944,12 @@ def task_progress(body: TaskProgressIn):
+-        notify_sync(
+-            "task_log",
+-            {
+-                "task_id": body.task_id,
+-                "device_id": device["device_id"],
+-                "message": body.message,
+-                "level": body.level,
+-            },
+-        )
+-        return ApiOk()
++    # Commit is complete before realtime notification; Oracle remains authoritative.
++    notify_sync(
++        event_channel,
++        "task_log",
++        {
++            "task_id": body.task_id,
++            "device_id": event_channel.device_id,
++            "message": body.message,
++            "level": body.level,
++        },
++    )
++    return ApiOk()
+diff --git a/server/ws_hub.py b/server/ws_hub.py
+index a8bd8a1..c687039 100644
+--- a/server/ws_hub.py
++++ b/server/ws_hub.py
+@@ -1 +1 @@
+-"""简易 WebSocket 广播：设备日志 / 任务进度。"""
++"""Tenant- and device-scoped realtime task log delivery."""
+@@ -5,0 +6,2 @@ import asyncio
++from concurrent.futures import Future
++from dataclasses import dataclass
+@@ -6,0 +9,3 @@ import json
++import logging
++from threading import Lock
++import time
+@@ -9 +14,4 @@ from typing import Any
+-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
++from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
++
++from server.auth_util import decode_token
++from server.db import get_conn
+@@ -11,0 +20,123 @@ router = APIRouter(tags=["ws"])
++logger = logging.getLogger("sjzq.realtime_ws")
++
++AUTH_TIMEOUT_SECONDS = 5.0
++SEND_TIMEOUT_SECONDS = 3.0
++
++
++@dataclass(frozen=True)
++class RealtimeChannel:
++    """A server-derived delivery boundary; never populated from client tenant data."""
++
++    enterprise_id: int
++    workspace_id: int
++    device_id: int
++
++
++@dataclass(frozen=True)
++class RealtimePrincipal:
++    """Connection identity and expiry bound to its server-derived channel."""
++
++    user_id: int
++    expires_at: int
++    channel: RealtimeChannel
++
++
++class RealtimeAuthError(Exception):
++    """Deliberately non-specific so resource existence is not disclosed."""
++
++
++def resolve_realtime_channel(cur: Any, user_id: int, device_id: int) -> RealtimeChannel | None:
++    """Resolve an authorized channel from identity and the authoritative Device row."""
++    cur.execute(
++        """
++        SELECT d.ENTERPRISE_ID, d.WORKSPACE_ID, d.DEVICE_ID
++          FROM SJZQ_DEVICE d
++          JOIN SJZQ_USER u
++            ON u.USER_ID = :user_id AND u.STATUS = 'enabled'
++          JOIN SJZQ_ENTERPRISE_MEMBERSHIP em
++            ON em.USER_ID = u.USER_ID
++           AND em.ENTERPRISE_ID = d.ENTERPRISE_ID
++           AND em.STATUS = 'active'
++          JOIN SJZQ_ROLE_PERM rp
++            ON rp.ROLE_ID = em.ROLE_ID AND rp.PERM_CODE = 'device:view'
++          JOIN SJZQ_ENTERPRISE e
++            ON e.ENTERPRISE_ID = d.ENTERPRISE_ID AND e.STATUS = 'active'
++          JOIN SJZQ_WORKSPACE w
++            ON w.WORKSPACE_ID = d.WORKSPACE_ID
++           AND w.ENTERPRISE_ID = d.ENTERPRISE_ID
++           AND w.STATUS = 'active'
++         WHERE d.DEVICE_ID = :device_id
++           AND d.REVOKED_AT IS NULL
++           AND (
++                 NOT EXISTS (
++                   SELECT 1 FROM SJZQ_WORKSPACE_MEMBERSHIP wx
++                    WHERE wx.WORKSPACE_ID = d.WORKSPACE_ID
++                 )
++                 OR EXISTS (
++                   SELECT 1 FROM SJZQ_WORKSPACE_MEMBERSHIP wm
++                    WHERE wm.ENTERPRISE_ID = d.ENTERPRISE_ID
++                      AND wm.WORKSPACE_ID = d.WORKSPACE_ID
++                      AND wm.USER_ID = u.USER_ID
++                 )
++               )
++        """,
++        {"user_id": int(user_id), "device_id": int(device_id)},
++    )
++    row = cur.fetchone()
++    if row is None:
++        return None
++    return RealtimeChannel(int(row[0]), int(row[1]), int(row[2]))
++
++
++def resolve_task_event_channel(cur: Any, task_id: int, device_id: int) -> RealtimeChannel | None:
++    """Derive producer scope from Task/Device ownership and assignment."""
++    cur.execute(
++        """
++        SELECT t.ENTERPRISE_ID, t.WORKSPACE_ID, d.DEVICE_ID
++          FROM SJZQ_TASK t
++          JOIN SJZQ_DEVICE d
++            ON d.DEVICE_ID = :device_id
++           AND d.ENTERPRISE_ID = t.ENTERPRISE_ID
++           AND d.WORKSPACE_ID = t.WORKSPACE_ID
++           AND d.REVOKED_AT IS NULL
++         WHERE t.TASK_ID = :task_id
++           AND t.DEVICE_ID = d.DEVICE_ID
++        """,
++        {"task_id": int(task_id), "device_id": int(device_id)},
++    )
++    row = cur.fetchone()
++    if row is None:
++        return None
++    return RealtimeChannel(int(row[0]), int(row[1]), int(row[2]))
++
++
++def authorize_realtime(token: str, device_id: int) -> RealtimePrincipal:
++    """Authenticate a socket and resolve its only authorized resource channel."""
++    try:
++        payload = decode_token(token)
++        user_id = int(payload["uid"])
++        expires_at = int(payload["exp"])
++        if expires_at <= int(time.time()):
++            raise RealtimeAuthError
++        with get_conn() as conn:
++            channel = resolve_realtime_channel(conn.cursor(), user_id, int(device_id))
++    except (HTTPException, KeyError, TypeError, ValueError) as exc:
++        raise RealtimeAuthError from exc
++    if channel is None:
++        raise RealtimeAuthError
++    return RealtimePrincipal(user_id, expires_at, channel)
++
++
++def revalidate_realtime(principal: RealtimePrincipal) -> bool:
++    """Fail closed before every delivery when identity, membership, device, or token changed."""
++    if principal.expires_at <= int(time.time()):
++        return False
++    try:
++        with get_conn() as conn:
++            current = resolve_realtime_channel(
++                conn.cursor(), principal.user_id, principal.channel.device_id
++            )
++    except Exception:
++        logger.exception("realtime subscription revalidation failed")
++        return False
++    return current == principal.channel
+@@ -15,2 +146,2 @@ class Hub:
+-    def __init__(self) -> None:
+-        self.clients: set[WebSocket] = set()
++    def __init__(self, validator: Any | None = None) -> None:
++        self.clients: dict[RealtimeChannel, dict[WebSocket, RealtimePrincipal]] = {}
+@@ -17,0 +149,17 @@ class Hub:
++        self._validator = validator or revalidate_realtime
++        self._loop: asyncio.AbstractEventLoop | None = None
++        self._state_lock = Lock()
++        self._stats = {
++            "scheduled": 0,
++            "schedule_failures": 0,
++            "delivery_failures": 0,
++        }
++
++    def bind_loop(self, loop: asyncio.AbstractEventLoop) -> None:
++        with self._state_lock:
++            self._loop = loop
++
++    def unbind_loop(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
++        with self._state_lock:
++            if loop is None or self._loop is loop:
++                self._loop = None
+@@ -19,2 +167,9 @@ class Hub:
+-    async def connect(self, ws: WebSocket) -> None:
+-        await ws.accept()
++    def _increment(self, key: str) -> None:
++        with self._state_lock:
++            self._stats[key] += 1
++
++    def stats(self) -> dict[str, int]:
++        with self._state_lock:
++            return dict(self._stats)
++
++    async def connect(self, ws: WebSocket, principal: RealtimePrincipal) -> None:
+@@ -22 +177 @@ class Hub:
+-            self.clients.add(ws)
++            self.clients.setdefault(principal.channel, {})[ws] = principal
+@@ -24 +179 @@ class Hub:
+-    async def disconnect(self, ws: WebSocket) -> None:
++    async def disconnect(self, ws: WebSocket, channel: RealtimeChannel) -> None:
+@@ -26 +181,6 @@ class Hub:
+-            self.clients.discard(ws)
++            peers = self.clients.get(channel)
++            if peers is None:
++                return
++            peers.pop(ws, None)
++            if not peers:
++                self.clients.pop(channel, None)
+@@ -28 +188 @@ class Hub:
+-    async def broadcast(self, event: str, data: Any) -> None:
++    async def broadcast(self, channel: RealtimeChannel, event: str, data: Any) -> None:
+@@ -30 +189,0 @@ class Hub:
+-        dead: list[WebSocket] = []
+@@ -32,2 +191,3 @@ class Hub:
+-            peers = list(self.clients)
+-        for ws in peers:
++            peers = list(self.clients.get(channel, {}).items())
++        dead: list[WebSocket] = []
++        for ws, principal in peers:
+@@ -35,2 +195,21 @@ class Hub:
+-                await ws.send_text(payload)
+-            except Exception:
++                authorized = await asyncio.to_thread(self._validator, principal)
++                if not authorized:
++                    logger.warning(
++                        "realtime subscription revoked user=%s enterprise=%s workspace=%s device=%s",
++                        principal.user_id,
++                        channel.enterprise_id,
++                        channel.workspace_id,
++                        channel.device_id,
++                    )
++                    await ws.close(code=1008, reason="authorization revoked")
++                    dead.append(ws)
++                    continue
++                await asyncio.wait_for(ws.send_text(payload), timeout=SEND_TIMEOUT_SECONDS)
++            except Exception:  # network/send timeout is isolated to this peer
++                self._increment("delivery_failures")
++                logger.exception(
++                    "realtime delivery failed enterprise=%s workspace=%s device=%s",
++                    channel.enterprise_id,
++                    channel.workspace_id,
++                    channel.device_id,
++                )
+@@ -39 +218,35 @@ class Hub:
+-            await self.disconnect(ws)
++            await self.disconnect(ws, channel)
++
++    def schedule(self, channel: RealtimeChannel, event: str, data: Any) -> bool:
++        with self._state_lock:
++            loop = self._loop
++        if loop is None or loop.is_closed() or not loop.is_running():
++            self._increment("schedule_failures")
++            logger.error(
++                "realtime scheduling rejected: app loop unavailable enterprise=%s workspace=%s device=%s",
++                channel.enterprise_id,
++                channel.workspace_id,
++                channel.device_id,
++            )
++            return False
++        try:
++            future = asyncio.run_coroutine_threadsafe(self.broadcast(channel, event, data), loop)
++            future.add_done_callback(self._observe_delivery)
++            self._increment("scheduled")
++            return True
++        except Exception:
++            self._increment("schedule_failures")
++            logger.exception(
++                "realtime scheduling failed enterprise=%s workspace=%s device=%s",
++                channel.enterprise_id,
++                channel.workspace_id,
++                channel.device_id,
++            )
++            return False
++
++    def _observe_delivery(self, future: Future[None]) -> None:
++        try:
++            future.result()
++        except Exception:
++            self._increment("schedule_failures")
++            logger.exception("realtime scheduled delivery crashed")
+@@ -44,0 +258,5 @@ hub = Hub()
++async def _reject(ws: WebSocket) -> None:
++    logger.warning("realtime websocket authorization rejected")
++    await ws.close(code=1008, reason="authorization failed")
++
++
+@@ -46,2 +264,3 @@ hub = Hub()
+-async def realtime(ws: WebSocket):
+-    await hub.connect(ws)
++async def realtime(ws: WebSocket) -> None:
++    await ws.accept()
++    principal: RealtimePrincipal | None = None
+@@ -48,0 +268,13 @@ async def realtime(ws: WebSocket):
++        raw = await asyncio.wait_for(ws.receive_text(), timeout=AUTH_TIMEOUT_SECONDS)
++        auth = json.loads(raw)
++        if not isinstance(auth, dict) or auth.get("type") != "auth":
++            raise RealtimeAuthError
++        token = auth.get("token")
++        device_id = auth.get("device_id")
++        if not isinstance(token, str) or not token or isinstance(device_id, bool):
++            raise RealtimeAuthError
++        principal = await asyncio.to_thread(authorize_realtime, token, int(device_id))
++        await hub.connect(ws, principal)
++        await ws.send_text(
++            json.dumps({"event": "ready", "data": {"device_id": principal.channel.device_id}})
++        )
+@@ -50 +281,0 @@ async def realtime(ws: WebSocket):
+-            # 心跳保活；客户端可发 ping
+@@ -53,0 +285,2 @@ async def realtime(ws: WebSocket):
++    except (RealtimeAuthError, asyncio.TimeoutError, json.JSONDecodeError, TypeError, ValueError):
++        await _reject(ws)
+@@ -55 +288 @@ async def realtime(ws: WebSocket):
+-        await hub.disconnect(ws)
++        pass
+@@ -57 +290,4 @@ async def realtime(ws: WebSocket):
+-        await hub.disconnect(ws)
++        logger.exception("realtime websocket failed after handshake")
++    finally:
++        if principal is not None:
++            await hub.disconnect(ws, principal.channel)
+@@ -60,8 +296,3 @@ async def realtime(ws: WebSocket):
+-def notify_sync(event: str, data: Any) -> None:
+-    """从同步路由里尽力推送。"""
+-    try:
+-        loop = asyncio.get_event_loop()
+-        if loop.is_running():
+-            asyncio.create_task(hub.broadcast(event, data))
+-    except Exception:
+-        pass
++def notify_sync(channel: RealtimeChannel, event: str, data: Any) -> bool:
++    """Schedule delivery on the FastAPI app loop and return an observable result."""
++    return hub.schedule(channel, event, data)
+diff --git a/tests/test_realtime_ws_tenant.py b/tests/test_realtime_ws_tenant.py
+new file mode 100644
+index 0000000..b4a8bc0
+--- /dev/null
++++ b/tests/test_realtime_ws_tenant.py
+@@ -0,0 +1,328 @@
++"""Offline contract tests for tenant-scoped realtime WebSocket delivery."""
++
++from __future__ import annotations
++
++import asyncio
++import json
++import os
++from pathlib import Path
++import unittest
++from contextlib import contextmanager
++from unittest.mock import patch
++
++from fastapi import HTTPException, WebSocketDisconnect
++
++for _key, _value in {
++    "APP_ENV": "test",
++    "ORACLE_HOST": "127.0.0.1",
++    "ORACLE_PORT": "1521",
++    "ORACLE_SERVICE": "TEST",
++    "ORACLE_USER": "TEST",
++    "ORACLE_PASSWORD": "test-password",
++    "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
++}.items():
++    os.environ.setdefault(_key, _value)
++
++from server import ws_hub  # noqa: E402
++from server.ws_hub import (  # noqa: E402
++    Hub,
++    RealtimeAuthError,
++    RealtimeChannel,
++    RealtimePrincipal,
++)
++
++
++class _Cursor:
++    def __init__(self, row=None):
++        self.row = row
++        self.sql = ""
++        self.binds = {}
++
++    def execute(self, sql, binds):
++        self.sql = sql
++        self.binds = binds
++
++    def fetchone(self):
++        return self.row
++
++
++class _Socket:
++    def __init__(self, *, inbound=None, fail_send=False):
++        self.inbound = list(inbound or [])
++        self.fail_send = fail_send
++        self.accepted = False
++        self.sent: list[str] = []
++        self.closed: tuple[int, str] | None = None
++        self.delivered = asyncio.Event()
++
++    async def accept(self):
++        self.accepted = True
++
++    async def receive_text(self):
++        if not self.inbound:
++            raise WebSocketDisconnect(code=1000)
++        value = self.inbound.pop(0)
++        if isinstance(value, Exception):
++            raise value
++        return value
++
++    async def send_text(self, value):
++        if self.fail_send:
++            raise ConnectionError("test delivery failure")
++        self.sent.append(value)
++        self.delivered.set()
++
++    async def close(self, code=1000, reason=""):
++        self.closed = (code, reason)
++
++
++class ResolverContractTests(unittest.TestCase):
++    def test_authorized_resource_scope_is_derived_from_database(self):
++        cur = _Cursor((11, 22, 33))
++        result = ws_hub.resolve_realtime_channel(cur, user_id=7, device_id=33)
++        self.assertEqual(RealtimeChannel(11, 22, 33), result)
++        normalized = " ".join(cur.sql.split()).upper()
++        self.assertIn("RP.PERM_CODE = 'DEVICE:VIEW'", normalized)
++        self.assertIn("D.REVOKED_AT IS NULL", normalized)
++        self.assertIn("SJZQ_ENTERPRISE_MEMBERSHIP", normalized)
++        self.assertIn("SJZQ_WORKSPACE_MEMBERSHIP", normalized)
++        self.assertEqual({"user_id": 7, "device_id": 33}, cur.binds)
++
++    def test_unauthorized_matrix_returns_no_channel_without_disclosure(self):
++        for case in (
++            "insufficient_permission",
++            "disabled_user",
++            "cross_tenant_device",
++            "revoked_device",
++            "workspace_membership_mismatch",
++            "missing_device",
++        ):
++            with self.subTest(case=case):
++                self.assertIsNone(ws_hub.resolve_realtime_channel(_Cursor(None), 7, 33))
++
++    def test_task_device_scope_requires_assignment_and_tenant_match(self):
++        good = _Cursor((11, 22, 33))
++        self.assertEqual(
++            RealtimeChannel(11, 22, 33),
++            ws_hub.resolve_task_event_channel(good, task_id=44, device_id=33),
++        )
++        normalized = " ".join(good.sql.split()).upper()
++        self.assertIn("D.ENTERPRISE_ID = T.ENTERPRISE_ID", normalized)
++        self.assertIn("D.WORKSPACE_ID = T.WORKSPACE_ID", normalized)
++        self.assertIn("T.DEVICE_ID = D.DEVICE_ID", normalized)
++        self.assertIn("D.REVOKED_AT IS NULL", normalized)
++        for case in ("cross_tenant", "cross_workspace", "wrong_device", "revoked"):
++            with self.subTest(case=case):
++                self.assertIsNone(ws_hub.resolve_task_event_channel(_Cursor(None), 44, 33))
++
++    def test_invalid_token_is_normalized_to_realtime_auth_error(self):
++        with patch.object(ws_hub, "decode_token", side_effect=HTTPException(status_code=401)):
++            with self.assertRaises(RealtimeAuthError):
++                ws_hub.authorize_realtime("bad", 33)
++
++    def test_client_auth_frame_contains_no_client_tenant_scope(self):
++        source = Path("web/src/views/devices/DeviceLive.vue").read_text(encoding="utf-8")
++        auth_block = source[source.index("ws.onopen"):source.index("ws.onmessage")]
++        self.assertIn("token:", auth_block)
++        self.assertIn("device_id:", auth_block)
++        self.assertNotIn("enterprise", auth_block.lower())
++        self.assertNotIn("workspace", auth_block.lower())
++        self.assertIn("setInterval(load, 8000)", source)
++
++    def test_notification_is_after_database_context_commit_boundary(self):
++        source = Path("server/routers/tasks.py").read_text(encoding="utf-8")
++        body = source[source.index("def task_progress"):source.index("@router.post(\"/finish\")")]
++        self.assertIn("# Commit is complete before realtime notification", body)
++        self.assertLess(body.index("append_task_log("), body.index("notify_sync("))
++        notify_line = next(line for line in body.splitlines() if line.startswith("    notify_sync("))
++        self.assertEqual("    notify_sync(", notify_line)
++
++    def test_scope_mismatch_does_not_consume_progress_receipt_before_retry(self):
++        from server.routers import tasks
++        from server.schemas import TaskProgressIn
++
++        receipts: set[str] = set()
++        channel = RealtimeChannel(1, 2, 7)
++
++        class Cursor:
++            def execute(self, _sql, _binds=None):
++                pass
++
++        class Connection:
++            def cursor(self):
++                return Cursor()
++
++        @contextmanager
++        def connection():
++            yield Connection()
++
++        def claim(_cur, progress_id, _task_id, _device_id):
++            if progress_id in receipts:
++                return False
++            receipts.add(progress_id)
++            return True
++
++        body = TaskProgressIn(
++            device_key="device-key",
++            task_id=22,
++            message="delta",
++            success_delta=1,
++            progress_id="progress-retry-1",
++        )
++        common = (
++            patch.object(tasks, "get_conn", connection),
++            patch.object(tasks, "get_device_by_key", return_value={"device_id": 7}),
++            patch.object(tasks, "lock_device", return_value={}),
++            patch.object(tasks, "require_running_task", return_value={}),
++            patch.object(tasks, "_has_collection_jobs", return_value=False),
++            patch.object(tasks, "claim_progress_id", side_effect=claim),
++            patch.object(tasks, "append_task_log", return_value=None),
++            patch.object(tasks, "notify_sync", return_value=True),
++        )
++        with common[0], common[1], common[2], common[3], common[4], common[5], common[6], common[7], \
++                patch.object(tasks, "resolve_task_event_channel", return_value=None):
++            first = tasks.task_progress(body)
++        self.assertFalse(first.ok)
++        self.assertEqual(set(), receipts)
++
++        common_retry = (
++            patch.object(tasks, "get_conn", connection),
++            patch.object(tasks, "get_device_by_key", return_value={"device_id": 7}),
++            patch.object(tasks, "lock_device", return_value={}),
++            patch.object(tasks, "require_running_task", return_value={}),
++            patch.object(tasks, "_has_collection_jobs", return_value=False),
++            patch.object(tasks, "claim_progress_id", side_effect=claim),
++            patch.object(tasks, "append_task_log", return_value=None),
++            patch.object(tasks, "notify_sync", return_value=True),
++            patch.object(tasks, "resolve_task_event_channel", return_value=channel),
++        )
++        with common_retry[0], common_retry[1], common_retry[2], common_retry[3], common_retry[4], \
++                common_retry[5], common_retry[6], common_retry[7], common_retry[8]:
++            retry = tasks.task_progress(body)
++        self.assertTrue(retry.ok)
++        self.assertEqual({"progress-retry-1"}, receipts)
++
++
++class HubIsolationTests(unittest.IsolatedAsyncioTestCase):
++    @staticmethod
++    def principal(channel, user_id=7, expires_at=4102444800):
++        return RealtimePrincipal(user_id, expires_at, channel)
++
++    async def test_only_same_tenant_workspace_and_device_receives(self):
++        hub = Hub(validator=lambda _principal: True)
++        target = RealtimeChannel(1, 2, 3)
++        same = _Socket()
++        other_tenant = _Socket()
++        other_workspace = _Socket()
++        other_device = _Socket()
++        await hub.connect(same, self.principal(target))
++        await hub.connect(other_tenant, self.principal(RealtimeChannel(9, 2, 3)))
++        await hub.connect(other_workspace, self.principal(RealtimeChannel(1, 9, 3)))
++        await hub.connect(other_device, self.principal(RealtimeChannel(1, 2, 9)))
++        await hub.broadcast(target, "task_log", {"task_id": 4})
++        self.assertEqual(1, len(same.sent))
++        self.assertEqual([], other_tenant.sent)
++        self.assertEqual([], other_workspace.sent)
++        self.assertEqual([], other_device.sent)
++
++    async def test_delivery_failure_is_counted_and_failed_peer_removed(self):
++        hub = Hub(validator=lambda _principal: True)
++        channel = RealtimeChannel(1, 2, 3)
++        failed = _Socket(fail_send=True)
++        await hub.connect(failed, self.principal(channel))
++        with self.assertLogs("sjzq.realtime_ws", level="ERROR"):
++            await hub.broadcast(channel, "task_log", {})
++        self.assertEqual(1, hub.stats()["delivery_failures"])
++        self.assertNotIn(channel, hub.clients)
++
++    async def test_worker_thread_schedules_on_bound_app_loop(self):
++        hub = Hub(validator=lambda _principal: True)
++        channel = RealtimeChannel(1, 2, 3)
++        socket = _Socket()
++        await hub.connect(socket, self.principal(channel))
++        hub.bind_loop(asyncio.get_running_loop())
++        scheduled = await asyncio.to_thread(hub.schedule, channel, "task_log", {"task_id": 4})
++        self.assertTrue(scheduled)
++        await asyncio.wait_for(socket.delivered.wait(), timeout=1)
++        self.assertEqual(1, hub.stats()["scheduled"])
++        self.assertEqual(4, json.loads(socket.sent[0])["data"]["task_id"])
++
++    async def test_unbound_loop_failure_is_explicit_and_counted(self):
++        hub = Hub()
++        with self.assertLogs("sjzq.realtime_ws", level="ERROR"):
++            self.assertFalse(hub.schedule(RealtimeChannel(1, 2, 3), "task_log", {}))
++        self.assertEqual(1, hub.stats()["schedule_failures"])
++
++    async def test_closed_loop_failure_is_explicit_and_counted(self):
++        hub = Hub()
++        closed_loop = asyncio.new_event_loop()
++        closed_loop.close()
++        hub.bind_loop(closed_loop)
++        with self.assertLogs("sjzq.realtime_ws", level="ERROR"):
++            self.assertFalse(hub.schedule(RealtimeChannel(1, 2, 3), "task_log", {}))
++        self.assertEqual(1, hub.stats()["schedule_failures"])
++
++    async def test_membership_revoke_after_connect_closes_before_next_delivery(self):
++        authorization = {"active": True}
++        hub = Hub(validator=lambda _principal: authorization["active"])
++        channel = RealtimeChannel(1, 2, 3)
++        socket = _Socket()
++        await hub.connect(socket, self.principal(channel))
++        await hub.broadcast(channel, "task_log", {"sequence": 1})
++        self.assertEqual(1, len(socket.sent))
++
++        authorization["active"] = False
++        with self.assertLogs("sjzq.realtime_ws", level="WARNING"):
++            await hub.broadcast(channel, "task_log", {"sequence": 2})
++        self.assertEqual(1, len(socket.sent))
++        self.assertEqual((1008, "authorization revoked"), socket.closed)
++        self.assertNotIn(channel, hub.clients)
++
++    async def test_expired_token_cannot_be_kept_alive_by_ping(self):
++        expired = RealtimePrincipal(7, 1, RealtimeChannel(1, 2, 3))
++        self.assertFalse(ws_hub.revalidate_realtime(expired))
++
++
++class HandshakeTests(unittest.IsolatedAsyncioTestCase):
++    async def test_valid_first_frame_connects_and_returns_ready(self):
++        socket = _Socket(inbound=[json.dumps({"type": "auth", "token": "token", "device_id": 33})])
++        channel = RealtimeChannel(11, 22, 33)
++        principal = RealtimePrincipal(7, 4102444800, channel)
++        with patch.object(ws_hub, "authorize_realtime", return_value=principal):
++            await ws_hub.realtime(socket)
++        self.assertTrue(socket.accepted)
++        self.assertEqual("ready", json.loads(socket.sent[0])["event"])
++        self.assertNotIn(channel, ws_hub.hub.clients)
++
++    async def test_missing_or_invalid_credentials_close_with_policy_violation(self):
++        cases = {
++            "missing_token": {"type": "auth", "device_id": 33},
++            "missing_device": {"type": "auth", "token": "token"},
++            "boolean_device": {"type": "auth", "token": "token", "device_id": True},
++            "wrong_frame": {"type": "ping"},
++        }
++        for case, payload in cases.items():
++            with self.subTest(case=case):
++                socket = _Socket(inbound=[json.dumps(payload)])
++                with self.assertLogs("sjzq.realtime_ws", level="WARNING"):
++                    await ws_hub.realtime(socket)
++                self.assertEqual(1008, socket.closed[0])
++
++    async def test_permission_tenant_revocation_and_resource_failures_are_indistinguishable(self):
++        for case in (
++            "insufficient_permission",
++            "cross_tenant",
++            "revoked_device",
++            "workspace_membership",
++            "resource_mismatch",
++        ):
++            with self.subTest(case=case):
++                socket = _Socket(inbound=[json.dumps({"type": "auth", "token": "token", "device_id": 33})])
++                with patch.object(ws_hub, "authorize_realtime", side_effect=RealtimeAuthError), \
++                        self.assertLogs("sjzq.realtime_ws", level="WARNING"):
++                    await ws_hub.realtime(socket)
++                self.assertEqual((1008, "authorization failed"), socket.closed)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_realtime_ws_tenant_oracle.py b/tests/test_realtime_ws_tenant_oracle.py
+new file mode 100644
+index 0000000..53982b0
+--- /dev/null
++++ b/tests/test_realtime_ws_tenant_oracle.py
+@@ -0,0 +1,184 @@
++"""Opt-in Oracle ownership/membership gate for realtime WebSocket scope."""
++
++from __future__ import annotations
++
++import os
++import unittest
++import uuid
++
++for _key, _value in {
++    "APP_ENV": "test",
++    "ORACLE_HOST": "127.0.0.1",
++    "ORACLE_PORT": "1521",
++    "ORACLE_SERVICE": "TEST",
++    "ORACLE_USER": "TEST",
++    "ORACLE_PASSWORD": "test-password",
++    "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
++}.items():
++    os.environ.setdefault(_key, _value)
++
++from server.db import close_pool, get_conn, init_pool, next_id  # noqa: E402
++from server.ws_hub import (  # noqa: E402
++    RealtimeChannel,
++    resolve_realtime_channel,
++    resolve_task_event_channel,
++)
++
++ENABLED = os.getenv("REALTIME_WS_ORACLE_TEST_ENABLED") == "1"
++
++
++@unittest.skipUnless(ENABLED, "Realtime WS Oracle sandbox test not enabled")
++class RealtimeWsOracleGate(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        init_pool()
++
++    @classmethod
++    def tearDownClass(cls):
++        close_pool()
++
++    def test_membership_permission_revocation_and_resource_ownership_matrix(self):
++        tag = uuid.uuid4().hex[:12]
++        with get_conn() as conn:
++            cur = conn.cursor()
++            try:
++                role_view = next_id(cur, "SJZQ_SEQ_ROLE")
++                role_no_view = next_id(cur, "SJZQ_SEQ_ROLE")
++                for role_id, suffix in ((role_view, "view"), (role_no_view, "none")):
++                    cur.execute(
++                        """INSERT INTO SJZQ_ROLE
++                           (ROLE_ID,ROLE_CODE,ROLE_NAME) VALUES (:id,:code,:name)""",
++                        {"id": role_id, "code": f"ws-{suffix}-{tag}", "name": f"WS {suffix} {tag}"},
++                    )
++                cur.execute(
++                    "INSERT INTO SJZQ_ROLE_PERM (ROLE_ID,PERM_CODE) VALUES (:id,'device:view')",
++                    {"id": role_view},
++                )
++
++                users = {}
++                for suffix, status in (("valid", "enabled"), ("no_perm", "enabled"),
++                                       ("disabled", "disabled"), ("other", "enabled")):
++                    user_id = next_id(cur, "SJZQ_SEQ_USER")
++                    users[suffix] = user_id
++                    cur.execute(
++                        """INSERT INTO SJZQ_USER
++                           (USER_ID,USERNAME,PASSWORD_HASH,ROLE_ID,STATUS)
++                           VALUES (:id,:username,'test-only',:role_id,:status)""",
++                        {"id": user_id, "username": f"ws-{suffix}-{tag}",
++                         "role_id": role_view, "status": status},
++                    )
++
++                tenants = []
++                for suffix in ("a", "b"):
++                    enterprise_id = next_id(cur, "SJZQ_SEQ_ENTERPRISE")
++                    workspace_id = next_id(cur, "SJZQ_SEQ_WORKSPACE")
++                    tenants.append((enterprise_id, workspace_id))
++                    cur.execute(
++                        """INSERT INTO SJZQ_ENTERPRISE
++                           (ENTERPRISE_ID,ENTERPRISE_CODE,ENTERPRISE_NAME)
++                           VALUES (:id,:code,:name)""",
++                        {"id": enterprise_id, "code": f"ws-{suffix}-{tag}",
++                         "name": f"WS {suffix} {tag}"},
++                    )
++                    cur.execute(
++                        """INSERT INTO SJZQ_WORKSPACE
++                           (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME)
++                           VALUES (:workspace,:enterprise,'main','Main')""",
++                        {"workspace": workspace_id, "enterprise": enterprise_id},
++                    )
++                (enterprise_a, workspace_a), (enterprise_b, workspace_b) = tenants
++                workspace_a2 = next_id(cur, "SJZQ_SEQ_WORKSPACE")
++                cur.execute(
++                    """INSERT INTO SJZQ_WORKSPACE
++                       (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME)
++                       VALUES (:workspace,:enterprise,'restricted','Restricted')""",
++                    {"workspace": workspace_a2, "enterprise": enterprise_a},
++                )
++
++                memberships = (
++                    (enterprise_a, users["valid"], role_view),
++                    (enterprise_a, users["no_perm"], role_no_view),
++                    (enterprise_a, users["disabled"], role_view),
++                    (enterprise_b, users["other"], role_view),
++                )
++                for enterprise_id, user_id, role_id in memberships:
++                    cur.execute(
++                        """INSERT INTO SJZQ_ENTERPRISE_MEMBERSHIP
++                           (MEMBERSHIP_ID,ENTERPRISE_ID,USER_ID,ROLE_ID,STATUS)
++                           VALUES (:id,:enterprise,:user_id,:role_id,'active')""",
++                        {"id": next_id(cur, "SJZQ_SEQ_ENT_MEMBERSHIP"),
++                         "enterprise": enterprise_id, "user_id": user_id, "role_id": role_id},
++                    )
++                # Presence of workspace rows makes workspace membership restrictive.
++                cur.execute(
++                    """INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
++                       (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
++                       VALUES (:enterprise,:workspace,:user_id,:role_id)""",
++                    {"enterprise": enterprise_a, "workspace": workspace_a,
++                     "user_id": users["valid"], "role_id": role_view},
++                )
++                cur.execute(
++                    """INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
++                       (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
++                       VALUES (:enterprise,:workspace,:user_id,:role_id)""",
++                    {"enterprise": enterprise_b, "workspace": workspace_b,
++                     "user_id": users["other"], "role_id": role_view},
++                )
++                cur.execute(
++                    """INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
++                       (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
++                       VALUES (:enterprise,:workspace,:user_id,:role_id)""",
++                    {"enterprise": enterprise_a, "workspace": workspace_a2,
++                     "user_id": users["no_perm"], "role_id": role_no_view},
++                )
++
++                devices = {}
++                for suffix, enterprise_id, workspace_id, revoked in (
++                    ("a", enterprise_a, workspace_a, False),
++                    ("a_other", enterprise_a, workspace_a, False),
++                    ("a_workspace_2", enterprise_a, workspace_a2, False),
++                    ("revoked", enterprise_a, workspace_a, True),
++                    ("b", enterprise_b, workspace_b, False),
++                ):
++                    device_id = next_id(cur, "SJZQ_SEQ_DEVICE")
++                    devices[suffix] = device_id
++                    cur.execute(
++                        """INSERT INTO SJZQ_DEVICE
++                           (DEVICE_ID,DEVICE_KEY,DEVICE_NAME,ENTERPRISE_ID,WORKSPACE_ID,REVOKED_AT)
++                           VALUES (:id,:key,:name,:enterprise,:workspace,
++                                   CASE WHEN :revoked=1 THEN SYSTIMESTAMP ELSE NULL END)""",
++                        {"id": device_id, "key": f"ws-{suffix}-{tag}", "name": suffix,
++                         "enterprise": enterprise_id, "workspace": workspace_id,
++                         "revoked": 1 if revoked else 0},
++                    )
++
++                task_a = next_id(cur, "SJZQ_SEQ_TASK")
++                cur.execute(
++                    """INSERT INTO SJZQ_TASK
++                       (TASK_ID,TASK_NAME,TASK_TYPE,PLATFORM_CODE,STATUS,PRIORITY,DEVICE_ID,
++                        TARGET_COUNT,ENTERPRISE_ID,WORKSPACE_ID)
++                       VALUES (:id,:name,'collect','pinduoduo','running',5,:device,0,:enterprise,:workspace)""",
++                    {"id": task_a, "name": f"ws-task-{tag}", "device": devices["a"],
++                     "enterprise": enterprise_a, "workspace": workspace_a},
++                )
++
++                expected = RealtimeChannel(enterprise_a, workspace_a, devices["a"])
++                self.assertEqual(expected, resolve_realtime_channel(cur, users["valid"], devices["a"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["no_perm"], devices["a"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["disabled"], devices["a"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["b"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["a_workspace_2"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["valid"], devices["revoked"]))
++                self.assertIsNone(resolve_realtime_channel(cur, users["other"], devices["a"]))
++                self.assertEqual(expected, resolve_task_event_channel(cur, task_a, devices["a"]))
++                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["a_other"]))
++                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["a_workspace_2"]))
++                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["b"]))
++                self.assertIsNone(resolve_task_event_channel(cur, task_a, devices["revoked"]))
++            finally:
++                # The gate never persists sample tenants, users, devices, or tasks.
++                conn.rollback()
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_task_state_r1.py b/tests/test_task_state_r1.py
+index 1c58635..9f95c78 100644
+--- a/tests/test_task_state_r1.py
++++ b/tests/test_task_state_r1.py
+@@ -19,0 +20 @@ from server.task_state_service import claim_progress_id  # noqa: E402
++from server.ws_hub import RealtimeChannel  # noqa: E402
+@@ -115,0 +117 @@ class R1ApiTransactionTest(unittest.TestCase):
++             patch.object(tasks, "resolve_task_event_channel", return_value=RealtimeChannel(1, 1, 7)), \
+diff --git a/web/src/views/devices/DeviceLive.vue b/web/src/views/devices/DeviceLive.vue
+index d6dff1d..f3a7684 100644
+--- a/web/src/views/devices/DeviceLive.vue
++++ b/web/src/views/devices/DeviceLive.vue
+@@ -75,0 +76,7 @@ function connectWs() {
++  ws.onopen = () => {
++    ws.send(JSON.stringify({
++      type: 'auth',
++      token: localStorage.getItem('sjzq_token') || '',
++      device_id: Number(id),
++    }))
++  }

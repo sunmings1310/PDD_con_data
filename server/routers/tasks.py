@@ -23,7 +23,7 @@ from server.services import (
     get_device_by_key,
     parse_json_obj,
 )
-from server.ws_hub import notify_sync
+from server.ws_hub import notify_sync, resolve_task_event_channel
 from server.task_state import StateConflict, TaskItemStatus, TaskStatus, task_status, task_storage_status
 from server.task_state_service import (
     close_unfinished_items,
@@ -852,6 +852,7 @@ def pull_task(device_key: str, platform_code: str | None = None):
 
 @router.post("/progress")
 def task_progress(body: TaskProgressIn):
+    event_channel = None
     with get_conn() as conn:
         cur = conn.cursor()
         device = get_device_by_key(cur, body.device_key)
@@ -874,6 +875,14 @@ def task_progress(body: TaskProgressIn):
             if not body.progress_id:
                 return ApiOk(ok=False, message="delta progress requires progress_id",
                              data={"error_code": "PROGRESS_ID_REQUIRED"})
+        event_channel = resolve_task_event_channel(cur, body.task_id, int(device["device_id"]))
+        if event_channel is None:
+            return ApiOk(
+                ok=False,
+                message="task/device realtime scope mismatch",
+                data={"error_code": "REALTIME_SCOPE_MISMATCH"},
+            )
+        if has_delta:
             if not claim_progress_id(cur, body.progress_id, body.task_id, int(device["device_id"])):
                 return ApiOk(message="duplicate progress ignored",
                              data={"progress_id": body.progress_id, "idempotent": True})
@@ -932,16 +941,18 @@ def task_progress(body: TaskProgressIn):
             device_id=device["device_id"],
             level=body.level,
         )
-        notify_sync(
-            "task_log",
-            {
-                "task_id": body.task_id,
-                "device_id": device["device_id"],
-                "message": body.message,
-                "level": body.level,
-            },
-        )
-        return ApiOk()
+    # Commit is complete before realtime notification; Oracle remains authoritative.
+    notify_sync(
+        event_channel,
+        "task_log",
+        {
+            "task_id": body.task_id,
+            "device_id": event_channel.device_id,
+            "message": body.message,
+            "level": body.level,
+        },
+    )
+    return ApiOk()
 
 
 @router.post("/finish")

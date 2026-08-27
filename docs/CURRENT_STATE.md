@@ -1,7 +1,7 @@
 # PDD_APP 当前状态
 
 > **Status: CURRENT IMPLEMENTATION AUTHORITY**
-> 更新日期：2026-08-25
+> 更新日期：2026-08-26
 > 本文只记录仍影响开发、Review、E2E 和发布决策的当前事实。产品范围见 [`../PRODUCT.md`](../PRODUCT.md)，流程见 [`../WORKFLOW.md`](../WORKFLOW.md)，任务状态见 [`backlog.md`](backlog.md)。
 
 ## 1. 当前可信基线
@@ -9,14 +9,14 @@
 | 项目 | 当前值 |
 |---|---|
 | 主分支 | `main` |
-| 当前主线基线 | `42610e15cf683158eb2f96a3dc3d08e8b1f5e018` |
+| 当前主线基线 | `b3a7e2c493f44f4cb0bde7645d2c79340d019d65` |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
-| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：PR / DRAFT` |
+| 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
 | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
 | Golden Sample | PDD `platform_product_id=985843042423` |
 
-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`；业务能力未改变。
+PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate；业务能力未改变。
 
 ## 2. 当前权威主链
 
@@ -83,15 +83,15 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 治理 Head、Review、验证与 merge 证据以 [`tasks/REPO-GOV-ALIGN-001.md`](tasks/REPO-GOV-ALIGN-001.md) 和 PR #3 为准。
 
-## 7. Oracle 本地证据门禁候选状态
+## 7. Oracle 本地证据门禁状态
 
-`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
+`CI-ORACLE-LOCAL-GATE-001` 已获 Product Owner 批准并通过 PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6) merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；Independent Review 对固定实现 Head `40fd4a6989f95b3fa06a9e25afbe19b9a664a6d1` 给出 `ACCEPT`，无 P0/P1/P2 finding：
 
 - GitHub Actions 保留 Python offline、Android JVM、Web build、Governance 与 Oracle applicability，但不连接数据库、不读取 T003 Oracle/JWT repository secrets；
 - Oracle-sensitive PR 必须在固定 PR Head 的本地隔离 Oracle 上执行 canonical strict command，并在 PR body 提交结构化 manifest；
 - Hosted validator 检查 Head、时效、canonical 九文件集合/计数、字面输出和四制品 hash、rollback 与无持久业务变更；`BLOCKED`/`SKIPPED` 不能冒充 `PASS`；
 - Independent Reviewer 仍必须核验本地运行来源与隔离性。该人工信任边界不等价于 Hosted DB run；
-- 当前状态为 Draft PR [#6](https://github.com/sunmings1310/PDD_con_data/pull/6)，尚未进入 main；Head `ec01d90` 的 push 与 pull_request Hosted Core CI 均成功，Oracle applicability 成功且本治理的 evidence job 明确 `skipped`，没有数据库 job。merge 仍需 Product Owner 明确批准。PR #5 保持 Draft/BLOCKED，待本治理 merge 后从新 main 更新并在其最终 Head 重跑本地 Oracle strict。
+- 门禁已经进入 main；GitHub Actions 不运行数据库测试。Oracle-sensitive PR 必须由本地隔离 Oracle strict manifest 和 Hosted evidence validator 共同通过。PR #5 正从新 main 更新，并将在固定最终 Head 重新生成本地 Oracle strict 证据。
 
 ## 8. 文档唯一职责
 
@@ -111,10 +111,12 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 ## 9. 下一交接
 
-治理基线已进入 main；`CI-ORACLE-LOCAL-GATE-001` 正在独立 Review，不自动启动新业务阶段：
+`BL-110-WS-TENANT-BOUNDARY` 已在 Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 完成本地实现与 Independent Review `ACCEPT`；当前从 `main@b3a7e2c` 更新，重新生成固定 Head 的本地 Oracle strict 证据并运行 Hosted evidence gate。该能力尚未 merge 或 release，因此 main 仍不包含它。
+
+当前执行队列保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 main 开始。本轮完成 PR #5 固定 Head 门禁后停止，merge 仍需 Product Owner 明确批准：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`。
 
-先完成本地 Oracle evidence gate 的 Review、Draft PR 与 Hosted offline CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
+先完成 PR #5 固定 Head 的本地 Oracle evidence manifest 与 Hosted offline/evidence CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。

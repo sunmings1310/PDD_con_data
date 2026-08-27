@@ -1,0 +1,71 @@
+BL-110-WS-TENANT-BOUNDARY VERIFICATION
+Date: 2026-08-26 Asia/Shanghai
+Branch: codex/bl-110-ws-tenant-boundary
+Base: origin/main@b3a7e2c493f44f4cb0bde7645d2c79340d019d65
+Original PR head before refresh: 6f35f2e342f8e283cef340e42de610c21bd78952
+Merge-refresh head: cd6d6db4c1ec4b6721ed22358d9df4bfd5e4d501
+Independent Review: ACCEPT on implementation; no blocking finding. Fixed-head Oracle evidence and Hosted validator are recorded in PR #5 body after this artifact commit.
+
+CHANGED BRANCH / FIELD
+- Governing branch: before each Hub delivery, `if not authorized` closes with WS 1008 and removes the subscriber before payload send.
+- Governing fields: `RealtimePrincipal.user_id`, `RealtimePrincipal.expires_at`, and `RealtimePrincipal.channel` bind identity, token expiry, and the server-derived Enterprise/Workspace/Device scope.
+- Producer branch: Task/Device realtime scope is resolved before `claim_progress_id`; Oracle commit completes before `notify_sync`.
+
+ORIGINAL / MODIFIED
+- Original file: origin/main:server/ws_hub.py
+- Original Git blob: a8bd8a1ad7dfb3c7795a9d77c512581bb6cc6fcf
+- Modified file: D:\work\PDD_con_data_ws_tenant\server\ws_hub.py
+- Modified Git blob: c687039fb89d962677fd2c0fa31b0e7fa9c4f91f
+- Preserved original artifact hashes before refresh: MODIFIED_FILE C95554AAB7B060EF6CC6A00CCF4DC58FBA06160CCD08FBEED62391F09B1EA20C; DIFF_FILE.patch 03FEE092491B9C129447FC43D0A4393878FF0DA14BC43C7BDBAA189B5F481624; VERIFICATION.txt 71AE17DE98FA99D2CC03B024B140FF1FFB39654589FEC52E323BBB4D672E93E5; ROLLBACK.sh A50161B18957D70DA90D8E5423737E140AB0F90212C6022C6C1C0AA63786FC57.
+- Restored behavior/status: origin/main has the pre-BL-110 global Hub behavior; rollback restores that exact main baseline only in the separate rollback copy. The retained task worktree remains modified and closes the P0.
+
+FOUR ARTIFACTS
+1. MODIFIED_FILE: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\MODIFIED_FILE
+2. DIFF_FILE: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\DIFF_FILE.patch
+3. VERIFICATION.txt: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\VERIFICATION.txt
+4. executable ROLLBACK.sh: D:\work\PDD_con_data_ws_tenant\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\ROLLBACK.sh
+
+REFRESHED SHA-256
+- MODIFIED_FILE: C95554AAB7B060EF6CC6A00CCF4DC58FBA06160CCD08FBEED62391F09B1EA20C
+- DIFF_FILE.patch: 78442B76FFCE660C9CE533C45B948946A0810AC1D568E0F34FDC1AF8DFD76129
+- ROLLBACK.sh: A50161B18957D70DA90D8E5423737E140AB0F90212C6022C6C1C0AA63786FC57; Git mode 100755.
+
+BASELINE
+Command:
+  powershell: `$source = git show origin/main:server/ws_hub.py; $ok = ($source -match 'self\.clients') -and ($source -match 'except Exception'); ...`
+Input:
+  origin/main:server/ws_hub.py at b3a7e2c493f44f4cb0bde7645d2c79340d019d65.
+Literal output/result:
+  BASELINE_WS_GLOBAL_UNAUTHENTICATED_AND_FAILURE_SILENT=TRUE
+Exit status: 0
+
+MODIFIED
+Command:
+  D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_realtime_ws_tenant tests.test_task_state_r1
+Input:
+  Dummy test config; fake WebSocket/DB/app loop; real modified source. No secret or business data.
+Literal output/result:
+  Ran 32 tests in 0.376s
+  OK
+  MODIFIED_TEST_EXIT=0
+Exit status: 0
+
+ROLLBACK
+Command:
+  D:\Git\bin\sh.exe D:\work\PDD_con_data_ws_tenant_rollback_final2\docs\tasks\BL-110-WS-TENANT-BOUNDARY-verification\ROLLBACK.sh /d/work/PDD_con_data_ws_tenant_rollback_final2
+  git -C D:\work\PDD_con_data_ws_tenant_rollback_final2 diff --exit-code origin/main -- .
+Input:
+  Separate clone at cd6d6db4c1ec4b6721ed22358d9df4bfd5e4d501; refs/remotes/origin/main fixed to b3a7e2c493f44f4cb0bde7645d2c79340d019d65; refreshed four artifacts copied over the tracked artifact directory. The retained modified worktree is not the target.
+Literal output/result:
+  ROLLBACK_APPLIED=TRUE
+  RESTORED_BASE=origin/main
+  ROLLBACK_SCRIPT_EXIT=0
+  ROLLBACK_DIFF_TO_ORIGIN_MAIN_EXIT=0
+  RESTORED_BASELINE_BEHAVIOR=TRUE
+Exit status: 0
+
+RESTORED BEHAVIOR / STATUS
+- The rollback copy matches origin/main across the complete BL-110 task delta.
+- The baseline probe again finds the pre-BL-110 global Hub behavior.
+- D:\work\PDD_con_data_ws_tenant remains on the modified branch.
+- PR #5 remains Draft; no merge, release, Schema/migration, Generic SKU, P1/P2 data-model, Phase 6B, real-account, or real-device action occurred.
