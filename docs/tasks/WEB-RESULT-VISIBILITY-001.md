@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-RESULT-VISIBILITY-001
 - **Title**：采集结果可见性与证据下钻
-- **Status**：REVIEW_FIX_2_DEV_SELF_CHECK_COMPLETE（E2E PASS；等待新 fixed-Head Independent Review）
+- **Status**：MERGED / ACCEPTED（PR #7；`main@f7ba0fda446b6b901eb57de4a38f365dc96bec24`）
 - **Base**：`origin/main@09e717cdc3f67eaaf620d6a5e796445ec0334674`
 - **Branch**：`codex/web-result-visibility-001`
 - **Worktree**：`D:\work\PDD_con_data_web_result_visibility`
@@ -69,7 +69,7 @@
 - [x] 所有读取继续执行 enterprise/workspace 所有权校验；跨租户、无权限及不存在资源不泄露数据。
 - [x] 不改变写入、Task 完成、人工保存、Schema/migration、默认 PDD 采集路径或 Android 行为。
 - [x] targeted、Python module/full、Web production build、Python compile、Android JVM 与 `git diff --check` 按适用门禁通过。
-- [ ] 新 fixed Head Oracle strict、E2E 与 Independent Review 完成；无新增 P0。
+- [x] 新 fixed Head Oracle strict、E2E 与 Independent Review 完成；无新增 P0。
 
 ## Test Plan
 
@@ -90,12 +90,12 @@
 - Required：**Yes**。
 - Reason：修改了 Oracle-backed Task/Raw/Quality/Snapshot/Quarantine 管理查询和 tenant-bound 资源 ID 绑定；Hosted CI 不连接数据库。
 - Local isolated environment identifier：本地隔离 writable T003 test schema；凭据来自 ignored environment，未写入仓库；targeted fixture 已清理。
-- Fixed Head SHA：Review Fix 2 最终 commit SHA 由外部 manifest 与 Control handoff 绑定，避免提交 manifest 后再次移动 Head。
+- Fixed Head SHA：`2309af8475a4ae3feb66a10aec5e32d911e2b25d`。
 - Canonical command / test count / literal result hash / exit：最终 Head 独占执行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict`；外部 manifest 记录完整 literal output/hash、46/46、skipped=0、exit 0。
-- Evidence generated at / expiry：最终 commit 后生成；validator 时效为 72 小时，精确 UTC 时间见外部 manifest。
+- Evidence generated at / expiry：最终 commit 后生成并由 PR #7 Hosted evidence gate 验证；精确 UTC 时间见 PR manifest。
 - Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
-- Hosted evidence validator：外部 manifest 在最终 Head 使用 `.github/scripts/validate_oracle_local_evidence.py` 独立验证；结果随 handoff 提交。
-- Independent Reviewer provenance check：E2E 已 PASS；Reviewer 继续核对最终 Head 本地隔离 Oracle 来源、cleanup、rollback 与四制品 hash。
+- Hosted evidence validator：PR #7 Core CI #33050939542，`Oracle local evidence gate=success`。
+- Independent Reviewer provenance check：`ACCEPT`；E2E `PASS`，已核对最终 Head 本地隔离 Oracle 来源、cleanup、rollback 与四制品 hash。
 
 ## Real-device Gate
 
@@ -136,4 +136,4 @@
   6. **RESOLVED**：deferred confirm 期间 A→B 切换会在 POST 前返回 stale，固定 `taskId` 不读取实时 route；测试确认 `stale_request_sent=false`。
   7. **RESOLVED**：TaskTrace fetch outcome 区分 `ok/failed/stale`；只有当前 generation 的真实 `failed` 才清空 selection/attempts/events，旧 A stale 不影响 B。
   5. **RESOLVED**：`VERIFICATION.txt` 可复制命令改用 forward-slash path/PowerShell 变量，移除反斜杠转义歧义；副本 rollback 重测。
-- Commit / PR：最终 Dev commit 与 push 完成后在 handoff 记录固定 SHA；PR 未创建。
+- Commit / PR：固定 Head `2309af8475a4ae3feb66a10aec5e32d911e2b25d`；PR [#7](https://github.com/sunmings1310/PDD_con_data/pull/7) 已普通 merge，merge commit `f7ba0fda446b6b901eb57de4a38f365dc96bec24`。
