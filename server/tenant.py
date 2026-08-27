@@ -84,7 +84,8 @@ def require_tenant_perms(*needed: str):
 def list_user_contexts(cur: Any, user_id: int) -> list[dict[str, Any]]:
     cur.execute(
         """SELECT e.ENTERPRISE_ID,e.ENTERPRISE_CODE,e.ENTERPRISE_NAME,
-                  w.WORKSPACE_ID,w.WORKSPACE_CODE,w.WORKSPACE_NAME,r.ROLE_CODE,r.ROLE_NAME
+                  w.WORKSPACE_ID,w.WORKSPACE_CODE,w.WORKSPACE_NAME,
+                  r.ROLE_ID,r.ROLE_CODE,r.ROLE_NAME
              FROM SJZQ_ENTERPRISE_MEMBERSHIP m
              JOIN SJZQ_ENTERPRISE e ON e.ENTERPRISE_ID=m.ENTERPRISE_ID AND e.STATUS='active'
              JOIN SJZQ_WORKSPACE w ON w.ENTERPRISE_ID=e.ENTERPRISE_ID AND w.STATUS='active'
@@ -96,7 +97,18 @@ def list_user_contexts(cur: Any, user_id: int) -> list[dict[str, Any]]:
             ORDER BY e.ENTERPRISE_NAME,w.WORKSPACE_NAME""",
         {"user_id": user_id},
     )
-    return rows_as_dicts(cur)
+    contexts = rows_as_dicts(cur)
+    permissions_by_role: dict[int, list[str]] = {}
+    for context in contexts:
+        role_id = int(context["role_id"])
+        if role_id not in permissions_by_role:
+            cur.execute(
+                "SELECT PERM_CODE FROM SJZQ_ROLE_PERM WHERE ROLE_ID=:role_id ORDER BY PERM_CODE",
+                {"role_id": role_id},
+            )
+            permissions_by_role[role_id] = [str(row[0]) for row in cur.fetchall()]
+        context["perms"] = list(permissions_by_role[role_id])
+    return contexts
 
 
 def tenant_predicate(alias: str = "") -> str:

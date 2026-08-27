@@ -27,9 +27,10 @@ class WebClientContractTests(unittest.TestCase):
         excel = self.source("web/src/views/excel/ExcelMatch.vue")
         self.assertNotRegex(excel, r"(?:from\s+['\"]axios['\"]|\baxios\.)")
         self.assertNotIn("tokenHeaders", excel)
-        self.assertIn("http.getBlob('/api/excel/template')", excel)
+        self.assertIn("http.getBlob('/api/excel/template', { expectedFile: 'xlsx' })", excel)
         self.assertIn("const response = await http.post(", excel)
         self.assertIn("const blob = await http.postBlob(", excel)
+        self.assertIn("{ expectedFile: 'zip' }", excel)
         self.assertNotIn("response.data.data", excel)
 
     def test_excel_action_permissions_match_server_dependencies(self):
@@ -67,10 +68,35 @@ class WebClientContractTests(unittest.TestCase):
         self.assertIn("controller.abort('client-context-changed')", context)
         self.assertIn("context.generation === snapshot.generation", context)
 
+    def test_selected_tenant_permissions_replace_global_profile_permissions(self):
+        tenant = self.source("server/tenant.py")
+        store = self.source("web/src/stores/user.js")
+        layout = self.source("web/src/layout/AdminLayout.vue")
+        self.assertIn('context["perms"] = list(permissions_by_role[role_id])', tenant)
+        self.assertIn("perms: (s) => s.contextPermissions", store)
+        self.assertIn("permissionsForTenant(", store)
+        self.assertNotIn("profile?.role_code === 'super_admin'", store)
+        self.assertIn("hasRoutePermissions(route.meta", layout)
+        self.assertIn("await router.replace('/profile')", layout)
+
     def test_not_found_mapping_remains_non_enumerable(self):
         errors = self.source("web/src/api/clientErrors.js")
         self.assertIn("资源不存在或不属于当前租户", errors)
         self.assertRegex(errors, r"status === 404 \|\| code === CLIENT_ERROR_CODES\.NOT_FOUND")
+        status_401 = errors.index("if (status === 401)")
+        payload_code = errors.index("const code = payload?.data?.error_code")
+        self.assertLess(status_401, payload_code)
+        self.assertIn("CANONICAL_NOT_FOUND_DATA", errors)
+
+    def test_blob_downloads_require_explicit_trusted_file_contract(self):
+        http = self.source("web/src/api/http.js")
+        files = self.source("web/src/api/clientFiles.js")
+        node_gate = self.source("web/scripts/test-client-contract.mjs")
+        self.assertIn("expectedFile || '__missing__'", http)
+        for marker in ("text/", "json", "html", "application/octet-stream"):
+            self.assertIn(marker, files)
+        self.assertIn("import http, { setHttpErrorNotifier }", node_gate)
+        self.assertIn("BLOB_NON_FILE=PASS outcome=REJECTED", node_gate)
 
     def test_no_unapproved_direct_http_bypass(self):
         violations: list[str] = []

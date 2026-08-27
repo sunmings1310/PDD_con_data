@@ -9,7 +9,7 @@ from server import management_queries
 from server.schema_migrations import (
     P5_INDEXES, P5_MIGRATION_ID, P5_TABLES, P5_TENANT_COLUMNS,
 )
-from server.tenant import TenantContext
+from server.tenant import TenantContext, list_user_contexts
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,10 +33,51 @@ class Cursor:
     def fetchall(self): rows, self._rows = self._rows, []; return rows
 
 
+class ContextCursor:
+    def __init__(self):
+        self.description = []
+        self._rows = []
+        self.role_queries: list[int] = []
+
+    def execute(self, sql, params=None):
+        normalized = " ".join(str(sql).split()).upper()
+        if "FROM SJZQ_ENTERPRISE_MEMBERSHIP" in normalized:
+            self.description = [(name,) for name in (
+                "ENTERPRISE_ID", "ENTERPRISE_CODE", "ENTERPRISE_NAME",
+                "WORKSPACE_ID", "WORKSPACE_CODE", "WORKSPACE_NAME",
+                "ROLE_ID", "ROLE_CODE", "ROLE_NAME",
+            )]
+            self._rows = [
+                (11, "A", "Enterprise A", 101, "A1", "Workspace A1", 7, "viewer", "Viewer"),
+                (11, "A", "Enterprise A", 102, "A2", "Workspace A2", 7, "viewer", "Viewer"),
+                (22, "B", "Enterprise B", 201, "B1", "Workspace B1", 8, "operator", "Operator"),
+            ]
+        else:
+            role_id = int((params or {})["role_id"])
+            self.role_queries.append(role_id)
+            self.description = [("PERM_CODE",)]
+            self._rows = {
+                7: [("data:view",)],
+                8: [("task:create",), ("task:view",)],
+            }[role_id]
+
+    def fetchall(self):
+        rows, self._rows = self._rows, []
+        return rows
+
+
 CTX_A = TenantContext(11, 101, 1, 1, "viewer", frozenset({"data:view", "task:view"}))
 
 
 class Phase5TenantContractTest(unittest.TestCase):
+    def test_tenant_context_list_has_membership_role_permissions(self):
+        cursor = ContextCursor()
+        contexts = list_user_contexts(cursor, user_id=1)
+        self.assertEqual(contexts[0]["perms"], ["data:view"])
+        self.assertEqual(contexts[1]["perms"], ["data:view"])
+        self.assertEqual(contexts[2]["perms"], ["task:create", "task:view"])
+        self.assertEqual(cursor.role_queries, [7, 8])
+
     def test_enterprise_workspace_membership_quota_and_private_product_exist(self):
         ddl = "\n".join(sql for _, sql in P5_TABLES).upper()
         for table in ("SJZQ_ENTERPRISE", "SJZQ_WORKSPACE", "SJZQ_ENTERPRISE_MEMBERSHIP",

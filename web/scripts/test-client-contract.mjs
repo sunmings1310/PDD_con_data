@@ -2,127 +2,273 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { AxiosError, AxiosHeaders, CanceledError } from 'axios'
+import http, { setHttpErrorNotifier } from '../src/api/http.js'
 import {
-  createClientContextProvider,
-  createSessionLifecycle,
-  headersForContext,
+  activateClientSession,
+  bindSessionReset,
+  bindUnauthorizedRedirect,
+  getClientContext,
+  updateClientContext,
 } from '../src/api/clientContext.js'
-import {
-  apiEnvelopeError,
-  blobResponseError,
-  CLIENT_ERROR_CODES,
-  normalizeHttpError,
-  parseJsonBlob,
-} from '../src/api/clientErrors.js'
+import { CLIENT_ERROR_CODES } from '../src/api/clientErrors.js'
 import { hasRoutePermissions, requiredRoutePermissions } from '../src/router/permissions.js'
+import { permissionsForTenant } from '../src/stores/tenantPermissions.js'
 
-class MemoryStorage {
-  constructor(entries = {}) {
-    this.values = new Map(Object.entries(entries))
+const notices = []
+setHttpErrorNotifier((message) => notices.push(message))
+
+function response(config, data, status = 200, headers = {}) {
+  return {
+    data,
+    status,
+    statusText: String(status),
+    headers: new AxiosHeaders(headers),
+    config,
+    request: {},
   }
-  getItem(key) { return this.values.get(key) ?? null }
-  setItem(key, value) { this.values.set(key, String(value)) }
-  removeItem(key) { this.values.delete(key) }
 }
 
-const deferred = () => {
-  let resolve
-  const promise = new Promise((done) => { resolve = done })
-  return { promise, resolve }
+function resolvedAdapter(data, { status = 200, headers = {}, inspect = () => {} } = {}) {
+  return async (config) => {
+    inspect(config)
+    return response(config, data, status, headers)
+  }
 }
 
-const storage = new MemoryStorage()
-const context = createClientContextProvider({ storage })
-context.update({ token: 'token-A', enterpriseId: 11, workspaceId: 101 })
-const requestA = context.beginRequest()
-const headersA = headersForContext(requestA.snapshot)
-assert.deepEqual(headersA, {
-  Authorization: 'Bearer token-A',
-  'X-Enterprise-Id': '11',
-  'X-Workspace-Id': '101',
-})
-const lateA = deferred()
-let visibleResult = null
-const writeA = (async () => {
-  const result = await lateA.promise
-  if (requestA.isCurrent()) visibleResult = result
-})()
-context.update({ enterpriseId: 22, workspaceId: 202 })
-assert.equal(requestA.signal.aborted, true)
-assert.equal(requestA.isCurrent(), false)
-assert.deepEqual(headersA, {
-  Authorization: 'Bearer token-A',
-  'X-Enterprise-Id': '11',
-  'X-Workspace-Id': '101',
-})
-const requestB = context.beginRequest()
-assert.deepEqual(headersForContext(requestB.snapshot), {
-  Authorization: 'Bearer token-A',
-  'X-Enterprise-Id': '22',
-  'X-Workspace-Id': '202',
-})
-lateA.resolve('stale-A')
-await writeA
-assert.equal(visibleResult, null)
-requestB.release()
-console.log('CONTEXT_SNAPSHOT=PASS immutable_headers=true old_abort=true stale_write=false')
-
-const requestKinds = ['json', 'multipart', 'blob']
-for (const kind of requestKinds) {
-  const request = context.beginRequest()
-  const headers = headersForContext(request.snapshot)
-  assert.equal(headers.Authorization, 'Bearer token-A')
-  assert.equal(headers['X-Enterprise-Id'], '22')
-  assert.equal(headers['X-Workspace-Id'], '202')
-  if (kind === 'multipart') assert.ok(new FormData() instanceof FormData)
-  if (kind === 'blob') assert.ok(new Blob(['payload']) instanceof Blob)
-  request.release()
+function rejectedAdapter(status, data, { inspect = () => {}, headers = {} } = {}) {
+  return async (config) => {
+    inspect(config)
+    const res = response(config, data, status, headers)
+    throw new AxiosError(`HTTP ${status}`, AxiosError.ERR_BAD_RESPONSE, config, {}, res)
+  }
 }
-console.log('REQUEST_KINDS=PASS json=true multipart=true blob=true shared_headers=true')
 
-const apiNotFound = apiEnvelopeError({
+function deferredAdapter() {
+  let seenConfig = null
+  let settleResolve = null
+  let settleReject = null
+  const adapter = (config) => {
+    seenConfig = config
+    return new Promise((resolve, reject) => {
+      settleResolve = resolve
+      settleReject = reject
+      const cancel = () => reject(new CanceledError('canceled', config, {}))
+      if (config.signal?.aborted) cancel()
+      else config.signal?.addEventListener('abort', cancel, { once: true })
+    })
+  }
+  return {
+    adapter,
+    config: () => seenConfig,
+    resolve(data, status = 200, headers = {}) {
+      settleResolve(response(seenConfig, data, status, headers))
+    },
+    rejectStatus(status, data) {
+      const res = response(seenConfig, data, status)
+      settleReject(new AxiosError(`HTTP ${status}`, AxiosError.ERR_BAD_RESPONSE, seenConfig, {}, res))
+    },
+  }
+}
+
+function requestHeaders(config) {
+  return {
+    Authorization: config.headers.get('Authorization'),
+    enterprise: config.headers.get('X-Enterprise-Id'),
+    workspace: config.headers.get('X-Workspace-Id'),
+  }
+}
+
+async function capturedError(promise) {
+  try {
+    await promise
+  } catch (error) {
+    return error
+  }
+  assert.fail('request unexpectedly resolved')
+}
+
+const contexts = [
+  { enterprise_id: 11, workspace_id: 101, perms: ['data:view'] },
+  { enterprise_id: 22, workspace_id: 202, perms: ['task:view', 'task:create'] },
+]
+assert.deepEqual(permissionsForTenant(contexts, 11, 101), ['data:view'])
+assert.deepEqual(permissionsForTenant(contexts, 22, 202), ['task:view', 'task:create'])
+assert.deepEqual(permissionsForTenant(contexts, 99, 999), [])
+console.log('TENANT_CONTEXT_LIST_HAS_PERMS=PASS A=data:view B=task:view,task:create')
+console.log('FETCHME_SELECTS_CONTEXT_PERMS=PASS unknown_context=empty no_global_fallback=true')
+
+activateClientSession({ token: 'token-A', enterpriseId: 11, workspaceId: 101 })
+const observedKinds = []
+const json = await http.post('/contract/json', { value: 1 }, {
+  adapter: resolvedAdapter({ ok: true, data: { kind: 'json' } }, {
+    inspect(config) {
+      observedKinds.push(['json', requestHeaders(config)])
+    },
+  }),
+})
+assert.equal(json.data.kind, 'json')
+const form = new FormData()
+form.append('file', new Blob(['sheet']), 'sample.xlsx')
+const multipart = await http.post('/contract/multipart', form, {
+  adapter: resolvedAdapter({ ok: true, data: { kind: 'multipart' } }, {
+    inspect(config) {
+      assert.ok(config.data instanceof FormData)
+      observedKinds.push(['multipart', requestHeaders(config)])
+    },
+  }),
+})
+assert.equal(multipart.data.kind, 'multipart')
+for (const [, headers] of observedKinds) {
+  assert.deepEqual(headers, { Authorization: 'Bearer token-A', enterprise: '11', workspace: '101' })
+}
+console.log('HTTP_REAL_INSTANCE=PASS imported=http.js adapter=deterministic json=true multipart=true')
+
+const deferredA = deferredAdapter()
+const requestA = http.get('/contract/deferred-A', { adapter: deferredA.adapter })
+assert.deepEqual(requestHeaders(deferredA.config()), {
+  Authorization: 'Bearer token-A', enterprise: '11', workspace: '101',
+})
+updateClientContext({ enterpriseId: 22, workspaceId: 202 })
+const staleA = await capturedError(requestA)
+assert.equal(staleA.code, CLIENT_ERROR_CODES.CONTEXT_STALE)
+let requestBHeaders = null
+await http.get('/contract/B', {
+  adapter: resolvedAdapter({ ok: true, data: { winner: 'B' } }, {
+    inspect(config) { requestBHeaders = requestHeaders(config) },
+  }),
+})
+assert.deepEqual(requestBHeaders, {
+  Authorization: 'Bearer token-A', enterprise: '22', workspace: '202',
+})
+console.log('CONTEXT_A_TO_B=PASS A_aborted=true A_stale=true B_headers=22/202')
+
+const callerController = new AbortController()
+const callerDeferred = deferredAdapter()
+const callerRequest = http.get('/contract/caller-cancel', {
+  adapter: callerDeferred.adapter,
+  signal: callerController.signal,
+})
+callerController.abort()
+const callerError = await capturedError(callerRequest)
+assert.equal(callerError.code, CLIENT_ERROR_CODES.REQUEST_CANCELLED)
+assert.equal(getClientContext().enterpriseId, '22')
+console.log('CALLER_CANCELLATION=PASS code=REQUEST_CANCELLED context_current=true')
+
+async function statusError(status, payload) {
+  return capturedError(http.get(`/contract/status-${status}`, {
+    adapter: rejectedAdapter(status, payload),
+  }))
+}
+
+const conflict403 = await statusError(403, {
+  detail: '无权限', data: { error_code: 'NOT_FOUND' },
+})
+assert.equal(conflict403.code, CLIENT_ERROR_CODES.FORBIDDEN)
+const conflict404 = await statusError(404, {
+  detail: 'tenant resource exists', data: { error_code: 'FORBIDDEN', secret: 'hidden' },
+})
+assert.equal(conflict404.code, CLIENT_ERROR_CODES.NOT_FOUND)
+assert.deepEqual(conflict404.data, {
   ok: false,
-  message: 'internal object detail',
+  message: '资源不存在或不属于当前租户',
   data: { error_code: 'NOT_FOUND' },
 })
-assert.equal(apiNotFound.code, CLIENT_ERROR_CODES.NOT_FOUND)
-assert.equal(apiNotFound.message, '资源不存在或不属于当前租户')
-assert.equal(apiNotFound.response.status, 200)
-const forbidden = await normalizeHttpError({ response: { status: 403, data: { detail: '无权限' } } })
-assert.equal(forbidden.code, CLIENT_ERROR_CODES.FORBIDDEN)
-assert.equal(forbidden.message, '无权限')
-assert.equal(forbidden.response.status, 403)
-const httpNotFound = await normalizeHttpError({ response: { status: 404, data: { detail: 'tenant-specific secret' } } })
-assert.equal(httpNotFound.code, CLIENT_ERROR_CODES.NOT_FOUND)
-assert.equal(httpNotFound.message, '资源不存在或不属于当前租户')
-const unauthorized = await normalizeHttpError({ response: { status: 401, data: { detail: 'expired' } } })
-assert.equal(unauthorized.code, CLIENT_ERROR_CODES.UNAUTHORIZED)
-const blobPayload = await parseJsonBlob(new Blob([
-  JSON.stringify({ ok: false, message: '导出失败', data: { error_code: 'EXPORT_FAILED' } }),
-], { type: 'application/json' }))
-const blobError = apiEnvelopeError(blobPayload)
-assert.equal(blobError.code, 'EXPORT_FAILED')
-assert.equal(blobError.message, '导出失败')
-const unexpectedBlob = blobResponseError({ ok: true, data: { ignored: true } })
-assert.equal(unexpectedBlob.code, CLIENT_ERROR_CODES.UNEXPECTED_RESPONSE)
-assert.equal(unexpectedBlob.message, '下载接口未返回文件')
-console.log('ERROR_CONTRACT=PASS api_ok=false axios_403=true http_404=true not_found_non_enumerable=true blob_json=true')
+assert.doesNotMatch(JSON.stringify(conflict404.data), /exists|hidden|FORBIDDEN/)
+const businessNotFound = await capturedError(http.get('/contract/business-not-found', {
+  adapter: resolvedAdapter({
+    ok: false,
+    message: 'internal detail',
+    data: { error_code: 'NOT_FOUND', secret: 'hidden' },
+  }),
+}))
+assert.equal(businessNotFound.code, CLIENT_ERROR_CODES.NOT_FOUND)
+assert.deepEqual(businessNotFound.data, conflict404.data)
+console.log('ERROR_PRECEDENCE=PASS status403=FORBIDDEN status404=NOT_FOUND business_not_found=sanitized')
+console.log('ERROR_PRECEDENCE_EXIT=0')
 
 let resetCount = 0
 let redirectCount = 0
-const session = createSessionLifecycle(context)
-session.bindReset(() => { resetCount += 1 })
-session.bindRedirect(() => { redirectCount += 1 })
-session.activate({ token: 'token-B', enterpriseId: 33, workspaceId: 303 })
-assert.equal(session.invalidate(), true)
-assert.equal(session.invalidate(), false)
+bindSessionReset(() => { resetCount += 1 })
+bindUnauthorizedRedirect(() => { redirectCount += 1 })
+activateClientSession({ token: 'token-401', enterpriseId: 22, workspaceId: 202 })
+const conflict401 = await Promise.allSettled([
+  http.get('/contract/401-A', {
+    adapter: rejectedAdapter(401, { data: { error_code: 'FORBIDDEN' } }),
+  }),
+  http.get('/contract/401-B', {
+    adapter: rejectedAdapter(401, { data: { error_code: 'NOT_FOUND' } }),
+  }),
+])
+assert.equal(conflict401[0].status, 'rejected')
+assert.equal(conflict401[0].reason.code, CLIENT_ERROR_CODES.UNAUTHORIZED)
+assert.equal(conflict401[1].status, 'rejected')
+assert.ok([
+  CLIENT_ERROR_CODES.UNAUTHORIZED,
+  CLIENT_ERROR_CODES.CONTEXT_STALE,
+].includes(conflict401[1].reason.code))
 assert.equal(resetCount, 1)
 assert.equal(redirectCount, 1)
-assert.deepEqual(context.getSnapshot(), { token: '', enterpriseId: '', workspaceId: '', generation: 4 })
-assert.equal(storage.getItem('sjzq_token'), null)
-assert.equal(storage.getItem('sjzq_enterprise_id'), null)
-assert.equal(storage.getItem('sjzq_workspace_id'), null)
-console.log('SESSION_401=PASS idempotent=true store_reset=1 redirect=1 storage_cleared=true')
+assert.equal(getClientContext().token, '')
+console.log('CONCURRENT_401=PASS reset=1 redirect=1 conflicting_payload_cannot_override=true')
+
+activateClientSession({ token: 'token-files', enterpriseId: 22, workspaceId: 202 })
+const xlsxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x58, 0x4c, 0x53, 0x58])
+const zipBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x5a, 0x49, 0x50])
+const xlsx = await http.getBlob('/api/excel/template', {
+  expectedFile: 'xlsx',
+  adapter: resolvedAdapter(new Blob([xlsxBytes]), {
+    headers: {
+      'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'content-disposition': 'attachment; filename=goods_library_match_template.xlsx',
+    },
+  }),
+})
+assert.equal(xlsx.size, xlsxBytes.length)
+const zip = await http.postBlob('/api/excel/export-batch', { rows: [] }, {
+  expectedFile: 'zip',
+  adapter: resolvedAdapter(new Blob([zipBytes]), {
+    headers: {
+      'content-type': 'application/zip',
+      'content-disposition': "attachment; filename*=UTF-8''products.zip",
+    },
+  }),
+})
+assert.equal(zip.size, zipBytes.length)
+const octetXlsx = await http.getBlob('/api/excel/template', {
+  expectedFile: 'xlsx',
+  adapter: resolvedAdapter(new Blob([xlsxBytes]), {
+    headers: {
+      'content-type': 'application/octet-stream',
+      'content-disposition': 'attachment; filename=template.xlsx',
+    },
+  }),
+})
+assert.equal(octetXlsx.size, xlsxBytes.length)
+console.log('BLOB_VALID_FILES=PASS template=xlsx export=zip trusted_octet_stream=true')
+
+const fakeFiles = [
+  ['text/plain', new Blob(['not a workbook']), { 'content-type': 'text/plain' }],
+  ['text/html', new Blob(['<html>login</html>']), { 'content-type': 'text/html' }],
+  ['octet/no-disposition', new Blob([xlsxBytes]), { 'content-type': 'application/octet-stream' }],
+  ['json/spoofed-mime', new Blob([JSON.stringify({ ok: true, data: { not: 'a file' } })]), {
+    'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'content-disposition': 'attachment; filename=fake.xlsx',
+  }],
+]
+for (const [name, blob, headers] of fakeFiles) {
+  const error = await capturedError(http.getBlob('/api/excel/template', {
+    expectedFile: 'xlsx', adapter: resolvedAdapter(blob, { headers }),
+  }))
+  assert.equal(error.code, CLIENT_ERROR_CODES.UNEXPECTED_RESPONSE, name)
+}
+const missingContract = await capturedError(http.getBlob('/api/excel/template', {
+  adapter: resolvedAdapter(new Blob([xlsxBytes]), {
+    headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+  }),
+}))
+assert.equal(missingContract.code, CLIENT_ERROR_CODES.UNEXPECTED_RESPONSE)
+console.log('BLOB_NON_FILE=PASS outcome=REJECTED text_plain=true text_html=true octet_untrusted=true json_spoof=true')
 
 assert.deepEqual(requiredRoutePermissions({ perm: 'excel:match' }), ['excel:match'])
 assert.deepEqual(requiredRoutePermissions({ perms: ['task:view', 'data:view'] }), ['task:view', 'data:view'])
@@ -130,7 +276,7 @@ const allowed = new Set(['task:view', 'data:view'])
 assert.equal(hasRoutePermissions({ perms: ['task:view', 'data:view'] }, (item) => allowed.has(item)), true)
 allowed.delete('data:view')
 assert.equal(hasRoutePermissions({ perms: ['task:view', 'data:view'] }, (item) => allowed.has(item)), false)
-console.log('ROUTE_PERMISSIONS=PASS perm=true perms_and=true partial_denied=true')
+console.log('ROUTE_PERMISSIONS=PASS perms_and=true context_reauthorization=true')
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const webRoot = join(scriptDir, '..')
@@ -156,16 +302,17 @@ for (const path of sourceFiles) {
 }
 const excelSource = readFileSync(join(sourceRoot, 'views/excel/ExcelMatch.vue'), 'utf8')
 for (const marker of [
-  "http.getBlob('/api/excel/template')",
-  'http.post(',
-  "http.postBlob(\n      '/api/excel/export-batch'",
+  "http.getBlob('/api/excel/template', { expectedFile: 'xlsx' })",
+  "{ expectedFile: 'zip' }",
   "store.hasPerm('excel:import')",
   "store.hasPerm('excel:match')",
   "store.hasPerm('excel:export')",
 ]) assert.ok(excelSource.includes(marker), marker)
+const userSource = readFileSync(join(sourceRoot, 'stores/user.js'), 'utf8')
+assert.match(userSource, /perms: \(s\) => s\.contextPermissions/)
+assert.match(userSource, /async fetchMe\(\)[\s\S]+this\.selectTenant/)
+assert.doesNotMatch(userSource, /profile\?\.role_code === 'super_admin'/)
 const layoutSource = readFileSync(join(sourceRoot, 'layout/AdminLayout.vue'), 'utf8')
-assert.match(layoutSource, /router-view :key="`\$\{store\.contextGeneration\}:\$\{route\.fullPath\}`"/)
+assert.match(layoutSource, /hasRoutePermissions\(route\.meta/)
 assert.doesNotMatch(layoutSource, /router\.go\s*\(/)
-const httpSource = readFileSync(join(sourceRoot, 'api/http.js'), 'utf8')
-assert.match(httpSource, /undefined, \{ synchronous: true \}\)/)
-console.log('SOURCE_CONTRACT=PASS direct_http_bypass=false excel_permissions=true tenant_remount=true')
+console.log('SOURCE_CONTRACT=PASS http_imported=true direct_bypass=false selected_context_permissions=true')

@@ -10,11 +10,18 @@ import {
   shouldNotify,
   staleContextError,
 } from './clientErrors.js'
+import { fileResponseError } from './clientFiles.js'
 
 const http = axios.create({
   baseURL: '/',
   timeout: 60000,
 })
+
+let notifyError = (message) => ElMessage.error(message)
+
+export function setHttpErrorNotifier(notifier) {
+  notifyError = typeof notifier === 'function' ? notifier : (message) => ElMessage.error(message)
+}
 
 http.interceptors.request.use((config) => {
   const requestContext = clientContext.beginRequest()
@@ -39,7 +46,9 @@ http.interceptors.response.use(
     const requestContext = res.config.__clientContextRequest
     const data = res.data
     let envelopeError = null
-    if (data && typeof data.text === 'function') {
+    if (res.config.__fileContract) {
+      envelopeError = await fileResponseError(res, res.config.__fileContract)
+    } else if (data && typeof data.text === 'function') {
       const contentType = String(res.headers?.get?.('content-type') || res.headers?.['content-type'] || data.type || '')
       if (contentType.includes('json')) {
         const payload = await parseJsonBlob(data)
@@ -54,7 +63,7 @@ http.interceptors.response.use(
     }
     requestContext?.release()
     if (envelopeError) {
-      if (shouldNotify(envelopeError)) ElMessage.error(envelopeError.message)
+      if (shouldNotify(envelopeError)) notifyError(envelopeError.message)
       return Promise.reject(envelopeError)
     }
     return res.config.__returnRawResponse ? res : data
@@ -73,18 +82,30 @@ http.interceptors.response.use(
     if (normalized.code === CLIENT_ERROR_CODES.REQUEST_FAILED && axios.isCancel(err)) {
       normalized.code = CLIENT_ERROR_CODES.REQUEST_CANCELLED
     }
-    if (shouldNotify(normalized)) ElMessage.error(normalized.message)
+    if (shouldNotify(normalized)) notifyError(normalized.message)
     return Promise.reject(normalized)
   },
 )
 
 http.getBlob = async (url, config = {}) => {
-  const response = await http.get(url, { ...config, responseType: 'blob', __returnRawResponse: true })
+  const { expectedFile, ...requestConfig } = config
+  const response = await http.get(url, {
+    ...requestConfig,
+    responseType: 'blob',
+    __returnRawResponse: true,
+    __fileContract: expectedFile || '__missing__',
+  })
   return response.data
 }
 
 http.postBlob = async (url, data, config = {}) => {
-  const response = await http.post(url, data, { ...config, responseType: 'blob', __returnRawResponse: true })
+  const { expectedFile, ...requestConfig } = config
+  const response = await http.post(url, data, {
+    ...requestConfig,
+    responseType: 'blob',
+    __returnRawResponse: true,
+    __fileContract: expectedFile || '__missing__',
+  })
   return response.data
 }
 

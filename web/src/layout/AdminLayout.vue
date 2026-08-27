@@ -80,6 +80,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { useUserStore } from '@/stores/user'
+import { hasRoutePermissions } from '@/router/permissions'
 
 const store = useUserStore()
 const route = useRoute()
@@ -109,7 +110,15 @@ function onLogout() {
 async function onTenantChange(value) {
   const [enterpriseId, workspaceId] = String(value).split(':')
   store.selectTenant(enterpriseId, workspaceId)
-  await Promise.allSettled([store.fetchMe(), store.refreshSummary()])
+  if (!hasRoutePermissions(route.meta, (permission) => store.hasPerm(permission))) {
+    await router.replace('/profile')
+  }
+  const [profileResult] = await Promise.allSettled([store.fetchMe()])
+  if (profileResult.status === 'fulfilled'
+      && !hasRoutePermissions(route.meta, (permission) => store.hasPerm(permission))) {
+    await router.replace('/profile')
+  }
+  await store.refreshSummary()
 }
 </script>
 

@@ -9,13 +9,18 @@ export const CLIENT_ERROR_CODES = Object.freeze({
 })
 
 const NOT_FOUND_MESSAGE = '资源不存在或不属于当前租户'
+const CANONICAL_NOT_FOUND_DATA = Object.freeze({
+  ok: false,
+  message: NOT_FOUND_MESSAGE,
+  data: Object.freeze({ error_code: CLIENT_ERROR_CODES.NOT_FOUND }),
+})
 
 function errorCode(payload, status) {
-  const code = payload?.data?.error_code || payload?.error_code
-  if (code) return String(code)
   if (status === 401) return CLIENT_ERROR_CODES.UNAUTHORIZED
   if (status === 403) return CLIENT_ERROR_CODES.FORBIDDEN
   if (status === 404) return CLIENT_ERROR_CODES.NOT_FOUND
+  const code = payload?.data?.error_code || payload?.error_code
+  if (code) return String(code)
   return CLIENT_ERROR_CODES.REQUEST_FAILED
 }
 
@@ -26,6 +31,11 @@ function errorMessage(payload, status, fallback = '请求失败') {
   if (typeof detail === 'string') return detail
   if (typeof payload?.message === 'string' && payload.message) return payload.message
   return fallback
+}
+
+function errorData(payload, status, code) {
+  if (status === 404 || code === CLIENT_ERROR_CODES.NOT_FOUND) return CANONICAL_NOT_FOUND_DATA
+  return payload
 }
 
 export class ClientRequestError extends Error {
@@ -48,10 +58,11 @@ export function staleContextError(cause = null) {
 
 export function apiEnvelopeError(payload, status = 200) {
   if (!payload || payload.ok !== false) return null
+  const code = errorCode(payload, status)
   return new ClientRequestError(errorMessage(payload, status), {
     status,
-    code: errorCode(payload, status),
-    data: payload,
+    code,
+    data: errorData(payload, status, code),
   })
 }
 
@@ -83,7 +94,7 @@ export async function normalizeHttpError(error) {
   return new ClientRequestError(errorMessage(payload, status, error?.message || '网络异常'), {
     status,
     code,
-    data: payload,
+    data: errorData(payload, status, code),
     cause: error,
   })
 }

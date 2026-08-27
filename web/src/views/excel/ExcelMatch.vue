@@ -200,7 +200,7 @@ function beforeUpload(file) {
 }
 
 async function downloadTemplate() {
-  const blob = await http.getBlob('/api/excel/template')
+  const blob = await http.getBlob('/api/excel/template', { expectedFile: 'xlsx' })
   downloadBlob(blob, '商品资料库匹配模板.xlsx')
 }
 
@@ -249,6 +249,7 @@ async function exportBatch() {
     const blob = await http.postBlob(
       '/api/excel/export-batch',
       { platform_code: platform.value, rows: selectedRows.value },
+      { expectedFile: 'zip' },
     )
     const platformName = platforms.value.find((item) => item.platform_code === platform.value)?.platform_name || platform.value
     const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)

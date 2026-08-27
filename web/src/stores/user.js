@@ -6,6 +6,7 @@ import {
   getClientContext,
   updateClientContext,
 } from '@/api/clientContext'
+import { permissionsForTenant, selectedTenantContext } from './tenantPermissions.js'
 
 const emptySummary = () => ({
   online_devices: 0,
@@ -21,6 +22,7 @@ export const useUserStore = defineStore('user', {
       token: context.token,
       profile: null,
       tenantContexts: [],
+      contextPermissions: [],
       enterpriseId: context.enterpriseId,
       workspaceId: context.workspaceId,
       contextGeneration: context.generation,
@@ -28,13 +30,12 @@ export const useUserStore = defineStore('user', {
     }
   },
   getters: {
-    perms: (s) => s.profile?.perms || [],
+    perms: (s) => s.contextPermissions,
     isLogin: (s) => !!s.token,
   },
   actions: {
     hasPerm(code) {
       if (!code) return true
-      if (this.profile?.role_code === 'super_admin') return true
       return this.perms.includes(code)
     },
     async login(username, password) {
@@ -53,6 +54,9 @@ export const useUserStore = defineStore('user', {
       this.enterpriseId = context.enterpriseId
       this.workspaceId = context.workspaceId
       this.contextGeneration = context.generation
+      this.contextPermissions = permissionsForTenant(
+        this.tenantContexts, context.enterpriseId, context.workspaceId,
+      )
       await this.refreshSummary()
     },
     async fetchMe() {
@@ -60,12 +64,11 @@ export const useUserStore = defineStore('user', {
       const res = await http.get('/api/auth/me')
       this.profile = res.data
       this.tenantContexts = this.profile.tenant_contexts || []
-      if (!this.tenantContexts.some(
-        x => String(x.enterprise_id) === this.enterpriseId && String(x.workspace_id) === this.workspaceId,
-      )) {
-        const first = this.tenantContexts[0]
-        if (first) this.selectTenant(first.enterprise_id, first.workspace_id)
-      }
+      const selected = selectedTenantContext(
+        this.tenantContexts, this.enterpriseId, this.workspaceId,
+      ) || this.tenantContexts[0] || null
+      if (selected) this.selectTenant(selected.enterprise_id, selected.workspace_id)
+      else this.selectTenant('', '')
     },
     async refreshSummary() {
       if (!this.token || !this.enterpriseId || !this.workspaceId) return
@@ -84,6 +87,7 @@ export const useUserStore = defineStore('user', {
       this.token = ''
       this.profile = null
       this.tenantContexts = []
+      this.contextPermissions = []
       this.enterpriseId = ''
       this.workspaceId = ''
       this.contextGeneration = context.generation
@@ -94,6 +98,9 @@ export const useUserStore = defineStore('user', {
       this.enterpriseId = context.enterpriseId
       this.workspaceId = context.workspaceId
       this.contextGeneration = context.generation
+      this.contextPermissions = permissionsForTenant(
+        this.tenantContexts, context.enterpriseId, context.workspaceId,
+      )
       this.summary = emptySummary()
     },
   },
