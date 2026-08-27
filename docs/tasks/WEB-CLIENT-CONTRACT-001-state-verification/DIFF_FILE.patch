@@ -1,0 +1,37 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index 7337a3e..5d0106f 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -9,14 +9,14 @@
+ | 项目 | 当前值 |
+ |---|---|
+ | 主分支 | `main` |
+-| 当前主线基线 | `f7ba0fda446b6b901eb57de4a38f365dc96bec24` |
++| 当前主线基线 | `a02c8a84ade34a7e1c67ec57ad4040a84ffe5078` |
+ | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
+ | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
+ | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
+ | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
+ | Golden Sample | PDD `platform_product_id=985843042423` |
+
+-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge为 `main@09e717c`。PR #7 已普通 merge 为当前 `main@f7ba0fd`，`WEB-RESULT-VISIBILITY-001` 正式进入 Accepted 主线。
++PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge 为 `main@09e717c`；PR #7 与 #8 已完成 Web 结果可见性及状态收口。PR #9 已普通 merge 为当前 `main@a02c8a8`，`WEB-CLIENT-CONTRACT-001` 正式进入 Accepted 主线。
+
+ ## 2. 当前权威主链
+
+@@ -111,12 +111,12 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+
+ ## 9. 下一交接
+
+-`WEB-RESULT-VISIBILITY-001` 已通过 PR [#7](https://github.com/sunmings1310/PDD_con_data/pull/7) 普通 merge 为 `main@f7ba0fd`：Independent Review `ACCEPT`、E2E `PASS`、本地隔离 Oracle 46/46（skipped=0，persistent business changes=false），Hosted Core CI [#33050939542](https://github.com/sunmings1310/PDD_con_data/actions/runs/33050939542) 全部适用检查成功。
++`WEB-CLIENT-CONTRACT-001` 已通过 PR [#9](https://github.com/sunmings1310/PDD_con_data/pull/9) 普通 merge 为 `main@a02c8a8`：Independent Review `ACCEPT`、E2E `PASS`、本地隔离 Oracle 47/47（skipped=0，persistent business changes=false），Hosted Core CI [#33057948497](https://github.com/sunmings1310/PDD_con_data/actions/runs/33057948497) 的六项检查全部 `success`。
+
+-Product Owner 已批准启动 `WEB-CLIENT-CONTRACT-001`。Control 已从 `main@85ba3a5` 建立独立 Task、分支与 worktree，当前状态为 `IN_PROGRESS`；Dev 尚未完成实现、自检或固定 Head Review/E2E：
++下一开发任务 `WEB-TASK-IMPORT-001` 的依赖已满足，状态为 `READY / NOT STARTED`。本次仅完成状态收口，未创建该任务的分支、worktree 或实现：
+
+ - Generic SKU runtime：仍为 `NOT STARTED`；
+ - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
+ - Phase 6B：仍为 `NOT STARTED`。
+
+-本 Task 只统一 tenant-aware Web HTTP client、现有 Excel 请求头、权限路由、错误映射和租户切换 stale-state；不实现 `WEB-TASK-IMPORT-001`、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。release 未获授权。
++`WEB-CLIENT-CONTRACT-001` 未实现 `WEB-TASK-IMPORT-001`、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。`WEB-TASK-IMPORT-001` 只在 Product Owner/Control 后续明确启动时从新的 `main` 建立独立 Task；release 未获授权。

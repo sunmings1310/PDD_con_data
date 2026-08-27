@@ -1,0 +1,66 @@
+WEB-CLIENT-CONTRACT-001 POST-MERGE STATE VERIFICATION
+DATE=2026-08-27
+BRANCH=codex/web-client-contract-accepted-state
+BASELINE=main@a02c8a84ade34a7e1c67ec57ad4040a84ffe5078
+PR=https://github.com/sunmings1310/PDD_con_data/pull/9
+CHANGED_FIELD=WEB-CLIENT-CONTRACT-001 MERGED/ACCEPTED; WEB-TASK-IMPORT-001 READY/NOT STARTED
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_client_contract_state\docs\tasks\WEB-CLIENT-CONTRACT-001-state-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_client_contract_state\docs\tasks\WEB-CLIENT-CONTRACT-001-state-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_client_contract_state\docs\tasks\WEB-CLIENT-CONTRACT-001-state-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_client_contract_state\docs\tasks\WEB-CLIENT-CONTRACT-001-state-verification\ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=610dd9b545c0f36f647860f1f999efd3cc6e39cc394f0dc9b2f1a1c6ae1ee495
+MODIFIED_SHA256=e78364d5798d82aeb481deac01976d75e46fed3722f7ab1c5a6927905fcfdbbe
+
+BASELINE
+COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','a02c8a84ade34a7e1c67ec57ad4040a84ffe5078:docs/CURRENT_STATE.md'],text=True,encoding='utf-8'); print('BASELINE_ACCEPTED_STATUS=' + ('present' if 'WEB-CLIENT-CONTRACT-001 已通过 PR #9' in s else 'absent'))"
+INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_web_client_contract_state; docs/CURRENT_STATE.md at merge commit a02c8a84ade34a7e1c67ec57ad4040a84ffe5078
+LITERAL_OUTPUT=BASELINE_ACCEPTED_STATUS=absent
+EXIT_STATUS=0
+STATUS=PASS
+
+MODIFIED
+COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/MODIFIED_FILE').read_text(encoding='utf-8'); ok='a02c8a84ade34a7e1c67ec57ad4040a84ffe5078' in s and 'READY / NOT STARTED' in s; print('MODIFIED_ACCEPTED_STATUS=' + ('present' if ok else 'absent'))"
+INPUT_ENVIRONMENT=MODIFIED_FILE copied from updated docs/CURRENT_STATE.md
+LITERAL_OUTPUT=MODIFIED_ACCEPTED_STATUS=present
+EXIT_STATUS=0
+STATUS=PASS
+
+ROLLBACK
+COMMAND=Copy-Item 'docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/MODIFIED_FILE' 'docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/rollback_probe.txt'; & 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_web_client_contract_state/docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_web_client_contract_state/docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/rollback_probe.txt'; $rollbackExit=$LASTEXITCODE; Remove-Item 'docs/tasks/WEB-CLIENT-CONTRACT-001-state-verification/rollback_probe.txt'; exit $rollbackExit
+INPUT_ENVIRONMENT=PowerShell; rollback_probe.txt is another copy under the repository
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_status_update_current_state
+LITERAL_OUTPUT=RESTORED_SHA256=610dd9b545c0f36f647860f1f999efd3cc6e39cc394f0dc9b2f1a1c6ae1ee495
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe restores pre-update CURRENT_STATE exactly; MODIFIED_FILE remains changed
+
+STATUS_CONSISTENCY
+COMMAND=python -c "from pathlib import Path; files=['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md','docs/tasks/WEB-CLIENT-CONTRACT-001.md']; t='\n'.join(Path(p).read_text(encoding='utf-8') for p in files); assert t.count('MERGED / ACCEPTED') >= 2; assert t.count('READY / NOT STARTED') >= 3; assert 'a02c8a84ade34a7e1c67ec57ad4040a84ffe5078' in t; assert '0e1db2756bd0d36114219614e2c1a66e3c6afbc9' in t; print('STATUS_CONSISTENCY=PASS')"
+INPUT_ENVIRONMENT=repository root; CURRENT_STATE, backlog, roadmap, Task
+LITERAL_OUTPUT=STATUS_CONSISTENCY=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+MARKDOWN
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+INPUT_ENVIRONMENT=repository root
+LITERAL_OUTPUT=Validated 63 Markdown files
+EXIT_STATUS=0
+STATUS=PASS
+
+DIFF_CHECK
+COMMAND=git diff --check origin/main
+INPUT_ENVIRONMENT=origin/main@a02c8a84ade34a7e1c67ec57ad4040a84ffe5078
+LITERAL_OUTPUT=no output except line-ending warnings
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_STATUS=SKIPPED; documentation-only post-merge state update
+REAL_DEVICE_STATUS=SKIPPED; documentation-only post-merge state update
+NEXT_STATE=STOPPED; WEB-TASK-IMPORT-001 READY/NOT STARTED; no branch/worktree/implementation created

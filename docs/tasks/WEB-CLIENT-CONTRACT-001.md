@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-CLIENT-CONTRACT-001
 - **Title**：统一 tenant-aware Web HTTP client、Excel 请求头与权限路由
-- **Status**：REVIEW FIX 2 / DEV SELF-CHECK PASS / E2E PASS / INDEPENDENT RE-REVIEW REQUIRED / PR NOT CREATED
+- **Status**：MERGED / ACCEPTED
 - **Base**：`origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb`
 - **Branch**：`codex/web-client-contract-001`
 - **Worktree**：`D:\work\PDD_con_data_web_client_contract`
@@ -106,7 +106,7 @@
 - [x] tenant 切换会清理或刷新 summary、页面请求与 permission context，不依赖旧请求自然结束。
 - [x] 不实现模板/解析/导入/下发新功能，不修改 Schema/migration/Excel业务/Android/采集链。
 - [x] targeted client/route/Excel tests、Python tenant contracts、Web production build、Python full、Android JVM、compile/diff 适用回归通过。
-- [x] `server/tenant.py` 的 membership permission query 变化已分类为 Oracle Gate=Required；`tests.test_phase5_oracle.Phase5OracleIsolationTest.test_list_user_contexts_uses_membership_role_permissions_without_cross_tenant_leakage` 直接通过真实 cursor 调用生产 `list_user_contexts()`。最终固定 Head 以隔离 Oracle strict 47/47、skipped=0、persistent business changes=false 和外部 evidence validator 作为重审证据。E2E 已 PASS；Independent Review findings 已最小修复并等待 re-review。
+- [x] `server/tenant.py` 的 membership permission query 变化已分类为 Oracle Gate=Required；`tests.test_phase5_oracle.Phase5OracleIsolationTest.test_list_user_contexts_uses_membership_role_permissions_without_cross_tenant_leakage` 直接通过真实 cursor 调用生产 `list_user_contexts()`。最终固定 Head 以隔离 Oracle strict 47/47、skipped=0、persistent business changes=false 和外部 evidence validator 作为重审证据。E2E 已 PASS；Independent Review findings 已最小修复，最终 Review 为 `ACCEPT`。
 
 ## Test Plan
 
@@ -170,5 +170,5 @@ Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.1
 
 - Original evidence：`main@85ba3a5` 的 `http.js`、`user.js`、router、AdminLayout、ExcelMatch、tenant/auth/excel endpoints 与现有 tests。
 - Derived artifacts：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`；四制品已按 Review Fix 重建，rollback 只作用于副本，`MODIFIED_FILE` 保持 changed。
-- Review findings：selected-context permissions、HTTP error precedence、trusted file contract、real Axios adapter 及真实 Oracle production-query coverage findings 已修复；状态为 `INDEPENDENT RE-REVIEW REQUIRED`。Control 提供的 E2E gate 状态为 `PASS`。
-- Commit / PR：主实现 `b78556c`，edge-case fix `aaab040`，首轮 evidence `1ca3423`，Review Fix implementation `3e75634`，Review Fix 2 Oracle integration `f501b4c9689564108fb7fce5f4835cb0a7dc6eb2`；final evidence commit 是包含本段和四制品的 branch tip，push 后以 local/upstream/remote 三方相同核验。PR 未创建。
+- Review findings：selected-context permissions、HTTP error precedence、trusted file contract、real Axios adapter 及真实 Oracle production-query coverage findings 已修复；最终 Independent Review 为 `ACCEPT`，E2E 为 `PASS`。
+- Commit / PR：主实现 `b78556c`，edge-case fix `aaab040`，首轮 evidence `1ca3423`，Review Fix implementation `3e75634`，Review Fix 2 Oracle integration `f501b4c9689564108fb7fce5f4835cb0a7dc6eb2`；fixed Head `0e1db2756bd0d36114219614e2c1a66e3c6afbc9` 已通过 PR [#9](https://github.com/sunmings1310/PDD_con_data/pull/9) 普通 merge 为 `main@a02c8a84ade34a7e1c67ec57ad4040a84ffe5078`。Hosted Core CI #33057948497 六项检查全部 `success`。
