@@ -53,8 +53,8 @@
 | T006 完整测试基线 | DONE | 固定 Python 3.10、Node 22.18、JDK 17.0.20、Gradle 8.4、SDK 34；统一 `scripts/test-baseline.ps1` 严格区分 PASS/FAIL/BLOCKED | Python 60、Oracle 8、Android JVM 36、Web build 全部 PASS；严格入口 exit=0 |
 | Phase 1 数据契约 ADR | DONE | Product、ProductSnapshot、Task、Job、Attempt、商品/快照身份、幂等与完成不变量 | `docs/decisions/phase1-success-data-contract.md` |
 
-> 制定日期：2026-08-13  
-> 依据：`docs/gap-analysis.md` 与当前代码。  
+> 制定日期：2026-08-13
+> 依据：`docs/gap-analysis.md` 与当前代码。
 > 排序规则：P0 → P1 → P2 → P3；同优先级按依赖顺序排列。每项都指向现有代码模块，不以“建设平台”“优化架构”等不可验收表述作为任务。
 
 > 2026-08-13：已完成客户讨论材料 `docs/customer/enterprise-management-proposal.md`，用于确认企业层、三级账号体系、数据隔离、商品数据模式、分阶段能力与客户决策事项；不代表多企业功能已进入实施或成为既定需求。

@@ -113,10 +113,10 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 `WEB-CLIENT-CONTRACT-001` 已通过 PR [#9](https://github.com/sunmings1310/PDD_con_data/pull/9) 普通 merge 为 `main@a02c8a8`：Independent Review `ACCEPT`、E2E `PASS`、本地隔离 Oracle 47/47（skipped=0，persistent business changes=false），Hosted Core CI [#33057948497](https://github.com/sunmings1310/PDD_con_data/actions/runs/33057948497) 的六项检查全部 `success`。
 
-下一开发任务 `WEB-TASK-IMPORT-001` 的依赖已满足，状态为 `READY / NOT STARTED`。本次仅完成状态收口，未创建该任务的分支、worktree 或实现：
+Product Owner 已批准启动 `WEB-TASK-IMPORT-001`。Control 已从 `main@2200ef0` 建立独立 Task、分支 `codex/web-task-import-001` 与 worktree，当前状态为 `IN_PROGRESS`：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`。
 
-`WEB-CLIENT-CONTRACT-001` 未实现 `WEB-TASK-IMPORT-001`、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。`WEB-TASK-IMPORT-001` 只在 Product Owner/Control 后续明确启动时从新的 `main` 建立独立 Task；release 未获授权。
+本 Task 只统一手动输入与 Excel 导入的 canonical Task 创建/下发流程；不迁移导出、不删除独立 Excel 菜单，不进入 Generic SKU/SKU Schema、Phase 6B、真机采集或 release。

@@ -1,0 +1,88 @@
+WEB-TASK-IMPORT-001 START VERIFICATION
+DATE=2026-08-27
+BRANCH=codex/web-task-import-001
+BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
+CHANGED_FIELD=WEB-TASK-IMPORT-001 READY/NOT STARTED to IN_PROGRESS
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ROLLBACK.sh
+
+HASHES
+ORIGINAL_SHA256=320d5209fd6423f969c3c941d7703901311339f9d84d69bfbc18abbc78c75d00
+MODIFIED_SHA256=3c49f997a7f077b09185e5267048807aa52ffc17410a64ae86453d3416cfea56
+
+BASELINE
+COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','2200ef021ed69f29fd3796b2c7a50252fa60575b:docs/backlog.md'],text=True,encoding='utf-8'); print('BASELINE_TASK_STATUS=' + ('ready_not_started' if 'WEB-TASK-IMPORT-001 | READY / NOT STARTED' in s else 'other'))"
+INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_web_task_import; docs/backlog.md at fixed Base
+LITERAL_OUTPUT=BASELINE_TASK_STATUS=ready_not_started
+EXIT_STATUS=0
+STATUS=PASS
+
+MODIFIED
+COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE').read_text(encoding='utf-8'); print('MODIFIED_TASK_STATUS=' + ('in_progress' if 'WEB-TASK-IMPORT-001 | IN_PROGRESS' in s else 'other'))"
+INPUT_ENVIRONMENT=MODIFIED_FILE copied from updated docs/backlog.md
+LITERAL_OUTPUT=MODIFIED_TASK_STATUS=in_progress
+EXIT_STATUS=0
+STATUS=PASS
+
+ROLLBACK
+COMMAND=Copy-Item 'docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE' 'docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; & 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; $rollbackExit=$LASTEXITCODE; Remove-Item 'docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; exit $rollbackExit
+INPUT_ENVIRONMENT=PowerShell; rollback_probe is another copy under the repository
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_task_start_backlog
+LITERAL_OUTPUT=RESTORED_SHA256=320d5209fd6423f969c3c941d7703901311339f9d84d69bfbc18abbc78c75d00
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe restores READY/NOT STARTED backlog exactly; MODIFIED_FILE remains IN_PROGRESS
+
+PYTHON_TARGETED
+COMMAND=python -m unittest -v tests.test_web_client_contract
+INPUT_ENVIRONMENT=clean new worktree; system Python; offline source contract tests
+LITERAL_OUTPUT=Ran 10 tests in 0.015s
+LITERAL_OUTPUT=OK
+EXIT_STATUS=0
+STATUS=PASS
+
+PYTHON_COMPILE
+COMMAND=python -m compileall -q server tests
+INPUT_ENVIRONMENT=clean new worktree
+LITERAL_OUTPUT=no output
+EXIT_STATUS=0
+STATUS=PASS
+
+NODE_BASELINE
+COMMAND=node --version; Test-Path web/node_modules
+INPUT_ENVIRONMENT=new worktree before Dev ignored runtime setup
+LITERAL_OUTPUT=v20.11.1
+LITERAL_OUTPUT=WEB_NODE_MODULES=absent
+EXIT_STATUS=0
+STATUS=BLOCKED for project Node 22/Web gate; observation only and not claimed PASS
+
+STATUS_CONSISTENCY
+COMMAND=python -c "from pathlib import Path; files=['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md','docs/tasks/WEB-TASK-IMPORT-001.md']; t='\n'.join(Path(p).read_text(encoding='utf-8') for p in files); assert t.count('WEB-TASK-IMPORT-001') >= 9; assert t.count('IN_PROGRESS') >= 4; assert '2200ef021ed69f29fd3796b2c7a50252fa60575b' in t; print('TASK_START_CONSISTENCY=PASS')"
+INPUT_ENVIRONMENT=repository root; CURRENT_STATE, backlog, roadmap, Task
+LITERAL_OUTPUT=TASK_START_CONSISTENCY=PASS
+EXIT_STATUS=0
+STATUS=PASS
+
+MARKDOWN
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+INPUT_ENVIRONMENT=repository root
+LITERAL_OUTPUT=Validated 64 Markdown files
+EXIT_STATUS=0
+STATUS=PASS
+
+DIFF_CHECK
+COMMAND=git diff --check
+INPUT_ENVIRONMENT=repository worktree
+LITERAL_OUTPUT=no output except line-ending warnings
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_STATUS=PENDING CLASSIFICATION; expected Required if Dev changes server SQL/transaction/tenant behavior
+REAL_DEVICE_STATUS=SKIPPED; no Android or real collection behavior in scope
+NEXT_STATE=IN_PROGRESS; Dev implementation delegated; no PR/merge/release
