@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-CLIENT-CONTRACT-001
 - **Title**：统一 tenant-aware Web HTTP client、Excel 请求头与权限路由
-- **Status**：REVIEW FIX / DEV SELF-CHECK PASS / E2E PASS / INDEPENDENT RE-REVIEW REQUIRED / PR NOT CREATED
+- **Status**：REVIEW FIX 2 / DEV SELF-CHECK PASS / E2E PASS / INDEPENDENT RE-REVIEW REQUIRED / PR NOT CREATED
 - **Base**：`origin/main@85ba3a56bb3f70b5613d565f8b1a6873198b7ddb`
 - **Branch**：`codex/web-client-contract-001`
 - **Worktree**：`D:\work\PDD_con_data_web_client_contract`
@@ -106,7 +106,7 @@
 - [x] tenant 切换会清理或刷新 summary、页面请求与 permission context，不依赖旧请求自然结束。
 - [x] 不实现模板/解析/导入/下发新功能，不修改 Schema/migration/Excel业务/Android/采集链。
 - [x] targeted client/route/Excel tests、Python tenant contracts、Web production build、Python full、Android JVM、compile/diff 适用回归通过。
-- [x] `server/tenant.py` 的 membership permission query 变化已分类为 Oracle Gate=Required；最终固定 Head 以隔离 Oracle strict 46/46、skipped=0、persistent business changes=false 和外部 evidence validator 作为重审证据。E2E 已 PASS；Independent Review 的四项 finding 已最小修复并等待 re-review。
+- [x] `server/tenant.py` 的 membership permission query 变化已分类为 Oracle Gate=Required；`tests.test_phase5_oracle.Phase5OracleIsolationTest.test_list_user_contexts_uses_membership_role_permissions_without_cross_tenant_leakage` 直接通过真实 cursor 调用生产 `list_user_contexts()`。最终固定 Head 以隔离 Oracle strict 47/47、skipped=0、persistent business changes=false 和外部 evidence validator 作为重审证据。E2E 已 PASS；Independent Review findings 已最小修复并等待 re-review。
 
 ## Test Plan
 
@@ -117,11 +117,12 @@
 | Web build | `.\scripts\test-baseline.ps1 -Suite web -Strict` | production build | `1676 modules transformed`; `built in 5.78s`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
 | New client unit | `node web/scripts/test-client-contract.mjs` | actual `http.js` instance + deterministic Axios adapter | `HTTP_REAL_INSTANCE/CONTEXT_A_TO_B/CALLER_CANCELLATION/CONCURRENT_401/BLOB_VALID_FILES/BLOB_NON_FILE/ROUTE_PERMISSIONS/SOURCE_CONTRACT=PASS`; `ERROR_PRECEDENCE_EXIT=0`; `NODE_EXIT=0` | PASS |
 | Router/Excel contract | `python -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract` | no drift/bypass; membership permission query contract | `Ran 22 tests in 0.023s`; `OK`; exit 0 | PASS |
-| Python full | `test-baseline.ps1 -Suite python -Strict`，显式 `PDD_PYTHON` 与 offline import config | no Phase 1～6A/result visibility regression | `Ran 234 tests in 0.447s`; `OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
-| Web full | `test-baseline.ps1 -Suite web -Strict` | production build | `1681 modules transformed`; `built in 581ms`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Oracle targeted | `python -m unittest -v tests.test_phase5_oracle.Phase5OracleIsolationTest.test_list_user_contexts_uses_membership_role_permissions_without_cross_tenant_leakage` | production query + real Oracle roles/memberships/workspace fences/rollback cleanup | `Ran 1 test in 3.882s`; `OK`; exit 0 | PASS |
+| Python full | `test-baseline.ps1 -Suite python -Strict`，显式 `PDD_PYTHON` 与 offline import config | no Phase 1～6A/result visibility regression | `Ran 235 tests in 0.468s`; `OK (skipped=25)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
+| Web full | `test-baseline.ps1 -Suite web -Strict` | production build | `1681 modules transformed`; `built in 583ms`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
 | Android JVM | `test-baseline.ps1 -Suite android -Strict`，SDK 使用仓库既有 `local.properties` 所指 runtime | existing Android regression | `BUILD SUCCESSFUL in 7s`; `30 actionable tasks: 1 executed, 29 up-to-date`; `SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`; exit 0 | PASS |
 | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | syntax/whitespace clean | no output; exits 0 | PASS |
-| Oracle strict | `powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` on final fixed Head | membership-role permission query remains Oracle-compatible | external manifest bound to final branch tip; 46/46, skipped=0, persistent business changes=false, validator exit 0 | PASS |
+| Oracle strict | `powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` on final fixed Head | production membership-role query executes against real Oracle | external manifest bound to final branch tip; 47/47, skipped=0, persistent business changes=false, validator exit 0 | PASS |
 | E2E | two authorized tenant contexts + limited permission context; switch during deferred request; Excel template/match/export errors | exact headers, no stale write, correct 401/403/404/download behavior | Control-provided gate result: `E2E=PASS` | PASS |
 
 首次基线尝试如实记录：缺少 worktree-local ignored runtime 与 offline import config 时，Python import `BLOCKED/FAIL`（缺 `ORACLE_*`/`JWT_SECRET`），Web strict `BLOCKED`（bundled Node absent）；随后仅建立指向既有 `.tools`、`web/node_modules` 的 ignored junction，并使用不连接数据库的 dummy import config，以上基线转为实际 PASS。未把首次 BLOCKED 冒充 PASS。
@@ -133,8 +134,9 @@ Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.1
 - Required：**Yes**；Review Fix 修改了 `server/tenant.py::list_user_contexts()` 的 Oracle-backed membership role permission query，但没有 Schema/migration。
 - Reason：每个 Enterprise/Workspace context 现在返回其 membership `ROLE_ID` 对应的 `SJZQ_ROLE_PERM.PERM_CODE` 快照，客户端不再以全局 `profile.perms` 代替 selected-context permissions。
 - Local isolated environment identifier：由最终固定 Head 外部 manifest 记录；禁止写入凭据。
-- Implementation Head SHA：`3e7563413dcc80a98b3502571a4aa9c70cf9e730`。Final evidence Head 是包含本 Task/四制品的 branch tip；精确 SHA、generated_at/expiry、literal output hash 与 46/46 结果由提交后生成的外部 manifest 绑定。
-- Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`；期望/验收为 46/46、failures=0、errors=0、skipped=0、exit 0。
+- Review Fix 2 implementation Head SHA：`f501b4c9689564108fb7fce5f4835cb0a7dc6eb2`。Final evidence Head 是包含本 Task/四制品的 branch tip；精确 SHA、generated_at/expiry、literal output hash 与 47/47 结果由提交后生成的外部 manifest 绑定。
+- Real Oracle test：`tests.test_phase5_oracle.Phase5OracleIsolationTest.test_list_user_contexts_uses_membership_role_permissions_without_cross_tenant_leakage` 创建 Tenant A/B、两个 membership roles、limited permissions、selected/hidden workspace membership；直接调用生产 `list_user_contexts()`，断言 A/B 各自 role permissions、limited role 不含 `data:view`、隐藏 workspace 与 outsider context 不串租户，并在 rollback 后逐表验证 marker IDs 为 0。
+- Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`；期望/验收为 47/47、failures=0、errors=0、skipped=0、exit 0。
 - Evidence：`%TEMP%\WEB-CLIENT-CONTRACT-001-review-fix-<fixed-head>-oracle-evidence.json` 及对应 `oracle-output.txt`；由 `.github/scripts/validate_oracle_local_evidence.py` 对 final fixed Head 与四制品 hash 独立验证。
 - Cleanup / persistent business changes：`true / false`。
 - Reviewer trust boundary：manifest 明确记录本地执行者与 Independent Reviewer 的证据边界；不得回显 secret value。
@@ -168,5 +170,5 @@ Dev 自检补充记录：直接 `npm --prefix web run build` 由系统 Node 20.1
 
 - Original evidence：`main@85ba3a5` 的 `http.js`、`user.js`、router、AdminLayout、ExcelMatch、tenant/auth/excel endpoints 与现有 tests。
 - Derived artifacts：`docs/tasks/WEB-CLIENT-CONTRACT-001-verification/`；四制品已按 Review Fix 重建，rollback 只作用于副本，`MODIFIED_FILE` 保持 changed。
-- Review findings：Independent Review 的 selected-context permissions、HTTP error precedence、trusted file contract、real Axios adapter 四项 finding 已修复；状态为 `INDEPENDENT RE-REVIEW REQUIRED`。Control 提供的 E2E gate 状态为 `PASS`。
-- Commit / PR：主实现 `b78556c`，edge-case fix `aaab040`，首轮 evidence `1ca3423`，Review Fix implementation `3e7563413dcc80a98b3502571a4aa9c70cf9e730`；final evidence commit 是包含本段和四制品的 branch tip，push 后以 local/upstream/remote 三方相同核验。PR 未创建。
+- Review findings：selected-context permissions、HTTP error precedence、trusted file contract、real Axios adapter 及真实 Oracle production-query coverage findings 已修复；状态为 `INDEPENDENT RE-REVIEW REQUIRED`。Control 提供的 E2E gate 状态为 `PASS`。
+- Commit / PR：主实现 `b78556c`，edge-case fix `aaab040`，首轮 evidence `1ca3423`，Review Fix implementation `3e75634`，Review Fix 2 Oracle integration `f501b4c9689564108fb7fce5f4835cb0a7dc6eb2`；final evidence commit 是包含本段和四制品的 branch tip，push 后以 local/upstream/remote 三方相同核验。PR 未创建。

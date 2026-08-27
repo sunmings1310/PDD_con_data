@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Restore only an explicitly supplied Review Fix probe copy; the repository
-# MODIFIED_FILE remains the changed REREVIEW artifact.
+# Restore only an explicitly supplied Review Fix 2 probe copy; the repository
+# MODIFIED_FILE remains the changed REREVIEW/REAL_INTEGRATION artifact.
 TARGET="${1:?usage: ROLLBACK.sh <rollback-copy-path>}"
 EXPECTED_SHA256="436d54e45c32f384c50533952c73647b8fe35b144a8be7d93fe3c3e45c18185d"
 ROOT="$(git rev-parse --show-toplevel)"
