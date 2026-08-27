@@ -69,7 +69,7 @@
         </div>
       </el-header>
       <el-main class="main">
-        <router-view />
+        <router-view :key="`${store.contextGeneration}:${route.fullPath}`" />
       </el-main>
     </el-container>
   </el-container>
@@ -80,6 +80,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { useUserStore } from '@/stores/user'
+import { hasRoutePermissions } from '@/router/permissions'
 
 const store = useUserStore()
 const route = useRoute()
@@ -106,11 +107,18 @@ function onLogout() {
   store.logout()
   router.replace('/login')
 }
-function onTenantChange(value) {
+async function onTenantChange(value) {
   const [enterpriseId, workspaceId] = String(value).split(':')
   store.selectTenant(enterpriseId, workspaceId)
-  store.refreshSummary()
-  router.go(0)
+  if (!hasRoutePermissions(route.meta, (permission) => store.hasPerm(permission))) {
+    await router.replace('/profile')
+  }
+  const [profileResult] = await Promise.allSettled([store.fetchMe()])
+  if (profileResult.status === 'fulfilled'
+      && !hasRoutePermissions(route.meta, (permission) => store.hasPerm(permission))) {
+    await router.replace('/profile')
+  }
+  await store.refreshSummary()
 }
 </script>
 

@@ -42,6 +42,7 @@
           <el-option :value="30" label="每项核对 30 个" />
         </el-select>
         <el-upload
+          v-if="store.hasPerm('excel:match')"
           :show-file-list="false"
           :http-request="uploadMatch"
           :before-upload="beforeUpload"
@@ -49,8 +50,8 @@
         >
           <el-button type="primary" :loading="uploading">导入 Excel</el-button>
         </el-upload>
-        <el-button @click="downloadTemplate">下载模板</el-button>
-        <el-button type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
+        <el-button v-if="store.hasPerm('excel:import')" @click="downloadTemplate">下载模板</el-button>
+        <el-button v-if="store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
           批量导出（{{ selectedRows.length }}）
         </el-button>
         <el-button
@@ -155,13 +156,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
 import http from '@/api/http'
+import { useUserStore } from '@/stores/user'
 
 const platforms = ref([])
 const { embedded = false } = defineProps({ embedded: Boolean })
 const devices = ref([])
 const router = useRouter()
+const store = useUserStore()
 const platform = ref('pinduoduo')
 const deviceId = ref(null)
 const maxDetail = ref(10)
@@ -185,8 +187,6 @@ watch(availableDevices, (items) => {
   }
 })
 
-const tokenHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('sjzq_token') || ''}` })
-
 function beforeUpload(file) {
   if (!platform.value) {
     ElMessage.warning('请先选择平台')
@@ -200,8 +200,8 @@ function beforeUpload(file) {
 }
 
 async function downloadTemplate() {
-  const response = await axios.get('/api/excel/template', { responseType: 'blob', headers: tokenHeaders() })
-  downloadBlob(response.data, '商品资料库匹配模板.xlsx')
+  const blob = await http.getBlob('/api/excel/template', { expectedFile: 'xlsx' })
+  downloadBlob(blob, '商品资料库匹配模板.xlsx')
 }
 
 async function uploadMatch({ file }) {
@@ -210,17 +210,12 @@ async function uploadMatch({ file }) {
   try {
     const form = new FormData()
     form.append('file', file)
-    const response = await axios.post(
+    const response = await http.post(
       `/api/excel/match?platform_code=${encodeURIComponent(platform.value)}`,
       form,
-      { headers: tokenHeaders() },
     )
-    if (!response.data.ok) {
-      ElMessage.error(response.data.message || '匹配失败')
-      return
-    }
-    rows.value = response.data.data.rows || []
-    stats.value = response.data.data
+    rows.value = response.data.rows || []
+    stats.value = response.data
     ElMessage.success('匹配完成')
   } finally {
     uploading.value = false
@@ -251,19 +246,14 @@ function chooseCandidate(candidate) {
 async function exportBatch() {
   exporting.value = true
   try {
-    const response = await axios.post(
+    const blob = await http.postBlob(
       '/api/excel/export-batch',
       { platform_code: platform.value, rows: selectedRows.value },
-      { responseType: 'blob', headers: tokenHeaders() },
+      { expectedFile: 'zip' },
     )
-    if (response.data.type === 'application/json') {
-      const data = JSON.parse(await response.data.text())
-      ElMessage.error(data.message || '导出失败')
-      return
-    }
     const platformName = platforms.value.find((item) => item.platform_code === platform.value)?.platform_name || platform.value
     const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-    downloadBlob(response.data, `${platformName}_${timestamp}.zip`)
+    downloadBlob(blob, `${platformName}_${timestamp}.zip`)
     ElMessage.success('导出压缩包已生成')
   } finally {
     exporting.value = false
