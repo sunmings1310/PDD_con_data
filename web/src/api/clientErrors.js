@@ -4,6 +4,7 @@ export const CLIENT_ERROR_CODES = Object.freeze({
   NOT_FOUND: 'NOT_FOUND',
   CONTEXT_STALE: 'CONTEXT_STALE',
   REQUEST_CANCELLED: 'REQUEST_CANCELLED',
+  UNEXPECTED_RESPONSE: 'UNEXPECTED_RESPONSE',
   REQUEST_FAILED: 'REQUEST_FAILED',
 })
 
@@ -61,6 +62,14 @@ export async function parseJsonBlob(blob) {
   } catch {
     return null
   }
+}
+
+export function blobResponseError(payload, status = 200) {
+  return apiEnvelopeError(payload, status) || new ClientRequestError('下载接口未返回文件', {
+    status,
+    code: CLIENT_ERROR_CODES.UNEXPECTED_RESPONSE,
+    data: payload,
+  })
 }
 
 export async function normalizeHttpError(error) {

@@ -9,6 +9,7 @@ import {
 } from '../src/api/clientContext.js'
 import {
   apiEnvelopeError,
+  blobResponseError,
   CLIENT_ERROR_CODES,
   normalizeHttpError,
   parseJsonBlob,
@@ -102,6 +103,9 @@ const blobPayload = await parseJsonBlob(new Blob([
 const blobError = apiEnvelopeError(blobPayload)
 assert.equal(blobError.code, 'EXPORT_FAILED')
 assert.equal(blobError.message, '导出失败')
+const unexpectedBlob = blobResponseError({ ok: true, data: { ignored: true } })
+assert.equal(unexpectedBlob.code, CLIENT_ERROR_CODES.UNEXPECTED_RESPONSE)
+assert.equal(unexpectedBlob.message, '下载接口未返回文件')
 console.log('ERROR_CONTRACT=PASS api_ok=false axios_403=true http_404=true not_found_non_enumerable=true blob_json=true')
 
 let resetCount = 0
@@ -162,4 +166,6 @@ for (const marker of [
 const layoutSource = readFileSync(join(sourceRoot, 'layout/AdminLayout.vue'), 'utf8')
 assert.match(layoutSource, /router-view :key="`\$\{store\.contextGeneration\}:\$\{route\.fullPath\}`"/)
 assert.doesNotMatch(layoutSource, /router\.go\s*\(/)
+const httpSource = readFileSync(join(sourceRoot, 'api/http.js'), 'utf8')
+assert.match(httpSource, /undefined, \{ synchronous: true \}\)/)
 console.log('SOURCE_CONTRACT=PASS direct_http_bypass=false excel_permissions=true tenant_remount=true')

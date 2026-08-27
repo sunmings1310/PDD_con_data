@@ -51,7 +51,7 @@ router.beforeEach(async (to) => {
     }
   }
   if (!hasRoutePermissions(to.meta, (permission) => store.hasPerm(permission))) {
-    return '/devices'
+    return '/profile'
   }
   return true
 })

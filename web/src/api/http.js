@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { clientContext, headersForContext, invalidateClientSession } from './clientContext.js'
 import {
   apiEnvelopeError,
+  blobResponseError,
   CLIENT_ERROR_CODES,
   normalizeHttpError,
   parseJsonBlob,
@@ -31,7 +32,7 @@ http.interceptors.request.use((config) => {
     config.signal = requestContext.signal
   }
   return config
-})
+}, undefined, { synchronous: true })
 
 http.interceptors.response.use(
   async (res) => {
@@ -39,10 +40,10 @@ http.interceptors.response.use(
     const data = res.data
     let envelopeError = null
     if (data && typeof data.text === 'function') {
-      const contentType = String(res.headers?.['content-type'] || data.type || '')
+      const contentType = String(res.headers?.get?.('content-type') || res.headers?.['content-type'] || data.type || '')
       if (contentType.includes('json')) {
         const payload = await parseJsonBlob(data)
-        envelopeError = apiEnvelopeError(payload, res.status)
+        envelopeError = blobResponseError(payload, res.status)
       }
     } else {
       envelopeError = apiEnvelopeError(data, res.status)

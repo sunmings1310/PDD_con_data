@@ -19,6 +19,7 @@ class WebClientContractTests(unittest.TestCase):
         self.assertNotIn("localStorage", http)
         self.assertIn("clientContext.beginRequest()", http)
         self.assertIn("headersForContext(requestContext.snapshot)", http)
+        self.assertIn("undefined, { synchronous: true })", http)
         for header in ("Authorization", "X-Enterprise-Id", "X-Workspace-Id"):
             self.assertIn(header, context)
 
@@ -44,6 +45,7 @@ class WebClientContractTests(unittest.TestCase):
         router = self.source("web/src/router/index.js")
         helper = self.source("web/src/router/permissions.js")
         self.assertIn("hasRoutePermissions(to.meta", router)
+        self.assertIn("return '/profile'", router)
         self.assertIn(".every((permission)", helper)
         self.assertIn("Array.isArray(meta.perms)", helper)
 

@@ -55,7 +55,6 @@
           批量导出（{{ selectedRows.length }}）
         </el-button>
         <el-button
-          v-if="store.hasPerm('task:dispatch') && store.hasPerm('task:create')"
           type="warning"
           :disabled="!unmatchedRows.length"
           :loading="dispatching"
