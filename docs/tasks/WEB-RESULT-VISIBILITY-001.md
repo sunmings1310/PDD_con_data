@@ -75,7 +75,7 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.009s`；`OK` | 0 | PASS |
+| Targeted | `$python='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; & $python -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | 稳定分页、exact ID、403 与 ownership 断言通过 | `Ran 28 tests in 0.010s`；`OK` | 0 | PASS |
 | Stale race | `& '.tools/node-v22.18.0-win-x64/node.exe' web/scripts/test-request-generation.mjs` | TaskDetail/TaskTrace A/B deferred response 与 deferred confirm | reset 完整；旧 A 不覆盖/清空 B；stale confirm 不发 POST | `STALE_RACE=PASS ...`；`REQUEUE_CONFIRM_RACE=PASS ... stale_request_sent=false`；`TASK_TRACE_RACE=PASS ... preserved=true` | 0 | PASS |
 | Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS | `1676 modules transformed`；`built in 584ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
 | Python module/full | `$env:PDD_PYTHON='D:/work/PDD_con_data/.venv-t001/Scripts/python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 223 tests in 0.441s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
@@ -93,7 +93,7 @@
 - Fixed Head SHA：Review Fix 2 最终 commit SHA 由外部 manifest 与 Control handoff 绑定，避免提交 manifest 后再次移动 Head。
 - Canonical command / test count / literal result hash / exit：最终 Head 独占执行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict`；外部 manifest 记录完整 literal output/hash、46/46、skipped=0、exit 0。
 - Evidence generated at / expiry：最终 commit 后生成；validator 时效为 72 小时，精确 UTC 时间见外部 manifest。
-- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `eee661981c6b0e093cf921cdd0e02e1ded01f4b0811efbb47ed9521a3a7f76ce`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
+- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 四制品；副本 rollback 恢复 SHA-256 `efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
 - Hosted evidence validator：外部 manifest 在最终 Head 使用 `.github/scripts/validate_oracle_local_evidence.py` 独立验证；结果随 handoff 提交。
 - Independent Reviewer provenance check：E2E 已 PASS；Reviewer 继续核对最终 Head 本地隔离 Oracle 来源、cleanup、rollback 与四制品 hash。
 
@@ -127,7 +127,7 @@
 - Original evidence：`main@09e717c` 的 `TaskDetail.vue`、`TaskTrace.vue`、`management.py`、`management_queries.py`、`test_phase4_management.py`。
 - Derived artifacts：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/`：`MODIFIED_FILE.py`、`DIFF_FILE.patch`、`VERIFICATION.txt`、executable `ROLLBACK.sh`；baseline/modified/rollback 命令、字面结果、exit 和 restored status 见 `VERIFICATION.txt`。
 - Implementation evidence：新增 tenant-bound `GET /api/management/tasks/{task_id}/results` 与 `GET /api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}`；DTO 明确 exact ID/unavailable/library state；Task Detail/Trace 不再以列表行或 Master Product 冒充结果资源；新证据页为只读。
-- Tests：offline targeted 27/27、Python 222/222（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。
+- Tests：offline targeted 28/28、Python 223/223（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。
 - Review findings（2026-08-27 Review Fix）：
   1. **RESOLVED**：Task results `ORDER BY` 增加 `RESULT_KIND` 与 Snapshot/Quarantine/Product/Raw/Quality authoritative ID 全序；同 timestamp、跨 result kind 相同 ID、跨页无重复漏项回归通过。
   2. **RESOLVED**：新增可执行 `requestGeneration` helper 与 A/B 乱序 Node 回归；Task Detail/Trace/Evidence 路由切换同步 reset，旧 generation 不得写回。

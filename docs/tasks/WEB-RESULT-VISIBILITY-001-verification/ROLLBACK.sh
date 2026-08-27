@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BASE_COMMIT="73c9e86c9ff2e7504be6d67bf504e7d5240f8c70"
-SOURCE_PATH="web/src/utils/requestGeneration.js"
-EXPECTED_SHA256="efc9ed1197e3e2e8e212842b71b643de4b321a8d5421b88f87062598110ec6b0"
+BASE_COMMIT="959f32d8f088e599382be8315fef59f6818db6c9"
+SOURCE_PATH="docs/tasks/WEB-RESULT-VISIBILITY-001.md"
+EXPECTED_SHA256="ee5c0f751d4db9e090659a1b25f69616a9faa42aacaaf0edb02d4d97c9628e36"
 TARGET="${1:?usage: ROLLBACK.sh <rollback-copy-path>}"
 ROOT="$(git rev-parse --show-toplevel)"
 case "$TARGET" in /*) ;; *) TARGET="$ROOT/$TARGET" ;; esac
