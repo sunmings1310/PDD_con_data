@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-RESULT-VISIBILITY-001
 - **Title**：采集结果可见性与证据下钻
-- **Status**：IN_PROGRESS
+- **Status**：DEV_SELF_CHECK_COMPLETE（等待 fixed-Head E2E / Independent Review）
 - **Base**：`origin/main@09e717cdc3f67eaaf620d6a5e796445ec0334674`
 - **Branch**：`codex/web-result-visibility-001`
 - **Worktree**：`D:\work\PDD_con_data_web_result_visibility`
@@ -60,38 +60,39 @@
 
 ## Acceptance Criteria
 
-- [ ] 有 `task:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
-- [ ] 页面明确区分“本次采集结果”和“已保存商品资料库”；保存动作不改变已确认采集事实。
-- [ ] Snapshot 链接和请求使用服务端返回的真实 `snapshot_id`；Master Product、Enterprise Product、legacy `product_id` 不得冒充 Snapshot ID。
-- [ ] Task 结果可用服务端权威 ID 下钻到对应 Raw 与 Quality；缺失证据时展示明确 unavailable 原因，不猜测或拼接 ID。
-- [ ] Quarantine 结果展示失败原因与可用 Raw/Quality 证据，且不会伪装成正常商品/Snapshot。
-- [ ] loading、empty、error、retry、403/无权限均有确定行为；请求失败会清空或隔离陈旧数据，不显示跨 Task/租户残留。
-- [ ] 所有读取继续执行 enterprise/workspace 所有权校验；跨租户、无权限及不存在资源不泄露数据。
-- [ ] 不改变写入、Task 完成、人工保存、Schema/migration、默认 PDD 采集路径或 Android 行为。
-- [ ] targeted、Python module/full、Web production build、Python compile、Android JVM 与 `git diff --check` 按适用门禁通过。
+- [x] 有 `task:view` 的当前租户用户可看到 Task 范围内的可信 Snapshot、draft/待保存结果与 Quarantine；未保存到资料库不再导致本次采集结果消失。
+- [x] 页面明确区分“本次采集结果”和“已保存商品资料库”；保存动作不改变已确认采集事实。
+- [x] Snapshot 链接和请求使用服务端返回的真实 `snapshot_id`；Master Product、Enterprise Product、legacy `product_id` 不得冒充 Snapshot ID。
+- [x] Task 结果可用服务端权威 ID 下钻到对应 Raw 与 Quality；缺失证据时展示明确 unavailable 原因，不猜测或拼接 ID。
+- [x] Quarantine 结果展示失败原因与可用 Raw/Quality 证据，且不会伪装成正常商品/Snapshot。
+- [x] loading、empty、error、retry、403/无权限均有确定行为；请求失败会清空或隔离陈旧数据，不显示跨 Task/租户残留。
+- [x] 所有读取继续执行 enterprise/workspace 所有权校验；跨租户、无权限及不存在资源不泄露数据。
+- [x] 不改变写入、Task 完成、人工保存、Schema/migration、默认 PDD 采集路径或 Android 行为。
+- [x] targeted、Python module/full、Web production build、Python compile、Android JVM 与 `git diff --check` 按适用门禁通过。
 - [ ] 固定 Head Oracle strict（若服务端 Oracle 查询发生变化）和 Independent Review 完成；无新增 P0。
 
 ## Test Plan
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `python -m unittest tests.test_phase4_management` 及新增定向模块 | offline fake cursor + tenant/permission fixtures | draft/Snapshot/Raw/Quality/Quarantine ID 与权限断言通过 | pending |  | BLOCKED |
-| Web | `npm run build` | `web/`，固定 Node/npm | production build PASS；必要静态契约测试通过 | pending |  | BLOCKED |
-| Python module/full | 仓库 canonical Python test commands | offline + 隔离测试数据 | 无 Phase 1～6A 回归 | pending |  | BLOCKED |
-| Android JVM | 仓库 canonical Android JVM command | 不修改 Android，仅回归 | 既有测试通过 | pending |  | BLOCKED |
-| Static | `python -m compileall -q server scripts tests`；`git diff --check` | fixed Head | exit 0 | pending |  | BLOCKED |
+| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility` | offline fake cursor + tenant/permission fixtures | draft/Snapshot/Raw/Quality/Quarantine ID 与权限断言通过 | `Ran 27 tests in 0.008s`；`OK` | 0 | PASS |
+| Web | `.\scripts\test-baseline.ps1 -Suite web -Strict` | bundled Node 22/npm 10；`web/` production build | production build PASS；必要静态契约测试通过 | `1675 modules transformed`；`built in 600ms`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Python module/full | `$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; .\scripts\test-baseline.ps1 -Suite python -Strict` | offline；opt-in Oracle 由独立 Gate 执行 | 无 Phase 1～6A 回归 | `Ran 222 tests in 0.471s`；`OK (skipped=24)`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | 不修改 Android；固定 JDK/SDK | 既有测试通过 | `BUILD SUCCESSFUL in 1m21s`；XML `70 tests, failures=0, errors=0, skipped=1`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Real Oracle targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces` | 隔离 writable Oracle；Task A/B、Snapshot/Raw/Quality/Quarantine fixture；本地忽略环境提供凭据 | 实际 SQL/tenant/resource binding 通过并清理 fixture | `Ran 1 test in 5.244s`；`OK` | 0 | PASS |
+| Static | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests`；`git diff --check` | 当前实现树 | exit 0 | no output / no whitespace errors | 0 | PASS |
 
 开发过程中按 targeted→module 执行；固定实现 Head 后再运行 full/Oracle/Independent Review，不以 `SKIPPED` 或 `BLOCKED` 冒充 `PASS`。
 
 ## Oracle Gate
 
-- Required：Conditional Yes。若修改任何 Oracle SQL、tenant ownership 查询、Task/Raw/Quality/Snapshot/Quarantine 资源绑定或事务读取，则为 **Yes**；纯 Web 文案/状态修改才可记录 No，并由 Independent Reviewer 核验。
-- Reason：本 Task 很可能调整 Oracle-backed 管理查询与 tenant-bound 资源 ID，Hosted CI 不连接数据库。
-- Local isolated environment identifier：待固定 Head 后记录；不得使用生产 Schema。
-- Fixed Head SHA：pending
-- Canonical command / test count / literal result hash / exit：pending
+- Required：**Yes**。
+- Reason：修改了 Oracle-backed Task/Raw/Quality/Snapshot/Quarantine 管理查询和 tenant-bound 资源 ID 绑定；Hosted CI 不连接数据库。
+- Local isolated environment identifier：本地隔离 writable T003 test schema；凭据来自 ignored environment，未写入仓库；targeted fixture 已清理。
+- Fixed Head SHA：最终 commit 后在 Control handoff / PR body manifest 记录，避免提交证据导致 Head 再次移动。
+- Canonical command / test count / literal result hash / exit：最终 commit 后运行 canonical `scripts/test-baseline.ps1 -Suite oracle -Strict` 并在 Control handoff / PR body manifest 记录；当前真实 Oracle targeted 为 1/1、`OK`、exit 0，不冒充全量 Gate。
 - Evidence generated at / expiry：pending
-- Four artifacts / rollback / persistent business changes：实现阶段更新；不得保留业务测试数据。
+- Four artifacts / rollback / persistent business changes：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/` 已生成四制品；副本 rollback 恢复 SHA-256 `952a1817...`，`MODIFIED_FILE.py` 保持 changed；无持久业务变更。
 - Hosted evidence validator：pending
 - Independent Reviewer provenance check：pending
 
@@ -123,6 +124,8 @@
 ## Evidence
 
 - Original evidence：`main@09e717c` 的 `TaskDetail.vue`、`TaskTrace.vue`、`management.py`、`management_queries.py`、`test_phase4_management.py`。
-- Derived artifacts：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/`（开发与固定 Head 阶段持续更新）。
-- Review findings：pending
-- Commit / PR：Task setup commit pending；PR 未创建。
+- Derived artifacts：`docs/tasks/WEB-RESULT-VISIBILITY-001-verification/`：`MODIFIED_FILE.py`、`DIFF_FILE.patch`、`VERIFICATION.txt`、executable `ROLLBACK.sh`；baseline/modified/rollback 命令、字面结果、exit 和 restored status 见 `VERIFICATION.txt`。
+- Implementation evidence：新增 tenant-bound `GET /api/management/tasks/{task_id}/results` 与 `GET /api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}`；DTO 明确 exact ID/unavailable/library state；Task Detail/Trace 不再以列表行或 Master Product 冒充结果资源；新证据页为只读。
+- Tests：offline targeted 27/27、Python 222/222（24 个环境 opt-in skip 单独处理）、Web build、Android 70 XML cases、真实 Oracle targeted 1/1、compile/diff 均 PASS；fixed-Head strict Oracle 在最终 commit 后生成外部 manifest。
+- Review findings：等待 E2E / Independent Review；Reviewer 重点核对 Task A/B 隔离、Snapshot/Raw/Quality/Quarantine 自有 ID、draft/Quarantine 可见性、403/NOT_FOUND/stale clearing、四制品与 fixed-Head Oracle 来源。
+- Commit / PR：最终 Dev commit 与 push 完成后在 handoff 记录固定 SHA；PR 未创建。

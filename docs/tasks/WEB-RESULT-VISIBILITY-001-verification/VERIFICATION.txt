@@ -1,53 +1,79 @@
-# WEB-RESULT-VISIBILITY-001 setup verification
+WEB-RESULT-VISIBILITY-001 VERIFICATION
+Date: 2026-08-27
+Branch: codex/web-result-visibility-001
+Baseline commit: 71c3e59f33e215953ee8af3800399999cd3a40b0
+Changed branch/field: Task result read path; authoritative tenant/workspace Task results now expose exact Snapshot, Raw, Quality and Quarantine resource identities, explicit unavailable reasons, draft/saved library state, and stale-data-safe Web views.
 
-This record covers Control-only Task establishment. Dev updates the same directory with fixed-Head implementation evidence.
+ARTIFACTS (repo-relative)
+1. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/MODIFIED_FILE.py
+2. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/DIFF_FILE.patch
+3. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/VERIFICATION.txt
+4. docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh
 
-## BASELINE
+HASHES
+Original server/management_queries.py SHA-256:
+952a18178fd1eb25692b6d43ca2ee9d42a98a09e9fcfe8bd375124bd2a821bde
+Modified server/management_queries.py / MODIFIED_FILE.py SHA-256:
+9f51d12fdb2ac3501a4f705809ec2613314fa9eb9803574af2072ed9fc6388cd
 
-- command: `git rev-parse origin/main`
-- input/environment: repository `D:\work\PDD_con_data_web_result_visibility`; expected approved base `09e717cdc3f67eaaf620d6a5e796445ec0334674`
-- literal output: `09e717cdc3f67eaaf620d6a5e796445ec0334674`
-- exit status: `0`
-- status: `PASS`
+BASELINE
+Command:
+D:workPDD_con_data.venv-t001Scriptspython.exe -c "import subprocess; s=subprocess.check_output(['git','show','71c3e59f33e215953ee8af3800399999cd3a40b0:server/management_queries.py']).decode('utf-8'); assert 'def task_results(' not in s and 'def task_result_resource(' not in s; print('BASELINE_TASK_RESULT_API=ABSENT; DRAFT_QUARANTINE_UNION=ABSENT; EXACT_RESOURCE_DOWNDRILL=ABSENT')"
+Input:
+Setup Head server/management_queries.py from Git; no database or mutable business state.
+Literal output/result:
+BASELINE_TASK_RESULT_API=ABSENT; DRAFT_QUARANTINE_UNION=ABSENT; EXACT_RESOURCE_DOWNDRILL=ABSENT
+Exit status: 0
+Observed behavior/status:
+The baseline has no authoritative Task result union and no exact task-scoped evidence-resource down-drill.
 
-## MODIFIED
+MODIFIED
+Command:
+D:workPDD_con_data.venv-t001Scriptspython.exe -c "from server import management_queries as q; assert callable(q.task_results) and callable(q.task_result_resource); print('MODIFIED_TASK_RESULT_API=PRESENT; DRAFT_QUARANTINE_UNION=PRESENT; EXACT_RESOURCE_DOWNDRILL=PRESENT')"
+Input:
+Modified server/management_queries.py under test-only server configuration; no database or mutable business state.
+Literal output/result:
+MODIFIED_TASK_RESULT_API=PRESENT; DRAFT_QUARANTINE_UNION=PRESENT; EXACT_RESOURCE_DOWNDRILL=PRESENT
+Exit status: 0
+Observed behavior/status:
+The canonical Task read path and exact Snapshot/Raw/Quality/Quarantine resource read path are present. Missing resource IDs stay explicit unavailable and are never derived from another resource type.
 
-- command: `git branch --show-current; git rev-parse HEAD; git diff --check`
-- input/environment: worktree `D:\work\PDD_con_data_web_result_visibility`; branch established from approved base
-- literal output:
-  - `codex/web-result-visibility-001`
-  - `09e717cdc3f67eaaf620d6a5e796445ec0334674`
-  - `git diff --check`: no output
-- exit status: `0`
-- status: `PASS`
+ROLLBACK (tested on a separate copy; MODIFIED_FILE.py remained changed)
+Command:
+$gitExe=(Get-Command git).Source; $bashExe=Join-Path (Split-Path (Split-Path $gitExe -Parent) -Parent) 'binash.exe'; & $bashExe 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh' 'docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py'
+Input:
+rollback_probe.py was a byte-for-byte copy of MODIFIED_FILE.py with SHA-256 9f51d12fdb2ac3501a4f705809ec2613314fa9eb9803574af2072ed9fc6388cd.
+Literal output/result:
+target=docs/tasks/WEB-RESULT-VISIBILITY-001-verification/rollback_probe.py
+before_sha256=9f51d12fdb2ac3501a4f705809ec2613314fa9eb9803574af2072ed9fc6388cd
+after_sha256=952a18178fd1eb25692b6d43ca2ee9d42a98a09e9fcfe8bd375124bd2a821bde
+expected_sha256=952a18178fd1eb25692b6d43ca2ee9d42a98a09e9fcfe8bd375124bd2a821bde
+result=RESTORED
+exit_status=0
+Exit status: 0
+Restored behavior/status:
+The separate probe was restored byte-for-byte to setup Head behavior. MODIFIED_FILE.py retained SHA-256 9f51d12fdb2ac3501a4f705809ec2613314fa9eb9803574af2072ed9fc6388cd. The temporary probe was removed.
 
-- command: `python <repository-relative Markdown link validator from .github/workflows/ci.yml>`
-- input/environment: all tracked and untracked repository Markdown files after Task setup
-- literal output: `Validated 62 Markdown files`
-- exit status: `0`
-- status: `PASS`
+REGRESSION RESULTS
+1. D:workPDD_con_data.venv-t001Scriptspython.exe -m unittest -v tests.test_phase4_management tests.test_phase4_pagination_contract tests.test_phase5_tenancy tests.test_web_result_visibility
+   Ran 27 tests in 0.008s; OK; exit=0; PASS.
+2. D:workPDD_con_data.venv-t001Scriptspython.exe -m unittest -v tests.test_web_result_visibility tests.test_phase4_management
+   Ran 16 tests in 0.005s; OK; exit=0; PASS.
+3. scripts/test-baseline.ps1 -Suite python -Strict with PDD_PYTHON=D:workPDD_con_data.venv-t001Scriptspython.exe
+   Ran 222 tests in 0.471s; OK (skipped=24 opt-in environment gates); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS. No skipped opt-in Oracle test is represented as Oracle PASS.
+4. scripts/test-baseline.ps1 -Suite web -Strict
+   1675 modules transformed; built in 600ms; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+5. scripts/test-baseline.ps1 -Suite android -Strict
+   BUILD SUCCESSFUL in 1m21s; XML 70 tests, failures=0, errors=0, skipped=1; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; exit=0; PASS.
+6. D:workPDD_con_data.venv-t001Scriptspython.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_02_two_enterprises_are_isolated_on_all_read_surfaces
+   Ran 1 test in 5.244s; OK; exit=0; PASS. Real isolated Oracle; exact Task/result/resource/tenant queries; fixture cleanup completed.
+7. D:workPDD_con_data.venv-t001Scriptspython.exe -m compileall -q server tests
+   no output; exit=0; PASS.
+8. git diff --check
+   no whitespace errors; exit=0; PASS.
 
-- command: `python -c "import pathlib,yaml; [yaml.safe_load(p.read_text(encoding='utf-8')) for p in pathlib.Path('.github/workflows').glob('*.yml')]; print('YAML_VALID')"`
-- input/environment: repository workflow YAML; `PyYAML 6.0.2`
-- literal output: `YAML_VALID`
-- exit status: `0`
-- status: `PASS`
+FIXED-HEAD ORACLE
+Oracle Gate=Yes because server/management_queries.py changes Oracle SQL and tenant-bound resource linkage. The canonical strict Oracle manifest is intentionally generated only after the final commit so its Head binding is not invalidated by committing this evidence. Exact final Head, command, 46-test literal result/hash, artifact hashes, cleanup statement and expiry are reported to Control for PR-body validation; they are not represented by the targeted one-test result above.
 
-## ROLLBACK
-
-- command: `D:\Git\bin\bash.exe docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh "$TEMP/WEB-RESULT-VISIBILITY-001-rollback-copy.txt"`
-- input/environment: another copy containing literal `TASK_STATE=IN_PROGRESS\n`; repository `MODIFIED_FILE` is not the rollback target
-- literal output:
-  - `RESTORED_SHA256=9d9bf030823561e7318dcb06d9066eecca3e1714b4ac840e74e7c76f7585dc1a`
-  - `ROLLBACK_MATCH=true`
-  - `ROLLBACK_RESULT=READY restored`
-- exit status: `0`
-- restored behavior/status: copy contains literal `TASK_STATE=READY\n`; repository `MODIFIED_FILE` remains literal `TASK_STATE=IN_PROGRESS\n`
-- status: `PASS`
-
-## Paths
-
-- MODIFIED_FILE: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/MODIFIED_FILE`
-- DIFF_FILE: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/DIFF_FILE.patch`
-- VERIFICATION.txt: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/VERIFICATION.txt`
-- executable ROLLBACK.sh: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh`
+SCOPE / DATA CHECK
+No Schema, migration, Product/Snapshot/Quality/draft semantic change, Android logic, Phase 6B, Generic SKU, Excel refactor, production operation or persistent business write is included. No credential, token, device key, real account, unsanitized Raw Capture, local database, environment file, build output or file larger than 1 MiB is included.

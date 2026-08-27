@@ -1,5 +1,1204 @@
---- TASK_STATE.baseline
-+++ MODIFIED_FILE
-@@ -1 +1 @@
--TASK_STATE=READY
-+TASK_STATE=IN_PROGRESS
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 98b6714..babed49 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -251,0 +252,2 @@ Web 的 `views/management/` 提供 Quarantine、质量指标、Snapshot 时间
++Task 的业务结果读取使用 `/api/management/tasks/{task_id}/results`，由 `management_queries.task_results()` 在同一 tenant/workspace fence 下合并三类既有事实：可信 Snapshot、Quarantine、以及尚无 strict Snapshot 的 legacy/draft Product。响应同时返回各资源真实 `snapshot_id`、`raw_id`、`quality_result_id`、`quarantine_id` 与持久化的 Product identity；缺失项以 `availability=unavailable + reason` 表达，不从其他 ID 推断。`/api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}` 继续以 Task + tenant/workspace 约束读取只读证据。Web 的 Snapshot、Raw、Quality 和 Quarantine 下钻分别使用自身资源 ID；资料库 `draft/saved` 只描述人工保存状态，不改变采集事实。
++
+diff --git a/server/management_queries.py b/server/management_queries.py
+index cb55dc6..c703d7a 100644
+--- a/server/management_queries.py
++++ b/server/management_queries.py
+@@ -288,0 +289,307 @@ def _simple_page(cur: Any, table: str, id_col: str, where_col: str, value: int,
++def _resource_ref(value: Any, reason: str) -> dict[str, Any]:
++    if value is None:
++        return {"resource_id": None, "availability": "unavailable", "reason": reason}
++    return {"resource_id": int(value), "availability": "available", "reason": None}
++
++
++def _result_resources(row: dict[str, Any], result_kind: str) -> dict[str, dict[str, Any]]:
++    is_legacy = result_kind == "legacy_product"
++    is_quarantine = result_kind == "quarantine" or row.get("quarantine_id") is not None
++    missing_strict = "not_captured_by_strict_protocol" if is_legacy else "not_recorded"
++    return {
++        "snapshot": _resource_ref(
++            row.get("snapshot_id"),
++            "no_normal_snapshot_for_quarantine" if is_quarantine else missing_strict,
++        ),
++        "master_product": _resource_ref(row.get("master_product_id"), "product_identity_unavailable"),
++        "enterprise_product": _resource_ref(
++            row.get("enterprise_product_id"), "tenant_product_identity_unavailable"
++        ),
++        "product": _resource_ref(
++            row.get("product_id"),
++            "no_normal_product_for_quarantine" if is_quarantine else "library_product_unavailable",
++        ),
++        "raw": _resource_ref(row.get("raw_id"), missing_strict),
++        "quality": _resource_ref(row.get("quality_result_id"), missing_strict),
++        "quarantine": _resource_ref(
++            row.get("quarantine_id"),
++            "not_applicable_for_accepted_snapshot" if result_kind == "snapshot" else missing_strict,
++        ),
++    }
++
++
++def _shape_task_result(row: dict[str, Any]) -> dict[str, Any]:
++    kind = str(row.get("result_kind") or "legacy_product")
++    library_status = str(row.get("library_status") or "unavailable").lower()
++    if library_status not in {"draft", "saved"}:
++        library_status = "unavailable"
++    product_id = int(row["product_id"]) if row.get("product_id") is not None else None
++    row["result_kind"] = kind
++    row["result_id"] = int(
++        row.get("snapshot_id") or row.get("quarantine_id") or row.get("product_id")
++    )
++    row["resources"] = _result_resources(row, kind)
++    row["library"] = {
++        "status": library_status,
++        "product_id": product_id,
++        "is_saved": library_status == "saved",
++        "can_save": library_status == "draft" and product_id is not None,
++        "reason": "normal_product_not_created" if kind == "quarantine" else (
++            "library_product_unavailable" if product_id is None else None
++        ),
++    }
++    row["library_status"] = library_status
++    return row
++
++
++def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | None = None) -> dict:
++    """Return every Task business result without requiring library persistence.
++
++    Accepted Snapshot, Quarantine and pre-strict/legacy Product facts remain
++    separate rows.  Missing resource identities are reported as unavailable by
++    ``_shape_task_result`` and are never inferred from another ID type.
++    """
++    if not _owns(cur, "SJZQ_TASK", "TASK_ID", task_id, tenant):
++        return {"items": [], "total": 0, "page": page, "limit": limit}
++    params = {"task_id": task_id, **_tenant_binds(tenant)}
++    tenant_snapshot = (
++        " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id"
++        if tenant is not None else ""
++    )
++    tenant_quarantine = (
++        " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id"
++        if tenant is not None else ""
++    )
++    tenant_product = (
++        " AND p.ENTERPRISE_ID=:enterprise_id AND p.WORKSPACE_ID=:workspace_id"
++        if tenant is not None else ""
++    )
++    joined_tenant_product = (
++        " AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID"
++        if tenant is not None else ""
++    )
++    joined_tenant_quality = (
++        " AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID"
++        if tenant is not None else ""
++    )
++    duplicate_tenant = (
++        " AND sx.ENTERPRISE_ID=p.ENTERPRISE_ID AND sx.WORKSPACE_ID=p.WORKSPACE_ID"
++        if tenant is not None else ""
++    )
++    facts_sql = f"""
++        SELECT 'snapshot' RESULT_KIND,s.TASK_ID,s.JOB_ID,s.ATTEMPT_ID,s.SNAPSHOT_ID,
++               s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,p.PRODUCT_ID,
++               CAST(NULL AS NUMBER) QUARANTINE_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
++               NVL(p.LIBRARY_STATUS,'unavailable') LIBRARY_STATUS,s.QUALITY_STATUS,
++               COALESCE(p.SELL_NAME,s.TITLE) PLATFORM_TITLE,p.PRODUCT_NAME CANONICAL_NAME,
++               p.SPEC_TEXT PRODUCT_ATTRIBUTE_SPEC,p.BRAND,p.APPROVAL_NO APPROVAL_NUMBER,
++               p.MANUFACTURER,CAST(NULL AS VARCHAR2(2000)) FAILURE_REASON,
++               s.COLLECTED_AT
++          FROM SJZQ_PRODUCT_SNAPSHOT s
++          LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID{joined_tenant_quality}
++          LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
++               AND NVL(p.IS_DELETED,0)=0{joined_tenant_product}
++         WHERE s.TASK_ID=:task_id{tenant_snapshot}
++        UNION ALL
++        SELECT 'quarantine' RESULT_KIND,q.TASK_ID,q.JOB_ID,q.ATTEMPT_ID,
++               CAST(NULL AS NUMBER) SNAPSHOT_ID,q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID,
++               CAST(NULL AS NUMBER) PRODUCT_ID,q.QUARANTINE_ID,q.RAW_ID,q.QUALITY_RESULT_ID,
++               'unavailable' LIBRARY_STATUS,'quarantined' QUALITY_STATUS,
++               JSON_VALUE(q.EVIDENCE_JSON,'$.title' RETURNING VARCHAR2(512)) PLATFORM_TITLE,
++               CAST(NULL AS VARCHAR2(512)) CANONICAL_NAME,
++               CAST(NULL AS VARCHAR2(512)) PRODUCT_ATTRIBUTE_SPEC,
++               CAST(NULL AS VARCHAR2(128)) BRAND,CAST(NULL AS VARCHAR2(128)) APPROVAL_NUMBER,
++               CAST(NULL AS VARCHAR2(256)) MANUFACTURER,q.FAILURE_REASON,q.COLLECTED_AT
++          FROM SJZQ_DATA_QUARANTINE q
++         WHERE q.TASK_ID=:task_id{tenant_quarantine}
++        UNION ALL
++        SELECT 'legacy_product' RESULT_KIND,p.TASK_ID,CAST(NULL AS NUMBER) JOB_ID,
++               CAST(NULL AS NUMBER) ATTEMPT_ID,CAST(NULL AS NUMBER) SNAPSHOT_ID,
++               p.MASTER_PRODUCT_ID,p.ENTERPRISE_PRODUCT_ID,p.PRODUCT_ID,
++               CAST(NULL AS NUMBER) QUARANTINE_ID,CAST(NULL AS NUMBER) RAW_ID,
++               CAST(NULL AS NUMBER) QUALITY_RESULT_ID,NVL(p.LIBRARY_STATUS,'saved') LIBRARY_STATUS,
++               NVL(p.QUALITY_STATUS,'legacy') QUALITY_STATUS,p.SELL_NAME PLATFORM_TITLE,
++               p.PRODUCT_NAME CANONICAL_NAME,p.SPEC_TEXT PRODUCT_ATTRIBUTE_SPEC,p.BRAND,
++               p.APPROVAL_NO APPROVAL_NUMBER,p.MANUFACTURER,
++               CAST(NULL AS VARCHAR2(2000)) FAILURE_REASON,p.COLLECT_TIME COLLECTED_AT
++          FROM SJZQ_PRODUCT p
++         WHERE p.TASK_ID=:task_id AND NVL(p.IS_DELETED,0)=0{tenant_product}
++           AND NOT EXISTS (
++               SELECT 1 FROM SJZQ_PRODUCT_SNAPSHOT sx
++                WHERE sx.LEGACY_PRODUCT_ID=p.PRODUCT_ID{duplicate_tenant}
++           )
++    """
++    result = _page(
++        cur,
++        f"SELECT COUNT(*) FROM ({facts_sql})",
++        f"""SELECT RESULT_KIND,TASK_ID,JOB_ID,ATTEMPT_ID,SNAPSHOT_ID,MASTER_PRODUCT_ID,
++                    ENTERPRISE_PRODUCT_ID,PRODUCT_ID,QUARANTINE_ID,RAW_ID,QUALITY_RESULT_ID,
++                    LIBRARY_STATUS,QUALITY_STATUS,PLATFORM_TITLE,CANONICAL_NAME,
++                    PRODUCT_ATTRIBUTE_SPEC,BRAND,APPROVAL_NUMBER,MANUFACTURER,
++                    FAILURE_REASON,COLLECTED_AT
++               FROM ({facts_sql})
++              ORDER BY COLLECTED_AT DESC NULLS LAST,
++                       COALESCE(SNAPSHOT_ID,QUARANTINE_ID,PRODUCT_ID) DESC
++              OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY""",
++        params,
++        page,
++        limit,
++    )
++    result["items"] = [_shape_task_result(item) for item in result["items"]]
++    return result
++
++
++def _shape_task_result_resource(kind: str, resource_id: int, row: dict[str, Any]) -> dict[str, Any]:
++    details = dict(row)
++    if "raw_json" in details:
++        details["raw_data"] = _json(details.pop("raw_json", None), {})
++    for source, target, default in (
++        ("normalized_json", "normalized", {}),
++        ("sku_json", "sku", None),
++        ("field_sources", "field_sources", {}),
++        ("missing_fields_json", "missing_fields", []),
++        ("error_codes_json", "error_codes", []),
++        ("warnings_json", "warnings", []),
++    ):
++        if source in details:
++            value = details.pop(source, None)
++            details[target] = _json(value, default)
++    synthetic = {**row, "result_kind": kind}
++    if synthetic.get("product_id") is None and synthetic.get("legacy_product_id") is not None:
++        synthetic["product_id"] = synthetic["legacy_product_id"]
++    if kind == "raw": synthetic["raw_id"] = resource_id
++    elif kind == "quality": synthetic["quality_result_id"] = resource_id
++    elif kind == "snapshot": synthetic["snapshot_id"] = resource_id
++    elif kind == "quarantine": synthetic["quarantine_id"] = resource_id
++    return {
++        "resource_kind": kind,
++        "resource_id": int(resource_id),
++        "task_id": int(row["task_id"]),
++        "snapshot_id": synthetic.get("snapshot_id"),
++        "master_product_id": synthetic.get("master_product_id"),
++        "enterprise_product_id": synthetic.get("enterprise_product_id"),
++        "product_id": synthetic.get("product_id"),
++        "quarantine_id": synthetic.get("quarantine_id"),
++        "raw_id": synthetic.get("raw_id"),
++        "quality_result_id": synthetic.get("quality_result_id"),
++        "resources": _result_resources(synthetic, kind),
++        "details": details,
++    }
++
++
++def task_result_resource(
++    cur: Any,
++    task_id: int,
++    resource_kind: str,
++    resource_id: int,
++    tenant: Any | None = None,
++) -> dict[str, Any] | None:
++    """Read one evidence resource through its owning Task and tenant fence."""
++    if resource_kind not in {"snapshot", "raw", "quality", "quarantine"}:
++        raise ValueError("unsupported task result resource")
++    if not _owns(cur, "SJZQ_TASK", "TASK_ID", task_id, tenant):
++        return None
++    params = {"resource_id": resource_id, "task_id": task_id, **_tenant_binds(tenant)}
++    tenant_r = " AND r.ENTERPRISE_ID=:enterprise_id AND r.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
++    tenant_s = " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
++    tenant_qr = " AND qr.ENTERPRISE_ID=:enterprise_id AND qr.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
++    tenant_q = " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
++    if resource_kind == "raw":
++        cur.execute(
++            f"""SELECT 'raw' RESOURCE_KIND,r.RAW_ID,r.TASK_ID,r.JOB_ID,r.ATTEMPT_ID,r.DEVICE_ID,
++                       r.REQUEST_KEY,r.SOURCE_TYPE,r.PAYLOAD_SHA256,r.RAW_JSON,r.COLLECTED_AT,
++                       s.SNAPSHOT_ID,s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,
++                       qr.QUALITY_RESULT_ID,q.QUARANTINE_ID
++                  FROM SJZQ_RAW_COLLECTION r
++                  LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=r.RAW_ID
++                       AND qr.ENTERPRISE_ID=r.ENTERPRISE_ID AND qr.WORKSPACE_ID=r.WORKSPACE_ID
++                  LEFT JOIN SJZQ_PRODUCT_SNAPSHOT s ON s.RAW_ID=r.RAW_ID
++                       AND s.ENTERPRISE_ID=r.ENTERPRISE_ID AND s.WORKSPACE_ID=r.WORKSPACE_ID
++                  LEFT JOIN SJZQ_DATA_QUARANTINE q ON q.RAW_ID=r.RAW_ID
++                       AND q.ENTERPRISE_ID=r.ENTERPRISE_ID AND q.WORKSPACE_ID=r.WORKSPACE_ID
++                 WHERE r.RAW_ID=:resource_id AND r.TASK_ID=:task_id{tenant_r}""",
++            params,
++        )
++        row = row_as_dict(cur)
++    elif resource_kind == "quality":
++        cur.execute(
++            f"""SELECT 'quality' RESOURCE_KIND,qr.QUALITY_RESULT_ID,qr.RAW_ID,r.TASK_ID,
++                       r.JOB_ID,r.ATTEMPT_ID,qr.SNAPSHOT_ID,q.QUARANTINE_ID,
++                       s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,
++                       qr.ACCEPTED,qr.STATUS,qr.PAGE_STATUS,qr.PARSE_STATUS,qr.QUALITY_STATUS,
++                       qr.PARSER_VERSION,qr.QUALITY_RULES_VERSION,qr.MISSING_FIELDS_JSON,
++                       qr.ERROR_CODES_JSON,qr.WARNINGS_JSON,qr.CREATE_TIME
++                  FROM SJZQ_QUALITY_RESULT qr
++                  JOIN SJZQ_RAW_COLLECTION r ON r.RAW_ID=qr.RAW_ID
++                       AND r.ENTERPRISE_ID=qr.ENTERPRISE_ID AND r.WORKSPACE_ID=qr.WORKSPACE_ID
++                  LEFT JOIN SJZQ_PRODUCT_SNAPSHOT s ON s.SNAPSHOT_ID=qr.SNAPSHOT_ID
++                       AND s.ENTERPRISE_ID=qr.ENTERPRISE_ID AND s.WORKSPACE_ID=qr.WORKSPACE_ID
++                  LEFT JOIN SJZQ_DATA_QUARANTINE q ON q.QUALITY_RESULT_ID=qr.QUALITY_RESULT_ID
++                       AND q.ENTERPRISE_ID=qr.ENTERPRISE_ID AND q.WORKSPACE_ID=qr.WORKSPACE_ID
++                 WHERE qr.QUALITY_RESULT_ID=:resource_id AND r.TASK_ID=:task_id{tenant_qr}{tenant_r}""",
++            params,
++        )
++        row = row_as_dict(cur)
++    elif resource_kind == "snapshot":
++        cur.execute(
++            f"""SELECT 'snapshot' RESOURCE_KIND,s.SNAPSHOT_ID,s.MASTER_PRODUCT_ID,
++                       s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
++                       s.TASK_ID,s.JOB_ID,s.ATTEMPT_ID,s.REQUEST_KEY,s.COLLECTED_AT,
++                       s.NORMALIZED_JSON,s.TITLE,s.SHOP_NAME,s.SHOP_ID,s.AVAILABILITY,
++                       s.PRICE,s.DISPLAY_PRICE,s.GROUP_PRICE,s.DEAL_PRICE,s.ORIGINAL_PRICE,
++                       s.SALES_NUM,s.SKU_JSON,s.FIELD_SOURCES,s.PARSER_VERSION,
++                       s.QUALITY_RULES_VERSION,s.PARSE_STATUS,s.PAGE_STATUS,s.QUALITY_STATUS,
++                       s.PREVIOUS_SNAPSHOT_ID,p.LIBRARY_STATUS
++                  FROM SJZQ_PRODUCT_SNAPSHOT s
++                  JOIN SJZQ_RAW_COLLECTION r ON r.RAW_ID=s.RAW_ID
++                       AND r.ENTERPRISE_ID=s.ENTERPRISE_ID AND r.WORKSPACE_ID=s.WORKSPACE_ID
++                  LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID
++                       AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID
++                  LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
++                       AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID
++                 WHERE s.SNAPSHOT_ID=:resource_id AND s.TASK_ID=:task_id{tenant_s}{tenant_r}""",
++            params,
++        )
++        row = row_as_dict(cur)
++        if row:
++            cur.execute(
++                f"""SELECT DIFF_ID,PREVIOUS_SNAPSHOT_ID,CHANGED_FIELDS_JSON,PRICE_CHANGED,
++                            SALES_CHANGED,SKU_CHANGED,AVAILABILITY_CHANGED,TITLE_CHANGED,SHOP_CHANGED
++                       FROM SJZQ_SNAPSHOT_DIFF
++                      WHERE SNAPSHOT_ID=:resource_id""",
++                {"resource_id": resource_id},
++            )
++            difference = row_as_dict(cur)
++            if difference:
++                difference["changes"] = _json(difference.pop("changed_fields_json", None), {})
++            row["difference"] = difference
++            cur.execute(
++                """SELECT FIELD_NAME,SOURCE_TYPE,SOURCE_REF,TRANSFORMATION
++                     FROM SJZQ_FIELD_PROVENANCE WHERE SNAPSHOT_ID=:resource_id
++                    ORDER BY FIELD_NAME""",
++                {"resource_id": resource_id},
++            )
++            row["provenance"] = rows_as_dicts(cur)
++    else:
++        cur.execute(
++            f"""SELECT q.QUARANTINE_ID,q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID
++                  FROM SJZQ_DATA_QUARANTINE q
++                 WHERE q.QUARANTINE_ID=:resource_id AND q.TASK_ID=:task_id{tenant_q}""",
++            params,
++        )
++        binding = cur.fetchone()
++        if not binding:
++            return None
++        row = quarantine_detail(cur, resource_id, tenant=tenant)
++        if row:
++            # Task result DTOs expose only persisted resource bindings.  The
++            # legacy quarantine detail may infer a global Master from evidence
++            # for display, but that inference must not become a navigable ID.
++            row["master_product_id"] = int(binding[1]) if binding[1] is not None else None
++            row["enterprise_product_id"] = int(binding[2]) if binding[2] is not None else None
++            row["resource_kind"] = "quarantine"
++    if not row:
++        return None
++    return _shape_task_result_resource(resource_kind, resource_id, row)
++
++
+@@ -293 +600 @@ def task_jobs(cur: Any, task_id: int, page: int, limit: int, tenant: Any | None
+-    _attach_business_results(cur, result["items"], "job_id")
++    _attach_business_results(cur, result["items"], "job_id", tenant=tenant)
+@@ -301 +608 @@ def job_attempts(cur: Any, job_id: int, page: int, limit: int, tenant: Any | Non
+-    _attach_business_results(cur, result["items"], "attempt_id")
++    _attach_business_results(cur, result["items"], "attempt_id", tenant=tenant)
+@@ -305 +612 @@ def job_attempts(cur: Any, job_id: int, page: int, limit: int, tenant: Any | Non
+-def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
++def _attach_business_results(cur: Any, items: list[dict], key: str, tenant: Any | None = None) -> None:
+@@ -312,0 +620 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
++    params.update(_tenant_binds(tenant))
+@@ -313,0 +622,2 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
++    snapshot_tenant = " AND s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
++    quarantine_tenant = " AND q.ENTERPRISE_ID=:enterprise_id AND q.WORKSPACE_ID=:workspace_id" if tenant is not None else ""
+@@ -315 +625,2 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+-                           QUARANTINE_ID,QUALITY_STATUS,COLLECTED_AT
++                           ENTERPRISE_PRODUCT_ID,PRODUCT_ID,QUARANTINE_ID,RAW_ID,
++                           QUALITY_RESULT_ID,LIBRARY_STATUS,QUALITY_STATUS,COLLECTED_AT
+@@ -318 +629,3 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+-                               s.MASTER_PRODUCT_ID,CAST(NULL AS NUMBER) QUARANTINE_ID,
++                               s.MASTER_PRODUCT_ID,s.ENTERPRISE_PRODUCT_ID,s.LEGACY_PRODUCT_ID PRODUCT_ID,
++                               CAST(NULL AS NUMBER) QUARANTINE_ID,s.RAW_ID,qr.QUALITY_RESULT_ID,
++                               NVL(p.LIBRARY_STATUS,'unavailable') LIBRARY_STATUS,
+@@ -320 +633,6 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+-                          FROM SJZQ_PRODUCT_SNAPSHOT s WHERE s.{column} IN ({binds})
++                          FROM SJZQ_PRODUCT_SNAPSHOT s
++                          LEFT JOIN SJZQ_QUALITY_RESULT qr ON qr.RAW_ID=s.RAW_ID
++                               AND qr.ENTERPRISE_ID=s.ENTERPRISE_ID AND qr.WORKSPACE_ID=s.WORKSPACE_ID
++                          LEFT JOIN SJZQ_PRODUCT p ON p.PRODUCT_ID=s.LEGACY_PRODUCT_ID
++                               AND p.ENTERPRISE_ID=s.ENTERPRISE_ID AND p.WORKSPACE_ID=s.WORKSPACE_ID
++                         WHERE s.{column} IN ({binds}){snapshot_tenant}
+@@ -323,2 +641,3 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+-                               COALESCE(q.MASTER_PRODUCT_ID,m.MASTER_PRODUCT_ID) MASTER_PRODUCT_ID,
+-                               q.QUARANTINE_ID,'quarantined' QUALITY_STATUS,q.COLLECTED_AT
++                               q.MASTER_PRODUCT_ID,q.ENTERPRISE_PRODUCT_ID,CAST(NULL AS NUMBER) PRODUCT_ID,
++                               q.QUARANTINE_ID,q.RAW_ID,q.QUALITY_RESULT_ID,
++                               'unavailable' LIBRARY_STATUS,'quarantined' QUALITY_STATUS,q.COLLECTED_AT
+@@ -326,5 +645 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
+-                          LEFT JOIN SJZQ_PRODUCT_MASTER m ON m.MASTER_PRODUCT_ID=q.MASTER_PRODUCT_ID
+-                            OR (q.MASTER_PRODUCT_ID IS NULL
+-                                AND m.PLATFORM_CODE=JSON_VALUE(q.EVIDENCE_JSON,'$.platform_code' RETURNING VARCHAR2(32))
+-                                AND m.PLATFORM_PRODUCT_ID=JSON_VALUE(q.EVIDENCE_JSON,'$.platform_product_id' RETURNING VARCHAR2(128)))
+-                         WHERE q.{column} IN ({binds})
++                         WHERE q.{column} IN ({binds}){quarantine_tenant}
+@@ -333,0 +649 @@ def _attach_business_results(cur: Any, items: list[dict], key: str) -> None:
++        _shape_task_result(fact)
+diff --git a/server/routers/management.py b/server/routers/management.py
+index d1de1ef..4663367 100644
+--- a/server/routers/management.py
++++ b/server/routers/management.py
+@@ -4,0 +5 @@ from datetime import datetime
++from typing import Literal
+@@ -9 +10 @@ from server.db import get_conn
+-from server.schemas import ApiOk
++from server.schemas import ApiOk, TaskResultResourceDetailDTO, TaskResultsPageDTO
+@@ -53,0 +55,34 @@ def trace(task_id:int,tenant=Depends(require_tenant_perms("task:view"))):
++@router.get("/tasks/{task_id}/results")
++def task_results(
++    task_id: int,
++    page: int = Query(1, ge=1),
++    limit: int = Query(50, ge=1, le=200),
++    tenant=Depends(require_tenant_perms("task:view")),
++):
++    result = _run(lambda cur: queries.task_results(cur, task_id, page, limit, tenant=tenant))
++    result.data = TaskResultsPageDTO.model_validate(result.data).model_dump(mode="json")
++    return result
++
++
++@router.get("/tasks/{task_id}/results/{resource_kind}/{resource_id}")
++def task_result_resource(
++    task_id: int,
++    resource_kind: Literal["snapshot", "raw", "quality", "quarantine"],
++    resource_id: int,
++    tenant=Depends(require_tenant_perms("task:view")),
++):
++    result = _run(
++        lambda cur: queries.task_result_resource(
++            cur, task_id, resource_kind, resource_id, tenant=tenant
++        )
++    )
++    if result.data is None:
++        return ApiOk(
++            ok=False,
++            message="task result resource not found",
++            data={"error_code": "NOT_FOUND"},
++        )
++    result.data = TaskResultResourceDetailDTO.model_validate(result.data).model_dump(mode="json")
++    return result
++
++
+diff --git a/server/schemas.py b/server/schemas.py
+index d871667..1606953 100644
+--- a/server/schemas.py
++++ b/server/schemas.py
+@@ -6 +6 @@ from datetime import datetime
+-from typing import Any, Optional
++from typing import Any, Literal, Optional
+@@ -299,0 +300,73 @@ class CaptureResultDTO(ProductDetailDTO):
++class ResourceReferenceDTO(BaseModel):
++    resource_id: Optional[int] = None
++    availability: Literal["available", "unavailable"]
++    reason: Optional[str] = None
++
++
++class TaskResultResourcesDTO(BaseModel):
++    snapshot: ResourceReferenceDTO
++    master_product: ResourceReferenceDTO
++    enterprise_product: ResourceReferenceDTO
++    product: ResourceReferenceDTO
++    raw: ResourceReferenceDTO
++    quality: ResourceReferenceDTO
++    quarantine: ResourceReferenceDTO
++
++
++class TaskResultLibraryDTO(BaseModel):
++    status: Literal["draft", "saved", "unavailable"]
++    product_id: Optional[int] = None
++    is_saved: bool = False
++    can_save: bool = False
++    reason: Optional[str] = None
++
++
++class TaskResultDTO(BaseModel):
++    result_kind: Literal["snapshot", "quarantine", "legacy_product"]
++    result_id: int
++    task_id: int
++    job_id: Optional[int] = None
++    attempt_id: Optional[int] = None
++    snapshot_id: Optional[int] = None
++    master_product_id: Optional[int] = None
++    enterprise_product_id: Optional[int] = None
++    product_id: Optional[int] = None
++    quarantine_id: Optional[int] = None
++    raw_id: Optional[int] = None
++    quality_result_id: Optional[int] = None
++    library_status: Literal["draft", "saved", "unavailable"]
++    quality_status: Optional[str] = None
++    platform_title: Optional[str] = None
++    canonical_name: Optional[str] = None
++    product_attribute_spec: Optional[str] = None
++    brand: Optional[str] = None
++    approval_number: Optional[str] = None
++    manufacturer: Optional[str] = None
++    failure_reason: Optional[str] = None
++    collected_at: Optional[Any] = None
++    resources: TaskResultResourcesDTO
++    library: TaskResultLibraryDTO
++
++
++class TaskResultsPageDTO(BaseModel):
++    items: list[TaskResultDTO] = Field(default_factory=list)
++    total: int
++    page: int
++    limit: int
++
++
++class TaskResultResourceDetailDTO(BaseModel):
++    resource_kind: Literal["snapshot", "raw", "quality", "quarantine"]
++    resource_id: int
++    task_id: int
++    snapshot_id: Optional[int] = None
++    master_product_id: Optional[int] = None
++    enterprise_product_id: Optional[int] = None
++    product_id: Optional[int] = None
++    quarantine_id: Optional[int] = None
++    raw_id: Optional[int] = None
++    quality_result_id: Optional[int] = None
++    resources: TaskResultResourcesDTO
++    details: dict[str, Any] = Field(default_factory=dict)
++
++
+diff --git a/tests/test_phase4_management.py b/tests/test_phase4_management.py
+index b4f78f8..ed9198a 100644
+--- a/tests/test_phase4_management.py
++++ b/tests/test_phase4_management.py
+@@ -13,0 +14,4 @@ from server import management_queries as q
++from server.tenant import TenantContext
++
++
++TENANT_A = TenantContext(11, 101, 1, 1, "viewer", frozenset({"task:view"}))
+@@ -123 +127,2 @@ class Phase4ManagementTests(unittest.TestCase):
+-                         "QUARANTINE_ID", "QUALITY_STATUS", "COLLECTED_AT"]
++                         "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID", "RAW_ID",
++                         "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT"]
+@@ -125,2 +130,2 @@ class Phase4ManagementTests(unittest.TestCase):
+-                      (business_cols, [(3, 4, "snapshot", 12, 7, None, "passed", "t"),
+-                                       (3, 4, "quarantine", None, 7, 19, "quarantined", "u")])])
++                      (business_cols, [(3, 4, "snapshot", 12, 7, 70, 17, None, 21, 31, "draft", "passed", "t"),
++                                       (3, 4, "quarantine", None, 7, 70, None, 19, 22, 32, "unavailable", "quarantined", "u")])])
+@@ -130,0 +136,2 @@ class Phase4ManagementTests(unittest.TestCase):
++        self.assertEqual(21, result["items"][0]["business_results"][0]["raw_id"])
++        self.assertEqual(31, result["items"][0]["business_results"][0]["quality_result_id"])
+@@ -138 +145,2 @@ class Phase4ManagementTests(unittest.TestCase):
+-                         "QUARANTINE_ID", "QUALITY_STATUS", "COLLECTED_AT"]
++                         "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID", "RAW_ID",
++                         "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS", "COLLECTED_AT"]
+@@ -140,2 +148,2 @@ class Phase4ManagementTests(unittest.TestCase):
+-                      (business_cols, [(8, 81, "snapshot", 100, 10, None, "passed", "t"),
+-                                       (7, 71, "quarantine", None, 11, 101, "quarantined", "t")])])
++                      (business_cols, [(8, 81, "snapshot", 100, 10, 110, 1000, None, 200, 300, "saved", "passed", "t"),
++                                       (7, 71, "quarantine", None, 11, 111, None, 101, 201, 301, "unavailable", "quarantined", "t")])])
+@@ -145,0 +154,2 @@ class Phase4ManagementTests(unittest.TestCase):
++        self.assertEqual("available", result["items"][0]["business_results"][0]["resources"]["snapshot"]["availability"])
++        self.assertEqual("saved", result["items"][0]["business_results"][0]["library"]["status"])
+@@ -147,0 +158,130 @@ class Phase4ManagementTests(unittest.TestCase):
++    def test_task_results_include_snapshot_draft_quarantine_and_explicit_unavailable_resources(self):
++        columns = [
++            "RESULT_KIND", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "SNAPSHOT_ID",
++            "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID", "PRODUCT_ID", "QUARANTINE_ID",
++            "RAW_ID", "QUALITY_RESULT_ID", "LIBRARY_STATUS", "QUALITY_STATUS",
++            "PLATFORM_TITLE", "CANONICAL_NAME", "PRODUCT_ATTRIBUTE_SPEC", "FAILURE_REASON",
++            "COLLECTED_AT",
++        ]
++        rows = [
++            ("snapshot", 5, 8, 81, 100, 10, 110, 1000, None, 200, 300, "draft",
++             "passed", "完整标题", "规范名", "10ml", None, "t3"),
++            ("quarantine", 5, 7, 71, None, 11, 111, None, 101, 201, 301, "unavailable",
++             "quarantined", None, None, None, "MISSING_PRICE", "t2"),
++            ("legacy_product", 5, None, None, None, None, None, 1001, None, None, None, "saved",
++             "legacy", "旧标题", "旧规范名", "20ml", None, "t1"),
++        ]
++        cur = Cursor([
++            (["OWNED"], [(1,)]),
++            (["COUNT"], [(3,)]),
++            (columns, rows),
++        ])
++
++        result = q.task_results(cur, 5, page=1, limit=20, tenant=TENANT_A)
++
++        self.assertEqual((3, 1, 20), (result["total"], result["page"], result["limit"]))
++        snapshot, quarantine, legacy = result["items"]
++        self.assertEqual(100, snapshot["snapshot_id"])
++        self.assertEqual(200, snapshot["raw_id"])
++        self.assertEqual(300, snapshot["quality_result_id"])
++        self.assertEqual("draft", snapshot["library"]["status"])
++        self.assertTrue(snapshot["library"]["can_save"])
++        self.assertEqual("available", snapshot["resources"]["snapshot"]["availability"])
++        self.assertEqual("unavailable", snapshot["resources"]["quarantine"]["availability"])
++        self.assertEqual("not_applicable_for_accepted_snapshot", snapshot["resources"]["quarantine"]["reason"])
++        self.assertEqual("unavailable", quarantine["library"]["status"])
++        self.assertEqual("available", quarantine["resources"]["raw"]["availability"])
++        self.assertEqual("available", quarantine["resources"]["quality"]["availability"])
++        self.assertEqual("no_normal_snapshot_for_quarantine", quarantine["resources"]["snapshot"]["reason"])
++        self.assertEqual("saved", legacy["library"]["status"])
++        self.assertEqual("not_captured_by_strict_protocol", legacy["resources"]["raw"]["reason"])
++        self.assertIn("p.ENTERPRISE_ID=:enterprise_id", cur.calls[1][0])
++        self.assertIn("NOT EXISTS", cur.calls[1][0])
++        self.assertEqual(11, cur.calls[2][1]["enterprise_id"])
++        self.assertEqual(101, cur.calls[2][1]["workspace_id"])
++
++    def test_task_result_resource_is_task_and_tenant_bound_and_parses_raw(self):
++        columns = [
++            "RESOURCE_KIND", "RAW_ID", "TASK_ID", "JOB_ID", "ATTEMPT_ID", "DEVICE_ID",
++            "REQUEST_KEY", "SOURCE_TYPE", "PAYLOAD_SHA256", "RAW_JSON", "COLLECTED_AT",
++        ]
++        cur = Cursor([
++            (["OWNED"], [(1,)]),
++            (columns, [("raw", 200, 5, 8, 81, 2, "request-1", "product", "a" * 64,
++                        '{"platform_code":"pinduoduo"}', "t")]),
++        ])
++
++        result = q.task_result_resource(cur, 5, "raw", 200, tenant=TENANT_A)
++
++        self.assertEqual("raw", result["resource_kind"])
++        self.assertEqual(200, result["resource_id"])
++        self.assertEqual({"platform_code": "pinduoduo"}, result["details"]["raw_data"])
++        self.assertEqual("available", result["resources"]["raw"]["availability"])
++        resource_sql, resource_params = cur.calls[1]
++        self.assertIn("r.RAW_ID=:resource_id", resource_sql)
++        self.assertIn("r.TASK_ID=:task_id", resource_sql)
++        self.assertIn("r.ENTERPRISE_ID=:enterprise_id", resource_sql)
++        self.assertIn("r.WORKSPACE_ID=:workspace_id", resource_sql)
++        self.assertEqual({"resource_id": 200, "task_id": 5, "enterprise_id": 11, "workspace_id": 101},
++                         resource_params)
++
++    def test_task_result_resource_cross_tenant_and_missing_are_indistinguishable(self):
++        cross_tenant = Cursor([(["OWNED"], [])])
++        self.assertIsNone(q.task_result_resource(cross_tenant, 5, "snapshot", 100, tenant=TENANT_A))
++        self.assertEqual(1, len(cross_tenant.calls))
++
++        missing = Cursor([(["OWNED"], [(1,)]), (["SNAPSHOT_ID"], [])])
++        self.assertIsNone(q.task_result_resource(missing, 5, "snapshot", 100, tenant=TENANT_A))
++        self.assertIn("s.SNAPSHOT_ID=:resource_id", missing.calls[1][0])
++        self.assertIn("s.TASK_ID=:task_id", missing.calls[1][0])
++
++    def test_snapshot_resource_uses_snapshot_id_and_keeps_diff_and_provenance(self):
++        columns = [
++            "RESOURCE_KIND", "SNAPSHOT_ID", "MASTER_PRODUCT_ID", "ENTERPRISE_PRODUCT_ID",
++            "LEGACY_PRODUCT_ID", "RAW_ID", "QUALITY_RESULT_ID", "TASK_ID", "JOB_ID",
++            "ATTEMPT_ID", "NORMALIZED_JSON", "SKU_JSON", "FIELD_SOURCES", "QUALITY_STATUS",
++        ]
++        row = ("snapshot", 100, 10, 110, 1000, 200, 300, 5, 8, 81,
++               '{"title":"完整标题"}', '[{"name":"1盒"}]', '{"title":"detail_response"}', "passed")
++        diff_columns = ["DIFF_ID", "CHANGED_FIELDS_JSON", "PRICE_CHANGED"]
++        provenance_columns = ["FIELD_NAME", "SOURCE_TYPE", "SOURCE_REF", "TRANSFORMATION"]
++        cur = Cursor([
++            (["OWNED"], [(1,)]),
++            (columns, [row]),
++            (diff_columns, [(400, '{"price":{"before":1,"after":2}}', 1)]),
++            (provenance_columns, [("title", "detail_response", "raw:200", None)]),
++        ])
++
++        result = q.task_result_resource(cur, 5, "snapshot", 100, tenant=TENANT_A)
++
++        self.assertEqual(("snapshot", 100), (result["resource_kind"], result["resource_id"]))
++        self.assertEqual(100, result["snapshot_id"])
++        self.assertEqual(200, result["raw_id"])
++        self.assertEqual(300, result["quality_result_id"])
++        self.assertEqual({"title": "完整标题"}, result["details"]["normalized"])
++        self.assertEqual("detail_response", result["details"]["provenance"][0]["source_type"])
++        self.assertEqual(2, result["details"]["difference"]["changes"]["price"]["after"])
++        self.assertEqual({"resource_id": 100, "task_id": 5, "enterprise_id": 11, "workspace_id": 101},
++                         cur.calls[1][1])
++
++    def test_quality_resource_exposes_raw_snapshot_or_quarantine_ids_without_guessing(self):
++        columns = [
++            "RESOURCE_KIND", "QUALITY_RESULT_ID", "RAW_ID", "TASK_ID", "JOB_ID", "ATTEMPT_ID",
++            "SNAPSHOT_ID", "QUARANTINE_ID", "ACCEPTED", "STATUS", "MISSING_FIELDS_JSON",
++            "ERROR_CODES_JSON", "WARNINGS_JSON",
++        ]
++        cur = Cursor([
++            (["OWNED"], [(1,)]),
++            (columns, [("quality", 301, 201, 5, 7, 71, None, 101, 0, "rejected",
++                        '["price"]', '["MISSING_PRICE"]', '[]')]),
++        ])
++
++        result = q.task_result_resource(cur, 5, "quality", 301, tenant=TENANT_A)
++
++        self.assertEqual(301, result["quality_result_id"])
++        self.assertEqual(201, result["raw_id"])
++        self.assertEqual(101, result["quarantine_id"])
++        self.assertIsNone(result["snapshot_id"])
++        self.assertEqual("no_normal_snapshot_for_quarantine", result["resources"]["snapshot"]["reason"])
++        self.assertEqual(["MISSING_PRICE"], result["details"]["error_codes"])
++
+diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
+index 8134dce..934aaa8 100644
+--- a/tests/test_phase55_oracle.py
++++ b/tests/test_phase55_oracle.py
+@@ -131 +131 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                    VALUES (:id,:task,'pinduoduo',:keyword,:item,:name,1,'saved',:e,:w)""",
++                    VALUES (:id,:task,'pinduoduo',:keyword,:item,:name,1,:library_status,:e,:w)""",
+@@ -133,0 +134 @@ class Phase55OracleFinalGate(unittest.TestCase):
++                             "library_status": "saved",
+@@ -137 +138,2 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-            for enterprise_id, workspace_id, task_id, suffix in ((ea, wa, ta, "A"), (eb, wb, tb, "B")):
++            for enterprise_id, workspace_id, task_id, product_id, suffix in (
++                    (ea, wa, ta, pa, "A"), (eb, wb, tb, pb, "B")):
+@@ -141,0 +144 @@ class Phase55OracleFinalGate(unittest.TestCase):
++                snapshot_quality = self._seq(cur, "SJZQ_SEQ_QUALITY_RESULT")
+@@ -152,2 +155,2 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                    (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
+-                    VALUES (:id,:request_key,'product',RPAD('a',64,'a'),'{}',SYSTIMESTAMP,:e,:w)""",
++                    (RAW_ID,REQUEST_KEY,TASK_ID,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
++                    VALUES (:id,:request_key,:task_id,'product',RPAD('a',64,'a'),'{}',SYSTIMESTAMP,:e,:w)""",
+@@ -154,0 +158 @@ class Phase55OracleFinalGate(unittest.TestCase):
++                             "task_id": task_id,
+@@ -157 +161 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                    (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
++                    (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,LEGACY_PRODUCT_ID,TASK_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
+@@ -159,2 +163,3 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                    VALUES (:id,:master,:raw_id,:request_key,SYSTIMESTAMP,RPAD('b',64,'b'),'{}',:title,:e,:w,:ep)""",
+-                            {"id": snapshot, "master": master, "raw_id": raw,
++                    VALUES (:id,:master,:raw_id,:product_id,:task_id,:request_key,SYSTIMESTAMP,RPAD('b',64,'b'),'{}',:title,:e,:w,:ep)""",
++                            {"id": snapshot, "master": master, "raw_id": raw, "product_id": product_id,
++                             "task_id": task_id,
+@@ -162,0 +168,12 @@ class Phase55OracleFinalGate(unittest.TestCase):
++                cur.execute("""INSERT INTO SJZQ_QUALITY_RESULT
++                    (QUALITY_RESULT_ID,RAW_ID,SNAPSHOT_ID,ACCEPTED,STATUS,PAGE_STATUS,PARSE_STATUS,QUALITY_STATUS,
++                     PARSER_VERSION,QUALITY_RULES_VERSION,ENTERPRISE_ID,WORKSPACE_ID)
++                    VALUES (:id,:raw_id,:snapshot_id,1,'accepted','product','success','passed','p55','p55',:e,:w)""",
++                            {"id": snapshot_quality, "raw_id": raw, "snapshot_id": snapshot,
++                             "e": enterprise_id, "w": workspace_id})
++                cur.execute("""UPDATE SJZQ_PRODUCT
++                                  SET MASTER_PRODUCT_ID=:master,SNAPSHOT_ID=:snapshot,
++                                      ENTERPRISE_PRODUCT_ID=:enterprise_product
++                                WHERE PRODUCT_ID=:product_id""",
++                            {"master": master, "snapshot": snapshot,
++                             "enterprise_product": enterprise_product, "product_id": product_id})
+@@ -164,2 +181,2 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                    (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
+-                    VALUES (:id,:request_key,'product',RPAD('c',64,'c'),'{}',SYSTIMESTAMP,:e,:w)""",
++                    (RAW_ID,REQUEST_KEY,TASK_ID,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
++                    VALUES (:id,:request_key,:task_id,'product',RPAD('c',64,'c'),'{}',SYSTIMESTAMP,:e,:w)""",
+@@ -166,0 +184 @@ class Phase55OracleFinalGate(unittest.TestCase):
++                             "task_id": task_id,
+@@ -181 +199,2 @@ class Phase55OracleFinalGate(unittest.TestCase):
+-                resources.append((enterprise_product, snapshot, quarantine))
++                resources.append((enterprise_product, snapshot, quarantine, raw, snapshot_quality,
++                                  qraw, quality, product_id, master))
+@@ -192,0 +212,22 @@ class Phase55OracleFinalGate(unittest.TestCase):
++            job_id = create_jobs_for_task(cur, task_id=ta)[0]
++            attempt_id = self._seq(cur, "SJZQ_SEQ_COLLECTION_ATTEMPT")
++            lease_hash = uuid.uuid4().hex + uuid.uuid4().hex
++            cur.execute("""INSERT INTO SJZQ_COLLECTION_ATTEMPT
++                (ATTEMPT_ID,JOB_ID,ATTEMPT_NO,LEASE_TOKEN_HASH,TRACE_ID,STATUS,
++                 LEASE_EXPIRES_AT,FINISHED_AT,FINAL_CHECKPOINT_VERSION,ENTERPRISE_ID,WORKSPACE_ID)
++                VALUES (:attempt_id,:job_id,1,:lease_hash,:trace_id,'success',
++                        SYSTIMESTAMP,SYSTIMESTAMP,0,:enterprise_id,:workspace_id)""",
++                        {"attempt_id": attempt_id, "job_id": job_id, "lease_hash": lease_hash,
++                         "trace_id": marker + "-trace", "enterprise_id": ea, "workspace_id": wa})
++            cur.execute("""UPDATE SJZQ_RAW_COLLECTION
++                              SET JOB_ID=:job_id,ATTEMPT_ID=:attempt_id
++                            WHERE RAW_ID=:raw_id""",
++                        {"job_id": job_id, "attempt_id": attempt_id, "raw_id": resources[0][3]})
++            cur.execute("""UPDATE SJZQ_PRODUCT_SNAPSHOT
++                              SET JOB_ID=:job_id,ATTEMPT_ID=:attempt_id
++                            WHERE SNAPSHOT_ID=:snapshot_id""",
++                        {"job_id": job_id, "attempt_id": attempt_id, "snapshot_id": resources[0][1]})
++            cur.execute("""UPDATE SJZQ_COLLECTION_JOB
++                              SET STATUS='retry_wait',ATTEMPT_COUNT=1,NEXT_RUN_AT=SYSTIMESTAMP
++                            WHERE JOB_ID=:job_id""",
++                        {"job_id": job_id})
+@@ -197,0 +239,38 @@ class Phase55OracleFinalGate(unittest.TestCase):
++            cur.execute("UPDATE SJZQ_PRODUCT SET LIBRARY_STATUS='draft' WHERE PRODUCT_ID=:product_id",
++                        {"product_id": resources[0][7]})
++            task_result_page = management_queries.task_results(cur, ta, page=1, limit=10, tenant=ctx_a)
++            cross_task_result_page = management_queries.task_results(cur, tb, page=1, limit=10, tenant=ctx_a)
++            self.assertEqual((2, 0), (task_result_page["total"], cross_task_result_page["total"]))
++            result_by_kind = {item["result_kind"]: item for item in task_result_page["items"]}
++            accepted_result = result_by_kind["snapshot"]
++            quarantined_result = result_by_kind["quarantine"]
++            self.assertEqual(
++                (resources[0][1], resources[0][3], resources[0][4], resources[0][7], "draft", True),
++                (int(accepted_result["snapshot_id"]), int(accepted_result["raw_id"]),
++                 int(accepted_result["quality_result_id"]), int(accepted_result["product_id"]),
++                 accepted_result["library"]["status"], accepted_result["library"]["can_save"]),
++            )
++            self.assertEqual(
++                (resources[0][2], resources[0][5], resources[0][6], "unavailable"),
++                (int(quarantined_result["quarantine_id"]), int(quarantined_result["raw_id"]),
++                 int(quarantined_result["quality_result_id"]), quarantined_result["library"]["status"]),
++            )
++            snapshot_resource = management_queries.task_result_resource(
++                cur, ta, "snapshot", resources[0][1], tenant=ctx_a)
++            raw_resource = management_queries.task_result_resource(
++                cur, ta, "raw", resources[0][3], tenant=ctx_a)
++            quality_resource = management_queries.task_result_resource(
++                cur, ta, "quality", resources[0][4], tenant=ctx_a)
++            quarantine_resource = management_queries.task_result_resource(
++                cur, ta, "quarantine", resources[0][2], tenant=ctx_a)
++            cross_resource = management_queries.task_result_resource(
++                cur, ta, "snapshot", resources[1][1], tenant=ctx_a)
++            self.assertEqual(
++                (resources[0][1], resources[0][3], resources[0][4], resources[0][2], None),
++                (snapshot_resource["resource_id"], raw_resource["resource_id"],
++                 quality_resource["resource_id"], quarantine_resource["resource_id"], cross_resource),
++            )
++            task_job_page = management_queries.task_jobs(cur, ta, 1, 10, tenant=ctx_a)
++            attempt_page = management_queries.job_attempts(cur, job_id, 1, 10, tenant=ctx_a)
++            self.assertEqual(resources[0][1], int(task_job_page["items"][0]["business_results"][0]["snapshot_id"]))
++            self.assertEqual(resources[0][3], int(attempt_page["items"][0]["business_results"][0]["raw_id"]))
+diff --git a/tests/test_web_result_visibility.py b/tests/test_web_result_visibility.py
+new file mode 100644
+index 0000000..6de2ab4
+--- /dev/null
++++ b/tests/test_web_result_visibility.py
+@@ -0,0 +1,91 @@
++from __future__ import annotations
++
++import asyncio
++import inspect
++import os
++from pathlib import Path
++import unittest
++from unittest.mock import patch
++
++from fastapi import HTTPException
++from starlette.requests import Request
++
++for _key, _value in {
++    "APP_ENV": "test", "ORACLE_HOST": "127.0.0.1", "ORACLE_PORT": "1521",
++    "ORACLE_SERVICE": "TEST", "ORACLE_USER": "TEST", "ORACLE_PASSWORD": "test-password",
++    "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
++}.items():
++    os.environ.setdefault(_key, _value)
++
++from server.routers import management
++from server.schemas import ApiOk
++from server.tenant import TenantContext
++
++
++ROOT = Path(__file__).resolve().parents[1]
++TENANT = TenantContext(11, 101, 1, 1, "viewer", frozenset({"task:view"}))
++
++
++class WebResultVisibilityContractTest(unittest.TestCase):
++    def test_task_detail_uses_authoritative_task_results_not_library_list(self):
++        source = (ROOT / "web/src/views/tasks/TaskDetail.vue").read_text(encoding="utf-8")
++        self.assertIn("/api/management/tasks/${expectedTaskId}/results", source)
++        self.assertNotIn("/api/products?task_id=", source)
++        self.assertIn("本次采集结果", source)
++        self.assertIn("已保存商品资料库", source)
++        self.assertIn("draft/待保存和 Quarantine", source)
++        self.assertIn("taskResults.value = []", source)
++        self.assertIn("resultsError.value = requestError", source)
++        for field in ("snapshot_id", "raw_id", "quality_result_id", "quarantine_id"):
++            self.assertIn(field, source)
++
++    def test_snapshot_raw_quality_and_quarantine_links_use_their_own_ids(self):
++        trace = (ROOT / "web/src/views/management/TaskTrace.vue").read_text(encoding="utf-8")
++        detail = (ROOT / "web/src/views/management/TaskResultEvidence.vue").read_text(encoding="utf-8")
++        routes = (ROOT / "web/src/router/index.js").read_text(encoding="utf-8")
++        self.assertNotIn("/products/${r.master_product_id}/timeline", trace)
++        for fragment in (
++            "/snapshot/${r.snapshot_id}",
++            "/raw/${r.raw_id}",
++            "/quality/${r.quality_result_id}",
++            "/quarantine/${r.quarantine_id}",
++        ):
++            self.assertIn(fragment, trace)
++        self.assertIn("watch(()=>String(route.params.id),loadTaskTrace,{immediate:true})", trace)
++        self.assertIn("if(expected!==String(route.params.id))return false", trace)
++        self.assertIn("clearPage(attempts);clearPage(events)", trace)
++        self.assertIn("results/${route.params.resourceKind}/${route.params.resourceId}", detail)
++        self.assertIn("detail.value = null", detail)
++        self.assertIn("无权限查看该 Task 证据（403）", detail)
++        self.assertIn("tasks/:taskId/results/:resourceKind/:resourceId", routes)
++        self.assertIn("perm: 'task:view'", routes)
++
++    def test_management_routes_require_task_view_permission(self):
++        paths = {
++            "/api/management/tasks/{task_id}/results",
++            "/api/management/tasks/{task_id}/results/{resource_kind}/{resource_id}",
++        }
++        matched = [route for route in management.router.routes if route.path in paths]
++        self.assertEqual(paths, {route.path for route in matched})
++        for route in matched:
++            dependency = route.dependant.dependencies[0].call
++            self.assertEqual(("task:view",), inspect.getclosurevars(dependency).nonlocals["needed"])
++            request = Request({"type": "http", "method": "GET", "path": route.path, "headers": []})
++            denied = TenantContext(11, 101, 1, 1, "viewer", frozenset())
++            with patch("server.tenant.load_context", return_value=denied):
++                with self.assertRaises(HTTPException) as caught:
++                    asyncio.run(dependency(request, user={"user_id": 1}))
++            self.assertEqual(403, caught.exception.status_code)
++
++    def test_missing_task_resource_returns_same_not_found_contract(self):
++        with patch.object(management, "_run", return_value=ApiOk(data=None)):
++            result = management.task_result_resource(
++                5, "snapshot", 100, tenant=TENANT,
++            )
++        self.assertFalse(result.ok)
++        self.assertEqual("NOT_FOUND", result.data["error_code"])
++        self.assertNotIn("tenant", result.message.lower())
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/web/src/router/index.js b/web/src/router/index.js
+index 3ebdf26..64f766c 100644
+--- a/web/src/router/index.js
++++ b/web/src/router/index.js
+@@ -17,0 +18 @@ const routes = [
++      { path: 'tasks/:taskId/results/:resourceKind/:resourceId', name: 'task-result-evidence', component: () => import('@/views/management/TaskResultEvidence.vue'), meta: { title: '采集证据', perm: 'task:view' } },
+diff --git a/web/src/views/management/ProductTimeline.vue b/web/src/views/management/ProductTimeline.vue
+index 290cadd..7d80159 100644
+--- a/web/src/views/management/ProductTimeline.vue
++++ b/web/src/views/management/ProductTimeline.vue
+@@ -7 +7 @@
+-        <el-descriptions-item label="Product">#{{ product.master_product_id || route.params.id }}</el-descriptions-item>
++        <el-descriptions-item label="资料库商品资源">#{{ route.params.id }}</el-descriptions-item>
+@@ -38 +38 @@ function diffLabel(v){return ({price_changed:'价格变化',sales_changed:'销
+-async function load(){loading.value=true;error.value='';try{const res=await http.get(`/api/management/products/${route.params.id}/snapshots`,{params:{page:page.value,limit:limit.value}});items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);product.value=res.data?.product||items.value[0]||product.value}catch(e){items.value=[];total.value=0;error.value=e.response?.data?.detail||e.message||'加载 Snapshot 时间线失败'}finally{loading.value=false}}
++async function load(){loading.value=true;error.value='';product.value=null;try{const res=await http.get(`/api/management/products/${route.params.id}/snapshots`,{params:{page:page.value,limit:limit.value}});items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);product.value=res.data?.product||items.value[0]||null}catch(e){items.value=[];total.value=0;product.value=null;error.value=e.response?.status===403?'无权限查看 Snapshot（403）':e.response?.data?.detail||e.message||'加载 Snapshot 时间线失败'}finally{loading.value=false}}
+diff --git a/web/src/views/management/TaskResultEvidence.vue b/web/src/views/management/TaskResultEvidence.vue
+new file mode 100644
+index 0000000..5a23415
+--- /dev/null
++++ b/web/src/views/management/TaskResultEvidence.vue
+@@ -0,0 +1,121 @@
++<template>
++  <div>
++    <div class="page-card">
++      <div class="toolbar">
++        <el-button @click="$router.push(`/tasks/${taskId}`)">返回任务</el-button>
++        <el-button @click="$router.push(`/tasks/${taskId}/trace`)">执行轨迹</el-button>
++        <el-button type="primary" @click="load">刷新证据</el-button>
++      </div>
++      <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
++        <template #default><el-button link type="primary" @click="load">重试</el-button></template>
++      </el-alert>
++      <div v-loading="loading">
++        <el-empty v-if="!loading && !error && !detail" description="该 Task 中不存在此资源，或当前租户不可见" />
++        <template v-else-if="detail">
++          <el-descriptions :column="3" border>
++            <el-descriptions-item label="Task">#{{ detail.task_id }}</el-descriptions-item>
++            <el-descriptions-item label="资源类型">{{ resourceLabel(detail.resource_kind) }}</el-descriptions-item>
++            <el-descriptions-item label="权威资源 ID">#{{ detail.resource_id }}</el-descriptions-item>
++          </el-descriptions>
++        </template>
++      </div>
++    </div>
++
++    <div v-if="detail" class="page-card">
++      <h3 class="section-title">资源链</h3>
++      <el-table :data="resourceRows" border>
++        <el-table-column prop="label" label="资源" width="170" />
++        <el-table-column label="状态" width="130">
++          <template #default="{ row }">
++            <el-tag :type="row.available ? 'success' : 'info'">
++              {{ row.available ? 'available' : 'unavailable' }}
++            </el-tag>
++          </template>
++        </el-table-column>
++        <el-table-column label="资源 ID" width="140">
++          <template #default="{ row }">{{ row.id === null ? '-' : `#${row.id}` }}</template>
++        </el-table-column>
++        <el-table-column label="说明" min-width="240">
++          <template #default="{ row }">{{ row.reason || '-' }}</template>
++        </el-table-column>
++        <el-table-column label="操作" width="110">
++          <template #default="{ row }">
++            <el-button v-if="row.available && row.routeKind" link type="primary" @click="openResource(row.routeKind, row.id)">查看</el-button>
++            <span v-else>-</span>
++          </template>
++        </el-table-column>
++      </el-table>
++    </div>
++
++    <div v-if="detail" class="page-card">
++      <h3 class="section-title">只读证据</h3>
++      <el-alert title="Raw、Quality、Snapshot 与 Quarantine 均为只读事实；本页面不提供修改操作。" type="info" show-icon :closable="false" />
++      <pre>{{ pretty(detail.details) }}</pre>
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { computed, ref, watch } from 'vue'
++import { useRoute, useRouter } from 'vue-router'
++import http from '@/api/http'
++
++const route = useRoute()
++const router = useRouter()
++const detail = ref(null)
++const loading = ref(false)
++const error = ref('')
++const taskId = computed(() => String(route.params.taskId))
++const routeKinds = { snapshot: 'snapshot', raw: 'raw', quality: 'quality', quarantine: 'quarantine' }
++const labels = {
++  snapshot: 'Snapshot', master_product: 'Master Product', enterprise_product: 'Enterprise Product',
++  product: '资料库商品', raw: 'Raw Evidence', quality: 'Quality Result', quarantine: 'Quarantine',
++}
++const resourceRows = computed(() => Object.entries(detail.value?.resources || {}).map(([key, value]) => ({
++  key,
++  label: labels[key] || key,
++  id: value?.resource_id ?? null,
++  available: value?.availability === 'available',
++  reason: value?.reason || '',
++  routeKind: routeKinds[key] || '',
++})))
++
++function resourceLabel(kind) { return labels[kind] || kind || '-' }
++function pretty(value) { return value === undefined || value === null ? '-' : JSON.stringify(value, null, 2) }
++function requestError(e) {
++  if (e.response?.status === 403) return '无权限查看该 Task 证据（403）'
++  if (e.response?.status === 404 || e.data?.error_code === 'NOT_FOUND' || e.response?.data?.data?.error_code === 'NOT_FOUND') {
++    return '资源不存在，或不属于当前 Task / 租户'
++  }
++  return e.response?.data?.detail || e.message || '加载证据失败'
++}
++function openResource(kind, id) {
++  if (!kind || id === null || id === undefined) return
++  router.push(`/tasks/${taskId.value}/results/${kind}/${id}`)
++}
++async function load() {
++  const expected = `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`
++  loading.value = true
++  error.value = ''
++  detail.value = null
++  try {
++    const res = await http.get(
++      `/api/management/tasks/${route.params.taskId}/results/${route.params.resourceKind}/${route.params.resourceId}`,
++    )
++    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
++    detail.value = res.data || null
++  } catch (e) {
++    if (expected !== `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) return
++    detail.value = null
++    error.value = requestError(e)
++  } finally {
++    if (expected === `${route.params.taskId}:${route.params.resourceKind}:${route.params.resourceId}`) loading.value = false
++  }
++}
++
++watch(() => [route.params.taskId, route.params.resourceKind, route.params.resourceId], load, { immediate: true })
++</script>
++
++<style scoped>
++.page-card pre { white-space: pre-wrap; word-break: break-word; background: #f7f8fa; padding: 12px; border-radius: 4px; }
++</style>
+diff --git a/web/src/views/management/TaskTrace.vue b/web/src/views/management/TaskTrace.vue
+index d5eb512..bbfe2c6 100644
+--- a/web/src/views/management/TaskTrace.vue
++++ b/web/src/views/management/TaskTrace.vue
+@@ -22 +22 @@
+-      <el-table v-loading="jobs.loading" :data="jobs.items" border highlight-current-row @current-change="selectJob"><template #empty><el-empty :description="jobs.loading?'正在加载':'该 Task 没有 Job'" /></template><el-table-column prop="job_id" label="Job ID" width="100" /><el-table-column prop="job_key" label="Job key" min-width="220" show-overflow-tooltip /><el-table-column prop="status" label="状态" width="110"><template #default="{row}"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template></el-table-column><el-table-column prop="attempt_count" label="Attempts" width="100" /><el-table-column prop="device_id" label="Device" width="100" /><el-table-column label="业务结果" min-width="220"><template #default="{row}"><result-links :results="row.business_results" :job-id="row.job_id" /></template></el-table-column><el-table-column label="最近错误" min-width="210" show-overflow-tooltip><template #default="{row}">{{ [row.last_error_code,row.last_error_message].filter(Boolean).join(': ') || '-' }}</template></el-table-column><el-table-column label="更新时间" width="175"><template #default="{row}">{{ fmt(row.update_time) }}</template></el-table-column></el-table>
++      <el-table v-loading="jobs.loading" :data="jobs.items" border highlight-current-row @current-change="selectJob"><template #empty><el-empty :description="jobs.loading?'正在加载':'该 Task 没有 Job'" /></template><el-table-column prop="job_id" label="Job ID" width="100" /><el-table-column prop="job_key" label="Job key" min-width="220" show-overflow-tooltip /><el-table-column prop="status" label="状态" width="110"><template #default="{row}"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template></el-table-column><el-table-column prop="attempt_count" label="Attempts" width="100" /><el-table-column prop="device_id" label="Device" width="100" /><el-table-column label="业务结果" min-width="300"><template #default="{row}"><result-links :results="row.business_results" :task-id="route.params.id" /></template></el-table-column><el-table-column label="最近错误" min-width="210" show-overflow-tooltip><template #default="{row}">{{ [row.last_error_code,row.last_error_message].filter(Boolean).join(': ') || '-' }}</template></el-table-column><el-table-column label="更新时间" width="175"><template #default="{row}">{{ fmt(row.update_time) }}</template></el-table-column></el-table>
+@@ -29 +29 @@
+-      <el-table v-loading="attempts.loading" :data="attempts.items" border highlight-current-row @current-change="selectAttempt"><template #empty><el-empty :description="selectedJob?(attempts.loading?'正在加载':'该 Job 没有 Attempt'):'请先选择 Job'" /></template><el-table-column prop="attempt_id" label="Attempt ID" width="115" /><el-table-column prop="attempt_no" label="#" width="60" /><el-table-column prop="status" label="状态" width="105"><template #default="{row}"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template></el-table-column><el-table-column prop="device_id" label="Device" width="90" /><el-table-column prop="worker_id" label="Worker" width="130" /><el-table-column prop="trace_id" label="Trace ID" min-width="180" show-overflow-tooltip /><el-table-column label="Lease" width="210"><template #default="{row}">{{ fmt(row.leased_at) }} → {{ fmt(row.lease_expires_at) }}</template></el-table-column><el-table-column label="业务结果" min-width="220"><template #default="{row}"><result-links :results="row.business_results" :job-id="row.job_id" /></template></el-table-column><el-table-column label="错误" min-width="190" show-overflow-tooltip><template #default="{row}">{{ [row.error_class,row.error_code,row.error_message].filter(Boolean).join(': ') || '-' }}</template></el-table-column></el-table>
++      <el-table v-loading="attempts.loading" :data="attempts.items" border highlight-current-row @current-change="selectAttempt"><template #empty><el-empty :description="selectedJob?(attempts.loading?'正在加载':'该 Job 没有 Attempt'):'请先选择 Job'" /></template><el-table-column prop="attempt_id" label="Attempt ID" width="115" /><el-table-column prop="attempt_no" label="#" width="60" /><el-table-column prop="status" label="状态" width="105"><template #default="{row}"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template></el-table-column><el-table-column prop="device_id" label="Device" width="90" /><el-table-column prop="worker_id" label="Worker" width="130" /><el-table-column prop="trace_id" label="Trace ID" min-width="180" show-overflow-tooltip /><el-table-column label="Lease" width="210"><template #default="{row}">{{ fmt(row.leased_at) }} → {{ fmt(row.lease_expires_at) }}</template></el-table-column><el-table-column label="业务结果" min-width="300"><template #default="{row}"><result-links :results="row.business_results" :task-id="route.params.id" /></template></el-table-column><el-table-column label="错误" min-width="190" show-overflow-tooltip><template #default="{row}">{{ [row.error_class,row.error_code,row.error_message].filter(Boolean).join(': ') || '-' }}</template></el-table-column></el-table>
+@@ -43 +43 @@
+-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
++import { computed, defineComponent, h, reactive, ref, watch } from 'vue'
+@@ -55 +55 @@ const Pager=defineComponent({props:{state:Object},emits:['page','limit'],setup(p
+-const ResultLinks=defineComponent({props:{results:Array,jobId:[Number,String]},setup(p){return()=>{const rows=p.results||[];if(!rows.length)return h(RouterLink,{to:{path:'/quarantines',query:{job_id:p.jobId}}},{default:()=>'查看隔离记录'});return h('div',{class:'result-links'},rows.map((r,i)=>{if(r.quarantine_id)return h(RouterLink,{key:i,to:{path:'/quarantines',query:{job_id:p.jobId}}},{default:()=>`Quarantine #${r.quarantine_id}`});if(r.master_product_id)return h(RouterLink,{key:i,to:`/products/${r.master_product_id}/timeline`},{default:()=>`Snapshot #${r.snapshot_id||'-'}`});return h('span',{key:i},r.label||r.result_kind||r.type||r.result_type||'业务结果')}))}}})
++const ResultLinks=defineComponent({props:{results:Array,taskId:[Number,String]},setup(p){return()=>{const rows=p.results||[];if(!rows.length)return h('span',{class:'unavailable'},'unavailable：服务端未返回业务结果资源 ID');return h('div',{class:'result-links'},rows.map((r,i)=>{const links=[];const base=`/tasks/${p.taskId}/results`;if(r.snapshot_id)links.push(h(RouterLink,{key:`s-${i}`,to:`${base}/snapshot/${r.snapshot_id}`},{default:()=>`Snapshot #${r.snapshot_id}`}));if(r.raw_id)links.push(h(RouterLink,{key:`r-${i}`,to:`${base}/raw/${r.raw_id}`},{default:()=>`Raw #${r.raw_id}`}));if(r.quality_result_id)links.push(h(RouterLink,{key:`q-${i}`,to:`${base}/quality/${r.quality_result_id}`},{default:()=>`Quality #${r.quality_result_id}`}));if(r.quarantine_id)links.push(h(RouterLink,{key:`x-${i}`,to:`${base}/quarantine/${r.quarantine_id}`},{default:()=>`Quarantine #${r.quarantine_id}`}));if(!links.length)links.push(h('span',{key:`u-${i}`,class:'unavailable'},'unavailable：没有可下钻的权威资源 ID'));return h('div',{key:i,class:'result-entry'},links)}))}}})
+@@ -58,3 +58,4 @@ function pretty(v){if(typeof v==='string'){try{return JSON.stringify(JSON.parse(
+-async function fetchPage(s,url){s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit)}catch(e){s.items=[];s.total=0;s.error=e.response?.data?.detail||e.message||'加载失败'}finally{s.loading=false}}
+-async function loadSummary(){summaryLoading.value=true;summaryError.value='';try{const res=await http.get(`/api/management/tasks/${route.params.id}/trace`);summary.value=res.data}catch(e){summary.value=null;summaryError.value=e.response?.data?.detail||e.message||'加载轨迹摘要失败'}finally{summaryLoading.value=false}}
+-function loadJobs(){return fetchPage(jobs,`/api/management/tasks/${route.params.id}/jobs`)} function loadAttempts(){return selectedJob.value?fetchPage(attempts,`/api/management/jobs/${selectedJob.value.job_id}/attempts`):Promise.resolve()} function loadEvents(){return selectedAttempt.value?fetchPage(events,`/api/management/attempts/${selectedAttempt.value.attempt_id}/events`):Promise.resolve()}
++function requestError(e,fallback){if(e.response?.status===403)return `无权限（403）：${fallback}`;if(e.response?.status===404||e.data?.error_code==='NOT_FOUND'||e.response?.data?.data?.error_code==='NOT_FOUND')return '资源不存在，或不属于当前 Task / 租户';return e.response?.data?.detail||e.message||fallback}
++async function fetchPage(s,url){const expected=String(route.params.id);s.loading=true;s.error='';try{const res=await http.get(url,{params:{page:s.page,limit:s.limit}});if(expected!==String(route.params.id))return false;s.items=res.data?.items||[];s.total=Number(res.data?.total||0);s.page=Number(res.data?.page||s.page);s.limit=Number(res.data?.limit||s.limit);return true}catch(e){if(expected!==String(route.params.id))return false;s.items=[];s.total=0;s.error=requestError(e,'加载失败');return false}finally{if(expected===String(route.params.id))s.loading=false}}
++async function loadSummary(){const expected=String(route.params.id);summaryLoading.value=true;summaryError.value='';try{const res=await http.get(`/api/management/tasks/${expected}/trace`);if(expected!==String(route.params.id))return;summary.value=res.data}catch(e){if(expected!==String(route.params.id))return;summary.value=null;summaryError.value=requestError(e,'加载轨迹摘要失败')}finally{if(expected===String(route.params.id))summaryLoading.value=false}}
++async function loadJobs(){const ok=await fetchPage(jobs,`/api/management/tasks/${route.params.id}/jobs`);if(!ok){selectedJob.value=null;selectedAttempt.value=null;clearPage(attempts);clearPage(events)}} async function loadAttempts(){if(!selectedJob.value)return;const ok=await fetchPage(attempts,`/api/management/jobs/${selectedJob.value.job_id}/attempts`);if(!ok){selectedAttempt.value=null;clearPage(events)}} function loadEvents(){return selectedAttempt.value?fetchPage(events,`/api/management/attempts/${selectedAttempt.value.attempt_id}/events`):Promise.resolve()}
+@@ -64 +65,3 @@ function pageChange(s,v,fn){s.page=v;fn()} function limitChange(s,v,fn){s.limit=
+-onMounted(()=>{loadSummary();loadTaskEvents();loadJobs()})
++function clearPage(s){s.items=[];s.total=0;s.page=1;s.error='';s.loading=false}
++function loadTaskTrace(){summary.value=null;summaryError.value='';selectedJob.value=null;selectedAttempt.value=null;[taskEvents,jobs,attempts,events].forEach(clearPage);loadSummary();loadTaskEvents();loadJobs()}
++watch(()=>String(route.params.id),loadTaskTrace,{immediate:true})
+@@ -66 +69 @@ onMounted(()=>{loadSummary();loadTaskEvents();loadJobs()})
+-<style scoped>.pager{margin-top:16px;justify-content:flex-end}.section-title small{font-weight:400;color:var(--sjzq-gray)}.event-title{display:flex;justify-content:space-between;margin-bottom:10px}.result-links{display:flex;flex-direction:column;gap:4px}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fa;padding:10px}</style>
++<style scoped>.pager{margin-top:16px;justify-content:flex-end}.section-title small{font-weight:400;color:var(--sjzq-gray)}.event-title{display:flex;justify-content:space-between;margin-bottom:10px}.result-links,.result-entry{display:flex;flex-wrap:wrap;gap:8px}.result-links{flex-direction:column}.unavailable{color:var(--el-text-color-secondary)}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fa;padding:10px}</style>
+diff --git a/web/src/views/tasks/TaskDetail.vue b/web/src/views/tasks/TaskDetail.vue
+index 2a2e19a..6cb6180 100644
+--- a/web/src/views/tasks/TaskDetail.vue
++++ b/web/src/views/tasks/TaskDetail.vue
+@@ -10 +10,6 @@
+-      <el-descriptions v-if="task" :column="3" border>
++      <el-alert v-if="taskError" :title="taskError" type="error" show-icon :closable="false">
++        <template #default><el-button link type="primary" @click="load">重试</el-button></template>
++      </el-alert>
++      <div v-loading="taskLoading">
++      <el-empty v-if="!taskLoading && !taskError && !task" description="任务不存在或当前租户不可见" />
++      <el-descriptions v-else-if="task" :column="3" border>
+@@ -28,0 +34 @@
++      </div>
+@@ -42,7 +48,33 @@
+-    <div class="page-card" v-if="taskProducts.length">
+-      <div class="toolbar"><h3 class="section-title" style="margin:0;flex:1">本次采集商品（{{ taskProducts.length }}）</h3><el-button v-if="task?.can_manage_results" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button></div>
+-      <el-table :data="taskProducts" border stripe @selection-change="selectedProducts=$event">
+-        <el-table-column type="selection" width="48" :selectable="row=>row.library_status!=='saved'" />
+-        <el-table-column prop="product_id" label="ID" width="80" /><el-table-column prop="canonical_name" label="规范商品名称" min-width="170" /><el-table-column prop="platform_title" label="平台完整标题" min-width="190" show-overflow-tooltip /><el-table-column prop="product_attribute_spec" label="商品属性规格" width="150" /><el-table-column prop="approval_number" label="批准文号" width="180" /><el-table-column prop="manufacturer" label="生产厂家" min-width="170" />
+-        <el-table-column label="状态" width="100"><template #default="{row}"><el-tag :type="row.library_status==='saved'?'success':'warning'">{{ row.library_status==='saved'?'已入库':'待保存' }}</el-tag></template></el-table-column>
+-        <el-table-column v-if="task?.can_manage_results" label="操作" width="140"><template #default="{row}"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template></el-table-column>
++    <div class="page-card" v-loading="resultsLoading">
++      <div class="toolbar">
++        <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
++        <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
++        <el-button v-if="canManageResults" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button>
++      </div>
++      <el-alert title="本次采集事实与商品资料库分开读取；draft/待保存和 Quarantine 不会因尚未入库而消失。人工保存只改变资料库状态，不改变 Snapshot、Raw 或 Quality。" type="info" show-icon :closable="false" />
++      <el-alert v-if="resultsError" :title="resultsError" type="error" show-icon :closable="false">
++        <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
++      </el-alert>
++      <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
++        <template #empty><el-empty :description="resultsLoading ? '正在加载本次采集结果' : '该 Task 暂无采集结果'" /></template>
++        <el-table-column type="selection" width="48" :selectable="canSelectResult" />
++        <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
++        <el-table-column prop="canonical_name" label="规范商品名称" min-width="160" />
++        <el-table-column prop="platform_title" label="平台完整标题" min-width="190" show-overflow-tooltip />
++        <el-table-column prop="product_attribute_spec" label="商品属性规格" width="150" />
++        <el-table-column prop="approval_number" label="批准文号" width="170" show-overflow-tooltip />
++        <el-table-column prop="manufacturer" label="生产厂家" min-width="170" show-overflow-tooltip />
++        <el-table-column label="资料库状态" width="120"><template #default="{row}"><el-tag :type="libraryType(row)">{{ libraryLabel(row) }}</el-tag></template></el-table-column>
++        <el-table-column label="权威证据资源" min-width="350">
++          <template #default="{row}">
++            <el-space wrap>
++              <el-button v-if="row.snapshot_id" link type="primary" @click="openEvidence('snapshot', row.snapshot_id)">Snapshot #{{ row.snapshot_id }}</el-button>
++              <el-button v-if="row.raw_id" link type="primary" @click="openEvidence('raw', row.raw_id)">Raw #{{ row.raw_id }}</el-button>
++              <el-button v-if="row.quality_result_id" link type="primary" @click="openEvidence('quality', row.quality_result_id)">Quality #{{ row.quality_result_id }}</el-button>
++              <el-button v-if="row.quarantine_id" link type="danger" @click="openEvidence('quarantine', row.quarantine_id)">Quarantine #{{ row.quarantine_id }}</el-button>
++              <span v-if="!hasEvidence(row)" class="unavailable">unavailable：{{ unavailableReason(row) }}</span>
++            </el-space>
++          </template>
++        </el-table-column>
++        <el-table-column prop="failure_reason" label="隔离/说明" min-width="180" show-overflow-tooltip />
++        <el-table-column v-if="canManageResults" label="稳定资料操作" width="140"><template #default="{row}"><template v-if="row.product_id"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template><span v-else>-</span></template></el-table-column>
+@@ -50,3 +82,3 @@
+-      <el-pagination v-model:current-page="productPage" v-model:page-size="productLimit"
+-        :total="productTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
+-        style="margin-top:16px;justify-content:flex-end" @change="loadProducts" />
++      <el-pagination :current-page="resultPage" :page-size="resultLimit"
++        :total="resultTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
++        style="margin-top:16px;justify-content:flex-end" @update:current-page="changeResultPage" @update:page-size="changeResultLimit" />
+@@ -133 +165,5 @@ const task = ref(null)
+-const taskProducts = ref([])
++const taskLoading = ref(false)
++const taskError = ref('')
++const taskResults = ref([])
++const resultsLoading = ref(false)
++const resultsError = ref('')
+@@ -135,3 +171,3 @@ const selectedProducts = ref([])
+-const productPage = ref(1)
+-const productLimit = ref(50)
+-const productTotal = ref(0)
++const resultPage = ref(1)
++const resultLimit = ref(50)
++const resultTotal = ref(0)
+@@ -150,0 +187 @@ const matchPendingItems = computed(() => pendingItems.value.filter((x) => x.targ
++const canManageResults = computed(() => Boolean(task.value?.can_manage_results && store.hasPerm('data:view')))
+@@ -178,0 +216,22 @@ function taskStatusType(status) {
++function requestError(e, fallback) {
++  if (e.response?.status === 403) return `无权限（403）：${fallback}`
++  if (e.response?.status === 404 || e.data?.error_code === 'NOT_FOUND' || e.response?.data?.data?.error_code === 'NOT_FOUND') {
++    return '资源不存在，或不属于当前 Task / 租户'
++  }
++  return e.response?.data?.detail || e.message || fallback
++}
++function resultLabel(row) { return { snapshot: '已确认 Snapshot', quarantine: 'Quarantine', legacy_product: '兼容采集结果' }[row.result_kind] || row.result_kind || '-' }
++function resultType(row) { return row.result_kind === 'snapshot' ? 'success' : row.result_kind === 'quarantine' ? 'danger' : 'info' }
++function libraryLabel(row) { return { saved: '已保存资料库', draft: 'draft / 待保存', unavailable: 'unavailable' }[row.library?.status || row.library_status] || 'unavailable' }
++function libraryType(row) { return row.library?.status === 'saved' ? 'success' : row.library?.status === 'draft' ? 'warning' : 'info' }
++function canSelectResult(row) { return canManageResults.value && Boolean(row.library?.can_save && row.product_id) }
++function hasEvidence(row) { return Boolean(row.snapshot_id || row.raw_id || row.quality_result_id || row.quarantine_id) }
++function unavailableReason(row) {
++  const refs = ['snapshot', 'raw', 'quality', 'quarantine'].map((key) => row.resources?.[key]).filter(Boolean)
++  return refs.find((ref) => ref.availability === 'unavailable')?.reason || '服务端未返回资源 ID'
++}
++function openEvidence(kind, id) {
++  if (!kind || id === null || id === undefined) return
++  router.push(`/tasks/${route.params.id}/results/${kind}/${id}`)
++}
++
+@@ -180,2 +239,18 @@ async function load() {
+-  const [res] = await Promise.all([http.get(`/api/tasks/${route.params.id}`), loadProducts()])
+-  task.value = res.data
++  await Promise.all([loadTask(), loadResults()])
++}
++
++async function loadTask() {
++  const expectedTaskId = String(route.params.id)
++  taskLoading.value = true
++  taskError.value = ''
++  try {
++    const res = await http.get(`/api/tasks/${expectedTaskId}`)
++    if (expectedTaskId !== String(route.params.id)) return
++    task.value = res.data || null
++  } catch (e) {
++    if (expectedTaskId !== String(route.params.id)) return
++    task.value = null
++    taskError.value = requestError(e, '加载任务失败')
++  } finally {
++    if (expectedTaskId === String(route.params.id)) taskLoading.value = false
++  }
+@@ -184,4 +259,23 @@ async function load() {
+-async function loadProducts() {
+-  const products = await http.get(`/api/products?task_id=${route.params.id}&page=${productPage.value}&limit=${productLimit.value}`)
+-  taskProducts.value = products.data?.items || []
+-  productTotal.value = Number(products.data?.total || 0)
++async function loadResults() {
++  const expectedTaskId = String(route.params.id)
++  resultsLoading.value = true
++  resultsError.value = ''
++  try {
++    const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
++      params: { page: resultPage.value, limit: resultLimit.value },
++    })
++    if (expectedTaskId !== String(route.params.id)) return
++    taskResults.value = res.data?.items || []
++    resultTotal.value = Number(res.data?.total || 0)
++    resultPage.value = Number(res.data?.page || resultPage.value)
++    resultLimit.value = Number(res.data?.limit || resultLimit.value)
++    selectedProducts.value = []
++  } catch (e) {
++    if (expectedTaskId !== String(route.params.id)) return
++    taskResults.value = []
++    selectedProducts.value = []
++    resultTotal.value = 0
++    resultsError.value = requestError(e, '加载本次采集结果失败')
++  } finally {
++    if (expectedTaskId === String(route.params.id)) resultsLoading.value = false
++  }
+@@ -188,0 +283,2 @@ async function loadProducts() {
++function changeResultPage(value) { resultPage.value = value; loadResults() }
++function changeResultLimit(value) { resultLimit.value = value; resultPage.value = 1; loadResults() }
+@@ -198 +294 @@ async function saveProductEdit(){
+-  if(res.ok){ElMessage.success('已保存');editVisible.value=false;load()}
++  if(res.ok){ElMessage.success('已保存');editVisible.value=false;loadResults()}
+@@ -200,2 +296,2 @@ async function saveProductEdit(){
+-async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');load()}}
+-async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);load()}}
++async function deleteProduct(row){await ElMessageBox.confirm(`仅删除本次任务商品 #${row.product_id}，确认继续？`,'提示',{type:'warning'});const res=await http.delete(`/api/products/${row.product_id}`);if(res.ok){ElMessage.success('已删除');loadResults()}}
++async function saveToLibrary(){const res=await http.post('/api/products/save-batch',{product_ids:selectedProducts.value.map(x=>x.product_id)});if(res.ok){ElMessage.success(res.message);loadResults()}}
