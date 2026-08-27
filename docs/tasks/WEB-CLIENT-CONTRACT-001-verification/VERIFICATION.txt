@@ -101,7 +101,7 @@ TARGETED PYTHON
 Command: with offline import-only ORACLE_USER/ORACLE_PASSWORD/ORACLE_DSN/JWT_SECRET values, D:/work/PDD_con_data/.venv-t001/Scripts/python.exe -m unittest -v tests.test_phase5_tenancy tests.test_web_result_visibility tests.test_web_client_contract
 Input/environment: deterministic unit/source contracts; no Oracle connection.
 Literal output/result:
-Ran 22 tests in 0.021s
+Ran 22 tests in 0.023s
 OK
 Exit status: 0
 Status: PASS
@@ -120,7 +120,7 @@ PYTHON STRICT
 Command: set PDD_PYTHON to D:/work/PDD_con_data/.venv-t001/Scripts/python.exe and offline import-only configuration; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
 Input/environment: offline; Oracle integration suites follow their own environment gates.
 Literal output/result:
-Ran 234 tests in 0.475s
+Ran 234 tests in 0.447s
 OK (skipped=24)
 [PASS] python-unit: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
@@ -132,7 +132,7 @@ Command: powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Str
 Input/environment: worktree approved Node 22.18.x/npm 10.x runtime and existing node_modules junction.
 Literal output/result:
 1681 modules transformed.
-built in 586ms
+built in 581ms
 [PASS] web-build: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 Exit status: 0
@@ -142,7 +142,7 @@ ANDROID STRICT
 Command: set ANDROID_SDK_ROOT/ANDROID_HOME to D:/work/pda-picking/tools/android-sdk; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
 Input/environment: JDK 17 and existing Android SDK; no Android source modified and no device used.
 Literal output/result:
-BUILD SUCCESSFUL in 8s
+BUILD SUCCESSFUL in 7s
 30 actionable tasks: 1 executed, 29 up-to-date
 [PASS] android-jvm: exit=0
 SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
@@ -187,6 +187,8 @@ Validator result: ORACLE_LOCAL_EVIDENCE=PASS head=<fixed-head>; exit 0.
 
 FAILED/BLOCKED ATTEMPTS PRESERVED
 - Initial rewritten Node gate used an ApiOk false recognizable-JSON fixture. The real response interceptor correctly returned its business REQUEST_FAILED code rather than the test's expected UNEXPECTED_RESPONSE, so that attempt failed. The fixture was corrected to an ApiOk true pseudo-file, proving file rejection rather than business-envelope handling; the final Node gate above passes.
+- First final-Head targeted Python invocation used the obsolete aggregate ORACLE_DSN variable and failed configuration import because current Settings requires ORACLE_HOST/PORT/SERVICE. The rerun supplied explicit offline import-only fields and passed 22/22; no database connection occurred.
+- First sensitive scan used git grep with the full changed-path argument list and the scanner command itself exited nonzero. The corrected scanner read each existing tracked changed file, printed no value, and returned SENSITIVE_MATCHES=0 / RAW_CAPTURE_CANDIDATES=0.
 - Earlier baseline attempts from the initial Dev pass remain recorded: system Node 20 build failed on node:util.styleText; unset PDD_PYTHON and SDK discovery returned BLOCKED. Canonical approved runtimes subsequently passed and no earlier FAIL/BLOCKED is relabeled PASS.
 
 E2E / REVIEW / PUSH
