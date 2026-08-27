@@ -1,7 +1,7 @@
 # PDD_APP 当前状态
 
 > **Status: CURRENT IMPLEMENTATION AUTHORITY**
-> 更新日期：2026-08-26
+> 更新日期：2026-08-27
 > 本文只记录仍影响开发、Review、E2E 和发布决策的当前事实。产品范围见 [`../PRODUCT.md`](../PRODUCT.md)，流程见 [`../WORKFLOW.md`](../WORKFLOW.md)，任务状态见 [`backlog.md`](backlog.md)。
 
 ## 1. 当前可信基线
@@ -9,14 +9,14 @@
 | 项目 | 当前值 |
 |---|---|
 | 主分支 | `main` |
-| 当前主线基线 | `b3a7e2c493f44f4cb0bde7645d2c79340d019d65` |
+| 当前主线基线 | `09e717cdc3f67eaaf620d6a5e796445ec0334674` |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
 | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
 | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
 | Golden Sample | PDD `platform_product_id=985843042423` |
 
-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate；业务能力未改变。
+PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge；当前 `main@09e717c` 已包含 Accepted 的 `BL-110-WS-TENANT-BOUNDARY`。
 
 ## 2. 当前权威主链
 
@@ -111,12 +111,12 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 ## 9. 下一交接
 
-`BL-110-WS-TENANT-BOUNDARY` 已在 Draft PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 完成本地实现与 Independent Review `ACCEPT`；当前从 `main@b3a7e2c` 更新，重新生成固定 Head 的本地 Oracle strict 证据并运行 Hosted evidence gate。该能力尚未 merge 或 release，因此 main 仍不包含它。
+`BL-110-WS-TENANT-BOUNDARY` 已通过 PR [#5](https://github.com/sunmings1310/PDD_con_data/pull/5) 普通 merge，Core CI success；当前主线为 `main@09e717c`。
 
-当前执行队列保持依赖顺序：`WEB-RESULT-VISIBILITY-001` 只能从本项 merge 后的 main 开始。本轮完成 PR #5 固定 Head 门禁后停止，merge 仍需 Product Owner 明确批准：
+Product Owner 已批准从该主线启动 `WEB-RESULT-VISIBILITY-001`。Control 已建立独立 Task、分支与 worktree；当前状态为 `IN_PROGRESS`，实现、测试、E2E 与 Independent Review 尚待完成：
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`。
 
-先完成 PR #5 固定 Head 的本地 Oracle evidence manifest 与 Hosted offline/evidence CI；merge 前停止请求 Product Owner 批准。任何后续业务阶段必须另行批准并建立独立 Task。
+本 Task 只处理结果可见性、Snapshot 正确资源 ID、Task→Raw→Quality 下钻、资料库边界和页面状态；不进入 `WEB-CLIENT-CONTRACT-001`、Excel 导入、Generic SKU/SKU Schema、Phase 6B、真机采集或 release。完成固定 Head 验证与 Independent Review 后停止；merge 仍需 Product Owner 明确批准。

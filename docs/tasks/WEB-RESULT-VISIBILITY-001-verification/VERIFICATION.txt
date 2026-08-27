@@ -1,0 +1,53 @@
+# WEB-RESULT-VISIBILITY-001 setup verification
+
+This record covers Control-only Task establishment. Dev updates the same directory with fixed-Head implementation evidence.
+
+## BASELINE
+
+- command: `git rev-parse origin/main`
+- input/environment: repository `D:\work\PDD_con_data_web_result_visibility`; expected approved base `09e717cdc3f67eaaf620d6a5e796445ec0334674`
+- literal output: `09e717cdc3f67eaaf620d6a5e796445ec0334674`
+- exit status: `0`
+- status: `PASS`
+
+## MODIFIED
+
+- command: `git branch --show-current; git rev-parse HEAD; git diff --check`
+- input/environment: worktree `D:\work\PDD_con_data_web_result_visibility`; branch established from approved base
+- literal output:
+  - `codex/web-result-visibility-001`
+  - `09e717cdc3f67eaaf620d6a5e796445ec0334674`
+  - `git diff --check`: no output
+- exit status: `0`
+- status: `PASS`
+
+- command: `python <repository-relative Markdown link validator from .github/workflows/ci.yml>`
+- input/environment: all tracked and untracked repository Markdown files after Task setup
+- literal output: `Validated 62 Markdown files`
+- exit status: `0`
+- status: `PASS`
+
+- command: `python -c "import pathlib,yaml; [yaml.safe_load(p.read_text(encoding='utf-8')) for p in pathlib.Path('.github/workflows').glob('*.yml')]; print('YAML_VALID')"`
+- input/environment: repository workflow YAML; `PyYAML 6.0.2`
+- literal output: `YAML_VALID`
+- exit status: `0`
+- status: `PASS`
+
+## ROLLBACK
+
+- command: `D:\Git\bin\bash.exe docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh "$TEMP/WEB-RESULT-VISIBILITY-001-rollback-copy.txt"`
+- input/environment: another copy containing literal `TASK_STATE=IN_PROGRESS\n`; repository `MODIFIED_FILE` is not the rollback target
+- literal output:
+  - `RESTORED_SHA256=9d9bf030823561e7318dcb06d9066eecca3e1714b4ac840e74e7c76f7585dc1a`
+  - `ROLLBACK_MATCH=true`
+  - `ROLLBACK_RESULT=READY restored`
+- exit status: `0`
+- restored behavior/status: copy contains literal `TASK_STATE=READY\n`; repository `MODIFIED_FILE` remains literal `TASK_STATE=IN_PROGRESS\n`
+- status: `PASS`
+
+## Paths
+
+- MODIFIED_FILE: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/MODIFIED_FILE`
+- DIFF_FILE: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/DIFF_FILE.patch`
+- VERIFICATION.txt: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/VERIFICATION.txt`
+- executable ROLLBACK.sh: `docs/tasks/WEB-RESULT-VISIBILITY-001-verification/ROLLBACK.sh`
