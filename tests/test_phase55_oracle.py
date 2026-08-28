@@ -92,31 +92,32 @@ class Phase55OracleFinalGate(unittest.TestCase):
         """Remove every durable row created by the canonical-import fixtures."""
         task_scope = "SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w"
         job_scope = f"SELECT JOB_ID FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})"
-        binds = {"e": enterprise_id, "w": workspace_id}
-        for sql in (
-            f"DELETE FROM SJZQ_COLLECTION_LEASE WHERE JOB_ID IN ({job_scope})",
-            f"DELETE FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID IN ({job_scope})",
-            f"DELETE FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID IN ({job_scope})",
-            f"DELETE FROM SJZQ_COLLECTION_OUTBOX WHERE TASK_ID IN ({task_scope})",
-            f"DELETE FROM SJZQ_JOB_EVENT WHERE TASK_ID IN ({task_scope})",
-            f"DELETE FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})",
-            f"DELETE FROM SJZQ_TASK_ITEM WHERE TASK_ID IN ({task_scope})",
-            f"DELETE FROM SJZQ_TASK_LOG WHERE TASK_ID IN ({task_scope})",
-            f"DELETE FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
-            "DELETE FROM SJZQ_QUOTA_LEDGER WHERE ENTERPRISE_ID=:e",
-            "DELETE FROM SJZQ_QUOTA_RESERVATION WHERE ENTERPRISE_ID=:e",
-            "DELETE FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:e",
-            "DELETE FROM SJZQ_WORKSPACE WHERE WORKSPACE_ID=:w AND ENTERPRISE_ID=:e",
-            "DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:e",
-            "DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:e",
+        scoped_binds = {"e": enterprise_id, "w": workspace_id}
+        enterprise_binds = {"e": enterprise_id}
+        for sql, binds in (
+            (f"DELETE FROM SJZQ_COLLECTION_LEASE WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_OUTBOX WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_JOB_EVENT WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_TASK_ITEM WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_TASK_LOG WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            ("DELETE FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
+            ("DELETE FROM SJZQ_QUOTA_LEDGER WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_QUOTA_RESERVATION WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_WORKSPACE WHERE WORKSPACE_ID=:w AND ENTERPRISE_ID=:e", scoped_binds),
+            ("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:e", enterprise_binds),
         ):
             cur.execute(sql, binds)
-        for table, predicate in (
-            ("SJZQ_TASK", "ENTERPRISE_ID=:e AND WORKSPACE_ID=:w"),
-            ("SJZQ_TASK_ITEM", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)"),
-            ("SJZQ_COLLECTION_JOB", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)"),
-            ("SJZQ_QUOTA_USAGE", "ENTERPRISE_ID=:e"),
-            ("SJZQ_ENTERPRISE", "ENTERPRISE_ID=:e"),
+        for table, predicate, binds in (
+            ("SJZQ_TASK", "ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
+            ("SJZQ_TASK_ITEM", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)", scoped_binds),
+            ("SJZQ_COLLECTION_JOB", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)", scoped_binds),
+            ("SJZQ_QUOTA_USAGE", "ENTERPRISE_ID=:e", enterprise_binds),
+            ("SJZQ_ENTERPRISE", "ENTERPRISE_ID=:e", enterprise_binds),
         ):
             cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {predicate}", binds)
             self.assertEqual(0, int(cur.fetchone()[0] or 0), table)

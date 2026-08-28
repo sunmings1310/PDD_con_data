@@ -254,3 +254,7 @@
 - Embedded Excel receives the parent platform, clears stale rows on parent-platform switch, and does not expose disabled platforms. Server validates enabled platform plus accepted PDD Collector capability, semantic target duplicates, tenant/workspace candidate identity, device/account ownership and selected-context `task:create` plus `task:dispatch` for the compatibility endpoint.
 - Quota scope and regular reserve paths now lock `SJZQ_QUOTA_USAGE` before `SJZQ_ENTERPRISE_QUOTA`; Oracle fixtures explicitly clean Task/Item/Job/quota/tenant rows and assert zero residue. Offline gates: Node contract 4 PASS lines; targeted Python 17/OK; Python strict 244/OK (skipped=27); Web strict 1682 modules/572ms/PASS; Android strict BUILD SUCCESSFUL/PASS; compile and worktree diff check exit 0.
 - This review-fix code moves the previous fixed Head. Required isolated Oracle strict and final range diff must be run by Control on the post-commit fixed candidate; they are not claimed by this evidence.
+
+### Oracle cleanup repair（2026-08-28）
+
+- Control 在 fixed Head `1736e199592d34a90ac0e8eb8f176bdcee16e2a2` 实跑 Oracle Required：49 tests 中 `test_05` 与 `test_06` 在 fixture cleanup 触发 `DPY-4008: no bind placeholder named ':w' found`，exit 1；创建语义断言未报业务失败。清理 helper 已最小修复为每条 SQL 只传入其实际 `:e` / `:w` binds，且保留逐表零残留断言。新固定 Head 必须由 Control 重跑 targeted 和 Oracle strict。
