@@ -40,7 +40,7 @@ function rowBase({ source, sourceRowIndex, rawValue, platformCode, ...row }) {
   const name = normalizeText(row.name || row.input_product_name)
   const spec = normalizeText(row.spec || row.input_spec)
   const manufacturer = normalizeText(row.manufacturer || row.input_manufacturer)
-  const platformProductId = normalizeText(row.platform_product_id || row.goods_id)
+  const platformProductId = normalizeText(row.platform_product_id || row.goods_id || normalizedPlatformProductId(rawValue))
   return {
     row_id: row.row_id || `${source}:${sourceRowIndex}`,
     source,
@@ -128,10 +128,20 @@ export function chooseCandidate(rows, rowId, candidate) {
 }
 
 export function setRowSelection(rows, rowId, selected) {
-  return rows.map((row) => row.row_id !== rowId ? row : {
-    ...row,
-    selection_status: selected ? 'selected' : 'excluded',
-    dispatch_status: selected && row.validation_status === 'valid' && row.match_status !== 'multiple' ? 'ready' : 'blocked',
+  return rows.map((row) => {
+    if (row.row_id !== rowId) return row
+    // A draft duplicate is folded into its first source row.  It is never a
+    // separately dispatchable target, even if the user clicks "include".
+    if (row.error_codes.includes('DUPLICATE_DRAFT_INPUT')) return row
+    if (!selected) return { ...row, selection_status: 'excluded', dispatch_status: 'blocked' }
+    const multiple = row.match_status === 'multiple'
+    return {
+      ...row,
+      selection_status: multiple ? 'choice_required' : 'selected',
+      dispatch_status: row.validation_status === 'valid' && !multiple ? 'ready' : 'blocked',
+      error_codes: multiple && !row.error_codes.includes('CANDIDATE_CHOICE_REQUIRED')
+        ? [...row.error_codes, 'CANDIDATE_CHOICE_REQUIRED'] : row.error_codes,
+    }
   })
 }
 
@@ -174,13 +184,20 @@ export function reviewDraft(rows) {
   return result
 }
 
+export function canSubmitDraft(rows) {
+  const review = reviewDraft(rows)
+  return review.ready > 0 && !rows.some((row) => row.selection_status !== 'excluded' && (
+    row.dispatch_status !== 'ready' || row.selection_status !== 'selected' ||
+    row.error_codes.includes('DUPLICATE_DRAFT_INPUT')
+  ))
+}
+
 export function newSubmissionId() {
   return globalThis.crypto?.randomUUID?.() || `submission-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 export function buildCanonicalPayload({ submissionId, source, task, rows }) {
-  const review = reviewDraft(rows)
-  if (!submissionId || !review.ready || review.invalid || review.choice_required) {
+  if (!submissionId || !canSubmitDraft(rows)) {
     throw new Error('TASK_DRAFT_NOT_SUBMITTABLE')
   }
   const targets = rows
@@ -191,6 +208,7 @@ export function buildCanonicalPayload({ submissionId, source, task, rows }) {
       source_row_index: row.source_row_index,
       platform_code: row.platform_code,
       platform_product_id: row.platform_product_id || null,
+      candidate_product_id: row.candidate?.product_id || null,
       keyword: row.keyword,
       approval: row.approval || null,
       name: row.name || null,

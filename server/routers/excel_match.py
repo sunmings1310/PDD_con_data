@@ -580,7 +580,8 @@ def export_matched(body: dict, tenant=Depends(require_tenant_perms("excel:export
 
 @router.post("/unmatched-to-task")
 def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch")),
-                      tenant=Depends(require_tenant_perms("task:create"))):
+                      tenant=Depends(require_tenant_perms("task:create")),
+                      _dispatch_context=Depends(require_tenant_perms("task:dispatch"))):
     """Legacy Excel action delegates into the canonical Task transaction."""
     platform = _text(body.get("platform_code") or "pinduoduo")
     targets = []

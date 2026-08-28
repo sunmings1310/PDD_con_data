@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import {
   buildCanonicalPayload,
+  canSubmitDraft,
   chooseCandidate,
   normalizeExcelRows,
   normalizeManualRows,
   prepareDraftRows,
   reviewDraft,
+  setRowSelection,
   stableDedupKey,
 } from '../src/utils/taskDraft.js'
 
@@ -17,6 +19,7 @@ assert.equal(manual[0].dispatch_status, 'ready')
 assert.equal(manual[1].error_codes.at(-1), 'DUPLICATE_DRAFT_INPUT')
 assert.equal(manual[1].selection_status, 'excluded')
 assert.equal(stableDedupKey('pinduoduo', manual[2]), 'pinduoduo|product|123')
+assert.equal(manual[2].platform_product_id, '123')
 assert.deepEqual(reviewDraft(manual), { total: 3, ready: 2, invalid: 0, duplicate: 1, excluded: 1, choice_required: 0, blocked: 1 })
 console.log('MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123')
 
@@ -32,6 +35,16 @@ assert.equal(excel[1].dispatch_status, 'blocked')
 assert.equal(excel[2].dispatch_status, 'ready')
 assert.equal(excel[3].validation_status, 'invalid')
 assert.throws(() => buildCanonicalPayload({ submissionId: 'same-id', source: 'excel', task, rows: excel }), /TASK_DRAFT_NOT_SUBMITTABLE/)
+// A multiple choice excluded for review must become choice_required again if
+// included; a draft duplicate remains folded and cannot be reintroduced.
+excel = setRowSelection(excel, 'excel:5', false)
+excel = setRowSelection(excel, 'excel:5', true)
+assert.equal(excel[1].selection_status, 'choice_required')
+assert.equal(excel[1].dispatch_status, 'blocked')
+const duplicate = setRowSelection(manual, 'manual:2', true)
+assert.equal(duplicate[1].selection_status, 'excluded')
+assert.equal(duplicate[1].dispatch_status, 'blocked')
+assert.equal(canSubmitDraft(excel), false)
 excel = chooseCandidate(excel, 'excel:5', { goods_id: 'b-1' }).filter((row) => row.row_id !== 'excel:7')
 const excelPayload = buildCanonicalPayload({ submissionId: 'same-id', source: 'excel', task, rows: excel })
 assert.equal(excelPayload.targets.length, 3)
@@ -39,3 +52,15 @@ assert.equal(excelPayload.targets[1].platform_product_id, 'b-1')
 assert.deepEqual(Object.keys(excelPayload), ['submission_id', 'source', 'task_name', 'task_type', 'platform_code', 'device_id', 'priority', 'config', 'targets'])
 console.log('EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked')
 console.log('CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable')
+
+// This mirrors TaskCreate's click/ACK-loss state: the first fully canonical
+// payload is retained for a retry, and only a user edit gets a new ID.
+const firstClick = buildCanonicalPayload({ submissionId: 'ack-loss-id', source: 'excel', task, rows: excel })
+const delayedAckRetry = firstClick
+assert.deepEqual(delayedAckRetry, firstClick)
+const edited = setRowSelection(excel, 'excel:4', false)
+assert.equal(canSubmitDraft(edited), true)
+const afterUserEdit = buildCanonicalPayload({ submissionId: 'new-after-edit', source: 'excel', task, rows: edited })
+assert.notEqual(afterUserEdit.submission_id, firstClick.submission_id)
+assert.notDeepEqual(afterUserEdit, firstClick)
+console.log('TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=replay user_edit=new_submission')

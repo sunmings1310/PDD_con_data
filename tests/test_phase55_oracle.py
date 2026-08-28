@@ -88,6 +88,39 @@ class Phase55OracleFinalGate(unittest.TestCase):
         return TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin",
                              frozenset({"task:view", "data:view", "device:manage", "device:cast"}))
 
+    def _cleanup_task_import_fixture(self, cur, enterprise_id: int, workspace_id: int):
+        """Remove every durable row created by the canonical-import fixtures."""
+        task_scope = "SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w"
+        job_scope = f"SELECT JOB_ID FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})"
+        binds = {"e": enterprise_id, "w": workspace_id}
+        for sql in (
+            f"DELETE FROM SJZQ_COLLECTION_LEASE WHERE JOB_ID IN ({job_scope})",
+            f"DELETE FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID IN ({job_scope})",
+            f"DELETE FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID IN ({job_scope})",
+            f"DELETE FROM SJZQ_COLLECTION_OUTBOX WHERE TASK_ID IN ({task_scope})",
+            f"DELETE FROM SJZQ_JOB_EVENT WHERE TASK_ID IN ({task_scope})",
+            f"DELETE FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})",
+            f"DELETE FROM SJZQ_TASK_ITEM WHERE TASK_ID IN ({task_scope})",
+            f"DELETE FROM SJZQ_TASK_LOG WHERE TASK_ID IN ({task_scope})",
+            f"DELETE FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
+            "DELETE FROM SJZQ_QUOTA_LEDGER WHERE ENTERPRISE_ID=:e",
+            "DELETE FROM SJZQ_QUOTA_RESERVATION WHERE ENTERPRISE_ID=:e",
+            "DELETE FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:e",
+            "DELETE FROM SJZQ_WORKSPACE WHERE WORKSPACE_ID=:w AND ENTERPRISE_ID=:e",
+            "DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:e",
+            "DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:e",
+        ):
+            cur.execute(sql, binds)
+        for table, predicate in (
+            ("SJZQ_TASK", "ENTERPRISE_ID=:e AND WORKSPACE_ID=:w"),
+            ("SJZQ_TASK_ITEM", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)"),
+            ("SJZQ_COLLECTION_JOB", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)"),
+            ("SJZQ_QUOTA_USAGE", "ENTERPRISE_ID=:e"),
+            ("SJZQ_ENTERPRISE", "ENTERPRISE_ID=:e"),
+        ):
+            cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {predicate}", binds)
+            self.assertEqual(0, int(cur.fetchone()[0] or 0), table)
+
     def test_01_migration_first_run_and_rerun_are_applied(self):
         from server.migrate import ensure_schema_patches
 
@@ -444,7 +477,8 @@ class Phase55OracleFinalGate(unittest.TestCase):
             self.assertEqual(1, int(cur.fetchone()[0]))
             cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:id", {"id": first["task_id"]})
             self.assertEqual(1, int(cur.fetchone()[0]))
-            conn.rollback()
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
 
 
     def test_06_canonical_submission_concurrent_replay_is_single_task(self):
@@ -476,6 +510,8 @@ class Phase55OracleFinalGate(unittest.TestCase):
             cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w AND TASK_NAME=:name",
                         {"e": enterprise_id, "w": workspace_id, "name": marker})
             self.assertEqual(1, int(cur.fetchone()[0]))
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
 
 
 if __name__ == "__main__":

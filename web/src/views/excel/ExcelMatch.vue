@@ -159,7 +159,8 @@ import { useUserStore } from '@/stores/user'
 
 
 const platforms = ref([])
-const { embedded = false } = defineProps({ embedded: Boolean })
+const props = defineProps({ embedded: Boolean, platformCode: { type: String, default: '' } })
+const embedded = computed(() => props.embedded)
 const emit = defineEmits(['draft-rows'])
 const devices = ref([])
 const router = useRouter()
@@ -186,6 +187,16 @@ watch(availableDevices, (items) => {
     deviceId.value = items.length === 1 ? items[0].device_id : null
   }
 })
+watch(() => props.platformCode, (value) => {
+  if (props.embedded && value && value !== platform.value) {
+    platform.value = value
+    // Match results are tenant/platform scoped.  Do not let a parent platform
+    // switch submit stale rows from the old context.
+    rows.value = []
+    stats.value = null
+    emitDraftRows()
+  }
+}, { immediate: true })
 
 function beforeUpload(file) {
   if (!platform.value) {
@@ -224,7 +235,7 @@ async function uploadMatch({ file }) {
 }
 
 function emitDraftRows() {
-  if (embedded) emit('draft-rows', rows.value.map((row) => ({ ...row, selected_candidate: row.selected_candidate || null })))
+  if (props.embedded) emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
 }
 
 function openCandidates(row) {

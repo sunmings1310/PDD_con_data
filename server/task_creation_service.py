@@ -8,7 +8,7 @@ from typing import Any
 
 from server.db import next_id
 from server.job_service import create_jobs_for_task
-from server.platforms import TASK_COLLECT, TASK_NURTURE
+from server.platforms import ACCEPTED_COLLECTOR_PLATFORMS, TASK_COLLECT, TASK_NURTURE
 from server.quota import ACTIVE_TASK, QuotaExceeded, lock_metric_scope, reserve_and_commit
 from server.services import append_task_log, clob_to_str
 
@@ -32,7 +32,8 @@ def _targets(body: Any) -> tuple[list[dict[str, Any]], str | None]:
         {'row_id': f'legacy:{index}', 'source': body.source, 'source_row_index': index,
          'keyword': keyword} for index, keyword in enumerate(body.keywords)
     ]
-    seen: set[str] = set()
+    seen_rows: set[str] = set()
+    seen_targets: set[str] = set()
     for raw in raw_targets:
         platform = _text(raw.get('platform_code') or body.platform_code, 32)
         if platform != body.platform_code:
@@ -44,12 +45,22 @@ def _targets(body: Any) -> tuple[list[dict[str, Any]], str | None]:
         if not (product_id or keyword or (approval and name and spec and manufacturer)):
             return [], 'INVALID_TARGET'
         row_id = _text(raw.get('row_id'), 128)
-        if not row_id or row_id in seen:
+        if not row_id or row_id in seen_rows:
             return [], 'DUPLICATE_ROW_ID'
-        seen.add(row_id)
+        seen_rows.add(row_id)
+        # Product IDs are the only product identity accepted from the client;
+        # fallback targets keep their complete normalized field identity.
+        semantic_key = (f'product:{platform}:{product_id}' if product_id else
+                        f'drug:{platform}:{approval.upper()}:{name.upper()}:{spec.upper()}:{manufacturer.upper()}'
+                        if approval and name and spec and manufacturer else
+                        f'keyword:{platform}:{keyword.upper()}')
+        if semantic_key in seen_targets:
+            return [], 'DUPLICATE_TARGET'
+        seen_targets.add(semantic_key)
         result.append({'row_id': row_id, 'source': _text(raw.get('source'), 32),
             'source_row_index': int(raw.get('source_row_index') or 0), 'platform_product_id': product_id,
-            'keyword': keyword or name or approval, 'approval': approval, 'name': name, 'spec': spec,
+            'candidate_product_id': raw.get('candidate_product_id'),
+            'keyword': keyword or name or approval or product_id, 'approval': approval, 'name': name, 'spec': spec,
             'manufacturer': manufacturer, 'original_row': raw.get('original_row'),
             'provenance_row_ids': raw.get('provenance_row_ids') or [row_id]})
     return result, None if result else 'EMPTY_TARGETS'
@@ -70,6 +81,21 @@ def create_canonical_task(cur: Any, *, body: Any, tenant: Any, user: dict, reque
     targets, error = _targets(body)
     if error: return None, error
     if not _text(body.task_name, 128): return None, 'INVALID_TASK_NAME'
+    for target in targets:
+        candidate_id = target['candidate_product_id']
+        if candidate_id is None:
+            continue
+        try:
+            candidate_id = int(candidate_id)
+        except (TypeError, ValueError):
+            return None, 'INVALID_CANDIDATE'
+        cur.execute("""SELECT GOODS_ID FROM T_GOODS_LIBRARY
+                         WHERE LIBRARY_ID=:id AND PLATFORM_CODE=:platform
+                           AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id""",
+                    {'id': candidate_id, 'platform': body.platform_code, **tenant.binds})
+        candidate = cur.fetchone()
+        if not candidate or (target['platform_product_id'] and _text(candidate[0], 128) != target['platform_product_id']):
+            return None, 'NOT_FOUND'
     submission_id = _text(body.submission_id, 128) or f'legacy-{uuid.uuid4().hex}'
     payload_sha256 = _payload_hash(body, targets)
     lock_metric_scope(cur, enterprise_id=tenant.enterprise_id, metric=ACTIVE_TASK)
@@ -77,6 +103,13 @@ def create_canonical_task(cur: Any, *, body: Any, tenant: Any, user: dict, reque
     if prior:
         if prior[1] != payload_sha256: return None, 'IDEMPOTENCY_CONFLICT'
         return {'task_id': prior[0], 'idempotent': True, 'submission_id': submission_id}, None
+    # Disabled platforms and platforms without an accepted collector contract
+    # are never valid *new* targets, even if an old client cached them.  A
+    # durable ACK replay above remains answerable after a later disable.
+    cur.execute("SELECT ENABLED FROM SJZQ_PLATFORM WHERE PLATFORM_CODE=:platform", {'platform': body.platform_code})
+    platform = cur.fetchone()
+    if not platform or int(platform[0] or 0) != 1 or body.platform_code not in ACCEPTED_COLLECTOR_PLATFORMS:
+        return None, 'PLATFORM_NOT_AVAILABLE'
     if body.device_id is not None:
         cur.execute("""SELECT PLATFORM_CODE,OWNER_USER_ID FROM SJZQ_DEVICE WHERE DEVICE_ID=:id
                        AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
@@ -113,9 +146,12 @@ def create_canonical_task(cur: Any, *, body: Any, tenant: Any, user: dict, reque
                        TARGET_MANUFACTURER,ORIGINAL_ROW_JSON,STATUS,ENTERPRISE_ID,WORKSPACE_ID)
                        VALUES (:item_id,:task_id,:row_index,:keyword,:spec,:approval,:name,:manufacturer,:original,'pending',:enterprise_id,:workspace_id)""",
                     {'item_id': next_id(cur, 'SJZQ_SEQ_TASK_ITEM'), 'task_id': task_id, 'row_index': index,
-                     'keyword': target['keyword'], 'spec': target['spec'] or None, 'approval': target['approval'] or None,
+                     # KEYWORD is NOT NULL in accepted Oracle schemas.  For a
+                     # product-id-only target persist that reliable identity,
+                     # rather than inventing a title-derived keyword.
+                     'keyword': target['keyword'] or target['platform_product_id'], 'spec': target['spec'] or None, 'approval': target['approval'] or None,
                      'name': target['name'] or None, 'manufacturer': target['manufacturer'] or None,
-                     'original': json.dumps({'row_id': target['row_id'], 'source': target['source'], 'source_row_index': target['source_row_index'], 'original_row': target['original_row'], 'provenance_row_ids': target['provenance_row_ids']}, ensure_ascii=False), **tenant.binds})
+                     'original': json.dumps({'row_id': target['row_id'], 'source': target['source'], 'source_row_index': target['source_row_index'], 'platform_product_id': target['platform_product_id'] or None, 'candidate_product_id': target['candidate_product_id'], 'original_row': target['original_row'], 'provenance_row_ids': target['provenance_row_ids']}, ensure_ascii=False), **tenant.binds})
     if body.task_type == TASK_COLLECT: create_jobs_for_task(cur, task_id=task_id)
     append_task_log(cur, task_id, f'任务已创建，目标 {len(targets)} 个')
     return {'task_id': task_id, 'idempotent': False, 'submission_id': submission_id}, None

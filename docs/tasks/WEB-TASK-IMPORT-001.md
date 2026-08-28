@@ -153,19 +153,19 @@
 
 ## Acceptance Criteria
 
-- [ ] manual 与 Excel 走同一分步 draft 和 canonical payload builder；相同目标/config 生成相同业务 payload。
-- [ ] 生产 UI 不再直接调用 `/api/excel/unmatched-to-task` 创建第二套 Task。
-- [ ] Excel valid/invalid、matched/multiple/unmatched、selected/excluded/choice_required 均有明确、可解释状态。
-- [ ] multiple 未选择、错误行、空目标不得提交；重复行按稳定 key 折叠并保留来源。
-- [ ] matched 商品不会被当成本次采集成功；选定目标才进入 TaskItem。
-- [ ] 平台、设备、账号、优先级、节奏和异常策略在 manual/Excel 间完全复用。
-- [ ] 服务端重新验证 targets、tenant/workspace、RBAC、设备/账号 ownership 与平台一致性。
-- [ ] 同 submission id/同 payload 重试返回同 task；不同 payload 冲突；重复点击/ACK 丢失不重复下发。
-- [ ] tenant/workspace 切换使旧解析/匹配/submit stale，跨租户资源保持 NOT_FOUND。
-- [ ] 创建 Task、TaskItem、CollectionJob 和提交 receipt/ACK 的事务边界可测试。
-- [ ] 成功 ACK 后只跳转 canonical Task Detail；失败保留可恢复 draft。
-- [ ] 独立 Excel 菜单保留；导出、资料库、Generic SKU/P1/Phase6B/Android 均未改变。
-- [ ] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过。
+- [x] manual 与 Excel 走同一分步 draft 和 canonical payload builder；相同目标/config 生成相同业务 payload。
+- [x] 生产 UI 不再直接调用 `/api/excel/unmatched-to-task` 创建第二套 Task。
+- [x] Excel valid/invalid、matched/multiple/unmatched、selected/excluded/choice_required 均有明确、可解释状态。
+- [x] multiple 未选择、错误行、空目标不得提交；重复行按稳定 key 折叠并保留来源。
+- [x] matched 商品不会被当成本次采集成功；选定目标才进入 TaskItem。
+- [x] 平台、设备、账号、优先级、节奏和异常策略在 manual/Excel 间完全复用。
+- [x] 服务端重新验证 targets、tenant/workspace、RBAC、设备/账号 ownership 与平台一致性。
+- [x] 同 submission id/同 payload 重试返回同 task；不同 payload 冲突；重复点击/ACK 丢失不重复下发。
+- [x] tenant/workspace 切换使旧解析/匹配/submit stale，跨租户资源保持 NOT_FOUND。
+- [x] 创建 Task、TaskItem、CollectionJob 和提交 receipt/ACK 的事务边界可测试。
+- [x] 成功 ACK 后只跳转 canonical Task Detail；失败保留可恢复 draft。
+- [x] 独立 Excel 菜单保留；导出、资料库、Generic SKU/P1/Phase6B/Android 均未改变。
+- [ ] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过（新 fixed Head Oracle Required 交 Control 重跑）。
 
 ## Test Plan
 
@@ -247,3 +247,10 @@
 ### Final whitespace repair（2026-08-28）
 
 - Fixed-head range audit found one extra EOF blank line in `web/src/utils/taskDraft.js`; it was removed without semantic changes. Node contract, targeted Python and Web strict all passed. The next evidence-only Head again requires Control fixed-Head Oracle rerun.
+
+### Independent Review fix evidence（2026-08-28）
+
+- Draft rows now keep duplicate rows permanently folded; re-including a `multiple` row restores `choice_required`/`blocked`, and `buildCanonicalPayload` rejects every non-excluded unresolved row. The first submit freezes the complete canonical payload (including the generated default task name) for delayed-ACK retry; a user edit invalidates it and allocates a new submission id.
+- Embedded Excel receives the parent platform, clears stale rows on parent-platform switch, and does not expose disabled platforms. Server validates enabled platform plus accepted PDD Collector capability, semantic target duplicates, tenant/workspace candidate identity, device/account ownership and selected-context `task:create` plus `task:dispatch` for the compatibility endpoint.
+- Quota scope and regular reserve paths now lock `SJZQ_QUOTA_USAGE` before `SJZQ_ENTERPRISE_QUOTA`; Oracle fixtures explicitly clean Task/Item/Job/quota/tenant rows and assert zero residue. Offline gates: Node contract 4 PASS lines; targeted Python 17/OK; Python strict 244/OK (skipped=27); Web strict 1682 modules/572ms/PASS; Android strict BUILD SUCCESSFUL/PASS; compile and worktree diff check exit 0.
+- This review-fix code moves the previous fixed Head. Required isolated Oracle strict and final range diff must be run by Control on the post-commit fixed candidate; they are not claimed by this evidence.

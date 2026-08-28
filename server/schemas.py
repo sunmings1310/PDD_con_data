@@ -56,6 +56,7 @@ class TaskTargetIn(BaseModel):
     source_row_index: int = Field(ge=0)
     platform_code: Optional[str] = Field(default=None, max_length=32)
     platform_product_id: Optional[str] = Field(default=None, max_length=128)
+    candidate_product_id: Optional[int] = Field(default=None, gt=0)
     keyword: Optional[str] = Field(default=None, max_length=256)
     approval: Optional[str] = Field(default=None, max_length=128)
     name: Optional[str] = Field(default=None, max_length=512)

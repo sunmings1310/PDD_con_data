@@ -82,7 +82,8 @@ def _limit(cur: Any, enterprise_id: int, metric: str) -> int:
 
 
 def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str) -> None:
-    """Lock the existing enterprise quota row as a durable create-scope mutex."""
+    """Lock quota scope in the same usage -> enterprise order as reservations."""
+    _usage_row(cur, enterprise_id, metric, period_key(metric))
     _limit(cur, enterprise_id, metric)
 
 
@@ -108,6 +109,11 @@ def reserve(cur: Any, *, enterprise_id: int, workspace_id: int, metric: str, amo
     if metric not in _LIMIT_COLUMNS or amount <= 0:
         raise ValueError("invalid quota reservation")
     period = period_key(metric)
+    # All quota paths use usage -> enterprise quota locking.  In particular a
+    # canonical Task replay must not hold the enterprise row while a normal
+    # reservation holds usage and waits for it.
+    used, held = _usage_row(cur, enterprise_id, metric, period)
+    maximum = _limit(cur, enterprise_id, metric)
     cur.execute(
         """SELECT RESERVATION_ID,STATUS,AMOUNT FROM SJZQ_QUOTA_RESERVATION
              WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
@@ -118,8 +124,6 @@ def reserve(cur: Any, *, enterprise_id: int, workspace_id: int, metric: str, amo
     existing = cur.fetchone()
     if existing:
         return Reservation(int(existing[0]), str(existing[1]).lower(), int(existing[2]), True)
-    used, held = _usage_row(cur, enterprise_id, metric, period)
-    maximum = _limit(cur, enterprise_id, metric)
     if used + held + amount > maximum:
         raise QuotaExceeded(metric, maximum, used + held, amount)
     reservation_id = next_id(cur, "SJZQ_SEQ_QUOTA_RESERVATION")

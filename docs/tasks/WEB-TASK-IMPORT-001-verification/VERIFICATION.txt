@@ -1,51 +1,54 @@
-WEB-TASK-IMPORT-001 FINAL DEV VERIFICATION
+WEB-TASK-IMPORT-001 REVIEW-FIX VERIFICATION
 DATE=2026-08-28
 BRANCH=codex/web-task-import-001
 BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
-SETUP_HEAD=d3eff55958c619463ffb28f498e72e32618792e1
-ORACLE_VALIDATED_CANDIDATE=ec3ce365b186fb8926047e9213abf43685f5958e
-CHANGED_FIELD=manual/excel canonical draft and payload -> one server Task creation transaction with durable Task CONFIG_JSON._submission replay/conflict.
+PREVIOUS_FIXED_HEAD=5b6aba46c396a17b85a8a9eae0aa09bc6a000c9d
+CHANGED_FIELD=canonical Task import: strict draft blockers, frozen delayed-ACK payload, tenant-bound target validation, usage-to-quota lock order, and compatibility selected-context RBAC.
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
 DIFF_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\DIFF_FILE.patch
 VERIFICATION=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\VERIFICATION.txt
 ROLLBACK=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ROLLBACK.sh
-ORIGINAL_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ORIGINAL_FILE (historical source evidence; not a manifest role)
+ORIGINAL_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ORIGINAL_FILE (historical evidence only; not a manifest role)
 
 BASELINE
 COMMAND=git show d3eff55958c619463ffb28f498e72e32618792e1:docs/tasks/WEB-TASK-IMPORT-001.md
 INPUT=setup Task source
-RESULT=original Task evidence preserved in ORIGINAL_FILE
+LITERAL_OUTPUT=ORIGINAL_FILE SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
 EXIT_STATUS=0
 STATUS=PASS
 
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-INPUT=current Task evidence
-RESULT=MODIFIED_FILE is changed current Task evidence copy
+INPUT=review-fix Task evidence
+LITERAL_OUTPUT=MODIFIED_FILE refreshed and remains changed
+EXIT_STATUS=0
+STATUS=PASS
+
+NODE_REAL_FLOW
+COMMAND=node web/scripts/test-task-import-contract.mjs
+INPUT=manual + embedded Excel canonical row flow, duplicate click, multiple re-include, delayed ACK retry, user edit
+LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
+LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
+LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=replay user_edit=new_submission
 EXIT_STATUS=0
 STATUS=PASS
 
 TARGETED_PYTHON
-COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
-INPUT=offline contract tests
-LITERAL_OUTPUT=Ran 13 tests in 0.018s; OK
-EXIT_STATUS=0
-STATUS=PASS
-
-NODE_CONTRACT
-COMMAND=node web/scripts/test-task-import-contract.mjs
-INPUT=canonical draft helper
-LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
-LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
-LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_web_client_contract
+INPUT=semantic duplicate/product identity, draft/route contract
+LITERAL_OUTPUT=Ran 17 tests in 0.016s
+LITERAL_OUTPUT=OK
 EXIT_STATUS=0
 STATUS=PASS
 
 PYTHON_FULL
 COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
-LITERAL_OUTPUT=Ran 240 tests in 0.469s; OK (skipped=27)
+INPUT=repository Python suite
+LITERAL_OUTPUT=Ran 244 tests in 0.467s
+LITERAL_OUTPUT=OK (skipped=27)
 LITERAL_OUTPUT=[PASS] python-unit: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
@@ -53,7 +56,9 @@ STATUS=PASS
 
 WEB_FULL
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
-LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 554ms
+INPUT=Node 22 ignored runtime junction
+LITERAL_OUTPUT=✓ 1682 modules transformed.
+LITERAL_OUTPUT=✓ built in 572ms
 LITERAL_OUTPUT=[PASS] web-build: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
@@ -61,69 +66,38 @@ STATUS=PASS
 
 ANDROID_FULL
 COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+INPUT=JDK 17 + SDK 34
 LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s
 LITERAL_OUTPUT=[PASS] android-jvm: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
 STATUS=PASS
 
-ORACLE_TARGETED_EXTERNAL
-COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
-INPUT=Control-approved isolated writable Oracle; fixed candidate ec3ce365b186fb8926047e9213abf43685f5958e
-LITERAL_OUTPUT=Ran 1 test in 2.522s
-LITERAL_OUTPUT=OK
+COMPILE_AND_WORKTREE_DIFF
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests; git diff --check
+INPUT=current review-fix worktree
+LITERAL_OUTPUT=compile no output; diff no errors
 EXIT_STATUS=0
 STATUS=PASS
 
-ORACLE_FULL_EXTERNAL
+ORACLE_REQUIRED_FINAL_HEAD
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-INPUT=Control-approved isolated writable Oracle; fixed candidate ec3ce365b186fb8926047e9213abf43685f5958e
-LITERAL_OUTPUT=Ran 49 tests in 162.102s
-LITERAL_OUTPUT=OK
-LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
-LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-EXIT_STATUS=0
-STATUS=PASS
-
-ORACLE_FINAL_HEAD
-COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-INPUT=this evidence-only commit will create a new candidate Head
-RESULT=PENDING external fixed-Head rerun by Control; ec3ce36 PASS is not asserted for the moved Head.
+INPUT=approved isolated writable Oracle; post-commit fixed candidate required
+RESULT=PENDING Control fixed-Head execution. Previous candidate ec3ce365b186fb8926047e9213abf43685f5958e passed 49 tests but does not cover this changed Head.
 STATUS=PENDING
-
-COMPILE_AND_DIFF
-COMMAND=python -m compileall -q server tests; git diff --check
-INPUT=current worktree
-LITERAL_OUTPUT=compile no output; diff no errors (line-ending warnings only)
-EXIT_STATUS=0
-STATUS=PASS
+CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes SJZQ_COLLECTION_LEASE/CHECKPOINT/ATTEMPT/OUTBOX/JOB_EVENT/COLLECTION_JOB/TASK_ITEM/TASK_LOG/TASK/QUOTA_LEDGER/QUOTA_RESERVATION/QUOTA_USAGE/WORKSPACE/ENTERPRISE_QUOTA/ENTERPRISE then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
+CLEANUP_RESULT=PENDING Oracle fixed-Head run; persistent=false after fixture cleanup.
 
 ROLLBACK
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt; & 'D:\Git\bin\bash.exe' docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt
-INPUT=separate copy under repository
-RESULT=recorded after final rerun below; MODIFIED_FILE remains changed.
-STATUS=PENDING
+INPUT=separate artifact copy
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task
+LITERAL_OUTPUT=RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe is setup Task; MODIFIED_FILE remains changed.
 
 REAL_DEVICE
-RESULT=SKIPPED (not applicable; no Android behavior change or real device work)
+RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
 STATUS=SKIPPED
-ROLLBACK_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task; RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; ROLLBACK_EXIT=0
-ROLLBACK_EXIT_STATUS=0
-ROLLBACK_RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
-ROLLBACK_MODIFIED_SHA256=abdfb2297b223c67741ee03edc23a8f314373210c3cb4658ba3c32e0fcf29b23
-ROLLBACK_STATUS=PASS
-RESTORED_BEHAVIOR_STATUS=probe restored setup Task while MODIFIED_FILE remained changed.
-
-FINAL_WHITESPACE_REPAIR
-Changed file/field=web/src/utils/taskDraft.js EOF blank line removed; no semantic change.
-NODE_COMMAND=node web/scripts/test-task-import-contract.mjs
-NODE_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123; EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked; CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
-NODE_EXIT_STATUS=0
-TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
-TARGETED_LITERAL_OUTPUT=Ran 13 tests in 0.016s; OK
-TARGETED_EXIT_STATUS=0
-WEB_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
-WEB_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 527ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-WEB_EXIT_STATUS=0
-RANGE_DIFF_COMMAND=git diff --check 2200ef021ed69f29fd3796b2c7a50252fa60575b..HEAD
-RANGE_DIFF_STATUS=PENDING post-commit range recheck; final external Oracle fixed-Head rerun remains PENDING.

@@ -15,6 +15,10 @@ KNOWN_PLATFORMS = {
     PLATFORM_DOUYIN: "抖音",
 }
 
+# A Task target can be accepted only when a collector contract exists for the
+# platform.  The database flag remains authoritative for enabled/disabled.
+ACCEPTED_COLLECTOR_PLATFORMS = frozenset({PLATFORM_PINDUODUO})
+
 # 任务类型
 TASK_COLLECT = "collect"
 TASK_NURTURE = "nurture"
