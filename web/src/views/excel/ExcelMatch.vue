@@ -189,13 +189,14 @@ watch(availableDevices, (items) => {
     deviceId.value = items.length === 1 ? items[0].device_id : null
   }
 })
-function invalidateMatchRows() {
+function invalidateMatchRows({ emitRows = true } = {}) {
   matchGeneration += 1
   matchAbort?.abort()
   matchAbort = null
+  uploading.value = false
   rows.value = []
   stats.value = null
-  emitDraftRows(matchGeneration, platform.value)
+  if (emitRows) emitDraftRows(matchGeneration, platform.value)
 }
 watch(platform, (value, previous) => {
   if (previous && value !== previous) invalidateMatchRows()
@@ -245,7 +246,10 @@ async function uploadMatch({ file }) {
     emitDraftRows(requestGeneration, requestPlatform)
     ElMessage.success('匹配完成')
   } finally {
-    if (requestGeneration === matchGeneration) uploading.value = false
+    if (requestGeneration === matchGeneration) {
+      uploading.value = false
+      if (matchAbort === controller) matchAbort = null
+    }
   }
 }
 
@@ -351,7 +355,7 @@ onMounted(async () => {
     platform.value = platforms.value[0].platform_code
   }
 })
-onBeforeUnmount(() => matchAbort?.abort())
+onBeforeUnmount(() => invalidateMatchRows({ emitRows: false }))
 </script>
 
 <style scoped>

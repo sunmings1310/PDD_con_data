@@ -90,11 +90,30 @@ const upload = child.value.$.setupState.uploadMatch({ file: { name: 'a.xlsx' } }
 assert.equal(matchRequests.length, 1)
 platform.value = 'tmall'
 await nextTick()
+assert.equal(matchRequests[0].config.signal.aborted, true)
+assert.equal(child.value.$.setupState.uploading, false)
 matchRequests[0].deferred.resolve({ data: { rows: [{ row_index: 2, input_product_name: 'A' }] } })
 await upload
 await nextTick()
 assert.equal(emitted.some((rows) => rows.some((row) => row.input_product_name === 'A')), false)
-console.log('EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded')
+const secondUpload = child.value.$.setupState.uploadMatch({ file: { name: 'b.xlsx' } })
+assert.equal(matchRequests.length, 2)
+assert.equal(child.value.$.setupState.uploading, true)
+matchRequests[1].deferred.resolve({ data: { rows: [{ row_index: 3, input_product_name: 'B' }] } })
+await secondUpload
+await nextTick()
+assert.equal(child.value.$.setupState.uploading, false)
+assert.equal(emitted.at(-1)[0].input_product_name, 'B')
+const thirdUpload = child.value.$.setupState.uploadMatch({ file: { name: 'c.xlsx' } })
+const beforeUnmountEmitCount = emitted.length
+const excelState = child.value.$.setupState
+excelApp.unmount()
+assert.equal(matchRequests[2].config.signal.aborted, true)
+assert.equal(excelState.uploading, false)
+matchRequests[2].deferred.resolve({ data: { rows: [{ row_index: 4, input_product_name: 'C' }] } })
+await thirdUpload
+assert.equal(emitted.length, beforeUnmountEmitCount)
+console.log('EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true')
 
 const posts = []
 const pushes = []

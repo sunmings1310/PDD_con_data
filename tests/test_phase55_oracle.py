@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
+from unittest.mock import patch
 
 import oracledb
 from fastapi import FastAPI, HTTPException
@@ -602,6 +603,50 @@ class Phase55OracleFinalGate(unittest.TestCase):
             cur.execute("SELECT COUNT(*) FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id",
                         {"enterprise_id": absent_enterprise})
             self.assertEqual(0, int(cur.fetchone()[0]))
+
+    def test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight(self):
+        """Commit/release must retain the reservation's day, not today's day."""
+        marker = "daily-midnight-" + uuid.uuid4().hex[:12]
+        old_period, new_period = "2026-08-27", "2026-08-28"
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, daily=10)
+            with patch("server.quota.period_key", return_value=old_period):
+                held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
+                               metric=DAILY_SNAPSHOT, amount=1, resource_type="daily", resource_key=marker)
+            conn.commit()
+        with get_conn() as conn:
+            with patch("server.quota.period_key", return_value=new_period):
+                committed = commit(conn.cursor(), held.reservation_id)
+            self.assertEqual("committed", committed.status)
+            conn.commit()
+
+        barrier = threading.Barrier(2)
+        def release_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                barrier.wait()
+                with patch("server.quota.period_key", return_value=new_period):
+                    released = release(conn.cursor(), enterprise_id=enterprise_id, metric=DAILY_SNAPSHOT,
+                                       resource_type="daily", resource_key=marker)
+                conn.commit()
+                return released
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            self.assertEqual([False, True], sorted(executor.map(lambda _: release_worker(), range(2))))
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""SELECT USED_VALUE,RESERVED_VALUE FROM SJZQ_QUOTA_USAGE
+                WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period""",
+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": old_period})
+            self.assertEqual((0, 0), tuple(map(int, cur.fetchone())))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period",
+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": new_period})
+            self.assertEqual(0, int(cur.fetchone()[0]))
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
 
     def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
         """The actual compatibility route cannot borrow global/other-tenant dispatch."""

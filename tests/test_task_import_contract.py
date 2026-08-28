@@ -58,6 +58,9 @@ class TaskImportContractTests(unittest.TestCase):
         self.assertLess(reserve.index('_usage_row'), reserve.index('_limit'))
         self.assertLess(commit.index('lock_metric_scope'), commit.index('FOR UPDATE'))
         self.assertLess(release.index('lock_metric_scope'), release.index('FOR UPDATE'))
+        self.assertIn('period=str(row[3])', commit)
+        self.assertIn('PERIOD_KEY,AMOUNT,STATUS', release)
+        self.assertNotIn('period = period_key(metric)', release)
 
 
 if __name__ == '__main__':

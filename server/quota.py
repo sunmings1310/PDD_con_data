@@ -81,9 +81,9 @@ def _limit(cur: Any, enterprise_id: int, metric: str) -> int:
     return int(row[0])
 
 
-def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str) -> None:
+def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str, period: str | None = None) -> None:
     """Lock quota scope in the same usage -> enterprise order as reservations."""
-    _usage_row(cur, enterprise_id, metric, period_key(metric))
+    _usage_row(cur, enterprise_id, metric, period or period_key(metric))
     _limit(cur, enterprise_id, metric)
 
 
@@ -159,7 +159,7 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
     row = cur.fetchone()
     if not row:
         raise RuntimeError("QUOTA_RESERVATION_NOT_FOUND")
-    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]))
+    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]), period=str(row[3]))
     cur.execute(
         """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
                   RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
@@ -188,32 +188,31 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
 
 
 def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
-    period = period_key(metric)
     # Legacy lifecycle callers may release a resource that never reserved a
     # quota.  Preserve that no-op before attempting to materialize/lock a
     # quota scope which may not exist for the legacy tenant.
     cur.execute(
-        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
-               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key""",
-        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
+        """SELECT RESERVATION_ID,WORKSPACE_ID,PERIOD_KEY,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
+             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric
+               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key AND STATUS <> 'released'
+             ORDER BY PERIOD_KEY DESC FETCH FIRST 1 ROW ONLY""",
+        {"enterprise_id": enterprise_id, "metric": metric,
          "resource_type": resource_type, "resource_key": resource_key})
     row = cur.fetchone()
-    if not row or str(row[3]).lower() == "released":
+    if not row:
         return False
     # A mutable reservation exists: acquire the common usage -> enterprise
     # quota fence, then re-read it under its row lock before changing usage.
-    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
+    reservation_id, period = int(row[0]), str(row[2])
+    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric, period=period)
     cur.execute(
-        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
-               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key FOR UPDATE""",
-        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
-         "resource_type": resource_type, "resource_key": resource_key})
+        """SELECT RESERVATION_ID,WORKSPACE_ID,PERIOD_KEY,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
+             WHERE RESERVATION_ID=:reservation_id FOR UPDATE""",
+        {"reservation_id": reservation_id})
     row = cur.fetchone()
-    if not row or str(row[3]).lower() == "released":
+    if not row or str(row[4]).lower() == "released":
         return False
-    reservation_id, workspace_id, amount, status = int(row[0]), int(row[1]), int(row[2]), str(row[3]).lower()
+    reservation_id, workspace_id, period, amount, status = int(row[0]), int(row[1]), str(row[2]), int(row[3]), str(row[4]).lower()
     _usage_row(cur, enterprise_id, metric, period)
     field = "USED_VALUE" if status == "committed" else "RESERVED_VALUE"
     cur.execute(

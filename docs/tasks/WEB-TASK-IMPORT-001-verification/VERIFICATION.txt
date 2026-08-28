@@ -22,7 +22,7 @@ STATUS=PASS
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 INPUT=second-review Task evidence
-LITERAL_OUTPUT=MODIFIED_FILE SHA256=18c42f2ac2c41b28003fffc94216622e71fc3d9b2685f65533f4fe967ab6e572; changed from setup source
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=3615e80c3ba290a33a432a0d9d8cc91a01f362cdc015067ca728de495d538ba3; changed from setup source
 EXIT_STATUS=0
 STATUS=PASS
 
@@ -172,3 +172,23 @@ COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/
 CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
 FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
 POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
+
+THIRD_REVIEW_CANDIDATE
+CHANGED_FIELD=ExcelMatch invalidation/unmount abort+loading fences; quota DAILY_SNAPSHOT persisted period locking; Oracle cross-midnight concurrent release/replay test.
+COMPONENT_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
+COMPONENT_LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
+COMPONENT_LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
+COMPONENT_EXIT_STATUS=0
+COMPONENT_STATUS=PASS (actual compiled/mounted components, not helper-only)
+HELPER_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
+HELPER_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS; EXCEL_ROW_STATES=PASS; CANONICAL_PAYLOAD=PASS; TASK_CREATE_FLOW=PASS
+HELPER_EXIT_STATUS=0
+HELPER_STATUS=PASS
+PYTHON_TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight
+PYTHON_TARGETED_LITERAL_OUTPUT=Ran 10 tests in 0.002s; OK (skipped=2)
+PYTHON_TARGETED_EXIT_STATUS=0
+PYTHON_FULL_LITERAL_OUTPUT=Ran 249 tests in 0.451s; OK (skipped=31); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WEB_FULL_LITERAL_OUTPUT=1682 modules transformed; built in 565ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+COMPILE_DIFF_LITERAL_OUTPUT=compile no output; git diff --check no errors; exit=0
+ORACLE_REQUIRED_STATUS=PENDING Control fixed-candidate strict; local test_07/test_10 were SKIPPED because PHASE55_ORACLE_TEST_ENABLED/T003 were absent. No Oracle PASS is claimed for this candidate.

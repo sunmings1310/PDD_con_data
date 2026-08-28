@@ -295,3 +295,9 @@
 - 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
 - `_cleanup_task_import_fixture` 清理 fixture 的 lease/checkpoint/attempt/outbox/log/Task/TaskItem/Job/quota/workspace/enterprise 及 membership，并逐表断言零残留；`persistent_business_changes=false`。历史 `060c61b` semantic fixture 和 `5f159f5` legacy release failure 均保留为失败诊断，已由本 fixed-Head 运行收口。
 - 本段之后的 docs-only evidence commit 会移动 Head，故不将 `f579a3e` 的 Oracle PASS 扩展到该 docs Head；Control 负责新 Head external manifest 和 Independent Re-review。
+
+### Third Independent Review repair — candidate evidence（2026-08-28）
+
+- `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
+- `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
+- 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
