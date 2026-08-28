@@ -118,7 +118,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 已批准的 Web 执行队列至第 5 项全部完成。当前等待 Product Owner 选择下一阶段；下列未启动路线仅记录事实，不构成批准、排序或启动：
 
-Product Owner 已批准启动证据优先 Task `SKU-EVIDENCE-VALIDATION-001`。Control 已从 `main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立分支与 worktree；本 Task 只验证真实 SKU_PANEL 证据，不实施 Generic SKU runtime、P1 Schema/migration、历史回填或 Phase 6B。当前离线 Excel 门禁通过；在用户声明真机已准备后，本机 ADB 重启 daemon 并再次枚举仍得到 `DEVICE_COUNT=0`，Real-device Gate 保持 `HUMAN_GATE / BLOCKED`。服务器暂不可用，本轮未尝试 Oracle/生产 DB/API，`Raw → Replay → DTO` 为 `DEFERRED_SERVER_UNAVAILABLE`。
+Product Owner 已批准启动证据优先 Task `SKU-EVIDENCE-VALIDATION-001`。Control 已从 `main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立分支与 worktree；本 Task 只验证真实 SKU_PANEL 证据，不实施 Generic SKU runtime、P1 Schema/migration、历史回填或 Phase 6B。当前离线 Excel 门禁通过。本地服务已从固定 main 使用 process-only test 环境恢复在 `127.0.0.1:8080`，health/root/docs 均 HTTP 200；未修改配置文件。服务恢复后固定 ADB 仍得到 `DEVICE_COUNT=0`，Real-device Gate 保持 `HUMAN_GATE / BLOCKED`，`Raw → Replay → DTO` 为 `DEFERRED_NO_REAL_DEVICE_RAW`。
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；

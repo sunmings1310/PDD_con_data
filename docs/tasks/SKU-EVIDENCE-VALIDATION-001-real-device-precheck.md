@@ -38,7 +38,8 @@ EXIT=0
 - 未创建采样任务或 Raw Capture；
 - 未发生订单、购物车、提交或支付动作；
 - 因没有设备连接，screen、PDD package 和登录会话检查均为 `NOT_EXECUTED_NO_DEVICE`；
-- Product Owner 声明 Server unavailable，本轮未尝试 Oracle、生产 DB 或 API，`Raw → Replay → DTO=DEFERRED_SERVER_UNAVAILABLE`；
+- 随后已从固定 main 以进程环境启动本地服务 `127.0.0.1:8080`，health/root/docs 均 HTTP 200；未调用业务写 API；
+- 服务恢复后再次执行固定 `adb devices -l`，结果仍为 `DEVICE_COUNT=0`；`Raw → Replay → DTO=DEFERRED_NO_REAL_DEVICE_RAW`；
 - 在已观测范围内 `persistent_business_changes=false`。
 
 恢复条件：连接已批准真机并完成现有 ADB 授权；设备上存在已批准的受控登录会话。若需要新账号、密码、OTP、验证码或人工验证，仍保持 Human Gate 并停止。

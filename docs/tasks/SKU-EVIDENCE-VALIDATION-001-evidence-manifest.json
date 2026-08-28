@@ -32,7 +32,7 @@
   },
   "real_device": {
     "required": true,
-    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_ENUMERATED_AFTER_ADB_RESTART",
+    "status": "HUMAN_GATE_BLOCKED_DEVICE_COUNT_ZERO_AFTER_LOCAL_SERVER_RECOVERY",
     "samples_created": 0,
     "raw_captures_created": 0,
     "order_confirmation_clicked": false,
@@ -51,10 +51,23 @@
   },
   "persistent_business_changes": false,
   "server": {
-    "status": "UNAVAILABLE_DECLARED_BY_PRODUCT_OWNER",
-    "oracle_attempted": false,
+    "status": "RUNNING_LOCAL_127_0_0_1_8080",
+    "oracle_attempted": true,
     "production_db_attempted": false,
     "api_write_attempted": false,
-    "raw_replay_dto": "DEFERRED_SERVER_UNAVAILABLE"
+    "raw_replay_dto": "DEFERRED_NO_REAL_DEVICE_RAW",
+    "run_object": "D:\\work\\PDD_con_data_main@f7d037cd612df09059dcea83189e63f99097042d",
+    "config_file_modified": false,
+    "listen": "127.0.0.1:8080",
+    "health_http": 200,
+    "health_json": {
+      "ok": true
+    },
+    "root_http": 200,
+    "docs_http": 200,
+    "runtime_evidence_sha256": "c883b6a36a57c29ab1382c70729b91c9bde11c7f313b7903dd59e9b957d937eb",
+    "stop_script_sha256": "c89e07aba1ab039126926e52fdd80c7a8f16fd1a8fe6e968df7254d29f7c420a",
+    "stop_probe": "PASS_MAIN_REMAINS_RUNNING",
+    "persistence_claim_scope": "no observed API business write or device platform action; startup schema effects not independently diffed"
   }
 }

@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-EVIDENCE-VALIDATION-001
 - **Title**：验证输入商品的真实 SKU_PANEL 证据链
-- **Status**：PARTIAL / HUMAN_GATE BLOCKED（本机 ADB 未枚举到已批准真机；Server unavailable）
+- **Status**：PARTIAL / HUMAN_GATE BLOCKED（本地服务已恢复；本机 ADB 仍未枚举到已批准真机）
 - **Approved base**：`main@f7d037cd612df09059dcea83189e63f99097042d`
 - **Branch / worktree**：`codex/sku-evidence-validation-001` / `D:\work\PDD_con_data_sku_evidence_validation`
 - **Approved input**：`C:\Users\Eden\Desktop\123.xlsx`，SHA-256 `bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557`
@@ -63,7 +63,7 @@
 | Price/state | 组合级显示价格与可选状态；主商品价不得复制 | PENDING_REAL_DEVICE |
 | Platform SKU ID | 平台直接提供则 `OBSERVED`；否则 `NOT_OBSERVED` | PENDING_REAL_DEVICE |
 | Exit | 退出面板且 order/submit/payment guards 全为 false | PENDING_REAL_DEVICE |
-| Replay/DTO | Raw → Replay → DTO identity/version/quality | DEFERRED_SERVER_UNAVAILABLE；且尚无 real-device Raw |
+| Replay/DTO | Raw → Replay → DTO identity/version/quality | DEFERRED_NO_REAL_DEVICE_RAW；本地服务已恢复 |
 
 ## Acceptance Criteria
 
@@ -87,13 +87,14 @@
 | Server parse | isolated `offline_parse.py` importing current `excel_match.py` helpers | rows=5, headers=4 / PASS |
 | Web draft | isolated `offline_matrix.mjs` importing current `taskDraft.js` | valid=5, duplicate=0, invalid=0 / PASS |
 | Real-device precheck | approved SDK `adb devices -l`；restart daemon 后再次枚举 | device_count=0 / BLOCKED |
-| Raw/replay/DTO | after real capture | DEFERRED_SERVER_UNAVAILABLE；不得宣称 PASS |
+| Local server | `python -m server.main`，process env only，`127.0.0.1:8080` | LISTEN；health/root/docs HTTP 200 / PASS |
+| Raw/replay/DTO | after real capture | DEFERRED_NO_REAL_DEVICE_RAW；不得宣称 PASS |
 | Regression | only after tracked evidence is finalized | PENDING |
 
 ## Oracle Gate
 
 - Required：No for current setup/offline/real-device evidence collection；无 Server SQL/transaction/Schema change。
-- Status：`SKIPPED / not applicable` at Human Gate。
+- Status：Oracle test suite 仍为 `SKIPPED / not applicable`；本地服务 lifespan 已使用批准的隔离测试环境成功启动，但这不等价于 Oracle Gate PASS。
 - 若后续变更触及 Oracle-sensitive 范围，必须停止并重新分类；本 Task 不执行 migration。
 
 ## Real-device Gate
@@ -103,11 +104,14 @@
 - Precheck：固定 Head `eb8a3221b55fba435a09f59dbc683047dd750431` 起步；`adb devices -l` 设备列表为空。随后执行 `adb kill-server` / `adb start-server` 并再次枚举，仍为 `DEVICE_COUNT=0`，因此 screen、PDD package 和现有会话检查均未执行。
 - Current status：`HUMAN_GATE / BLOCKED — APPROVED_DEVICE_NOT_CONNECTED`。
 
-## Server-unavailable Degradation
+## Local Server Recovery
 
-- Product Owner 明确声明服务器暂时未连接，本轮仅允许 `DEVICE-LOCAL EVIDENCE ONLY`；
-- 本轮未尝试 Oracle、生产 DB 或 API；
-- `Raw → Replay → DTO` 明确标记 `DEFERRED_SERVER_UNAVAILABLE`，不记为 PASS；
+- 从干净 `D:\work\PDD_con_data_main@f7d037cd612df09059dcea83189e63f99097042d` 启动，未写入或提交配置文件；
+- 仅使用进程环境绑定 `APP_ENV=test`、`HOST=127.0.0.1`、`PORT=8080`；秘密值未写日志或 tracked 文件；
+- `127.0.0.1:8080` 为 LISTEN，`GET /api/health` 返回 HTTP 200 与 `{\"ok\":true}`，`GET /`、`GET /docs` 均 HTTP 200；
+- 主服务保持运行；专属停止脚本已在另一个短生命周期 probe 上验证，只停止 metadata 记录 PID，并验证 command/repository context；
+- 本轮未调用业务写 API；服务启动可能执行既有 idempotent schema 检查，未做数据库前后差异审计，因此仅声明“无已观测业务写入”，不把启动动作表述为完整 Oracle Gate；
+- `Raw → Replay → DTO` 标记 `DEFERRED_NO_REAL_DEVICE_RAW`，不记为 PASS；
 - 因 ADB 未枚举到设备，本轮没有点击前详情、SKU_PANEL、组合或退出面板证据；样本数与 Raw Capture 数均为 0。
 
 ## Rollback
@@ -125,7 +129,7 @@
 
 ## Stop Condition
 
-- 当前已触发：本机 ADB 经 daemon restart 后仍未枚举到批准设备，Real-device Gate 为 `HUMAN_GATE / BLOCKED`；Server replay/DTO 同时为 `DEFERRED_SERVER_UNAVAILABLE`；
+- 当前已触发：本地服务恢复后再次检查固定 ADB，仍为 `DEVICE_COUNT=0`；Real-device Gate 为 `HUMAN_GATE / BLOCKED`，Replay/DTO 为 `DEFERRED_NO_REAL_DEVICE_RAW`；
 - 后续证据足以提交独立 ADR/Schema Review，或证据推翻模型假设时停止；
 - 不自动创建产品功能 PR，不实施 Schema/runtime，不 release，不启动下一任务。
 
