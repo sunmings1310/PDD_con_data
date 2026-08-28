@@ -132,3 +132,16 @@ ORACLE_STATUS=PENDING external fixed-Head gate; Required; current shell prior co
 DIFF_CHECK_FINAL_COMMAND=git diff --check
 DIFF_CHECK_FINAL_LITERAL_OUTPUT=no errors (line-ending warnings only)
 DIFF_CHECK_FINAL_EXIT_STATUS=0
+
+ORACLE_TEST_06_ASSERTION_REPAIR
+Changed branch/field: Phase55OracleFinalGate.test_06 error assertion uses all(error is None ...) instead of sorting None values.
+MODIFIED_SHA256_REPAIR=8577459f6588c8c1a4f48a33780c3173bcfa1c72d4ae1290a4e3342b81605a01
+TARGETED_ORACLE_COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; & $env:PDD_PYTHON -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
+TARGETED_ORACLE_LITERAL_OUTPUT=Ran 1 test in 0.000s; OK (skipped=1); skip reason Phase 5.5 Oracle sandbox test not enabled.
+TARGETED_ORACLE_EXIT_STATUS=0
+TARGETED_ORACLE_STATUS=SKIPPED local no-env; external fixed-Head Oracle strict remains REQUIRED/PENDING.
+TARGETED_PYTHON_COMMAND=python -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
+TARGETED_PYTHON_LITERAL_OUTPUT=Ran 13 tests in 0.018s; OK
+TARGETED_PYTHON_EXIT_STATUS=0
+PYTHON_COMPILE_REPAIR=python -m compileall -q server tests; no output; exit 0
+DIFF_REPAIR=git diff --check; no errors; exit 0

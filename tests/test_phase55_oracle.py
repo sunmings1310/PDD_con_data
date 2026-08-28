@@ -468,7 +468,7 @@ class Phase55OracleFinalGate(unittest.TestCase):
                 conn.close()
         with ThreadPoolExecutor(max_workers=2) as executor:
             results = list(executor.map(lambda _: worker(), range(2)))
-        self.assertEqual([None, None], sorted(error for _, error in results))
+        self.assertTrue(all(error is None for _, error in results))
         self.assertEqual([False, True], sorted(result["idempotent"] for result, _ in results))
         self.assertEqual(1, len({result["task_id"] for result, _ in results}))
         with get_conn() as conn:

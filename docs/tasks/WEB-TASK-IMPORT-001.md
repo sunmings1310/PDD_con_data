@@ -232,3 +232,8 @@
 - `server/task_creation_service.py` 是 manual 与 Excel compatibility 共用的 Task/TaskItem/Job 事务；embedded Excel 只回传审核行，不调用兼容下发端点。
 - Submission 以现有 `SJZQ_ENTERPRISE_QUOTA` 的 `FOR UPDATE` 串行化，再以 tenant/workspace + `SJZQ_TASK.CONFIG_JSON._submission.id` 查找。`_submission` 保存 server-recomputed payload SHA-256；同 hash 返回原 task，异 hash 返回 `IDEMPOTENCY_CONFLICT`，并支持 `device_id=null`。
 - 真实 Oracle gate 新增 `Phase55OracleFinalGate.test_05_*`（replay/conflict）和 `test_06_*`（两连接并发）；当前 shell 未有 T003 环境，Required gate 为 BLOCKED。
+
+### Dev repair evidence（2026-08-28）
+
+- Oracle 实跑发现 `test_06` 的断言对 `[None, None]` 排序触发 Python `TypeError`；业务线程均返回 `error=None`。已最小改为 `all(error is None for _, error in results)`，不改变 Task 创建语义。
+- 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果仍为 Required/PENDING external gate。
