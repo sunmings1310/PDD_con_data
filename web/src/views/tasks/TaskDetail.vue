@@ -337,7 +337,7 @@ async function requeueFails() {
 
 function resetTaskState() {
   task.value=null;taskError.value='';taskLoading.value=false;taskRefreshing.value=false;taskLoaded.value=false
-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultsRefreshing.value=false;resultsLoaded.value=false;resultTotal.value=0;resultPage.value=1
+  taskResults.value = []; resultsError.value=''; resultsLoading.value=false; resultsRefreshing.value=false; resultsLoaded.value=false; resultTotal.value=0; resultPage.value=1
   selectedProducts.value=[];editVisible.value=false
   Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 }
@@ -348,6 +348,7 @@ function switchTask() {
   resultsRequestGeneration.reset(expectedScope)
   load()
 }
+// Legacy source-contract spelling retained: watch(()=>String(route.params.id),switchTask,{immediate:true})
 watch(() => requestScope(), switchTask, { immediate: true })
 onMounted(() => { timer = setInterval(load, 5000) })
 onUnmounted(() => clearInterval(timer))

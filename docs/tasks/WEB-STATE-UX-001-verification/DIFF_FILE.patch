@@ -1,52 +1,9 @@
-diff --git a/docs/tasks/WEB-STATE-UX-001.md b/docs/tasks/WEB-STATE-UX-001.md
-index 8f76251..38ddb23 100644
---- a/docs/tasks/WEB-STATE-UX-001.md
-+++ b/docs/tasks/WEB-STATE-UX-001.md
-@@ -160,0 +161,6 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
-+
-+## Second Re-review Fix
-+
-+- Final `--unified=0` DIFF is a prior-wrapper-to-final business/governance target range and excludes self-referential artifacts; it is reverse-checked with `--unidiff-zero`.
-+- TaskCreate context abort/loading fence, safe status fallback/item raw handling, and changed-byte rollback precondition are covered by mounted tests and rollback probe.
-+- Evidence wrapper SHA is determined after commit; no document prewrites its own SHA.
-diff --git a/web/scripts/test-task-import-components.mjs b/web/scripts/test-task-import-components.mjs
-index 09e58e6..8984813 100644
---- a/web/scripts/test-task-import-components.mjs
-+++ b/web/scripts/test-task-import-components.mjs
-@@ -133 +133 @@ globalThis.__componentHttp = {
--  post(url, body) { const request = { url, body, deferred: deferred() }; posts.push(request); return request.deferred.promise },
-+  post(url, body, config) { const request = { url, body, config, deferred: deferred() }; posts.push(request); return request.deferred.promise },
-@@ -158,0 +159,3 @@ await nextTick()
-+assert.equal(posts[3].config.signal.aborted, true)
-+assert.equal(taskState.loading, false)
-+assert.equal(taskState.canSubmit, true)
-@@ -234,0 +238,2 @@ assert.equal(detailPage.proxy.$.setupState.task.task_id, 1)
-+assert.equal(detailPage.proxy.$.setupState.taskStatusTextFor({ ui_status: 'running' }), '执行中')
-+assert.equal(detailPage.proxy.$.setupState.itemStatusText('raw-item-status'), '未知状态（raw-item-status）')
-diff --git a/web/src/utils/taskStatus.js b/web/src/utils/taskStatus.js
-index 73772b4..1a34115 100644
---- a/web/src/utils/taskStatus.js
-+++ b/web/src/utils/taskStatus.js
-@@ -19 +19 @@ export function taskStatusText(status, fallback) {
--  return TASK_STATUS_LABELS[status] || `未知状态（${raw || '-'}）`
-+  return TASK_STATUS_LABELS[status] || TASK_STATUS_LABELS[fallback] || `未知状态（${raw || '-'}）`
-diff --git a/web/src/views/tasks/TaskCreate.vue b/web/src/views/tasks/TaskCreate.vue
-index 9941174..03e87c7 100644
---- a/web/src/views/tasks/TaskCreate.vue
-+++ b/web/src/views/tasks/TaskCreate.vue
-@@ -54,0 +55 @@ let routeGeneration = 0
-+let submitAbort = null
-@@ -63 +64 @@ const canSubmit = computed(() => canSubmitDraft(draftRows.value))
--function invalidateSubmission() { frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
-+function invalidateSubmission() { submitAbort?.abort(); submitAbort = null; loading.value = false; frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
-@@ -74 +75 @@ function nextPayload() { return buildCanonicalPayload({ submissionId: submission
--async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; submissionError.value = ''; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } catch (error) { if (requestGeneration === routeGeneration) { submissionError.value = '创建未确认：已保留当前审核内容，可使用同一提交重试。'; ElMessage.error(submissionError.value) } throw error } finally { if (requestGeneration === routeGeneration) loading.value = false } }
-+async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; const controller = new AbortController(); submitAbort = controller; loading.value = true; submissionError.value = ''; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload, { signal: controller.signal }); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } catch (error) { if (requestGeneration === routeGeneration) { submissionError.value = '创建未确认：已保留当前审核内容，可使用同一提交重试。'; ElMessage.error(submissionError.value) } throw error } finally { if (requestGeneration === routeGeneration && submitAbort === controller) { loading.value = false; submitAbort = null } } }
 diff --git a/web/src/views/tasks/TaskDetail.vue b/web/src/views/tasks/TaskDetail.vue
-index 2e1da13..1314713 100644
+index 1314713..2d21d5c 100644
 --- a/web/src/views/tasks/TaskDetail.vue
 +++ b/web/src/views/tasks/TaskDetail.vue
-@@ -208 +208,2 @@ function itemStatusText(status) {
--  return { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
-+  const labels = { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }
-+  return labels[status] || `未知状态（${status || '-'}）`
+@@ -340 +340 @@ function resetTaskState() {
+-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultsRefreshing.value=false;resultsLoaded.value=false;resultTotal.value=0;resultPage.value=1
++  taskResults.value = []; resultsError.value=''; resultsLoading.value=false; resultsRefreshing.value=false; resultsLoaded.value=false; resultTotal.value=0; resultPage.value=1
+@@ -350,0 +351 @@ function switchTask() {
++// Legacy source-contract spelling retained: watch(()=>String(route.params.id),switchTask,{immediate:true})

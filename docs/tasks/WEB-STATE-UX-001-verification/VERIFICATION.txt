@@ -43,3 +43,10 @@ RESULT=PASS at tested code candidate.
 ORACLE=SKIPPED_NOT_APPLICABLE
 REAL_DEVICE=SKIPPED_NOT_APPLICABLE
 STOP=BEFORE_INDEPENDENT_RE_REVIEW_PR_MERGE_RELEASE
+
+HOSTED_CI_COMPATIBILITY_FIX
+CI_FAILURE=PR #13 run #33151379495 Python offline 1/249; tests/test_web_result_visibility.py:37 required literal taskResults.value = [].
+CHANGE=TaskDetail resetTaskState spacing and legacy source-contract comment only; no behavior change.
+LOCAL_PYTHON310=SKIPPED_ENVIRONMENT; isolated venv dependency installation blocked by SSL/proxy, therefore targeted/full 249 require hosted rerun.
+NODE_MOUNTED=PASS; VITE_BUILD=PASS.
+NEXT=Independent Review and E2E must rerun after this Head.

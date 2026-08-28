@@ -164,3 +164,8 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 - Final `--unified=0` DIFF is a prior-wrapper-to-final business/governance target range and excludes self-referential artifacts; it is reverse-checked with `--unidiff-zero`.
 - TaskCreate context abort/loading fence, safe status fallback/item raw handling, and changed-byte rollback precondition are covered by mounted tests and rollback probe.
 - Evidence wrapper SHA is determined after commit; no document prewrites its own SHA.
+
+## Hosted CI Compatibility Fix
+
+- Hosted CI PR #13 run #33151379495：Python offline failed 1/249 at `test_web_result_visibility.py:37` because accepted source-contract expected the literal `taskResults.value = []`; source-only spacing compatibility restored without changing reset behavior. Governance/Web/Android/Oracle applicability jobs succeeded; Oracle evidence remained skipped.
+- Local Python 3.10 isolated venv install was attempted; dependency acquisition was blocked by proxy/SSL, so local targeted/full remain `SKIPPED_ENVIRONMENT`; hosted rerun is required after this Head.
