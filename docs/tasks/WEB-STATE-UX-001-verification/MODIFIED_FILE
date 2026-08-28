@@ -1,0 +1,24 @@
+WEB-STATE-UX-001 MODIFIED_FILE
+BASE=807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41
+MODIFIED_FILE_STATUS=changed
+GENERATED_OBJECT=final business/governance target files; DIFF_FILE and VERIFICATION intentionally excluded to avoid self-reference.
+CHANGED_FILES=
+web/scripts/test-task-import-components.mjs
+web/src/utils/requestGeneration.js
+web/src/utils/taskStatus.js
+web/src/views/data/ProductList.vue
+web/src/views/management/QualityDashboard.vue
+web/src/views/management/QuarantineList.vue
+web/src/views/tasks/TaskCreate.vue
+web/src/views/tasks/TaskDetail.vue
+web/src/views/tasks/TaskList.vue
+MODIFIED_SHA256=web/scripts/test-task-import-components.mjs 327fde1cfc7c00ecef698a238c8394e1c21c49ab288791a6f0c760d61fa45c58
+MODIFIED_SHA256=web/src/utils/requestGeneration.js 5d62dec99a137c82194c4b13a4e0df931eb8fb2b86b747bff6a847ed9bdc0360
+MODIFIED_SHA256=web/src/utils/taskStatus.js 1dff7665425a3d6a6a64d80d894a6925ebcd0ab08a41ddae7d147eba75e27746
+MODIFIED_SHA256=web/src/views/data/ProductList.vue 5457c5ebd59d18ae84456d8b01489cf8f9d5c27b0ba3881dd09778af75c4c99e
+MODIFIED_SHA256=web/src/views/management/QualityDashboard.vue d045d7095be41de199d7a01483010755c501127ecb2046db550ba579b8e136e7
+MODIFIED_SHA256=web/src/views/management/QuarantineList.vue 669c8c926880c0c51ec420ecb32f94e38f4320bf81edda3015927744656e1ef8
+MODIFIED_SHA256=web/src/views/tasks/TaskCreate.vue 1567b236f2f9182f461828f27fba3c43677840cbe84a8b4f73fdda59dc0f1c28
+MODIFIED_SHA256=web/src/views/tasks/TaskDetail.vue 87f124cb0a06654708ee9d7491a0233046f97aacb47b29bae00e6a24f6f4bad5
+MODIFIED_SHA256=web/src/views/tasks/TaskList.vue 703819780e097f66512b0ec2fe043819c23f20f3fa4838a42ae3d0991befb8cb
+CI_COMPAT_FIX=TaskDetail resetTaskState restores source-contract literal spacing only; behavior unchanged.

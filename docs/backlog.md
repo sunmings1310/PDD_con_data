@@ -25,7 +25,7 @@
 | 2 | WEB-RESULT-VISIBILITY-001 | MERGED / ACCEPTED / P1 | PR #7 已普通 merge 为 `main@f7ba0fd`；draft 结果、Snapshot exact ID、Task→Raw→Quality/Quarantine 下钻、资料库边界及页面状态已通过 Review/E2E/Oracle/Hosted CI |
 | 3 | WEB-CLIENT-CONTRACT-001 | MERGED / ACCEPTED / P1 | PR #9 已普通 merge 为 `main@a02c8a8`；统一 tenant-aware Web client、Excel 请求头、selected-context permissions、错误映射与租户切换 stale fence；Review `ACCEPT`、E2E `PASS`、Oracle 47/47、Hosted CI 全绿 |
 | 4 | WEB-TASK-IMPORT-001 | MERGED / ACCEPTED / P1-P2 | PR #11 已普通 merge 为 `main@40e3e95`；功能 Head `caf4746f`。Review `ACCEPT`、E2E `PASS`、Hosted CI 全绿、本地 Oracle 53/53（skipped=0、cleanup=0、persistent=false） |
-| 5 | WEB-STATE-UX-001 | READY FOR PRODUCT OWNER START APPROVAL / P2 | #4 已 merge，依赖已满足；尚未启动、未创建实现分支或 worktree |
+| 5 | WEB-STATE-UX-001 | IN_PROGRESS / P2 | Product Owner 已批准启动；从 `main@807cfb4` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree；仅收口核心 Web 状态与反馈，不改变业务语义 |
 
 `WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 

@@ -11,14 +11,16 @@
       <el-input v-model="filters.parser_version" clearable placeholder="Parser version" style="width:150px" />
       <el-input v-model="filters.quality_rules_version" clearable placeholder="Rules version" style="width:150px" />
       <el-button type="primary" @click="search">查询</el-button>
+      <el-button :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新' }}</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
       <template #default><el-button link type="primary" @click="load">重试</el-button></template>
     </el-alert>
+    <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前 Quarantine 列表</div>
     <el-table v-loading="loading" :data="items" border stripe @row-click="openDetail">
-      <template #empty><el-empty :description="loading ? '正在加载' : '没有匹配的 Quarantine 记录'" /></template>
+      <template #empty><el-empty v-if="loaded && !error" description="没有匹配的 Quarantine 记录" /></template>
       <el-table-column prop="quarantine_id" label="ID" width="90" />
       <el-table-column label="时间" width="175"><template #default="{row}">{{ fmt(row.collected_at || row.create_time) }}</template></el-table-column>
       <el-table-column prop="platform" label="平台" width="100"><template #default="{row}">{{ row.platform || row.platform_code || '-' }}</template></el-table-column>
@@ -34,7 +36,7 @@
 
     <el-drawer v-model="drawer" title="Quarantine 详情" size="62%" destroy-on-close>
       <div v-loading="detailLoading">
-        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false" />
+        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryDetail">重试</el-button></template></el-alert>
         <template v-else-if="detail">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="Quarantine">#{{ detail.quarantine_id }}</el-descriptions-item>
@@ -63,15 +65,19 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import dayjs from 'dayjs'
 import http from '@/api/http'
+import { useUserStore } from '@/stores/user'
+import { createRequestGeneration } from '@/utils/requestGeneration'
+import { viewScope } from '@/utils/taskStatus'
 
 const items = ref([]); const total = ref(0); const page = ref(1); const limit = ref(20)
 const route = useRoute()
-const loading = ref(false); const error = ref(''); const range = ref([])
-const drawer = ref(false); const detail = ref(null); const detailLoading = ref(false); const detailError = ref('')
+const store = useUserStore()
+const loading = ref(false); const refreshing = ref(false); const loaded = ref(false); const error = ref(''); const range = ref([])
+const drawer = ref(false); const detail = ref(null); const selectedDetailId = ref(null); const detailLoading = ref(false); const detailError = ref('')
 const filters = reactive({ error_code:'', failure_reason:'', platform:'', product_identity:'', task_id:'', job_id:'', parser_version:'', quality_rules_version:'' })
 function fmt(v){ return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 function parse(v){ if(Array.isArray(v)) return v; if(!v) return []; try{return JSON.parse(v)}catch{return [v]} }
@@ -79,10 +85,15 @@ function join(v){ return parse(v).join(', ') || '-' }
 function pretty(v){ if(v===undefined || v===null) return '-'; if(typeof v==='string'){try{return JSON.stringify(JSON.parse(v),null,2)}catch{return v}} return JSON.stringify(v,null,2) }
 function productIdentity(row){ return row.product_identity || row.platform_product_id || row.item_id || '-' }
 function params(){ const p={page:page.value,limit:limit.value}; Object.entries(filters).forEach(([k,v])=>{if(v!=='')p[k]=v}); if(range.value?.length){p.start_at=dayjs(range.value[0]).toISOString();p.end_at=dayjs(range.value[1]).toISOString()} return p }
-async function load(){ loading.value=true; error.value=''; try{const res=await http.get('/api/management/quarantines',{params:params()}); items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value)}catch(e){items.value=[];total.value=0;error.value=e.response?.data?.detail||e.message||'加载 Quarantine 失败'}finally{loading.value=false} }
+const listGeneration = createRequestGeneration(); const detailGeneration = createRequestGeneration()
+const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, route.fullPath, page.value, limit.value, JSON.stringify(filters), range.value?.map(String).join(',')))
+async function load(){ const token=listGeneration.next(scope.value);const initial=!loaded.value;loading.value=initial;refreshing.value=!initial;error.value='';try{const res=await http.get('/api/management/quarantines',{params:params()});if(!listGeneration.isCurrent(token,scope.value))return;items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);loaded.value=true}catch(e){if(!listGeneration.isCurrent(token,scope.value))return;error.value=e.response?.data?.detail||e.message||'加载 Quarantine 失败'}finally{if(listGeneration.isCurrent(token,scope.value)){loading.value=false;refreshing.value=false}} }
 function search(){page.value=1;load()} function reset(){Object.keys(filters).forEach(k=>filters[k]='');range.value=[];search()}
 function changePage(v){page.value=v;load()} function changeLimit(v){limit.value=v;page.value=1;load()}
-async function openDetail(row){drawer.value=true;detail.value=null;detailError.value='';detailLoading.value=true;try{const res=await http.get(`/api/management/quarantines/${row.quarantine_id}`);detail.value=res.data}catch(e){detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{detailLoading.value=false}}
+async function openDetail(row){ const detailId=row?.quarantine_id; if(detailId===null||detailId===undefined)return; selectedDetailId.value=detailId; const expected=viewScope(store.enterpriseId,store.workspaceId,detailId);const token=detailGeneration.next(expected);drawer.value=true;detailError.value='';detailLoading.value=!detail.value;try{const res=await http.get(`/api/management/quarantines/${detailId}`);if(!detailGeneration.isCurrent(token,expected))return;detail.value=res.data}catch(e){if(!detailGeneration.isCurrent(token,expected))return;detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{if(detailGeneration.isCurrent(token,expected))detailLoading.value=false}}
+function retryDetail(){ if(selectedDetailId.value!==null) return openDetail({quarantine_id:selectedDetailId.value}) }
+watch(()=>viewScope(store.enterpriseId,store.workspaceId,route.fullPath),()=>{listGeneration.reset(scope.value,()=>{items.value=[];total.value=0;loaded.value=false;error.value='';loading.value=false;refreshing.value=false});detailGeneration.reset('',()=>{detail.value=null;selectedDetailId.value=null;detailError.value='';detailLoading.value=false});load()})
+onBeforeUnmount(()=>{listGeneration.next('unmounted');detailGeneration.next('unmounted')})
 onMounted(()=>{Object.keys(filters).forEach(k=>{if(route.query[k]!==undefined)filters[k]=String(route.query[k])});load()})
 </script>
 <style scoped>.pager{margin-top:16px;justify-content:flex-end}.block-title{margin-top:22px}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fa;padding:12px;border-radius:4px}</style>

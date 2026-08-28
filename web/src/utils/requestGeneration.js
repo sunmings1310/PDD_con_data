@@ -2,21 +2,27 @@ export function createRequestGeneration() {
   let generation = 0
   let scope = ''
 
+  const token = () => ({ generation, scope })
   return {
     reset(nextScope, resetState) {
       scope = String(nextScope)
       generation += 1
       resetState?.()
-      return { generation, scope }
+      return token()
+    },
+    next(nextScope = scope) {
+      scope = String(nextScope)
+      generation += 1
+      return token()
     },
     capture() {
-      return { generation, scope }
+      return token()
     },
-    isCurrent(token, currentScope = scope) {
-      return Boolean(token)
-        && token.generation === generation
-        && token.scope === scope
-        && token.scope === String(currentScope)
+    isCurrent(candidate, currentScope = scope) {
+      return Boolean(candidate)
+        && candidate.generation === generation
+        && candidate.scope === scope
+        && candidate.scope === String(currentScope)
     },
   }
 }

@@ -1,0 +1,52 @@
+WEB-STATE-UX-001 DOCUMENTATION EVIDENCE CLOSURE
+STATUS=CHANGES_REQUIRED_EVIDENCE_CLOSURE_AWAITING_RE_REVIEW
+TESTED_CODE_FIXED_REVIEW_CANDIDATE=96f5232e46bf757e238d7ce6040bd666d1796390
+DOCUMENTATION_CLOSURE_HEAD=not self-referenced; after commit use git rev-parse HEAD and C:\Users\Eden\AppData\Local\Temp\WEB-STATE-UX-001-final-evidence.txt as authorities.
+ARTIFACTS=MODIFIED_FILE,DIFF_FILE.patch,VERIFICATION.txt,ROLLBACK.sh
+MODIFIED_FILE_STATUS=changed
+
+REPRODUCIBLE_POWERSHELL_PROBE
+COMMAND=$files=@('web/scripts/test-task-import-components.mjs','web/src/utils/requestGeneration.js','web/src/utils/taskStatus.js','web/src/views/data/ProductList.vue','web/src/views/management/QualityDashboard.vue','web/src/views/management/QuarantineList.vue','web/src/views/tasks/TaskCreate.vue','web/src/views/tasks/TaskDetail.vue','web/src/views/tasks/TaskList.vue'); $probe='.rollback-probe-web-state-ux'; npx -y node@22.18.0 -e "require('node:fs').rmSync(process.argv[1],{recursive:true,force:true})" $probe; New-Item -ItemType Directory -Path $probe -Force | Out-Null; foreach($rel in $files){$dest=Join-Path $probe $rel; New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null; Copy-Item $rel $dest -Force}; npx -y node@22.18.0 -e "process.argv[2]=process.argv[1];process.argv[1]='rollback';require('./docs/tasks/WEB-STATE-UX-001-verification/ROLLBACK.sh')" $probe; $rc=$LASTEXITCODE; npx -y node@22.18.0 -e "require('node:fs').rmSync(process.argv[1],{recursive:true,force:true})" $probe; exit $rc
+INPUT=current worktree fixed candidate files copied byte-for-byte before rollback.
+LITERAL_OUTPUT_BEGIN
+BEFORE_FILE=web/scripts/test-task-import-components.mjs BEFORE_SHA256=327fde1cfc7c00ecef698a238c8394e1c21c49ab288791a6f0c760d61fa45c58 EXPECTED_MODIFIED_SHA256=327fde1cfc7c00ecef698a238c8394e1c21c49ab288791a6f0c760d61fa45c58
+BEFORE_FILE=web/src/utils/requestGeneration.js BEFORE_SHA256=5d62dec99a137c82194c4b13a4e0df931eb8fb2b86b747bff6a847ed9bdc0360 EXPECTED_MODIFIED_SHA256=5d62dec99a137c82194c4b13a4e0df931eb8fb2b86b747bff6a847ed9bdc0360
+BEFORE_FILE=web/src/utils/taskStatus.js BEFORE_SHA256=1dff7665425a3d6a6a64d80d894a6925ebcd0ab08a41ddae7d147eba75e27746 EXPECTED_MODIFIED_SHA256=1dff7665425a3d6a6a64d80d894a6925ebcd0ab08a41ddae7d147eba75e27746
+BEFORE_FILE=web/src/views/data/ProductList.vue BEFORE_SHA256=5457c5ebd59d18ae84456d8b01489cf8f9d5c27b0ba3881dd09778af75c4c99e EXPECTED_MODIFIED_SHA256=5457c5ebd59d18ae84456d8b01489cf8f9d5c27b0ba3881dd09778af75c4c99e
+BEFORE_FILE=web/src/views/management/QualityDashboard.vue BEFORE_SHA256=d045d7095be41de199d7a01483010755c501127ecb2046db550ba579b8e136e7 EXPECTED_MODIFIED_SHA256=d045d7095be41de199d7a01483010755c501127ecb2046db550ba579b8e136e7
+BEFORE_FILE=web/src/views/management/QuarantineList.vue BEFORE_SHA256=669c8c926880c0c51ec420ecb32f94e38f4320bf81edda3015927744656e1ef8 EXPECTED_MODIFIED_SHA256=669c8c926880c0c51ec420ecb32f94e38f4320bf81edda3015927744656e1ef8
+BEFORE_FILE=web/src/views/tasks/TaskCreate.vue BEFORE_SHA256=1567b236f2f9182f461828f27fba3c43677840cbe84a8b4f73fdda59dc0f1c28 EXPECTED_MODIFIED_SHA256=1567b236f2f9182f461828f27fba3c43677840cbe84a8b4f73fdda59dc0f1c28
+BEFORE_FILE=web/src/views/tasks/TaskDetail.vue BEFORE_SHA256=0c77646b1725f162d9513cbb9b54a2844f4404d3e313bff795e16dfcfbca29d5 EXPECTED_MODIFIED_SHA256=0c77646b1725f162d9513cbb9b54a2844f4404d3e313bff795e16dfcfbca29d5
+BEFORE_FILE=web/src/views/tasks/TaskList.vue BEFORE_SHA256=703819780e097f66512b0ec2fe043819c23f20f3fa4838a42ae3d0991befb8cb EXPECTED_MODIFIED_SHA256=703819780e097f66512b0ec2fe043819c23f20f3fa4838a42ae3d0991befb8cb
+RESTORED_FILE=web/scripts/test-task-import-components.mjs RESTORED_SHA256=e0b72285676de740f885b03d7e8297d54e009c10f439a02e887dfb73a2993b69 BASE_SHA256=e0b72285676de740f885b03d7e8297d54e009c10f439a02e887dfb73a2993b69
+RESTORED_FILE=web/src/utils/requestGeneration.js RESTORED_SHA256=11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968 BASE_SHA256=11726860487df2c588ea92b64741f2fea15ed4c552dc630f2dadb7652b489968
+RESTORED_FILE=web/src/views/data/ProductList.vue RESTORED_SHA256=de72d5872d6b7d78d99fbd5b81de87e3daca1c0aa10ab46ee69d855c55e39c92 BASE_SHA256=de72d5872d6b7d78d99fbd5b81de87e3daca1c0aa10ab46ee69d855c55e39c92
+RESTORED_FILE=web/src/views/management/QualityDashboard.vue RESTORED_SHA256=43084dabb01dac96a943c4c91578efe037ce7cf81d3f28a7e501d7aa48fb0b44 BASE_SHA256=43084dabb01dac96a943c4c91578efe037ce7cf81d3f28a7e501d7aa48fb0b44
+RESTORED_FILE=web/src/views/management/QuarantineList.vue RESTORED_SHA256=90fcb33a72b45875bd374129f2efe26b2056d045812ef4d1398136128f11ffb6 BASE_SHA256=90fcb33a72b45875bd374129f2efe26b2056d045812ef4d1398136128f11ffb6
+RESTORED_FILE=web/src/views/tasks/TaskCreate.vue RESTORED_SHA256=bb525327b18028d8d6e426b19aec756a5ca7e13e3ba3114a9bc2ecfe57e4aa4a BASE_SHA256=bb525327b18028d8d6e426b19aec756a5ca7e13e3ba3114a9bc2ecfe57e4aa4a
+RESTORED_FILE=web/src/views/tasks/TaskDetail.vue RESTORED_SHA256=878bd1923180ef74a39d017fb721bc160312b361b0bf47f41b9fc053152cf375 BASE_SHA256=878bd1923180ef74a39d017fb721bc160312b361b0bf47f41b9fc053152cf375
+RESTORED_FILE=web/src/views/tasks/TaskList.vue RESTORED_SHA256=cc5e15745509b2848e06399e9f88b430cec55012e2b0b1085cdaa91703a6fd34 BASE_SHA256=cc5e15745509b2848e06399e9f88b430cec55012e2b0b1085cdaa91703a6fd34
+REMOVED_NEW_FILE=web/src/utils/taskStatus.js
+ROLLBACK_RESULT=web_state_ux_sources_restored
+ROLLBACK_EXIT=0
+ROLLBACK_MATCH=yes
+
+LITERAL_OUTPUT_END
+EXIT_STATUS=0
+RESULT=PASS
+
+FINAL_DIFF
+COMMAND=git apply --check --reverse --unidiff-zero docs/tasks/WEB-STATE-UX-001-verification/DIFF_FILE.patch
+RESULT=PASS at tested code candidate.
+COMMAND=git diff --check 807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41..HEAD
+RESULT=PASS at tested code candidate.
+ORACLE=SKIPPED_NOT_APPLICABLE
+REAL_DEVICE=SKIPPED_NOT_APPLICABLE
+STOP=BEFORE_INDEPENDENT_RE_REVIEW_PR_MERGE_RELEASE
+
+HOSTED_CI_COMPATIBILITY_FIX
+CI_FAILURE=PR #13 run #33151379495 Python offline 1/249; tests/test_web_result_visibility.py:37 required literal taskResults.value = [].
+CHANGE=TaskDetail resetTaskState spacing and legacy source-contract comment only; no behavior change.
+LOCAL_PYTHON310=SKIPPED_ENVIRONMENT; isolated venv dependency installation blocked by SSL/proxy, therefore targeted/full 249 require hosted rerun.
+NODE_MOUNTED=PASS; VITE_BUILD=PASS.
+NEXT=Independent Review and E2E must rerun after this Head.

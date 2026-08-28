@@ -1,0 +1,9 @@
+diff --git a/web/src/views/tasks/TaskDetail.vue b/web/src/views/tasks/TaskDetail.vue
+index 1314713..2d21d5c 100644
+--- a/web/src/views/tasks/TaskDetail.vue
++++ b/web/src/views/tasks/TaskDetail.vue
+@@ -340 +340 @@ function resetTaskState() {
+-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultsRefreshing.value=false;resultsLoaded.value=false;resultTotal.value=0;resultPage.value=1
++  taskResults.value = []; resultsError.value=''; resultsLoading.value=false; resultsRefreshing.value=false; resultsLoaded.value=false; resultTotal.value=0; resultPage.value=1
+@@ -350,0 +351 @@ function switchTask() {
++// Legacy source-contract spelling retained: watch(()=>String(route.params.id),switchTask,{immediate:true})

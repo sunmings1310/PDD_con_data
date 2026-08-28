@@ -11,12 +11,13 @@
         <template #default><el-button link type="primary" @click="load">重试</el-button></template>
       </el-alert>
       <div v-loading="taskLoading">
+      <div v-if="taskRefreshing" class="refreshing-hint">正在刷新，保留当前任务详情</div>
       <el-empty v-if="!taskLoading && !taskError && !task" description="任务不存在或当前租户不可见" />
       <el-descriptions v-else-if="task" :column="3" border>
         <el-descriptions-item label="任务">#{{ task.task_id }} {{ task.task_name }}</el-descriptions-item>
         <el-descriptions-item label="平台">{{ task.platform_code }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
-          <el-tag :type="taskStatusType(task.status)">{{ task.ui_status }}</el-tag>
+          <el-tag :type="taskStatusType(task.status)">{{ taskStatusTextFor(task) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="进度">
           成功 {{ okItems.length }} / 失败 {{ failItems.length }} / 待处理 {{ pendingItems.length }} / 目标 {{ items.length }}
@@ -46,6 +47,7 @@
     </div>
 
     <div class="page-card" v-loading="resultsLoading">
+      <div v-if="resultsRefreshing" class="refreshing-hint">正在刷新，保留当前采集结果</div>
       <div class="toolbar">
         <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
         <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
@@ -56,7 +58,7 @@
         <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
       </el-alert>
       <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
-        <template #empty><el-empty :description="resultsLoading ? '正在加载本次采集结果' : '该 Task 暂无采集结果'" /></template>
+        <template #empty><el-empty v-if="resultsLoaded && !resultsError" description="该 Task 暂无采集结果" /></template>
         <el-table-column type="selection" width="48" :selectable="canSelectResult" />
         <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
         <el-table-column prop="canonical_name" label="规范商品名称" min-width="160" />
@@ -158,15 +160,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
+import { taskStatusText, taskStatusType as mappedTaskStatusType, viewScope } from '@/utils/taskStatus'
 
 const route = useRoute()
 const router = useRouter()
 const store = useUserStore()
 const task = ref(null)
 const taskLoading = ref(false)
+const taskRefreshing = ref(false)
+const taskLoaded = ref(false)
 const taskError = ref('')
 const taskResults = ref([])
 const resultsLoading = ref(false)
+const resultsRefreshing = ref(false)
+const resultsLoaded = ref(false)
 const resultsError = ref('')
 const selectedProducts = ref([])
 const resultPage = ref(1)
@@ -176,6 +183,9 @@ const editVisible = ref(false)
 const editForm = reactive({product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 let timer
 const requestGeneration = createRequestGeneration()
+const taskRequestGeneration = createRequestGeneration()
+const resultsRequestGeneration = createRequestGeneration()
+const requestScope = () => viewScope(store.enterpriseId, store.workspaceId, route.params.id)
 
 const items = computed(() => task.value?.items || [])
 const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
@@ -195,7 +205,8 @@ const percent = computed(() => {
 function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 
 function itemStatusText(status) {
-  return { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
+  const labels = { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }
+  return labels[status] || `未知状态（${status || '-'}）`
 }
 function itemStatusType(status) {
   return { pending: 'info', running: 'warning', succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[status] || 'info'
@@ -211,9 +222,8 @@ function matchStatusText(row) {
 function matchStatusType(row) {
   return { succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
 }
-function taskStatusType(status) {
-  return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
-}
+function taskStatusType(status) { return mappedTaskStatusType(status) }
+function taskStatusTextFor(taskRow) { return taskStatusText(taskRow?.status, taskRow?.ui_status) }
 
 function requestError(e, fallback) {
   if (e.response?.status === 403) return `无权限（403）：${fallback}`
@@ -243,45 +253,50 @@ async function load() {
 
 async function loadTask() {
   const expectedTaskId = String(route.params.id)
-  const token = requestGeneration.capture()
-  taskLoading.value = true
+  const expectedScope = requestScope()
+  const token = taskRequestGeneration.next(expectedScope)
+  const initial = !taskLoaded.value
+  taskLoading.value = initial
+  taskRefreshing.value = !initial
   taskError.value = ''
   try {
     const res = await http.get(`/api/tasks/${expectedTaskId}`)
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!taskRequestGeneration.isCurrent(token, requestScope())) return
     task.value = res.data || null
+    taskLoaded.value = true
   } catch (e) {
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
-    task.value = null
+    if (!taskRequestGeneration.isCurrent(token, requestScope())) return
     taskError.value = requestError(e, '加载任务失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
+    if (taskRequestGeneration.isCurrent(token, requestScope())) { taskLoading.value = false; taskRefreshing.value = false }
   }
 }
 
 async function loadResults() {
   const expectedTaskId = String(route.params.id)
-  const token = requestGeneration.capture()
-  resultsLoading.value = true
+  const expectedScope = requestScope()
+  const token = resultsRequestGeneration.next(expectedScope)
+  const initial = !resultsLoaded.value
+  resultsLoading.value = initial
+  resultsRefreshing.value = !initial
   resultsError.value = ''
   try {
     const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
       params: { page: resultPage.value, limit: resultLimit.value },
     })
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!resultsRequestGeneration.isCurrent(token, requestScope())) return
     taskResults.value = res.data?.items || []
     resultTotal.value = Number(res.data?.total || 0)
     resultPage.value = Number(res.data?.page || resultPage.value)
     resultLimit.value = Number(res.data?.limit || resultLimit.value)
     selectedProducts.value = []
+    resultsLoaded.value = true
   } catch (e) {
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
-    taskResults.value = []
+    if (!resultsRequestGeneration.isCurrent(token, requestScope())) return
     selectedProducts.value = []
-    resultTotal.value = 0
     resultsError.value = requestError(e, '加载本次采集结果失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
+    if (resultsRequestGeneration.isCurrent(token, requestScope())) { resultsLoading.value = false; resultsRefreshing.value = false }
   }
 }
 function changeResultPage(value) { resultPage.value = value; loadResults() }
@@ -321,13 +336,20 @@ async function requeueFails() {
 }
 
 function resetTaskState() {
-  task.value=null;taskError.value='';taskLoading.value=false
-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
+  task.value=null;taskError.value='';taskLoading.value=false;taskRefreshing.value=false;taskLoaded.value=false
+  taskResults.value = []; resultsError.value=''; resultsLoading.value=false; resultsRefreshing.value=false; resultsLoaded.value=false; resultTotal.value=0; resultPage.value=1
   selectedProducts.value=[];editVisible.value=false
   Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 }
-function switchTask(taskId){requestGeneration.reset(taskId,resetTaskState);load()}
-watch(()=>String(route.params.id),switchTask,{immediate:true})
+function switchTask() {
+  const expectedScope = requestScope()
+  requestGeneration.reset(String(route.params.id), resetTaskState)
+  taskRequestGeneration.reset(expectedScope)
+  resultsRequestGeneration.reset(expectedScope)
+  load()
+}
+// Legacy source-contract spelling retained: watch(()=>String(route.params.id),switchTask,{immediate:true})
+watch(() => requestScope(), switchTask, { immediate: true })
 onMounted(() => { timer = setInterval(load, 5000) })
 onUnmounted(() => clearInterval(timer))
 </script>
