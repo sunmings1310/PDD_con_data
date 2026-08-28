@@ -1,0 +1,119 @@
+WEB-NAV-EXCEL-CONSOLIDATION-001 VERIFICATION
+DATE=2026-08-28
+BASE=origin/main@f7d037cd612df09059dcea83189e63f99097042d
+SETUP_HEAD=da3568958f3926eb2450a86369ab4bb3919044f4
+BRANCH=codex/web-nav-excel-consolidation-001
+STATUS=ACCEPTED_PR_CANDIDATE
+ORIGINAL_SETUP_TASK_SHA256=e502f0398326ed2de73dde2925c8cadff2253350ba9498fb5fe3c9de22e21aae
+BASE_TASK_FILE=ABSENT
+
+CHANGED_BRANCHES
+NAVIGATION=AdminLayout removes the Excel primary menu; /excel redirects to /tasks/create?source=excel.
+TASK_CREATE=route.query.source selects excel only for the exact value; other values select manual. route.fullPath, tenant/workspace, route leave, and unmount invalidate/abort frozen submissions.
+EXCEL_MODE=task-import emits draft rows without export/direct dispatch; library-match matches/candidates/exports without Task creation.
+LIBRARY_ENTRY=ProductList routes authorized excel:match users to /products/excel-match; router requires data:view plus excel:match.
+SERVER=unchanged; production web has no /api/excel/unmatched-to-task reference.
+
+ARTIFACTS
+MODIFIED_FILE=docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/MODIFIED_FILE
+DIFF_FILE=docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/DIFF_FILE.patch
+VERIFICATION=docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/VERIFICATION.txt
+ROLLBACK=docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/ROLLBACK.sh
+DIFF_GENERATION_COMMAND=git diff --binary --unified=0 f7d037cd612df09059dcea83189e63f99097042d -- docs/CURRENT_STATE.md docs/backlog.md docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md tests/test_task_import_contract.py web/scripts/test-task-import-components.mjs web/scripts/test-nav-excel-consolidation-components.mjs web/src/layout/AdminLayout.vue web/src/router/index.js web/src/views/data/ProductList.vue web/src/views/excel/ExcelMatch.vue web/src/views/tasks/TaskCreate.vue > docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/DIFF_FILE.patch
+DIFF_GENERATION_INPUT=declared base plus 11 changed business/governance files; the four artifacts are excluded to avoid self-referential patch content.
+DIFF_GENERATION_RESULT=PASS
+
+NAV_COMPONENT
+COMMAND=npx -y node@22.18.0 web/scripts/test-nav-excel-consolidation-components.mjs
+INPUT=mounted TaskCreate/ExcelMatch/ProductList, actual transformed router, controllable delayed adapter, tenant/route/platform fences
+LITERAL_OUTPUT=TASK_CREATE_QUERY=PASS mounted=TaskCreate source_excel=selected invalid_source=manual route_stale=abort_no_navigation loading_reset=true
+LITERAL_OUTPUT=EXCEL_MODE_COMPONENT=PASS mounted=ExcelMatch task_import=emit_no_export library_match=no_emit_export_visible direct_dispatch_absent=true
+LITERAL_OUTPUT=PRODUCT_ENTRY_COMPONENT=PASS mounted=ProductList excel_match_permission=required entry_target=/products/excel-match
+LITERAL_OUTPUT=NAV_ROUTER_CONTRACT=PASS actual_router excel_redirect=/tasks/create?source=excel product_library_permission=data:view+excel:match top_level_excel_menu=absent
+EXIT_STATUS=0
+RESULT=PASS
+
+EXISTING_TASK_IMPORT_COMPONENTS
+COMMAND=npx -y node@22.18.0 web/scripts/test-task-import-components.mjs
+INPUT=existing mounted task-import/state fixtures
+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id tenant_stale=no_push
+LITERAL_OUTPUT=TASK_LIST_COMPONENT=PASS mounted=TaskList initial_loading background_refresh duplicate_refresh stale_response status_unknown_safe
+LITERAL_OUTPUT=PRODUCT_COMPONENT=PASS mounted=ProductList refresh_empty tenant_context_stale_fenced
+LITERAL_OUTPUT=QUALITY_COMPONENT=PASS mounted=QualityDashboard initial_error retry empty_distinct
+LITERAL_OUTPUT=QUARANTINE_COMPONENT=PASS mounted=QuarantineList filter_race detail_retry refresh_empty route_context_stale_fenced
+LITERAL_OUTPUT=TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate
+EXIT_STATUS=0
+RESULT=PASS
+
+NODE_CONTRACTS
+COMMAND=npx -y node@22.18.0 web/scripts/test-task-import-contract.mjs; npx -y node@22.18.0 web/scripts/test-client-contract.mjs
+INPUT=Node 22.18, canonical draft/client contract
+LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=replay user_edit=new_submission
+LITERAL_OUTPUT=SOURCE_CONTRACT=PASS http_imported=true direct_bypass=false selected_context_permissions=true
+EXIT_STATUS=0
+RESULT=PASS
+
+PYTHON_OFFLINE
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_task_import_contract tests.test_web_client_contract
+INPUT=Python 3.10, pydantic 2.13.4, no Oracle
+LITERAL_OUTPUT=Ran 15 tests in 0.016s
+LITERAL_OUTPUT=OK
+EXIT_STATUS=0
+RESULT=PASS
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py'
+INPUT=Python 3.10, pydantic 2.13.4, no Oracle
+LITERAL_OUTPUT=Ran 257 tests in 0.553s
+LITERAL_OUTPUT=OK (skipped=39)
+EXIT_STATUS=0
+RESULT=PASS
+HISTORICAL_ENV_FAILURE=system Python discovery exit 1 because pydantic 1 lacked field_validator and loguru/jwt were absent; this is not counted as PASS.
+
+WEB_BUILD
+COMMAND=Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit
+INPUT=worktree root D:\work\PDD_con_data_web_nav_excel_consolidation; command enters web before resolving node_modules
+LITERAL_OUTPUT=✓ 1683 modules transformed.
+LITERAL_OUTPUT=✓ built in 672ms
+EXIT_STATUS=0
+RESULT=PASS
+
+RANGE_AND_NEGATIVE
+COMMAND=git diff --check f7d037cd612df09059dcea83189e63f99097042d --
+INPUT=full declared base-to-working-tree range
+LITERAL_OUTPUT=DIFF_CHECK_EXIT=0
+EXIT_STATUS=0
+RESULT=PASS
+COMMAND=git apply --check --reverse --unidiff-zero docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/DIFF_FILE.patch
+INPUT=current changed working tree; unified=0 patch generated from declared base and target file list
+LITERAL_OUTPUT=REVERSE_PATCH_EXIT=0
+EXIT_STATUS=0
+RESULT=PASS
+COMMAND=rg -n '/api/excel/unmatched-to-task' web/src
+INPUT=production Web source only
+LITERAL_OUTPUT=NO_PRODUCTION_ENDPOINT_REFERENCE=PASS
+EXIT_STATUS=0
+RESULT=PASS
+COMMAND=git diff --unified=0 f7d037cd612df09059dcea83189e63f99097042d -- web docs tests | Select-String -Pattern '(?i)(password|secret|token|api[_-]?key)\\s*[:=]\\s*[\\x27\\x22][^\\x27\\x22]+'
+INPUT=changed source/documentation range
+LITERAL_OUTPUT=SENSITIVE_LITERAL_SCAN=PASS matches=0
+EXIT_STATUS=0
+RESULT=PASS
+
+ROLLBACK_PROBE
+COMMAND=git worktree add --detach <temp-probe> f7d037cd612df09059dcea83189e63f99097042d; copy the 11 final changed files into <temp-probe>; D:\Git\bin\bash.exe docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-verification/ROLLBACK.sh <temp-probe>; git worktree remove --force <temp-probe>
+INPUT=fixed-base probe deliberately changed to each expected modified SHA-256 before rollback
+LITERAL_OUTPUT=BEFORE_SHA256/EXPECTED_MODIFIED_SHA256 matched for all 11 files.
+LITERAL_OUTPUT=RESTORED_SHA256/EXPECTED_BASE_SHA256 matched for all 9 base files; both new files restored to ABSENT.
+LITERAL_OUTPUT=MATCH[docs/CURRENT_STATE.md]=yes; MATCH[docs/backlog.md]=yes; MATCH[docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md]=yes; MATCH[tests/test_task_import_contract.py]=yes; MATCH[web/scripts/test-task-import-components.mjs]=yes; MATCH[web/scripts/test-nav-excel-consolidation-components.mjs]=yes; MATCH[web/src/layout/AdminLayout.vue]=yes; MATCH[web/src/router/index.js]=yes; MATCH[web/src/views/data/ProductList.vue]=yes; MATCH[web/src/views/excel/ExcelMatch.vue]=yes; MATCH[web/src/views/tasks/TaskCreate.vue]=yes
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_base_files_and_removed_new_files
+EXIT_STATUS=0
+RESULT=PASS
+
+ARTIFACT_STATE=MODIFIED_FILE remains changed and is a byte-for-byte copy of the current Task file. DIFF_FILE describes only the 11 target business/governance files. ROLLBACK.sh is executable mode 100755.
+ORACLE=SKIPPED_NOT_APPLICABLE_WEB_ONLY_NO_SERVER_SQL_TRANSACTION_SCHEMA
+REAL_DEVICE=SKIPPED_NOT_APPLICABLE_NO_ANDROID_OR_REAL_COLLECTION
+INDEPENDENT_REVIEW=ACCEPT fixed_head=03839ad09adb885008e453391275f7191f7134d1 findings=P0_NONE_P1_NONE_P2_NONE
+REVIEW_HISTORY=first review CHANGES_REQUIRED for non-reproducible build working directory; fixed and independently reproduced at 1683 modules exit 0
+PR=NOT_CREATED

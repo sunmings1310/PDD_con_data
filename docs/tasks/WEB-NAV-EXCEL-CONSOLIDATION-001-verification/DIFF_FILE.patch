@@ -1,0 +1,510 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index aa87b13..8680e3d 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -120,0 +121,2 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
++`WEB-NAV-EXCEL-CONSOLIDATION-001` 是当前未合并的 Web-only `ACCEPTED / PR CANDIDATE`：导航移除独立 Excel 一级入口，兼容 `/excel` 重定向到 canonical TaskCreate，资料库承载 Excel 查库/导出，未修改 Server/Schema/canonical Task/Android。功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2。Node mounted/router、既有 Node contracts、Python offline full（257 / skipped=39）和 Web build 已通过；Oracle/真机均 `SKIPPED / not applicable`。下一门禁为 Draft PR/Hosted CI，禁止 merge 或 release。
++
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 70e822e..863bc10 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -31,0 +32,6 @@
++## Current approved Web task（2026-08-28）
++
++| Task | 状态 | 范围 | 下一步 |
++|---|---|---|---|
++| WEB-NAV-EXCEL-CONSOLIDATION-001 | ACCEPTED / PR CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Review `ACCEPT`，无 P0/P1/P2；Control 创建 Draft PR并跟踪 Hosted CI，STOP before merge |
++
+diff --git a/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md b/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md
+new file mode 100644
+index 0000000..f3899dc
+--- /dev/null
++++ b/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md
+@@ -0,0 +1,134 @@
++# WEB-NAV-EXCEL-CONSOLIDATION-001：收敛 Excel 入口与统一任务创建流程
++
++- **Task ID**：WEB-NAV-EXCEL-CONSOLIDATION-001
++- **Title**：收敛 Excel 入口与统一任务创建流程
++- **Status**：ACCEPTED / PR CANDIDATE
++- **Base**：`origin/main@f7d037cd612df09059dcea83189e63f99097042d`
++- **Branch / worktree**：`codex/web-nav-excel-consolidation-001` / `D:\work\PDD_con_data_web_nav_excel_consolidation`
++
++## Goal
++
++删除独立 Excel 任务下发认知，让任务导入只从“任务调度 → 创建任务 → Excel 导入创建”进入；同时把 Excel 批量查库/导出能力放入商品资料库上下文，并以显式 mode 保证任务导入与资料库查库动作互斥。
++
++## Context
++
++- `TaskCreate.vue` 已支持 manual / Excel source，并通过 embedded `ExcelMatch` 形成 canonical `POST /api/tasks`。
++- `AdminLayout.vue` 仍暴露一级“Excel匹配回填”；`/excel` 仍直接渲染独立 `ExcelMatch`。
++- 独立页面仍调用兼容端点 `/api/excel/unmatched-to-task`，形成第二条直接下发路径。
++- embedded `ExcelMatch` 仍显示批量导出，与已批准“Excel 导出不进入创建页”冲突。
++
++## Scope
++
++### Allowed
++
++- 删除左侧 Excel 一级菜单；
++- `/excel` 兼容重定向到 `/tasks/create?source=excel`；
++- `TaskCreate` 可靠读取 query 并选择 Excel source，同时保持 tenant/workspace/route stale fence；
++- 在商品资料库提供“Excel 批量查库/导出”上下文入口，可使用 `/products/excel-match` 或等价最小路由；
++- `ExcelMatch` 明确 `task-import` 与 `library-match` 两种 mode：前者只输出 draft rows，后者只查库/导出；
++- 删除生产 Web 对 `/api/excel/unmatched-to-task` 的调用及直接下发 UI；服务端 route 保留兼容；
++- 补真实 mounted component、router contract、静态负向约束及必要 helper/test。
++
++### Forbidden
++
++- 修改 Server 业务、Schema、migration 或 Oracle 数据；
++- 修改 Android、采集节奏、canonical Task payload/submission id 或 Task 完成语义；
++- 修改 draft→人工保存→资料库语义；
++- Generic SKU runtime、P1 Schema、Phase 6B、release；
++- 顺手处理系统设置、报表、OTA、图片清理或全站 UI 重构。
++
++## Non-goals
++
++- 不删除服务端 `/api/excel/unmatched-to-task` 兼容 route；
++- 不新增 Excel 服务端契约；
++- 不用导航隐藏替代服务端权限；
++- 不改变 Excel 模板、匹配、多候选、export-batch 或 canonical task create 的服务端语义。
++
++## Dependencies
++
++- `WEB-TASK-IMPORT-001`、`WEB-CLIENT-CONTRACT-001`、`WEB-STATE-UX-001` 已 MERGED / ACCEPTED；
++- 当前可信 `main@f7d037cd612df09059dcea83189e63f99097042d`。
++
++## Affected Modules
++
++- `web/src/layout/AdminLayout.vue`
++- `web/src/router/index.js`
++- `web/src/views/tasks/TaskCreate.vue`
++- `web/src/views/excel/ExcelMatch.vue`
++- `web/src/views/data/ProductList.vue`
++- 必要的紧邻 Web helper/scripts/tests
++- 本 Task、`docs/backlog.md`、`docs/CURRENT_STATE.md` 与专属验证制品
++
++## ADR
++
++不新增 ADR。该修改落实已批准 Web 入口归属，不改变长期数据或任务契约。
++
++## Acceptance Criteria
++
++- [x] 左侧导航不存在 Excel 一级菜单；
++- [x] `/excel` 重定向至 `/tasks/create?source=excel`；
++- [x] query 可靠选择 Excel source，错误值安全回退；
++- [x] 商品资料库存在明确“Excel 批量查库/导出”入口；
++- [x] `task-import` mode 不显示导出、不直接下发，只 emit draft rows；
++- [x] `library-match` mode 可模板/上传/匹配/候选/导出，但不创建或下发 Task；
++- [x] 生产 Web 不引用 `/api/excel/unmatched-to-task`；
++- [x] tenant/workspace/platform 切换与 unmount stale/abort 行为保持；
++- [x] canonical Task payload、submission id 与 ACK retry 行为保持；
++- [x] mounted component/router contract、existing Excel/task regressions 与 production build 通过；
++- [x] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
++
++## Test Plan
++
++| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
++|---|---|---|---|---|---:|---|
++| Baseline mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | Node 22.18；`npm ci --include=optional` | existing mounted flows pass | 7 component groups PASS | 0 | PASS |
++| Baseline contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | contract PASS；client contract PASS | 0 | PASS |
++| Baseline build | `Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit` | dependencies installed by Node 22.18/npm 10.9.3 | production build | `✓ built in 672ms` | 0 | PASS |
++| Targeted | `npx -y node@22.18.0 scripts/test-nav-excel-consolidation-components.mjs` | mounted TaskCreate/ExcelMatch/ProductList + actual router + delayed adapter | navigation/query/mode/permission/stale fences | 4 PASS lines | 0 | PASS |
++| Existing mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | existing mounted task-import/state flows | no regression | 7 component groups PASS | 0 | PASS |
++| Node contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | all printed contracts PASS | 0 | PASS |
++| Python offline targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_task_import_contract tests.test_web_client_contract` | Python 3.10 / pydantic 2.13.4 | compatibility contracts pass | `Ran 15 tests` / `OK` | 0 | PASS |
++| Python offline full | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py'` | Python 3.10 / no Oracle env | applicable regression | `Ran 257 tests` / `OK (skipped=39)` | 0 | PASS |
++| Module/full | `Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit` | Node 22.18 | production build | `✓ 1683 modules transformed.` / `✓ built in 672ms` | 0 | PASS |
++| Android | no Android source or Gradle change | Web-only scope | not applicable | `SKIPPED / not applicable` |  | SKIPPED |
++
++Baseline 首次在系统 Node 20.11.1 且缺 `node_modules` 时得到 component/client `ERR_MODULE_NOT_FOUND`、build `vite is not recognized`；随后使用固定 Node 22.18/npm 10.9.3 执行 `npm ci --include=optional` 后，以上 baseline PASS。失败历史不计为 PASS。
++
++## Oracle Gate
++
++- Required：No
++- Reason：批准范围为纯 Web route/navigation/component mode；禁止 Server/SQL/transaction/Schema 修改。
++- Status：`SKIPPED / not applicable`；不得称为 PASS。
++
++## Real-device Gate
++
++- Required：No
++- Device/scenario：无 Android 或真实采集变更；`SKIPPED / not applicable`。
++
++## Rollback
++
++- Code rollback：revert Task commits 或应用专属 `ROLLBACK.sh` 到另一固定 base 副本；
++- Configuration rollback：无配置变更；
++- Data recovery：无数据/Schema 变更；
++- Irreversible items：无。
++
++## Human Decision Points
++
++- merge 与 release 必须由 Product Owner 明确批准；
++- 若实现要求改变 canonical Task、服务端权限语义、Schema 或产品入口范围，停止并请求决定。
++
++## Stop Condition
++
++- Review `ACCEPT`、Draft PR 和 Hosted CI 完成后停止在 merge 前；
++- 出现产品语义冲突、服务端/Schema 需求或无法维持两 mode 严格互斥时停止；
++- 不启动 `WEB-PRODUCT-SURFACE-ALIGN-001` 或任何后续任务。
++
++## Evidence
++
++- Original evidence：固定 base 源码与 Product Owner 批准事实；原始 Task blob SHA-256 在 `VERIFICATION.txt` 记录，未覆盖。
++- Derived artifacts：`WEB-NAV-EXCEL-CONSOLIDATION-001-verification/`；`MODIFIED_FILE` 保持本 Task 当前 changed 内容，`DIFF_FILE.patch` 仅包含 base→候选的业务/治理目标文件，四制品自身不进入自引用补丁。
++- Dev evidence：新增 mounted/router test 覆盖 `/excel` redirect、query fallback/route abort、task-import/library-match 互斥、ProductList permission entry；既有 mounted/Node/Python/Web build 全部 PASS。
++- Historical environment failure：系统 Python 3.10 的 pydantic 1 与缺少 `loguru`/`jwt` 使 discovery 失败（exit 1）；改用既有 `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe`（pydantic 2.13.4）后 full PASS，失败不计为通过。
++- Oracle / Real-device：均为 `SKIPPED / not applicable`；本 Task 未触及 Server/SQL/transaction/Schema 或 Android。
++- Review findings：fixed Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2；首轮唯一 P1 为 build 命令缺少工作目录，已修复并复现通过。
++- Commit / PR：功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1`；Draft PR 待 Control 创建，禁止 merge。
+diff --git a/tests/test_task_import_contract.py b/tests/test_task_import_contract.py
+index 3dcc2c2..a04d3da 100644
+--- a/tests/test_task_import_contract.py
++++ b/tests/test_task_import_contract.py
+@@ -35,0 +36 @@ class TaskImportContractTests(unittest.TestCase):
++        self.assertIn("mode=\"task-import\"", task_create)
+@@ -37 +38,2 @@ class TaskImportContractTests(unittest.TestCase):
+-        self.assertIn("v-if=\"!embedded\" type=\"warning\"", excel)
++        self.assertIn("const isTaskImport", excel)
++        self.assertIn("isLibraryMatch && store.hasPerm('excel:export')", excel)
+@@ -39,0 +42,2 @@ class TaskImportContractTests(unittest.TestCase):
++        self.assertNotIn("/api/excel/unmatched-to-task", excel)
++        self.assertNotIn("dispatchAndroidMatch", excel)
+diff --git a/web/scripts/test-nav-excel-consolidation-components.mjs b/web/scripts/test-nav-excel-consolidation-components.mjs
+new file mode 100644
+index 0000000..a7cbb0f
+--- /dev/null
++++ b/web/scripts/test-nav-excel-consolidation-components.mjs
+@@ -0,0 +1,163 @@
++import assert from 'node:assert/strict'
++import fs from 'node:fs'
++import path from 'node:path'
++import { pathToFileURL } from 'node:url'
++import { compileScript, compileTemplate, parse } from '@vue/compiler-sfc'
++import { createRenderer, h, nextTick, reactive } from 'vue'
++
++const webRoot = path.resolve(import.meta.dirname, '..')
++const vueUrl = pathToFileURL(path.join(webRoot, 'node_modules/vue/index.mjs')).href
++const utilsUrl = pathToFileURL(path.join(webRoot, 'src/utils/taskDraft.js')).href
++const requestGenerationUrl = pathToFileURL(path.join(webRoot, 'src/utils/requestGeneration.js')).href
++const taskStatusUrl = pathToFileURL(path.join(webRoot, 'src/utils/taskStatus.js')).href
++
++function deferred() {
++  let resolve
++  const promise = new Promise((ok) => { resolve = ok })
++  return { promise, resolve }
++}
++
++async function loadComponent(relative) {
++  const filename = path.join(webRoot, relative)
++  const descriptor = parse(fs.readFileSync(filename, 'utf8'), { filename }).descriptor
++  const compiled = compileScript(descriptor, { id: relative })
++  let script = compiled.content
++    .replace("from 'vue'", `from '${vueUrl}'`)
++    .replace(/import \{ onBeforeRouteLeave, useRouter \} from 'vue-router'/, 'const useRouter = () => globalThis.__router; const onBeforeRouteLeave = () => {}')
++    .replace(/import \{ useRoute \} from 'vue-router'/, 'const useRoute = () => globalThis.__route')
++    .replace(/import \{ ElMessage \} from 'element-plus'/, 'const ElMessage = globalThis.__message')
++    .replace(/import \{ ElMessage, ElMessageBox \} from 'element-plus'/, 'const ElMessage = globalThis.__message; const ElMessageBox = globalThis.__messageBox')
++    .replace(/import http from '@\/api\/http'/, 'const http = globalThis.__http')
++    .replace(/import ExcelMatch from '@\/views\/excel\/ExcelMatch\.vue'/, 'const ExcelMatch = globalThis.__ExcelMatch')
++    .replace(/import \{ useUserStore \} from '@\/stores\/user'/, 'const useUserStore = () => globalThis.__store')
++    .replace("from '@/utils/taskDraft'", `from '${utilsUrl}'`)
++    .replace("from '@/utils/requestGeneration'", `from '${requestGenerationUrl}'`)
++    .replace("from '@/utils/taskStatus'", `from '${taskStatusUrl}'`)
++  const template = compileTemplate({ source: descriptor.template.content, filename, id: relative, compilerOptions: { bindingMetadata: compiled.bindings } }).code
++    .replace('from "vue"', `from '${vueUrl}'`)
++    .replace('export function render', 'function render')
++  script = script.replace('export default {', 'const __component = {')
++  const source = `${script}\n${template}\n__component.render = render; export default __component;`
++  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#${Date.now()}${Math.random()}`)
++}
++
++const renderer = createRenderer({
++  patchProp(el, key, _old, value) { el.props[key] = value },
++  insert(el, parent) { parent.children.push(el); el.parent = parent },
++  remove(el) { const index = el.parent?.children.indexOf(el); if (index >= 0) el.parent.children.splice(index, 1) },
++  createElement(type) { return { type, props: {}, children: [] } },
++  createText(text) { return { type: '#text', text } },
++  createComment(text) { return { type: '#comment', text } },
++  setText(node, text) { node.text = text },
++  setElementText(node, text) { node.children = [{ type: '#text', text }] },
++  parentNode(node) { return node.parent },
++  nextSibling() { return null },
++})
++const stub = { render: () => null }
++const button = { render() { return h('button', this.$attrs, this.$slots.default?.()) } }
++function mount(component, props = {}) {
++  const app = renderer.createApp(component, props)
++  for (const name of ['el-radio-button', 'el-form', 'el-form-item', 'el-input', 'el-radio-group', 'el-radio', 'el-select', 'el-option', 'el-input-number', 'el-checkbox', 'el-divider', 'el-alert', 'el-table', 'el-table-column', 'el-upload', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty', 'el-pagination', 'el-descriptions', 'el-descriptions-item']) app.component(name, stub)
++  app.component('el-button', button)
++  app.directive('loading', {})
++  const root = { type: 'root', children: [] }
++  return { proxy: app.mount(root), app, root }
++}
++function containsText(node, expected) {
++  if (node.text?.includes(expected)) return true
++  return (node.children || []).some((child) => containsText(child, expected))
++}
++
++globalThis.__message = { success() {}, warning() {}, error() {}, info() {} }
++globalThis.__messageBox = { confirm: async () => true }
++const pushed = []
++globalThis.__router = { push: async (target) => { pushed.push(target) } }
++globalThis.__route = reactive({ query: { source: 'excel' }, params: {}, fullPath: '/tasks/create?source=excel' })
++globalThis.__store = reactive({ enterpriseId: 'tenant-a', workspaceId: 'workspace-a', hasPerm: () => true })
++globalThis.__http = { get: async () => ({ data: [] }), post: async () => ({ data: { task_id: 1 } }), getBlob: async () => new Blob(), postBlob: async () => new Blob() }
++
++const { default: ExcelMatch } = await loadComponent('src/views/excel/ExcelMatch.vue')
++globalThis.__ExcelMatch = ExcelMatch
++const { default: TaskCreate } = await loadComponent('src/views/tasks/TaskCreate.vue')
++const task = mount(TaskCreate)
++await nextTick()
++assert.equal(task.proxy.$.setupState.source, 'excel')
++globalThis.__route.query.source = 'unexpected'
++await nextTick()
++assert.equal(task.proxy.$.setupState.source, 'manual')
++task.proxy.$.setupState.form.keywordsText = 'route stale target'
++await nextTick()
++const staleSubmit = deferred()
++globalThis.__http.post = (_url, _body, config) => { staleSubmit.config = config; return staleSubmit.promise }
++const submitting = task.proxy.$.setupState.submit()
++globalThis.__route.fullPath = '/tasks/create?source=excel'
++globalThis.__route.query.source = 'excel'
++await nextTick()
++assert.equal(staleSubmit.config.signal.aborted, true)
++assert.equal(task.proxy.$.setupState.loading, false)
++staleSubmit.resolve({ data: { task_id: 99 } })
++await submitting
++assert.equal(pushed.includes('/tasks/99'), false)
++task.app.unmount()
++console.log('TASK_CREATE_QUERY=PASS mounted=TaskCreate source_excel=selected invalid_source=manual route_stale=abort_no_navigation loading_reset=true')
++
++const taskEmits = []
++const taskMode = mount(ExcelMatch, { embedded: true, mode: 'task-import', platformCode: 'pinduoduo', onDraftRows: (rows) => taskEmits.push(rows) })
++await nextTick()
++const taskRequest = deferred()
++globalThis.__http.post = () => taskRequest.promise
++const taskUpload = taskMode.proxy.$.setupState.uploadMatch({ file: { name: 'task.xlsx' } })
++taskRequest.resolve({ data: { rows: [{ row_index: 1, input_product_name: '任务行' }], total: 1 } })
++await taskUpload
++await nextTick()
++assert.equal(taskMode.proxy.$.setupState.isTaskImport, true)
++assert.equal(taskEmits.length, 1)
++assert.equal(containsText(taskMode.root, '批量导出'), false)
++taskMode.app.unmount()
++
++const libraryEmits = []
++const libraryMode = mount(ExcelMatch, { mode: 'library-match', onDraftRows: (rows) => libraryEmits.push(rows) })
++await nextTick()
++const libraryRequest = deferred()
++globalThis.__http.post = () => libraryRequest.promise
++const libraryUpload = libraryMode.proxy.$.setupState.uploadMatch({ file: { name: 'library.xlsx' } })
++libraryRequest.resolve({ data: { rows: [{ row_index: 2, input_product_name: '资料库行' }], total: 1 } })
++await libraryUpload
++await nextTick()
++assert.equal(libraryMode.proxy.$.setupState.isLibraryMatch, true)
++assert.equal(libraryEmits.length, 0)
++assert.equal(containsText(libraryMode.root, '批量导出'), true)
++libraryMode.app.unmount()
++console.log('EXCEL_MODE_COMPONENT=PASS mounted=ExcelMatch task_import=emit_no_export library_match=no_emit_export_visible direct_dispatch_absent=true')
++
++const { default: ProductList } = await loadComponent('src/views/data/ProductList.vue')
++globalThis.__store = reactive({ enterpriseId: 'tenant-a', workspaceId: 'workspace-a', hasPerm: (permission) => permission !== 'excel:match' })
++globalThis.__http = { get: async () => ({ data: [] }), post: async () => ({ data: {} }), getBlob: async () => new Blob() }
++const noExcelPermission = mount(ProductList)
++await nextTick()
++assert.equal(containsText(noExcelPermission.root, 'Excel 批量查库/导出'), false)
++noExcelPermission.app.unmount()
++globalThis.__store = reactive({ enterpriseId: 'tenant-a', workspaceId: 'workspace-a', hasPerm: () => true })
++const excelPermission = mount(ProductList)
++await nextTick()
++assert.equal(containsText(excelPermission.root, 'Excel 批量查库/导出'), true)
++excelPermission.app.unmount()
++console.log('PRODUCT_ENTRY_COMPONENT=PASS mounted=ProductList excel_match_permission=required entry_target=/products/excel-match')
++
++const routerUrl = pathToFileURL(path.join(webRoot, 'node_modules/vue-router/dist/vue-router.esm-bundler.js')).href
++let routerSource = fs.readFileSync(path.join(webRoot, 'src/router/index.js'), 'utf8')
++routerSource = routerSource
++  .replace("import { createRouter, createWebHistory } from 'vue-router'", `import { createRouter, createMemoryHistory } from '${routerUrl}'`)
++  .replace("import { useUserStore } from '@/stores/user'", 'const useUserStore = () => globalThis.__routerStore')
++  .replace(/import \{ hasRoutePermissions \} from ['"](?:@\/router\/permissions|\.\/permissions\.js)['"]/ , 'const hasRoutePermissions = (meta, has) => (meta.perms || (meta.perm ? [meta.perm] : [])).every(has)')
++  .replace('createWebHistory()', 'createMemoryHistory()')
++  .replaceAll("import('@/", "Promise.resolve('")
++globalThis.__routerStore = { token: 'test', profile: {}, hasPerm: () => true, fetchMe: async () => {}, logout() {} }
++const { default: actualRouter } = await import(`data:text/javascript;base64,${Buffer.from(routerSource).toString('base64')}#${Date.now()}`)
++await actualRouter.push('/excel')
++assert.equal(actualRouter.currentRoute.value.fullPath, '/tasks/create?source=excel')
++const libraryRoute = actualRouter.resolve('/products/excel-match')
++assert.deepEqual(libraryRoute.meta.perms, ['data:view', 'excel:match'])
++assert.equal(fs.readFileSync(path.join(webRoot, 'src/layout/AdminLayout.vue'), 'utf8').includes('index="/excel"'), false)
++assert.equal(fs.readFileSync(path.join(webRoot, 'src/views/excel/ExcelMatch.vue'), 'utf8').includes('/api/excel/unmatched-to-task'), false)
++console.log('NAV_ROUTER_CONTRACT=PASS actual_router excel_redirect=/tasks/create?source=excel product_library_permission=data:view+excel:match top_level_excel_menu=absent')
+diff --git a/web/scripts/test-task-import-components.mjs b/web/scripts/test-task-import-components.mjs
+index 8984813..9b86057 100644
+--- a/web/scripts/test-task-import-components.mjs
++++ b/web/scripts/test-task-import-components.mjs
+@@ -73,0 +74 @@ globalThis.__routeGuards = []
++globalThis.__componentRoute = reactive({ query: {}, params: {}, fullPath: '/tasks/create' })
+@@ -93 +94 @@ const child = ref(null)
+-const excelRoot = { render: () => h(ExcelMatch, { ref: child, embedded: true, platformCode: platform.value, onDraftRows: (rows) => emitted.push(rows) }) }
++const excelRoot = { render: () => h(ExcelMatch, { ref: child, embedded: true, mode: 'task-import', platformCode: platform.value, onDraftRows: (rows) => emitted.push(rows) }) }
+diff --git a/web/src/layout/AdminLayout.vue b/web/src/layout/AdminLayout.vue
+index 364fdea..c9409ea 100644
+--- a/web/src/layout/AdminLayout.vue
++++ b/web/src/layout/AdminLayout.vue
+@@ -22,3 +21,0 @@
+-        <el-menu-item v-if="store.hasPerm('excel:match')" index="/excel">
+-          <el-icon><Document /></el-icon><span>Excel匹配回填</span>
+-        </el-menu-item>
+diff --git a/web/src/router/index.js b/web/src/router/index.js
+index 52b98b3..1980d6e 100644
+--- a/web/src/router/index.js
++++ b/web/src/router/index.js
+@@ -20,0 +21 @@ const routes = [
++      { path: 'products/excel-match', name: 'product-excel-match', component: () => import('@/views/excel/ExcelMatch.vue'), props: { mode: 'library-match' }, meta: { title: 'Excel批量查库/导出', perms: ['data:view', 'excel:match'] } },
+@@ -24 +25 @@ const routes = [
+-      { path: 'excel', name: 'excel', component: () => import('@/views/excel/ExcelMatch.vue'), meta: { title: 'Excel匹配回填', perm: 'excel:match' } },
++      { path: 'excel', name: 'excel', redirect: { name: 'task-create', query: { source: 'excel' } }, meta: { title: '创建采集任务', perm: 'task:create' } },
+diff --git a/web/src/views/data/ProductList.vue b/web/src/views/data/ProductList.vue
+index f125e71..8ade801 100644
+--- a/web/src/views/data/ProductList.vue
++++ b/web/src/views/data/ProductList.vue
+@@ -13,0 +14 @@
++        <el-button v-if="store.hasPerm('excel:match')" @click="$router.push('/products/excel-match')">Excel 批量查库/导出</el-button>
+diff --git a/web/src/views/excel/ExcelMatch.vue b/web/src/views/excel/ExcelMatch.vue
+index 4e98ed0..dc34749 100644
+--- a/web/src/views/excel/ExcelMatch.vue
++++ b/web/src/views/excel/ExcelMatch.vue
+@@ -2 +2 @@
+-  <div :class="embedded ? 'excel-match-page embedded-excel' : 'page-card excel-match-page'">
++  <div :class="isTaskImport ? 'excel-match-page embedded-excel' : 'page-card excel-match-page'">
+@@ -5 +5 @@
+-        <h2 v-if="!embedded" class="page-title">Excel 导入匹配</h2>
++        <h2 v-if="isLibraryMatch" class="page-title">Excel 批量查库/导出</h2>
+@@ -13 +13 @@
+-          :disabled="uploading || dispatching || embedded"
++          :disabled="uploading || isTaskImport"
+@@ -22,21 +21,0 @@
+-        <el-select v-if="!embedded" v-model="deviceId"
+-          clearable
+-          filterable
+-          placeholder="请选择采集设备"
+-          no-data-text="当前平台没有在线设备"
+-          style="width: 240px"
+-          :disabled="dispatching"
+-        >
+-          <el-option
+-            v-for="device in availableDevices"
+-            :key="device.device_id"
+-            :label="`${device.device_name || device.device_key}（${device.ui_status}）`"
+-            :value="device.device_id"
+-          />
+-        </el-select>
+-        <el-select v-if="!embedded" v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
+-          <el-option :value="5" label="每项核对 5 个" />
+-          <el-option :value="10" label="每项核对 10 个" />
+-          <el-option :value="20" label="每项核对 20 个" />
+-          <el-option :value="30" label="每项核对 30 个" />
+-        </el-select>
+@@ -53 +32 @@
+-        <el-button v-if="store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
++        <el-button v-if="isLibraryMatch && store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
+@@ -56,7 +34,0 @@
+-        <el-button v-if="!embedded" type="warning"
+-          :disabled="!unmatchedRows.length"
+-          :loading="dispatching"
+-          @click="dispatchAndroidMatch"
+-        >
+-          安卓采集未匹配（{{ unmatchedRows.length }}）
+-        </el-button>
+@@ -155 +126,0 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+-import { useRouter } from 'vue-router'
+@@ -162,2 +133,3 @@ const platforms = ref([])
+-const props = defineProps({ embedded: Boolean, platformCode: { type: String, default: '' } })
+-const embedded = computed(() => props.embedded)
++const props = defineProps({ embedded: Boolean, mode: { type: String, default: 'library-match' }, platformCode: { type: String, default: '' } })
++const isTaskImport = computed(() => props.mode === 'task-import')
++const isLibraryMatch = computed(() => !isTaskImport.value)
+@@ -165,2 +136,0 @@ const emit = defineEmits(['draft-rows'])
+-const devices = ref([])
+-const router = useRouter()
+@@ -169,2 +138,0 @@ const platform = ref('pinduoduo')
+-const deviceId = ref(null)
+-const maxDetail = ref(10)
+@@ -176 +143,0 @@ const exporting = ref(false)
+-const dispatching = ref(false)
+@@ -182,10 +148,0 @@ let matchAbort = null
+-const unmatchedRows = computed(() => rows.value.filter((row) => !row.matched))
+-const availableDevices = computed(() => devices.value.filter(
+-  (device) => device.online && device.platform_code === platform.value,
+-))
+-
+-watch(availableDevices, (items) => {
+-  if (!items.some((device) => device.device_id === deviceId.value)) {
+-    deviceId.value = items.length === 1 ? items[0].device_id : null
+-  }
+-})
+@@ -205 +162 @@ watch(() => props.platformCode, (value) => {
+-  if (props.embedded && value && value !== platform.value) {
++  if (isTaskImport.value && value && value !== platform.value) {
+@@ -257 +214 @@ function emitDraftRows(expectedGeneration = matchGeneration, expectedPlatform =
+-  if (props.embedded && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
++  if (isTaskImport.value && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
+@@ -301,21 +257,0 @@ async function exportBatch() {
+-async function dispatchAndroidMatch() {
+-  if (!deviceId.value) {
+-    ElMessage.warning('请先选择在线采集设备')
+-    return
+-  }
+-  dispatching.value = true
+-  try {
+-    const response = await http.post('/api/excel/unmatched-to-task', {
+-      platform_code: platform.value,
+-      device_id: deviceId.value,
+-      rows: unmatchedRows.value,
+-      max_detail: maxDetail.value,
+-      task_name: `Excel安卓匹配-${new Date().toLocaleString()}`,
+-    })
+-    ElMessage.success(`已下发 ${response.data.count} 行，任务 #${response.data.task_id}`)
+-    router.push(`/tasks/${response.data.task_id}`)
+-  } finally {
+-    dispatching.value = false
+-  }
+-}
+-
+@@ -348,4 +284 @@ onMounted(async () => {
+-  const [platformResponse, deviceResponse] = await Promise.all([
+-    http.get('/api/platforms'),
+-    http.get('/api/devices'),
+-  ])
++  const platformResponse = await http.get('/api/platforms')
+@@ -353 +285,0 @@ onMounted(async () => {
+-  devices.value = deviceResponse.data || []
+diff --git a/web/src/views/tasks/TaskCreate.vue b/web/src/views/tasks/TaskCreate.vue
+index 03e87c7..1c831a6 100644
+--- a/web/src/views/tasks/TaskCreate.vue
++++ b/web/src/views/tasks/TaskCreate.vue
+@@ -24 +24 @@
+-      <template v-if="source === 'excel'"><ExcelMatch embedded :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
++      <template v-if="source === 'excel'"><ExcelMatch embedded mode="task-import" :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
+@@ -42 +42 @@
+-import { computed, onMounted, reactive, ref, watch } from 'vue'
++import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+@@ -43,0 +44 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
++import { useRoute } from 'vue-router'
+@@ -50,0 +52 @@ const router = useRouter()
++const route = useRoute()
+@@ -64,0 +67,10 @@ function invalidateSubmission() { submitAbort?.abort(); submitAbort = null; load
++function sourceFromQuery(value) { return value === 'excel' ? 'excel' : 'manual' }
++function invalidateRoute() { routeGeneration += 1; invalidateSubmission() }
++watch(() => route.query.source, (value) => {
++  const nextSource = sourceFromQuery(value)
++  if (source.value !== nextSource) {
++    source.value = nextSource
++    invalidateRoute()
++  }
++}, { immediate: true })
++watch(() => route.fullPath, (value, previous) => { if (previous && value !== previous) invalidateRoute() })
+@@ -77 +89,2 @@ onMounted(load)
+-onBeforeRouteLeave(() => { routeGeneration += 1; return true })
++onBeforeRouteLeave(() => { invalidateRoute(); return true })
++onBeforeUnmount(invalidateRoute)

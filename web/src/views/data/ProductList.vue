@@ -11,6 +11,7 @@
         <el-input v-model="q.approval_no" placeholder="批准文号" clearable style="width:160px" />
         <el-button type="primary" @click="applyFilters">查询</el-button>
         <el-button :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新' }}</el-button>
+        <el-button v-if="store.hasPerm('excel:match')" @click="$router.push('/products/excel-match')">Excel 批量查库/导出</el-button>
         <el-button v-if="store.hasPerm('data:export')" @click="exportSelected">导出选中</el-button>
       </div>
       <el-alert v-if="displayError" :title="displayError" type="error" show-icon :closable="false" style="margin-bottom:12px">

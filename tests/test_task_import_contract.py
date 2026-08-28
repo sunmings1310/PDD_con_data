@@ -33,10 +33,14 @@ class TaskImportContractTests(unittest.TestCase):
         task_create = (ROOT / 'web/src/views/tasks/TaskCreate.vue').read_text(encoding='utf-8')
         excel = (ROOT / 'web/src/views/excel/ExcelMatch.vue').read_text(encoding='utf-8')
         self.assertIn("buildCanonicalPayload", task_create)
+        self.assertIn("mode=\"task-import\"", task_create)
         self.assertIn("@draft-rows=\"setExcelRows\"", task_create)
-        self.assertIn("v-if=\"!embedded\" type=\"warning\"", excel)
+        self.assertIn("const isTaskImport", excel)
+        self.assertIn("isLibraryMatch && store.hasPerm('excel:export')", excel)
         self.assertIn("emit('draft-rows'", excel)
         self.assertNotIn("unmatched-to-task", task_create)
+        self.assertNotIn("/api/excel/unmatched-to-task", excel)
+        self.assertNotIn("dispatchAndroidMatch", excel)
 
     def test_web_draft_refuses_unresolved_rows_and_freezes_ack_retry_payload(self):
         draft = (ROOT / 'web/src/utils/taskDraft.js').read_text(encoding='utf-8')

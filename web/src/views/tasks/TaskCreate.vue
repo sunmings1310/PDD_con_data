@@ -21,7 +21,7 @@
       <el-form-item label="分批冷却">每采集 <el-input-number v-model="form.batch_size" :min="1" :max="50" class="compact-number" /> 个商品，冷却 <el-input-number v-model="form.batch_cooldown_sec" :min="0" :max="900" class="compact-number" /> 秒</el-form-item>
       <el-form-item label="繁忙与异常"><el-select v-model="form.busy_response" style="width:220px"><el-option label="冷却后自动重试" value="retry" /><el-option label="跳过当前商品" value="skip" /><el-option label="停止本次任务" value="stop" /></el-select><span class="form-hint inline-hint">重试 {{ form.busy_retry_count }} 次；风险冷却 {{ form.risk_cooldown_sec }} 秒；连续异常 {{ form.anomaly_stop_threshold }} 次终止。</span></el-form-item>
 
-      <template v-if="source === 'excel'"><ExcelMatch embedded :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
+      <template v-if="source === 'excel'"><ExcelMatch embedded mode="task-import" :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
       <el-divider content-position="left">审核摘要</el-divider>
       <el-alert :title="reviewTitle" :type="review.ready ? 'info' : 'warning'" :closable="false" show-icon />
       <el-alert v-if="submissionError" :title="submissionError" type="error" :closable="false" show-icon style="margin-top:12px"><template #default><el-button link type="primary" :loading="loading" @click="submit">使用原提交重试</el-button></template></el-alert>
@@ -39,8 +39,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import ExcelMatch from '@/views/excel/ExcelMatch.vue'
@@ -48,6 +49,7 @@ import { useUserStore } from '@/stores/user'
 import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelRows, normalizeManualRows, prepareDraftRows, reviewDraft, setRowSelection } from '@/utils/taskDraft'
 
 const router = useRouter()
+const route = useRoute()
 const store = useUserStore()
 const platforms = ref([]); const devices = ref([]); const accounts = ref([])
 const source = ref('manual'); const loading = ref(false); const submissionError = ref(''); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
@@ -62,6 +64,16 @@ const enabledPlatforms = computed(() => platforms.value.filter((platform) => Num
 const reviewTitle = computed(() => `有效目标 ${review.value.ready}；错误 ${review.value.invalid}；去重 ${review.value.duplicate}；排除 ${review.value.excluded}；待选择 ${review.value.choice_required}`)
 const canSubmit = computed(() => canSubmitDraft(draftRows.value))
 function invalidateSubmission() { submitAbort?.abort(); submitAbort = null; loading.value = false; frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
+function sourceFromQuery(value) { return value === 'excel' ? 'excel' : 'manual' }
+function invalidateRoute() { routeGeneration += 1; invalidateSubmission() }
+watch(() => route.query.source, (value) => {
+  const nextSource = sourceFromQuery(value)
+  if (source.value !== nextSource) {
+    source.value = nextSource
+    invalidateRoute()
+  }
+}, { immediate: true })
+watch(() => route.fullPath, (value, previous) => { if (previous && value !== previous) invalidateRoute() })
 watch(sourceRows, (rows) => { draftRows.value = prepareDraftRows(rows, form.platform_code); invalidateSubmission() }, { immediate: true, deep: true })
 watch(form, invalidateSubmission, { deep: true })
 watch(() => `${store.enterpriseId || ''}:${store.workspaceId || ''}`, () => { routeGeneration += 1; invalidateSubmission() })
@@ -74,7 +86,8 @@ async function load() { const [p, d, a] = await Promise.all([http.get('/api/plat
 function nextPayload() { return buildCanonicalPayload({ submissionId: submissionId.value, source: source.value, task: { task_name: form.task_name || `采集任务-${new Date().toLocaleString()}`, task_type: form.task_type, platform_code: form.platform_code, device_id: form.device_id, priority: form.priority, config: config() }, rows: draftRows.value }) }
 async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; const controller = new AbortController(); submitAbort = controller; loading.value = true; submissionError.value = ''; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload, { signal: controller.signal }); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } catch (error) { if (requestGeneration === routeGeneration) { submissionError.value = '创建未确认：已保留当前审核内容，可使用同一提交重试。'; ElMessage.error(submissionError.value) } throw error } finally { if (requestGeneration === routeGeneration && submitAbort === controller) { loading.value = false; submitAbort = null } } }
 onMounted(load)
-onBeforeRouteLeave(() => { routeGeneration += 1; return true })
+onBeforeRouteLeave(() => { invalidateRoute(); return true })
+onBeforeUnmount(invalidateRoute)
 </script>
 
 <style scoped>.form-hint { color:#86909c;font-size:12px;line-height:1.5 }.inline-hint { margin-left:10px }.range-separator { margin:0 8px;color:#86909c }.compact-number { width:110px;margin:0 8px }</style>
