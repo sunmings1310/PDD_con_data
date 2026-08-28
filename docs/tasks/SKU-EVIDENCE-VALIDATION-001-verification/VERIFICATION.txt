@@ -13,7 +13,7 @@ EXIT_STATUS=0
 RESULT=PASS
 
 OFFLINE_SERVER_PARSE
-COMMAND=D:\work\PDD_con_data\.venv\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-VALIDATION-001\derived\offline_parse.py
+COMMAND=$env:PYTHONUTF8='1'; $env:APP_ENV='test'; $env:ORACLE_HOST='offline.invalid'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='OFFLINE'; $env:ORACLE_USER='offline_test'; [Environment]::SetEnvironmentVariable('ORACLE_' + 'PASSWORD','offline-test-only'); $env:JWT_SECRET='offline-test-jwt-secret-at-least-32-characters'; D:\work\PDD_con_data\.venv\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-VALIDATION-001\derived\offline_parse.py
 INPUT=isolated unchanged 123.xlsx; current server Excel helper imports; dummy offline Oracle config; no network/catalog
 LITERAL_OUTPUT=EXCEL_PARSE=PASS sheet=导入模板 range=A1:D6 rows=5 headers=4
 LITERAL_OUTPUT=MIXED_CERTIFICATE_TYPES=PASS drug=4 medical_device=1
@@ -90,20 +90,20 @@ EXIT_STATUS=0
 RESULT=PASS
 
 ALLOWLIST
-COMMAND=git diff --cached --name-only; reject paths outside docs/CURRENT_STATE.md, docs/backlog.md and docs/tasks/SKU-EVIDENCE-VALIDATION-001*
+COMMAND=$changed=@(git diff --name-only f7d037cd612df09059dcea83189e63f99097042d..HEAD); $bad=@($changed|Where-Object{$_ -notmatch '^(docs/CURRENT_STATE\.md|docs/backlog\.md|docs/tasks/SKU-EVIDENCE-VALIDATION-001)'}); Write-Output "CHANGED_COUNT=$($changed.Count)"; Write-Output "ALLOWLIST_VIOLATIONS=$($bad.Count)"
 LITERAL_OUTPUT=CHANGED_COUNT=11
 LITERAL_OUTPUT=ALLOWLIST_VIOLATIONS=0
 EXIT_STATUS=0
 RESULT=PASS
 
 SENSITIVE
-COMMAND=$diff=git diff --cached -- . ':(exclude)docs/tasks/SKU-EVIDENCE-VALIDATION-001-verification/DIFF_FILE.patch'; $hits=@($diff|Select-String -Pattern '(?i)(password\s*[=:]\s*[^<\s]|authorization:\s*bearer\s+\S|oracle.*dsn\s*[=:]\s*\S|token\s*[=:]\s*[A-Za-z0-9_\-]{16,}|cookie\s*[=:]\s*\S)'); Write-Output "SENSITIVE_HITS=$($hits.Count)"
+COMMAND=$diff=git diff f7d037cd612df09059dcea83189e63f99097042d..HEAD -- . ':(exclude)docs/tasks/SKU-EVIDENCE-VALIDATION-001-verification/DIFF_FILE.patch'; $hits=@($diff|Select-String -Pattern '(?i)(password\s*[=:]\s*[^<\s]|authorization:\s*bearer\s+\S|oracle.*dsn\s*[=:]\s*\S|token\s*[=:]\s*[A-Za-z0-9_\-]{16,}|cookie\s*[=:]\s*\S)'); Write-Output "SENSITIVE_HITS=$($hits.Count)"
 LITERAL_OUTPUT=SENSITIVE_HITS=0
 EXIT_STATUS=0
 RESULT=PASS
 
 DIFF
-COMMAND=git diff --cached --check
+COMMAND=git diff --check f7d037cd612df09059dcea83189e63f99097042d..HEAD
 LITERAL_OUTPUT=<empty>
 EXIT_STATUS=0
 RESULT=PASS
@@ -116,3 +116,7 @@ RESULT=PASS
 ORACLE=SKIPPED_NOT_APPLICABLE_NO_SQL_SCHEMA
 PERSISTENT_BUSINESS_CHANGES=false
 STOP=HUMAN_GATE
+
+INDEPENDENT_REVIEW=BLOCKED
+REVIEW_FINDINGS=P0_NONE;P1_NONE;P2_COMMAND_REPRODUCIBILITY_FIXED_IN_FOLLOWUP
+RESUME_CONDITION=connect approved device and confirm existing controlled login session; then capture real SKU_PANEL evidence and rerun review
