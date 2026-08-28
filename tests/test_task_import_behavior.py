@@ -11,6 +11,7 @@ for key, value in {
     os.environ.setdefault(key, value)
 
 from server.task_creation_service import _targets
+from server.quota import ACTIVE_TASK, release
 
 
 class CanonicalImportBehaviorTests(unittest.TestCase):
@@ -38,6 +39,19 @@ class CanonicalImportBehaviorTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual("123", targets[0]["platform_product_id"])
         self.assertEqual("123", targets[0]["keyword"])
+
+    def test_legacy_release_without_reservation_or_quota_is_noop(self):
+        class Cursor:
+            def __init__(self): self.calls = []
+            def execute(self, sql, binds): self.calls.append((sql, binds))
+            def fetchone(self): return None
+
+        cur = Cursor()
+        self.assertFalse(release(cur, enterprise_id=999999, metric=ACTIVE_TASK,
+                                 resource_type="legacy", resource_key="missing"))
+        self.assertEqual(1, len(cur.calls))
+        self.assertIn("SJZQ_QUOTA_RESERVATION", cur.calls[0][0])
+        self.assertNotIn("SJZQ_ENTERPRISE_QUOTA", cur.calls[0][0])
 
 
 if __name__ == "__main__":

@@ -1,66 +1,149 @@
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-index c7ea244..6bfb145 100644
+index 6bfb145..82f0ef8 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-@@ -276,3 +276,9 @@
-
- - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
- - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
+@@ -282,3 +282,9 @@
+ - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
+ - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
+ - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
 +
-+### Oracle semantic-duplicate fixture repair（2026-08-28）
++### Quota legacy-release Oracle repair（2026-08-28）
 +
-+- Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
-+- fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
-+- 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
++- Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
++- `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
++- 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-index e915a5b..0566609 100644
+index 0566609..996e10f 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-@@ -124,3 +124,17 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=1)
+@@ -138,3 +138,19 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=4)
  LOCAL_EXIT_STATUS=0
- LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
- FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
+ LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+ FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
 +
-+ORACLE_SEMANTIC_DUPLICATE_FIX
-+FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
-+FAILED_COMMAND=Control isolated Oracle targeted test_05/test_06/test_07/test_08
-+FAILED_LITERAL_OUTPUT=Ran 4 tests in 15.556s; failures=1; test_05 AssertionError at line 492: duplicate fixture returned {'task_id': 3109, 'idempotent': False, 'submission_id': 'task-import-...-duplicate'} instead of None; test_06/test_07/test_08 passed; exit=1.
-+FAILED_STATUS=FAIL (test fixture used distinct canonical drug and keyword identities; not a Task service rejection failure)
-+FIX=duplicate fixture now copies the first complete approval/name/spec/manufacturer target and changes only row_id/source_row_index, yielding the same normalized drug semantic key.
-+CLEANUP_AUDIT=server.db.get_conn rolls back on AssertionError before its normal commit; failed test_05 did not reach its cleanup/commit call, so its Task/tenant writes were rolled back. Passing test path retains scoped cleanup zero-residue assertions.
-+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
-+LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
-+LOCAL_LITERAL_OUTPUT=OK (skipped=4)
++ORACLE_LEGACY_RELEASE_FIX
++FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
++FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
++FAILED_LITERAL_OUTPUT=Ran 51 tests in 188.503s; errors=2; exit=1.
++FAILED_LITERAL_OUTPUT=test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent and test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint called _aggregate_task_from_jobs -> quota.release without a reservation/quota fixture; release raised ENTERPRISE_QUOTA_NOT_CONFIGURED. test_05/test_06/test_07/test_08 passed.
++FAILED_STATUS=FAIL (release regression introduced by lifecycle lock-order change)
++FIX=release performs non-locking reservation discovery and returns False for absent/released rows before quota locking; mutable reservation then locks usage->enterprise quota->reservation and re-reads FOR UPDATE.
++REGRESSION_OFFLINE=tests.test_task_import_behavior.CanonicalImportBehaviorTests.test_legacy_release_without_reservation_or_quota_is_noop asserts False and that only reservation discovery executes.
++REGRESSION_ORACLE=test_09_legacy_release_without_reservation_or_quota_is_noop exercises actual Oracle with no enterprise/quota/reservation row; test_07 cross-session create/commit/release additionally asserts a second release returns False.
++LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_09_legacy_release_without_reservation_or_quota_is_noop
++LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
++LOCAL_LITERAL_OUTPUT=OK (skipped=2)
 +LOCAL_EXIT_STATUS=0
-+LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-+FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
++LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
++FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index c7ea244..6bfb145 100644
+index 6bfb145..82f0ef8 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001.md
 +++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -276,3 +276,9 @@
+@@ -282,3 +282,9 @@
+ - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
+ - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
+ - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
++
++### Quota legacy-release Oracle repair（2026-08-28）
++
++- Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
++- `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
++- 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
+diff --git a/server/quota.py b/server/quota.py
+index e6166df..d98d998 100644
+--- a/server/quota.py
++++ b/server/quota.py
+@@ -189,6 +189,20 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
 
- - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
- - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
-+
-+### Oracle semantic-duplicate fixture repair（2026-08-28）
-+
-+- Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
-+- fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
-+- 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
+ def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
+     period = period_key(metric)
++    # Legacy lifecycle callers may release a resource that never reserved a
++    # quota.  Preserve that no-op before attempting to materialize/lock a
++    # quota scope which may not exist for the legacy tenant.
++    cur.execute(
++        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
++             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
++               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key""",
++        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
++         "resource_type": resource_type, "resource_key": resource_key})
++    row = cur.fetchone()
++    if not row or str(row[3]).lower() == "released":
++        return False
++    # A mutable reservation exists: acquire the common usage -> enterprise
++    # quota fence, then re-read it under its row lock before changing usage.
+     lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
+     cur.execute(
+         """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
 diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
-index a2ca4f4..b141751 100644
+index b141751..7068f73 100644
 --- a/tests/test_phase55_oracle.py
 +++ b/tests/test_phase55_oracle.py
-@@ -485,9 +485,9 @@ class Phase55OracleFinalGate(unittest.TestCase):
+@@ -576,8 +576,10 @@ class Phase55OracleFinalGate(unittest.TestCase):
+                 committed = commit(conn.cursor(), held.reservation_id)
+                 released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
+                                    resource_type="gate", resource_key=marker)
++                released_again = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
++                                         resource_type="gate", resource_key=marker)
+                 conn.commit()
+-                return "lifecycle", committed.status, released
++                return "lifecycle", committed.status, released, released_again
+             finally:
+                 conn.close()
 
-             # These are rejected before any Task row can be made, while still
-             # using the accepted platform/quota tables in this Oracle session.
-+            first_target = body.model_dump()["targets"][0]
-             duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
--                "targets": [*body.model_dump()["targets"], {"row_id": "excel:3", "source": "excel",
--                    "source_row_index": 3, "keyword": "药品A"}]})
-+                "targets": [first_target, {**first_target, "row_id": "excel:3", "source_row_index": 3}]})
-             result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
-             self.assertIsNone(result)
-             self.assertEqual("DUPLICATE_TARGET", error)
+@@ -585,11 +587,22 @@ class Phase55OracleFinalGate(unittest.TestCase):
+             results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
+         self.assertIsNone(results["canonical"][1])
+         self.assertFalse(results["canonical"][0]["idempotent"])
+-        self.assertEqual(["committed", True], results["lifecycle"])
++        self.assertEqual(["committed", True, False], results["lifecycle"])
+         with get_conn() as conn:
+             self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
+             conn.commit()
+
++    def test_09_legacy_release_without_reservation_or_quota_is_noop(self):
++        """A legacy completion can have neither quota row nor reservation."""
++        with get_conn() as conn:
++            cur = conn.cursor()
++            absent_enterprise = self._seq(cur, "SJZQ_SEQ_ENTERPRISE")
++            self.assertFalse(release(cur, enterprise_id=absent_enterprise, metric=ACTIVE_TASK,
++                                     resource_type="legacy", resource_key="missing"))
++            cur.execute("SELECT COUNT(*) FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id",
++                        {"enterprise_id": absent_enterprise})
++            self.assertEqual(0, int(cur.fetchone()[0]))
++
+     def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
+         """The actual compatibility route cannot borrow global/other-tenant dispatch."""
+         tag = uuid.uuid4().hex[:12]
+diff --git a/tests/test_task_import_behavior.py b/tests/test_task_import_behavior.py
+index b13a5f9..d569413 100644
+--- a/tests/test_task_import_behavior.py
++++ b/tests/test_task_import_behavior.py
+@@ -11,6 +11,7 @@ for key, value in {
+     os.environ.setdefault(key, value)
+
+ from server.task_creation_service import _targets
++from server.quota import ACTIVE_TASK, release
+
+
+ class CanonicalImportBehaviorTests(unittest.TestCase):
+@@ -39,6 +40,19 @@ class CanonicalImportBehaviorTests(unittest.TestCase):
+         self.assertEqual("123", targets[0]["platform_product_id"])
+         self.assertEqual("123", targets[0]["keyword"])
+
++    def test_legacy_release_without_reservation_or_quota_is_noop(self):
++        class Cursor:
++            def __init__(self): self.calls = []
++            def execute(self, sql, binds): self.calls.append((sql, binds))
++            def fetchone(self): return None
++
++        cur = Cursor()
++        self.assertFalse(release(cur, enterprise_id=999999, metric=ACTIVE_TASK,
++                                 resource_type="legacy", resource_key="missing"))
++        self.assertEqual(1, len(cur.calls))
++        self.assertIn("SJZQ_QUOTA_RESERVATION", cur.calls[0][0])
++        self.assertNotIn("SJZQ_ENTERPRISE_QUOTA", cur.calls[0][0])
++
+
+ if __name__ == "__main__":
+     unittest.main()

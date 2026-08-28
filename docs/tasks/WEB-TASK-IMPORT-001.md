@@ -282,3 +282,9 @@
 - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
 - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
 - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
+
+### Quota legacy-release Oracle repair（2026-08-28）
+
+- Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
+- `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
+- 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。

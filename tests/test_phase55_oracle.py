@@ -576,8 +576,10 @@ class Phase55OracleFinalGate(unittest.TestCase):
                 committed = commit(conn.cursor(), held.reservation_id)
                 released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
                                    resource_type="gate", resource_key=marker)
+                released_again = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
+                                         resource_type="gate", resource_key=marker)
                 conn.commit()
-                return "lifecycle", committed.status, released
+                return "lifecycle", committed.status, released, released_again
             finally:
                 conn.close()
 
@@ -585,10 +587,21 @@ class Phase55OracleFinalGate(unittest.TestCase):
             results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
         self.assertIsNone(results["canonical"][1])
         self.assertFalse(results["canonical"][0]["idempotent"])
-        self.assertEqual(["committed", True], results["lifecycle"])
+        self.assertEqual(["committed", True, False], results["lifecycle"])
         with get_conn() as conn:
             self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
             conn.commit()
+
+    def test_09_legacy_release_without_reservation_or_quota_is_noop(self):
+        """A legacy completion can have neither quota row nor reservation."""
+        with get_conn() as conn:
+            cur = conn.cursor()
+            absent_enterprise = self._seq(cur, "SJZQ_SEQ_ENTERPRISE")
+            self.assertFalse(release(cur, enterprise_id=absent_enterprise, metric=ACTIVE_TASK,
+                                     resource_type="legacy", resource_key="missing"))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id",
+                        {"enterprise_id": absent_enterprise})
+            self.assertEqual(0, int(cur.fetchone()[0]))
 
     def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
         """The actual compatibility route cannot borrow global/other-tenant dispatch."""

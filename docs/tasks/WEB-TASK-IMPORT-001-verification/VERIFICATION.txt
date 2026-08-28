@@ -138,3 +138,19 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=4)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
 FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
+
+ORACLE_LEGACY_RELEASE_FIX
+FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
+FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+FAILED_LITERAL_OUTPUT=Ran 51 tests in 188.503s; errors=2; exit=1.
+FAILED_LITERAL_OUTPUT=test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent and test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint called _aggregate_task_from_jobs -> quota.release without a reservation/quota fixture; release raised ENTERPRISE_QUOTA_NOT_CONFIGURED. test_05/test_06/test_07/test_08 passed.
+FAILED_STATUS=FAIL (release regression introduced by lifecycle lock-order change)
+FIX=release performs non-locking reservation discovery and returns False for absent/released rows before quota locking; mutable reservation then locks usage->enterprise quota->reservation and re-reads FOR UPDATE.
+REGRESSION_OFFLINE=tests.test_task_import_behavior.CanonicalImportBehaviorTests.test_legacy_release_without_reservation_or_quota_is_noop asserts False and that only reservation discovery executes.
+REGRESSION_ORACLE=test_09_legacy_release_without_reservation_or_quota_is_noop exercises actual Oracle with no enterprise/quota/reservation row; test_07 cross-session create/commit/release additionally asserts a second release returns False.
+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_09_legacy_release_without_reservation_or_quota_is_noop
+LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
+LOCAL_LITERAL_OUTPUT=OK (skipped=2)
+LOCAL_EXIT_STATUS=0
+LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.

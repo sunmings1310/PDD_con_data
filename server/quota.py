@@ -189,6 +189,20 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
 
 def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
     period = period_key(metric)
+    # Legacy lifecycle callers may release a resource that never reserved a
+    # quota.  Preserve that no-op before attempting to materialize/lock a
+    # quota scope which may not exist for the legacy tenant.
+    cur.execute(
+        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
+             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
+               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key""",
+        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
+         "resource_type": resource_type, "resource_key": resource_key})
+    row = cur.fetchone()
+    if not row or str(row[3]).lower() == "released":
+        return False
+    # A mutable reservation exists: acquire the common usage -> enterprise
+    # quota fence, then re-read it under its row lock before changing usage.
     lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
     cur.execute(
         """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
