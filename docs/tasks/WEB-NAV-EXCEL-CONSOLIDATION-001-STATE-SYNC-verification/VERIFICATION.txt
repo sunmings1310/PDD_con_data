@@ -20,8 +20,8 @@ EXIT_STATUS=0
 RESULT=PASS
 
 ORIGINAL_HASHES
-COMMAND=Get-FileHash -Algorithm SHA256 docs/CURRENT_STATE.md,docs/backlog.md,docs/roadmap.md
-INPUT=fixed baseline d91b6389bae80067352b2bb4bc5848ca3132f37a before state synchronization
+COMMAND=git worktree add --detach D:\work\PDD_con_data_web_nav_excel_state_sync_original_probe d91b6389bae80067352b2bb4bc5848ca3132f37a; Get-FileHash -Algorithm SHA256 D:\work\PDD_con_data_web_nav_excel_state_sync_original_probe\docs\CURRENT_STATE.md,D:\work\PDD_con_data_web_nav_excel_state_sync_original_probe\docs\backlog.md,D:\work\PDD_con_data_web_nav_excel_state_sync_original_probe\docs\roadmap.md; git worktree remove --force D:\work\PDD_con_data_web_nav_excel_state_sync_original_probe
+INPUT=separate detached fixed-baseline worktree before state synchronization
 LITERAL_OUTPUT=docs/CURRENT_STATE.md 1f364df4344daab2b8b919a259b4674265fbca4aeae886ad0c1619620f300e63
 LITERAL_OUTPUT=docs/backlog.md a9db9ae2381eb3c39455fa5ec588d8350804ca83bf1791851ec959bf032f4616
 LITERAL_OUTPUT=docs/roadmap.md 32aff3e2ba19fa03b6f7ae5baef080a058d7e72208b86cd98cc768f817ae2921
@@ -88,24 +88,24 @@ EXIT_STATUS=0
 RESULT=PASS
 
 ALLOWLIST
-COMMAND=$allowed=@('docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/DIFF_FILE.patch','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/MODIFIED_FILE','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/ROLLBACK.sh','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/VERIFICATION.txt'); $changed=@(git diff --cached --name-only); $violations=@($changed | Where-Object {$_ -notin $allowed}); "CHANGED_COUNT=$($changed.Count)"; "ALLOWLIST_VIOLATIONS=$($violations.Count)"; if($violations.Count){exit 1}
-INPUT=complete staged state-sync range
+COMMAND=$allowed=@('docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/DIFF_FILE.patch','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/MODIFIED_FILE','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/ROLLBACK.sh','docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/VERIFICATION.txt'); $changed=@(git diff --name-only d91b6389bae80067352b2bb4bc5848ca3132f37a..HEAD); $violations=@($changed | Where-Object {$_ -notin $allowed}); "CHANGED_COUNT=$($changed.Count)"; "ALLOWLIST_VIOLATIONS=$($violations.Count)"; if($violations.Count){exit 1}
+INPUT=committed fixed-base range d91b6389bae80067352b2bb4bc5848ca3132f37a..HEAD
 LITERAL_OUTPUT=CHANGED_COUNT=7
 LITERAL_OUTPUT=ALLOWLIST_VIOLATIONS=0
 EXIT_STATUS=0
 RESULT=PASS
 
 SENSITIVE
-COMMAND=$diff=git diff --cached -- . ':(exclude)docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/DIFF_FILE.patch' ':(exclude)docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/VERIFICATION.txt'; $hits=@($diff | Select-String -Pattern '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|jdbc:oracle|oracle://|password\s*[:=]\s*[^<\s]|token\s*[:=]\s*[^<\s]' -CaseSensitive:$false); "SENSITIVE_HITS=$($hits.Count)"; if($hits.Count){exit 1}
-INPUT=staged authority docs, MODIFIED_FILE and ROLLBACK.sh; derived patch and the command-record file are excluded to avoid self-matching
+COMMAND=$diff=git diff d91b6389bae80067352b2bb4bc5848ca3132f37a..HEAD -- . ':(exclude)docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/DIFF_FILE.patch' ':(exclude)docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001-STATE-SYNC-verification/VERIFICATION.txt'; $hits=@($diff | Select-String -Pattern '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|jdbc:oracle|oracle://|password\s*[:=]\s*[^<\s]|token\s*[:=]\s*[^<\s]' -CaseSensitive:$false); "SENSITIVE_HITS=$($hits.Count)"; if($hits.Count){exit 1}
+INPUT=committed authority docs, MODIFIED_FILE and ROLLBACK.sh; derived patch and the command-record file are excluded to avoid self-matching
 LITERAL_OUTPUT=SENSITIVE_HITS=0
 EXIT_STATUS=0
 RESULT=PASS
 
 DIFF
-COMMAND=git diff --check
-INPUT=complete unstaged docs-only range
-LITERAL_OUTPUT=<empty; Git emitted only line-ending conversion warnings>
+COMMAND=git diff --check d91b6389bae80067352b2bb4bc5848ca3132f37a..HEAD
+INPUT=complete committed docs-only range
+LITERAL_OUTPUT=<empty>
 EXIT_STATUS=0
 RESULT=PASS
 
@@ -129,5 +129,6 @@ LITERAL_OUTPUT=SKIPPED / not applicable
 EXIT_STATUS=N/A
 RESULT=SKIPPED
 
-FINAL_STATUS=READY_FOR_STAGING_AND_INDEPENDENT_REVIEW
+HISTORICAL_REVIEW=71f3fe6c1d15533534f4095b23710db031c1bd52 CHANGES_REQUIRED P2 cached-index evidence was not reproducible from clean fixed Head
+FINAL_STATUS=P2_EVIDENCE_FIX_PENDING_INDEPENDENT_RE_REVIEW
 STOP=BEFORE_MERGE_RELEASE_NEXT_TASK
