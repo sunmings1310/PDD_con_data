@@ -1,12 +1,12 @@
 diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
-index aa87b13..e8f7c49 100644
+index aa87b13..8680e3d 100644
 --- a/docs/CURRENT_STATE.md
 +++ b/docs/CURRENT_STATE.md
 @@ -120,0 +121,2 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
-+`WEB-NAV-EXCEL-CONSOLIDATION-001` 是当前未合并的 Web-only `TEST / REVIEW CANDIDATE`：导航移除独立 Excel 一级入口，兼容 `/excel` 重定向到 canonical TaskCreate，资料库承载 Excel 查库/导出，未修改 Server/Schema/canonical Task/Android。实际 Node mounted/router、既有 Node contracts、Python offline full（257 / skipped=39）和 Web build 已通过；Oracle/真机均 `SKIPPED / not applicable`。下一门禁为 Independent Review，禁止自行建 PR、merge 或 release。
++`WEB-NAV-EXCEL-CONSOLIDATION-001` 是当前未合并的 Web-only `ACCEPTED / PR CANDIDATE`：导航移除独立 Excel 一级入口，兼容 `/excel` 重定向到 canonical TaskCreate，资料库承载 Excel 查库/导出，未修改 Server/Schema/canonical Task/Android。功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2。Node mounted/router、既有 Node contracts、Python offline full（257 / skipped=39）和 Web build 已通过；Oracle/真机均 `SKIPPED / not applicable`。下一门禁为 Draft PR/Hosted CI，禁止 merge 或 release。
 +
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 70e822e..bcfa5e7 100644
+index 70e822e..863bc10 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -31,0 +32,6 @@
@@ -14,19 +14,19 @@ index 70e822e..bcfa5e7 100644
 +
 +| Task | 状态 | 范围 | 下一步 |
 +|---|---|---|---|
-+| WEB-NAV-EXCEL-CONSOLIDATION-001 | TEST / REVIEW CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Dev gates PASS → Independent Review；STOP before PR/merge |
++| WEB-NAV-EXCEL-CONSOLIDATION-001 | ACCEPTED / PR CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Review `ACCEPT`，无 P0/P1/P2；Control 创建 Draft PR并跟踪 Hosted CI，STOP before merge |
 +
 diff --git a/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md b/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md
 new file mode 100644
-index 0000000..c42849b
+index 0000000..f3899dc
 --- /dev/null
 +++ b/docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,134 @@
 +# WEB-NAV-EXCEL-CONSOLIDATION-001：收敛 Excel 入口与统一任务创建流程
 +
 +- **Task ID**：WEB-NAV-EXCEL-CONSOLIDATION-001
 +- **Title**：收敛 Excel 入口与统一任务创建流程
-+- **Status**：TEST / REVIEW CANDIDATE
++- **Status**：ACCEPTED / PR CANDIDATE
 +- **Base**：`origin/main@f7d037cd612df09059dcea83189e63f99097042d`
 +- **Branch / worktree**：`codex/web-nav-excel-consolidation-001` / `D:\work\PDD_con_data_web_nav_excel_consolidation`
 +
@@ -99,7 +99,7 @@ index 0000000..c42849b
 +- [x] tenant/workspace/platform 切换与 unmount stale/abort 行为保持；
 +- [x] canonical Task payload、submission id 与 ACK retry 行为保持；
 +- [x] mounted component/router contract、existing Excel/task regressions 与 production build 通过；
-+- [ ] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
++- [x] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
 +
 +## Test Plan
 +
@@ -154,7 +154,8 @@ index 0000000..c42849b
 +- Dev evidence：新增 mounted/router test 覆盖 `/excel` redirect、query fallback/route abort、task-import/library-match 互斥、ProductList permission entry；既有 mounted/Node/Python/Web build 全部 PASS。
 +- Historical environment failure：系统 Python 3.10 的 pydantic 1 与缺少 `loguru`/`jwt` 使 discovery 失败（exit 1）；改用既有 `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe`（pydantic 2.13.4）后 full PASS，失败不计为通过。
 +- Oracle / Real-device：均为 `SKIPPED / not applicable`；本 Task 未触及 Server/SQL/transaction/Schema 或 Android。
-+- Review findings：待 Independent Review；Commit / PR：待 Dev 提交，禁止自行建 PR。
++- Review findings：fixed Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2；首轮唯一 P1 为 build 命令缺少工作目录，已修复并复现通过。
++- Commit / PR：功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1`；Draft PR 待 Control 创建，禁止 merge。
 diff --git a/tests/test_task_import_contract.py b/tests/test_task_import_contract.py
 index 3dcc2c2..a04d3da 100644
 --- a/tests/test_task_import_contract.py

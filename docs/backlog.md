@@ -33,7 +33,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| WEB-NAV-EXCEL-CONSOLIDATION-001 | TEST / REVIEW CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Dev gates PASS → Independent Review；STOP before PR/merge |
+| WEB-NAV-EXCEL-CONSOLIDATION-001 | ACCEPTED / PR CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Review `ACCEPT`，无 P0/P1/P2；Control 创建 Draft PR并跟踪 Hosted CI，STOP before merge |
 
 `WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 

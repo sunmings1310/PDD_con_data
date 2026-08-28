@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-NAV-EXCEL-CONSOLIDATION-001
 - **Title**：收敛 Excel 入口与统一任务创建流程
-- **Status**：TEST / REVIEW CANDIDATE
+- **Status**：ACCEPTED / PR CANDIDATE
 - **Base**：`origin/main@f7d037cd612df09059dcea83189e63f99097042d`
 - **Branch / worktree**：`codex/web-nav-excel-consolidation-001` / `D:\work\PDD_con_data_web_nav_excel_consolidation`
 
@@ -75,7 +75,7 @@
 - [x] tenant/workspace/platform 切换与 unmount stale/abort 行为保持；
 - [x] canonical Task payload、submission id 与 ACK retry 行为保持；
 - [x] mounted component/router contract、existing Excel/task regressions 与 production build 通过；
-- [ ] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
+- [x] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
 
 ## Test Plan
 
@@ -130,4 +130,5 @@ Baseline 首次在系统 Node 20.11.1 且缺 `node_modules` 时得到 component/
 - Dev evidence：新增 mounted/router test 覆盖 `/excel` redirect、query fallback/route abort、task-import/library-match 互斥、ProductList permission entry；既有 mounted/Node/Python/Web build 全部 PASS。
 - Historical environment failure：系统 Python 3.10 的 pydantic 1 与缺少 `loguru`/`jwt` 使 discovery 失败（exit 1）；改用既有 `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe`（pydantic 2.13.4）后 full PASS，失败不计为通过。
 - Oracle / Real-device：均为 `SKIPPED / not applicable`；本 Task 未触及 Server/SQL/transaction/Schema 或 Android。
-- Review findings：待 Independent Review；Commit / PR：待 Dev 提交，禁止自行建 PR。
+- Review findings：fixed Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2；首轮唯一 P1 为 build 命令缺少工作目录，已修复并复现通过。
+- Commit / PR：功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1`；Draft PR 待 Control 创建，禁止 merge。
