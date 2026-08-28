@@ -271,3 +271,8 @@
 - 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
 - `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
 - 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。
+
+### Compatibility route Oracle evidence repair（2026-08-28）
+
+- `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
+- 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。

@@ -113,3 +113,14 @@ RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
 STATUS=SKIPPED
 
 REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.
+COMPATIBILITY_ROUTE_ORACLE_REPAIR
+MODIFIED_FIELD=tests/test_phase55_oracle.py::Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
+ROUTE=/api/excel/unmatched-to-task (actual FastAPI router execution via TestClient)
+FIXTURE=real Oracle Tenant A/B, workspace membership, tenant roles, global role, user, JWT
+EXPECTED=Tenant A selected task:create-only returns HTTP 403 despite global task:dispatch; Tenant B selected task:dispatch-only returns HTTP 403; promoting selected A to task:create+task:dispatch returns HTTP 200 and reaches canonical Task creation; A task count=1/B task count=0; cleanup zero residue.
+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch tests.test_task_import_contract tests.test_web_client_contract
+LOCAL_LITERAL_OUTPUT=Ran 16 tests in 0.015s
+LOCAL_LITERAL_OUTPUT=OK (skipped=1)
+LOCAL_EXIT_STATUS=0
+LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
