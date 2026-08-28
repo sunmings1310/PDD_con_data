@@ -301,3 +301,9 @@
 - `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
 - `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
 - 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
+
+### Final third-review Oracle evidence（2026-08-28）
+
+- Control 在 fixed Head `d4281adab920cabf0b59d02ec3442a9698e24d0a` targeted 运行 `test_07`/`test_08`/`test_09`/`test_10`：`Ran 4 tests in 18.361s` / `OK` / exit 0。覆盖 canonical create↔quota lifecycle 锁序、实际 compatibility route Tenant A/B selected-context RBAC、legacy release no-op，以及 DAILY_SNAPSHOT 跨日 reserve→commit→双连接 release/replay。
+- 同一 fixed Head Oracle strict：`Ran 53 tests in 185.264s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、exit 0、skipped=0。跨日 test 证明仅 reservation 持久化旧日 usage 被扣还，今日 usage 不被创建；fixture 清理零残留且 `persistent_business_changes=false`。
+- 第三轮全部 Dev/Oracle acceptance 已 PASS；本 docs-only commit 不改变业务代码。Control 将在 resulting docs Head 重新运行 strict 并生成 external manifest 绑定其 hash，之后进行 Independent Re-review；这属于 manifest provenance，不使本任务最终状态回退为 pending。

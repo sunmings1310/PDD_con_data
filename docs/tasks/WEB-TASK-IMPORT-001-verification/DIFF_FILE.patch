@@ -1,292 +1,105 @@
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-index 0b2d7cd..6c68479 100644
+index 6c68479..22e2470 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-@@ -295,3 +295,9 @@
- - 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
- - `_cleanup_task_import_fixture` 清理 fixture 的 lease/checkpoint/attempt/outbox/log/Task/TaskItem/Job/quota/workspace/enterprise 及 membership，并逐表断言零残留；`persistent_business_changes=false`。历史 `060c61b` semantic fixture 和 `5f159f5` legacy release failure 均保留为失败诊断，已由本 fixed-Head 运行收口。
- - 本段之后的 docs-only evidence commit 会移动 Head，故不将 `f579a3e` 的 Oracle PASS 扩展到该 docs Head；Control 负责新 Head external manifest 和 Independent Re-review。
+@@ -301,3 +301,9 @@
+ - `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
+ - `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
+ - 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
 +
-+### Third Independent Review repair — candidate evidence（2026-08-28）
++### Final third-review Oracle evidence（2026-08-28）
 +
-+- `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
-+- `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
-+- 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
++- Control 在 fixed Head `d4281adab920cabf0b59d02ec3442a9698e24d0a` targeted 运行 `test_07`/`test_08`/`test_09`/`test_10`：`Ran 4 tests in 18.361s` / `OK` / exit 0。覆盖 canonical create↔quota lifecycle 锁序、实际 compatibility route Tenant A/B selected-context RBAC、legacy release no-op，以及 DAILY_SNAPSHOT 跨日 reserve→commit→双连接 release/replay。
++- 同一 fixed Head Oracle strict：`Ran 53 tests in 185.264s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、exit 0、skipped=0。跨日 test 证明仅 reservation 持久化旧日 usage 被扣还，今日 usage 不被创建；fixture 清理零残留且 `persistent_business_changes=false`。
++- 第三轮全部 Dev/Oracle acceptance 已 PASS；本 docs-only commit 不改变业务代码。Control 将在 resulting docs Head 重新运行 strict 并生成 external manifest 绑定其 hash，之后进行 Independent Re-review；这属于 manifest provenance，不使本任务最终状态回退为 pending。
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-index 3303f32..356d79a 100644
+index 356d79a..eecf68a 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 @@ -22,7 +22,7 @@ STATUS=PASS
  MODIFIED
  COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
  INPUT=second-review Task evidence
--LITERAL_OUTPUT=MODIFIED_FILE SHA256=18c42f2ac2c41b28003fffc94216622e71fc3d9b2685f65533f4fe967ab6e572; changed from setup source
-+LITERAL_OUTPUT=MODIFIED_FILE SHA256=3615e80c3ba290a33a432a0d9d8cc91a01f362cdc015067ca728de495d538ba3; changed from setup source
+-LITERAL_OUTPUT=MODIFIED_FILE SHA256=3615e80c3ba290a33a432a0d9d8cc91a01f362cdc015067ca728de495d538ba3; changed from setup source
++LITERAL_OUTPUT=MODIFIED_FILE SHA256=49fce7df9917d5524bb534430e2581d5b812869b5eb141ed713434eb541e8d36; changed from setup source
  EXIT_STATUS=0
  STATUS=PASS
 
-@@ -172,3 +172,23 @@ COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/
+@@ -123,7 +123,7 @@ LOCAL_LITERAL_OUTPUT=Ran 16 tests in 0.015s
+ LOCAL_LITERAL_OUTPUT=OK (skipped=1)
+ LOCAL_EXIT_STATUS=0
+ LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+-FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
++HISTORICAL_STATUS=pre-rerun record for 384a78c; superseded by d4281ad strict PASS below.
+
+ ORACLE_SEMANTIC_DUPLICATE_FIX
+ FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
+@@ -137,7 +137,7 @@ LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
+ LOCAL_LITERAL_OUTPUT=OK (skipped=4)
+ LOCAL_EXIT_STATUS=0
+ LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+-FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
++HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
+
+ ORACLE_LEGACY_RELEASE_FIX
+ FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
+@@ -153,7 +153,7 @@ LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
+ LOCAL_LITERAL_OUTPUT=OK (skipped=2)
+ LOCAL_EXIT_STATUS=0
+ LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+-FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
++HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
+
+ FINAL_SECOND_REVIEW_ORACLE_EVIDENCE
+ FIXED_HEAD=f579a3eb797a62330c56613a3f31d49f31f7eb2c
+@@ -171,7 +171,7 @@ ORACLE_SKIPPED=0
+ COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/quota failure; test_06 concurrent replay; test_07 cross-session create with commit/release lock order; test_08 actual compatibility route selected-context Tenant A/B RBAC; test_09 absent reservation/no-quota release False.
  CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
  FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
- POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
-+
-+THIRD_REVIEW_CANDIDATE
-+CHANGED_FIELD=ExcelMatch invalidation/unmount abort+loading fences; quota DAILY_SNAPSHOT persisted period locking; Oracle cross-midnight concurrent release/replay test.
-+COMPONENT_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
-+COMPONENT_LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
-+COMPONENT_LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
-+COMPONENT_EXIT_STATUS=0
-+COMPONENT_STATUS=PASS (actual compiled/mounted components, not helper-only)
-+HELPER_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
-+HELPER_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS; EXCEL_ROW_STATES=PASS; CANONICAL_PAYLOAD=PASS; TASK_CREATE_FLOW=PASS
-+HELPER_EXIT_STATUS=0
-+HELPER_STATUS=PASS
-+PYTHON_TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight
-+PYTHON_TARGETED_LITERAL_OUTPUT=Ran 10 tests in 0.002s; OK (skipped=2)
-+PYTHON_TARGETED_EXIT_STATUS=0
-+PYTHON_FULL_LITERAL_OUTPUT=Ran 249 tests in 0.451s; OK (skipped=31); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-+WEB_FULL_LITERAL_OUTPUT=1682 modules transformed; built in 565ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-+ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-+COMPILE_DIFF_LITERAL_OUTPUT=compile no output; git diff --check no errors; exit=0
-+ORACLE_REQUIRED_STATUS=PENDING Control fixed-candidate strict; local test_07/test_10 were SKIPPED because PHASE55_ORACLE_TEST_ENABLED/T003 were absent. No Oracle PASS is claimed for this candidate.
+-POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
++HISTORICAL_POST_DOC_STATUS=external manifest record superseded by the third-review result below.`r`nACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
+
+ THIRD_REVIEW_CANDIDATE
+ CHANGED_FIELD=ExcelMatch invalidation/unmount abort+loading fences; quota DAILY_SNAPSHOT persisted period locking; Oracle cross-midnight concurrent release/replay test.
+@@ -191,4 +191,24 @@ PYTHON_FULL_LITERAL_OUTPUT=Ran 249 tests in 0.451s; OK (skipped=31); [PASS] pyth
+ WEB_FULL_LITERAL_OUTPUT=1682 modules transformed; built in 565ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ COMPILE_DIFF_LITERAL_OUTPUT=compile no output; git diff --check no errors; exit=0
+-ORACLE_REQUIRED_STATUS=PENDING Control fixed-candidate strict; local test_07/test_10 were SKIPPED because PHASE55_ORACLE_TEST_ENABLED/T003 were absent. No Oracle PASS is claimed for this candidate.
+\ No newline at end of file
++ORACLE_REQUIRED_STATUS=PASS; local test_07/test_10 were SKIPPED, then Control fixed-candidate strict passed as recorded below.
++FINAL_THIRD_REVIEW_ORACLE_EVIDENCE
++FIXED_CODE_HEAD=d4281adab920cabf0b59d02ec3442a9698e24d0a
++TARGETED_COMMAND=Control isolated Oracle targeted tests.test_phase55_oracle.Phase55OracleFinalGate.test_07, test_08, test_09, test_10
++TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
++TARGETED_LITERAL_OUTPUT=OK
++TARGETED_EXIT_STATUS=0
++TARGETED_STATUS=PASS
++ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
++ORACLE_INPUT=Control-approved isolated writable Oracle
++ORACLE_LITERAL_OUTPUT=Ran 53 tests in 185.264s
++ORACLE_LITERAL_OUTPUT=OK
++ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
++ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
++ORACLE_EXIT_STATUS=0
++ORACLE_STATUS=PASS
++ORACLE_SKIPPED=0
++COVERAGE=test_07 quota lifecycle cross-session lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy absent reservation/no-quota no-op; test_10 DAILY_SNAPSHOT persisted-period cross-midnight reserve/commit/concurrent release/replay.
++CLEANUP_RESULT=PASS; fixture cleanup zero residue; persistent_business_changes=false.
++FINAL_STATUS=PASS
++POST_DOC_EXTERNAL_MANIFEST=Control will rerun strict on this resulting docs-only Head and bind the generated external manifest hash before Independent Re-review; this provenance operation does not change FINAL_STATUS.
 \ No newline at end of file
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index 0b2d7cd..6c68479 100644
+index 6c68479..22e2470 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001.md
 +++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -295,3 +295,9 @@
- - 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
- - `_cleanup_task_import_fixture` 清理 fixture 的 lease/checkpoint/attempt/outbox/log/Task/TaskItem/Job/quota/workspace/enterprise 及 membership，并逐表断言零残留；`persistent_business_changes=false`。历史 `060c61b` semantic fixture 和 `5f159f5` legacy release failure 均保留为失败诊断，已由本 fixed-Head 运行收口。
- - 本段之后的 docs-only evidence commit 会移动 Head，故不将 `f579a3e` 的 Oracle PASS 扩展到该 docs Head；Control 负责新 Head external manifest 和 Independent Re-review。
+@@ -301,3 +301,9 @@
+ - `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
+ - `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
+ - 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
 +
-+### Third Independent Review repair — candidate evidence（2026-08-28）
++### Final third-review Oracle evidence（2026-08-28）
 +
-+- `ExcelMatch` 的平台 invalidation 与 unmount 现在同一路径递增 generation、abort 当前 signal、清空 rows/stats 并恢复 `uploading=false`；旧请求的 finally 因 generation fence 不会污染新请求。真实 mounted component 覆盖 signal aborted、切换后再次 upload、unmount 后 rows/emit/loading fenced。
-+- `commit` 以 reservation 持久化的 `PERIOD_KEY` 锁定 usage→enterprise quota→reservation；`release` 发现 historical mutable reservation 后按其持久化 period 锁定并重读。缺 reservation/quota 的 legacy no-op 仍为 False。
-+- 新增 Phase55 test_10：模拟 DAILY_SNAPSHOT 在旧日 reserve、跨日 commit、双连接 concurrent release/replay，断言只修改旧日 usage、今日 usage 不被创建、余额归零且 fixture cleanup 零残留。本进程没有隔离 Oracle 环境，test_07/test_10 仅 SKIPPED；Control 必须对本轮候选运行 strict。
-diff --git a/server/quota.py b/server/quota.py
-index d98d998..545df14 100644
---- a/server/quota.py
-+++ b/server/quota.py
-@@ -81,9 +81,9 @@ def _limit(cur: Any, enterprise_id: int, metric: str) -> int:
-     return int(row[0])
-
-
--def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str) -> None:
-+def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str, period: str | None = None) -> None:
-     """Lock quota scope in the same usage -> enterprise order as reservations."""
--    _usage_row(cur, enterprise_id, metric, period_key(metric))
-+    _usage_row(cur, enterprise_id, metric, period or period_key(metric))
-     _limit(cur, enterprise_id, metric)
-
-
-@@ -159,7 +159,7 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
-     row = cur.fetchone()
-     if not row:
-         raise RuntimeError("QUOTA_RESERVATION_NOT_FOUND")
--    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]))
-+    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]), period=str(row[3]))
-     cur.execute(
-         """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
-                   RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
-@@ -188,32 +188,31 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
-
-
- def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
--    period = period_key(metric)
-     # Legacy lifecycle callers may release a resource that never reserved a
-     # quota.  Preserve that no-op before attempting to materialize/lock a
-     # quota scope which may not exist for the legacy tenant.
-     cur.execute(
--        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
--             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
--               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key""",
--        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
-+        """SELECT RESERVATION_ID,WORKSPACE_ID,PERIOD_KEY,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-+             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric
-+               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key AND STATUS <> 'released'
-+             ORDER BY PERIOD_KEY DESC FETCH FIRST 1 ROW ONLY""",
-+        {"enterprise_id": enterprise_id, "metric": metric,
-          "resource_type": resource_type, "resource_key": resource_key})
-     row = cur.fetchone()
--    if not row or str(row[3]).lower() == "released":
-+    if not row:
-         return False
-     # A mutable reservation exists: acquire the common usage -> enterprise
-     # quota fence, then re-read it under its row lock before changing usage.
--    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
-+    reservation_id, period = int(row[0]), str(row[2])
-+    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric, period=period)
-     cur.execute(
--        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
--             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
--               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key FOR UPDATE""",
--        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
--         "resource_type": resource_type, "resource_key": resource_key})
-+        """SELECT RESERVATION_ID,WORKSPACE_ID,PERIOD_KEY,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-+             WHERE RESERVATION_ID=:reservation_id FOR UPDATE""",
-+        {"reservation_id": reservation_id})
-     row = cur.fetchone()
--    if not row or str(row[3]).lower() == "released":
-+    if not row or str(row[4]).lower() == "released":
-         return False
--    reservation_id, workspace_id, amount, status = int(row[0]), int(row[1]), int(row[2]), str(row[3]).lower()
-+    reservation_id, workspace_id, period, amount, status = int(row[0]), int(row[1]), str(row[2]), int(row[3]), str(row[4]).lower()
-     _usage_row(cur, enterprise_id, metric, period)
-     field = "USED_VALUE" if status == "committed" else "RESERVED_VALUE"
-     cur.execute(
-diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
-index 7068f73..ad4f95e 100644
---- a/tests/test_phase55_oracle.py
-+++ b/tests/test_phase55_oracle.py
-@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
- from pathlib import Path
- from types import SimpleNamespace
- from urllib.parse import parse_qs, urlparse
-+from unittest.mock import patch
-
- import oracledb
- from fastapi import FastAPI, HTTPException
-@@ -603,6 +604,50 @@ class Phase55OracleFinalGate(unittest.TestCase):
-                         {"enterprise_id": absent_enterprise})
-             self.assertEqual(0, int(cur.fetchone()[0]))
-
-+    def test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight(self):
-+        """Commit/release must retain the reservation's day, not today's day."""
-+        marker = "daily-midnight-" + uuid.uuid4().hex[:12]
-+        old_period, new_period = "2026-08-27", "2026-08-28"
-+        with get_conn() as conn:
-+            cur = conn.cursor()
-+            enterprise_id, workspace_id = self._tenant(cur, daily=10)
-+            with patch("server.quota.period_key", return_value=old_period):
-+                held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
-+                               metric=DAILY_SNAPSHOT, amount=1, resource_type="daily", resource_key=marker)
-+            conn.commit()
-+        with get_conn() as conn:
-+            with patch("server.quota.period_key", return_value=new_period):
-+                committed = commit(conn.cursor(), held.reservation_id)
-+            self.assertEqual("committed", committed.status)
-+            conn.commit()
-+
-+        barrier = threading.Barrier(2)
-+        def release_worker():
-+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
-+            try:
-+                barrier.wait()
-+                with patch("server.quota.period_key", return_value=new_period):
-+                    released = release(conn.cursor(), enterprise_id=enterprise_id, metric=DAILY_SNAPSHOT,
-+                                       resource_type="daily", resource_key=marker)
-+                conn.commit()
-+                return released
-+            finally:
-+                conn.close()
-+
-+        with ThreadPoolExecutor(max_workers=2) as executor:
-+            self.assertEqual([False, True], sorted(executor.map(lambda _: release_worker(), range(2))))
-+        with get_conn() as conn:
-+            cur = conn.cursor()
-+            cur.execute("""SELECT USED_VALUE,RESERVED_VALUE FROM SJZQ_QUOTA_USAGE
-+                WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period""",
-+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": old_period})
-+            self.assertEqual((0, 0), tuple(map(int, cur.fetchone())))
-+            cur.execute("SELECT COUNT(*) FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period",
-+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": new_period})
-+            self.assertEqual(0, int(cur.fetchone()[0]))
-+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
-+            conn.commit()
-+
-     def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
-         """The actual compatibility route cannot borrow global/other-tenant dispatch."""
-         tag = uuid.uuid4().hex[:12]
-diff --git a/tests/test_task_import_contract.py b/tests/test_task_import_contract.py
-index c9f4759..3dcc2c2 100644
---- a/tests/test_task_import_contract.py
-+++ b/tests/test_task_import_contract.py
-@@ -58,6 +58,9 @@ class TaskImportContractTests(unittest.TestCase):
-         self.assertLess(reserve.index('_usage_row'), reserve.index('_limit'))
-         self.assertLess(commit.index('lock_metric_scope'), commit.index('FOR UPDATE'))
-         self.assertLess(release.index('lock_metric_scope'), release.index('FOR UPDATE'))
-+        self.assertIn('period=str(row[3])', commit)
-+        self.assertIn('PERIOD_KEY,AMOUNT,STATUS', release)
-+        self.assertNotIn('period = period_key(metric)', release)
-
-
- if __name__ == '__main__':
-diff --git a/web/scripts/test-task-import-components.mjs b/web/scripts/test-task-import-components.mjs
-index 89167b5..9af304f 100644
---- a/web/scripts/test-task-import-components.mjs
-+++ b/web/scripts/test-task-import-components.mjs
-@@ -90,11 +90,30 @@ const upload = child.value.$.setupState.uploadMatch({ file: { name: 'a.xlsx' } }
- assert.equal(matchRequests.length, 1)
- platform.value = 'tmall'
- await nextTick()
-+assert.equal(matchRequests[0].config.signal.aborted, true)
-+assert.equal(child.value.$.setupState.uploading, false)
- matchRequests[0].deferred.resolve({ data: { rows: [{ row_index: 2, input_product_name: 'A' }] } })
- await upload
- await nextTick()
- assert.equal(emitted.some((rows) => rows.some((row) => row.input_product_name === 'A')), false)
--console.log('EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded')
-+const secondUpload = child.value.$.setupState.uploadMatch({ file: { name: 'b.xlsx' } })
-+assert.equal(matchRequests.length, 2)
-+assert.equal(child.value.$.setupState.uploading, true)
-+matchRequests[1].deferred.resolve({ data: { rows: [{ row_index: 3, input_product_name: 'B' }] } })
-+await secondUpload
-+await nextTick()
-+assert.equal(child.value.$.setupState.uploading, false)
-+assert.equal(emitted.at(-1)[0].input_product_name, 'B')
-+const thirdUpload = child.value.$.setupState.uploadMatch({ file: { name: 'c.xlsx' } })
-+const beforeUnmountEmitCount = emitted.length
-+const excelState = child.value.$.setupState
-+excelApp.unmount()
-+assert.equal(matchRequests[2].config.signal.aborted, true)
-+assert.equal(excelState.uploading, false)
-+matchRequests[2].deferred.resolve({ data: { rows: [{ row_index: 4, input_product_name: 'C' }] } })
-+await thirdUpload
-+assert.equal(emitted.length, beforeUnmountEmitCount)
-+console.log('EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true')
-
- const posts = []
- const pushes = []
-diff --git a/web/src/views/excel/ExcelMatch.vue b/web/src/views/excel/ExcelMatch.vue
-index 9971222..4e98ed0 100644
---- a/web/src/views/excel/ExcelMatch.vue
-+++ b/web/src/views/excel/ExcelMatch.vue
-@@ -189,13 +189,14 @@ watch(availableDevices, (items) => {
-     deviceId.value = items.length === 1 ? items[0].device_id : null
-   }
- })
--function invalidateMatchRows() {
-+function invalidateMatchRows({ emitRows = true } = {}) {
-   matchGeneration += 1
-   matchAbort?.abort()
-   matchAbort = null
-+  uploading.value = false
-   rows.value = []
-   stats.value = null
--  emitDraftRows(matchGeneration, platform.value)
-+  if (emitRows) emitDraftRows(matchGeneration, platform.value)
- }
- watch(platform, (value, previous) => {
-   if (previous && value !== previous) invalidateMatchRows()
-@@ -245,7 +246,10 @@ async function uploadMatch({ file }) {
-     emitDraftRows(requestGeneration, requestPlatform)
-     ElMessage.success('匹配完成')
-   } finally {
--    if (requestGeneration === matchGeneration) uploading.value = false
-+    if (requestGeneration === matchGeneration) {
-+      uploading.value = false
-+      if (matchAbort === controller) matchAbort = null
-+    }
-   }
- }
-
-@@ -351,7 +355,7 @@ onMounted(async () => {
-     platform.value = platforms.value[0].platform_code
-   }
- })
--onBeforeUnmount(() => matchAbort?.abort())
-+onBeforeUnmount(() => invalidateMatchRows({ emitRows: false }))
- </script>
-
- <style scoped>
++- Control 在 fixed Head `d4281adab920cabf0b59d02ec3442a9698e24d0a` targeted 运行 `test_07`/`test_08`/`test_09`/`test_10`：`Ran 4 tests in 18.361s` / `OK` / exit 0。覆盖 canonical create↔quota lifecycle 锁序、实际 compatibility route Tenant A/B selected-context RBAC、legacy release no-op，以及 DAILY_SNAPSHOT 跨日 reserve→commit→双连接 release/replay。
++- 同一 fixed Head Oracle strict：`Ran 53 tests in 185.264s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、exit 0、skipped=0。跨日 test 证明仅 reservation 持久化旧日 usage 被扣还，今日 usage 不被创建；fixture 清理零残留且 `persistent_business_changes=false`。
++- 第三轮全部 Dev/Oracle acceptance 已 PASS；本 docs-only commit 不改变业务代码。Control 将在 resulting docs Head 重新运行 strict 并生成 external manifest 绑定其 hash，之后进行 Independent Re-review；这属于 manifest provenance，不使本任务最终状态回退为 pending。

@@ -22,7 +22,7 @@ STATUS=PASS
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 INPUT=second-review Task evidence
-LITERAL_OUTPUT=MODIFIED_FILE SHA256=3615e80c3ba290a33a432a0d9d8cc91a01f362cdc015067ca728de495d538ba3; changed from setup source
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=49fce7df9917d5524bb534430e2581d5b812869b5eb141ed713434eb541e8d36; changed from setup source
 EXIT_STATUS=0
 STATUS=PASS
 
@@ -123,7 +123,7 @@ LOCAL_LITERAL_OUTPUT=Ran 16 tests in 0.015s
 LOCAL_LITERAL_OUTPUT=OK (skipped=1)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
+HISTORICAL_STATUS=pre-rerun record for 384a78c; superseded by d4281ad strict PASS below.
 
 ORACLE_SEMANTIC_DUPLICATE_FIX
 FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
@@ -137,7 +137,7 @@ LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
 LOCAL_LITERAL_OUTPUT=OK (skipped=4)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
+HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
 
 ORACLE_LEGACY_RELEASE_FIX
 FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
@@ -153,7 +153,7 @@ LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
 LOCAL_LITERAL_OUTPUT=OK (skipped=2)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
+HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
 
 FINAL_SECOND_REVIEW_ORACLE_EVIDENCE
 FIXED_HEAD=f579a3eb797a62330c56613a3f31d49f31f7eb2c
@@ -171,7 +171,7 @@ ORACLE_SKIPPED=0
 COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/quota failure; test_06 concurrent replay; test_07 cross-session create with commit/release lock order; test_08 actual compatibility route selected-context Tenant A/B RBAC; test_09 absent reservation/no-quota release False.
 CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
 FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
-POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
+HISTORICAL_POST_DOC_STATUS=external manifest record superseded by the third-review result below.`r`nACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
 
 THIRD_REVIEW_CANDIDATE
 CHANGED_FIELD=ExcelMatch invalidation/unmount abort+loading fences; quota DAILY_SNAPSHOT persisted period locking; Oracle cross-midnight concurrent release/replay test.
@@ -191,4 +191,24 @@ PYTHON_FULL_LITERAL_OUTPUT=Ran 249 tests in 0.451s; OK (skipped=31); [PASS] pyth
 WEB_FULL_LITERAL_OUTPUT=1682 modules transformed; built in 565ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 COMPILE_DIFF_LITERAL_OUTPUT=compile no output; git diff --check no errors; exit=0
-ORACLE_REQUIRED_STATUS=PENDING Control fixed-candidate strict; local test_07/test_10 were SKIPPED because PHASE55_ORACLE_TEST_ENABLED/T003 were absent. No Oracle PASS is claimed for this candidate.
+ORACLE_REQUIRED_STATUS=PASS; local test_07/test_10 were SKIPPED, then Control fixed-candidate strict passed as recorded below.
+FINAL_THIRD_REVIEW_ORACLE_EVIDENCE
+FIXED_CODE_HEAD=d4281adab920cabf0b59d02ec3442a9698e24d0a
+TARGETED_COMMAND=Control isolated Oracle targeted tests.test_phase55_oracle.Phase55OracleFinalGate.test_07, test_08, test_09, test_10
+TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
+TARGETED_LITERAL_OUTPUT=OK
+TARGETED_EXIT_STATUS=0
+TARGETED_STATUS=PASS
+ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_INPUT=Control-approved isolated writable Oracle
+ORACLE_LITERAL_OUTPUT=Ran 53 tests in 185.264s
+ORACLE_LITERAL_OUTPUT=OK
+ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ORACLE_EXIT_STATUS=0
+ORACLE_STATUS=PASS
+ORACLE_SKIPPED=0
+COVERAGE=test_07 quota lifecycle cross-session lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy absent reservation/no-quota no-op; test_10 DAILY_SNAPSHOT persisted-period cross-midnight reserve/commit/concurrent release/replay.
+CLEANUP_RESULT=PASS; fixture cleanup zero residue; persistent_business_changes=false.
+FINAL_STATUS=PASS
+POST_DOC_EXTERNAL_MANIFEST=Control will rerun strict on this resulting docs-only Head and bind the generated external manifest hash before Independent Re-review; this provenance operation does not change FINAL_STATUS.
