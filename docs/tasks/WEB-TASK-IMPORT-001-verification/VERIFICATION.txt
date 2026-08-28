@@ -113,3 +113,17 @@ ROLLBACK_RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26a
 ROLLBACK_MODIFIED_SHA256=abdfb2297b223c67741ee03edc23a8f314373210c3cb4658ba3c32e0fcf29b23
 ROLLBACK_STATUS=PASS
 RESTORED_BEHAVIOR_STATUS=probe restored setup Task while MODIFIED_FILE remained changed.
+
+FINAL_WHITESPACE_REPAIR
+Changed file/field=web/src/utils/taskDraft.js EOF blank line removed; no semantic change.
+NODE_COMMAND=node web/scripts/test-task-import-contract.mjs
+NODE_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123; EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked; CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+NODE_EXIT_STATUS=0
+TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
+TARGETED_LITERAL_OUTPUT=Ran 13 tests in 0.016s; OK
+TARGETED_EXIT_STATUS=0
+WEB_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+WEB_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 527ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WEB_EXIT_STATUS=0
+RANGE_DIFF_COMMAND=git diff --check 2200ef021ed69f29fd3796b2c7a50252fa60575b..HEAD
+RANGE_DIFF_STATUS=PENDING post-commit range recheck; final external Oracle fixed-Head rerun remains PENDING.

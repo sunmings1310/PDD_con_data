@@ -211,4 +211,3 @@ export function buildCanonicalPayload({ submissionId, source, task, rows }) {
     targets,
   }
 }
-
