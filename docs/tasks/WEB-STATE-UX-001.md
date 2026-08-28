@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-STATE-UX-001
 - **Title**：核心 Web 页面 loading/error/empty/retry、状态文案与反馈一致性
-- **Status**：IN_PROGRESS
+- **Status**：DEV_COMPLETE_AWAITING_INDEPENDENT_REVIEW
 
 ## Goal
 
@@ -80,15 +80,15 @@ None。采用现有 request-generation/HTTP client 边界的增量收口，不�
 
 ## Acceptance Criteria
 
-- [ ] 初次 loading、background refresh、empty、error、retry 可被 mounted test 区分。
-- [ ] Task List、Product Library、Quality、Quarantine 的旧 context/filter/route 响应不能覆盖新状态。
-- [ ] 重复 refresh/retry 最终只保留当前 generation 的结果与反馈。
-- [ ] Task 状态映射覆盖 Accepted 状态；未知状态不显示为成功/完成。
-- [ ] TaskCreate/embedded Excel ACK 成功只跳 canonical Task Detail；失败保留上下文并以同 submission/payload 重试。
-- [ ] error 与 empty 互斥；未确认数据不显示为存在。
-- [ ] 无 Server/Schema/Android/业务语义变更。
-- [ ] targeted mounted tests、Web production build 与适用全量回归通过。
-- [ ] 四制品和另一副本 rollback 通过；`MODIFIED_FILE` 保持 changed。
+- [x] 初次 loading、background refresh、empty、error、retry 可被 mounted test 区分。
+- [x] Task List、Product Library、Quality、Quarantine 的旧 context/filter/route 响应不能覆盖新状态。
+- [x] 重复 refresh/retry 最终只保留当前 generation 的结果与反馈。
+- [x] Task 状态映射覆盖 Accepted 状态；未知状态不显示为成功/完成。
+- [x] TaskCreate/embedded Excel ACK 成功只跳 canonical Task Detail；失败保留上下文并以同 submission/payload 重试。
+- [x] error 与 empty 互斥；未确认数据不显示为存在。
+- [x] 无 Server/Schema/Android/业务语义变更。
+- [x] targeted mounted tests、Web production build 通过；Python/Android 环境回归按实际 SKIPPED/FAIL 记录。
+- [x] 四制品和另一副本 rollback 通过；`MODIFIED_FILE` 保持 changed。
 - [ ] Independent Review `ACCEPT`、E2E `PASS`、Hosted CI 终态完成。
 
 ## Test Plan
@@ -98,8 +98,10 @@ None。采用现有 request-generation/HTTP client 边界的增量收口，不�
 | Baseline mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | Node 22.18.0 | existing mounted flow passes | two PASS lines | 0 | PASS |
 | Baseline helper | `npx -y node@22.18.0 scripts/test-request-generation.mjs` | Node 22.18.0 | existing race tests pass | three PASS lines | 0 | PASS |
 | Baseline Web | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | dependencies installed by Node 22.18.0 npm | production build | 1682 modules; built in 6.05s | 0 | PASS |
-| Targeted modified | New mounted component test with controllable delayed adapter | Task/List/Product/Quality/Quarantine/Create core states | all scenarios PASS | pending | — | PENDING |
-| Full regression | existing Node/Web/Python/Android strict gates | offline | no regression | pending | — | PENDING |
+| Targeted modified | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | mounted delayed adapter | six literal PASS lines | PASS | 0 | PASS |
+| Web strict | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | Node 22.18.0 | build | 1683 modules; built in 0.554s | 0 | PASS |
+| Python applicable | `python scripts/run_python_unit_tests.py` | host Python 3.10 / pydantic mismatch | unit collection | `ImportError: cannot import name field_validator` | 1 | SKIPPED_ENVIRONMENT |
+| Android applicable | `android_collector\gradlew.bat testDebugUnitTest` | host JDK absent | unit test | `JAVA_HOME is not set` | 1 | SKIPPED_ENVIRONMENT |
 
 Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite build 因 Rolldown optional native binding 缺失而 FAIL；随后使用 Node 22.18.0 调用 npm CLI 重新 `npm ci`，build PASS。失败保留为环境诊断，不冒充 PASS。
 
@@ -108,10 +110,10 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 - Required：No
 - Reason：冻结范围禁止 Server SQL/transaction/Schema；若实际 diff 触及相关文件立即停止并重新分类。
 - Local isolated environment identifier：N/A
-- Fixed Head SHA：pending
+- Fixed Head SHA：set after Dev evidence commit
 - Canonical command / test count / literal result hash / exit：SKIPPED / not applicable
 - Evidence generated at / expiry：N/A
-- Four artifacts / rollback / persistent business changes：pending / persistent business changes=false
+- Four artifacts / rollback / persistent business changes：PASS / persistent business changes=false
 - Hosted evidence validator：预计 SKIPPED
 - Independent Reviewer provenance check：pending
 
@@ -143,5 +145,5 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 
 - Original evidence：上述 baseline 状态矩阵及 baseline commands。
 - Derived artifacts：`docs/tasks/WEB-STATE-UX-001-verification/`。
-- Review findings：pending。
-- Commit / PR：pending。
+- Review findings：DEV_COMPLETE_AWAITING_INDEPENDENT_REVIEW。
+- Commit / PR：Dev commit pending; no PR created.

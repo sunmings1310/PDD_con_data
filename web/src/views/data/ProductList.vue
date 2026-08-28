@@ -10,13 +10,15 @@
         <el-input v-model="q.item_id" placeholder="商品ID" clearable style="width:160px" />
         <el-input v-model="q.approval_no" placeholder="批准文号" clearable style="width:160px" />
         <el-button type="primary" @click="applyFilters">查询</el-button>
+        <el-button :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新' }}</el-button>
         <el-button v-if="store.hasPerm('data:export')" @click="exportSelected">导出选中</el-button>
       </div>
       <el-alert v-if="displayError" :title="displayError" type="error" show-icon :closable="false" style="margin-bottom:12px">
         <template #default><el-button link type="primary" @click="load">重试</el-button></template>
       </el-alert>
+      <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前商品列表</div>
       <el-table v-loading="loading" :data="list" stripe border @selection-change="(rows) => (selected = rows)">
-        <template #empty><el-empty :description="loading ? '正在加载' : (error ? '商品列表加载失败' : '暂无商品')" /></template>
+        <template #empty><el-empty v-if="loaded && !error" description="暂无商品" /></template>
         <el-table-column type="selection" width="48" fixed />
         <el-table-column prop="product_id" label="ID" width="70" fixed />
         <el-table-column label="平台" width="90">
@@ -154,16 +156,20 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
+import { createRequestGeneration } from '@/utils/requestGeneration'
+import { viewScope } from '@/utils/taskStatus'
 
 const store = useUserStore()
 const platforms = ref([])
 const list = ref([])
 const selected = ref([])
 const loading = ref(false)
+const refreshing = ref(false)
+const loaded = ref(false)
 const error = ref('')
 const platformError = ref('')
 const displayError = computed(() => error.value || platformError.value)
@@ -253,26 +259,30 @@ function openGallery(row) {
   galleryVisible.value = true
 }
 
+const requestGeneration = createRequestGeneration()
+const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, page.value, limit.value, q.platform_code, q.keyword, q.brand, q.item_id, q.approval_no))
 async function load() {
-  loading.value = true
+  const token = requestGeneration.next(scope.value)
+  const initial = !loaded.value
+  loading.value = initial
+  refreshing.value = !initial
   error.value = ''
   const params = new URLSearchParams()
   Object.entries(q).forEach(([k, v]) => { if (v) params.set(k, v) })
-  params.set('page', String(page.value))
-  params.set('limit', String(limit.value))
+  params.set('page', String(page.value)); params.set('limit', String(limit.value))
   try {
     const res = await http.get(`/api/products?${params}`)
-    list.value = res.data?.items || []
-    total.value = Number(res.data?.total || 0)
+    if (!requestGeneration.isCurrent(token, scope.value)) return
+    list.value = res.data?.items || []; total.value = Number(res.data?.total || 0); loaded.value = true
   } catch (e) {
-    list.value = []
-    total.value = 0
+    if (!requestGeneration.isCurrent(token, scope.value)) return
     error.value = e?.message || e?.detail || '商品列表加载失败'
   } finally {
-    loading.value = false
+    if (requestGeneration.isCurrent(token, scope.value)) { loading.value = false; refreshing.value = false }
   }
 }
 function applyFilters() { page.value = 1; load() }
+watch(() => viewScope(store.enterpriseId, store.workspaceId), () => { requestGeneration.reset(scope.value, () => { list.value=[]; total.value=0; loaded.value=false; error.value=''; loading.value=false; refreshing.value=false }); load() })
 
 async function openDetail(row) {
   const res = await http.get(`/api/products/${row.product_id}`)

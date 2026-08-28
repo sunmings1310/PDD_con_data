@@ -1,21 +1,817 @@
-diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
-index 3b3d26c..2a1a1a5 100644
---- a/docs/CURRENT_STATE.md
-+++ b/docs/CURRENT_STATE.md
-@@ -117 +117 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
--`WEB-STATE-UX-001` 的前置依赖已经满足，当前仅为 `READY FOR PRODUCT OWNER START APPROVAL`；尚未进入 `IN_PROGRESS`，未创建实现分支或 worktree。
-+Product Owner 已批准启动 `WEB-STATE-UX-001`。Control 已从 `main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree，当前状态为 `IN_PROGRESS`；范围仅为核心 Web 状态与反馈收口。
-diff --git a/docs/backlog.md b/docs/backlog.md
-index 269b086..609a28a 100644
---- a/docs/backlog.md
-+++ b/docs/backlog.md
-@@ -28 +28 @@
--| 5 | WEB-STATE-UX-001 | READY FOR PRODUCT OWNER START APPROVAL / P2 | #4 已 merge，依赖已满足；尚未启动、未创建实现分支或 worktree |
-+| 5 | WEB-STATE-UX-001 | IN_PROGRESS / P2 | Product Owner 已批准启动；从 `main@807cfb4` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree；仅收口核心 Web 状态与反馈，不改变业务语义 |
-diff --git a/docs/roadmap.md b/docs/roadmap.md
-index b563616..64cee51 100644
---- a/docs/roadmap.md
-+++ b/docs/roadmap.md
-@@ -24 +24 @@ BL-110-WS-TENANT-BOUNDARY
--每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为当前 `main@40e3e958`，状态为 `MERGED / ACCEPTED`。第 5 项 `WEB-STATE-UX-001` 的依赖已经满足，但仅为 `READY FOR PRODUCT OWNER START APPROVAL`，尚未启动。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
-+每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为当前 `main@40e3e958`，状态为 `MERGED / ACCEPTED`。第 5 项 `WEB-STATE-UX-001` 已获 Product Owner 批准并从 `main@807cfb4` 独立启动，当前为 `IN_PROGRESS`；仅收口核心 Web 状态与反馈，不改变业务语义。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
+diff --git a/docs/tasks/WEB-STATE-UX-001.md b/docs/tasks/WEB-STATE-UX-001.md
+new file mode 100644
+index 0000000..7d1d9cc
+--- /dev/null
++++ b/docs/tasks/WEB-STATE-UX-001.md
+@@ -0,0 +1,149 @@
++# WEB-STATE-UX-001：核心 Web 状态与反馈收口
++
++- **Task ID**：WEB-STATE-UX-001
++- **Title**：核心 Web 页面 loading/error/empty/retry、状态文案与反馈一致性
++- **Status**：DEV_COMPLETE_AWAITING_INDEPENDENT_REVIEW
++
++## Goal
++
++在不改变服务端业务语义的前提下，让统一手动输入/Excel 下发后的主要列表与详情对初次加载、后台刷新、空数据、错误、重试、stale 响应和提交反馈采用一致、可恢复、可解释的行为。
++
++## Context
++
++固定起点：`origin/main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41`。`WEB-TASK-IMPORT-001` 已 MERGED/ACCEPTED；本 Task 只收口直接关联核心任务流的 Web 状态，不重新定义 Task、数据质量、租户或权限语义。
++
++### Baseline 状态矩阵
++
++| 页面/模块 | 已有行为 | 已确认差异 | 本 Task 决定 |
++|---|---|---|---|
++| Task List | loading/error/empty/retry | 初次加载与后台 refresh 共用阻塞 loading；无 route/tenant stale fence；状态文案由 API `ui_status` 与局部 tag 混用 | 纳入 |
++| Task Detail | Task/results 分区 loading/error/retry，已有 request generation | refresh 仍表现为初次阻塞；Task/item 未知状态直接裸值且映射分散 | 纳入，保持服务端状态权威 |
++| Task Create + embedded Excel | canonical payload、ACK replay、route fence 已 Accepted | 创建失败仅依赖全局 toast，页面缺少可解释的保留上下文/重试反馈；成功必须只去 canonical Task Detail | 纳入反馈收口；不改变 durable idempotency |
++| Product Library | loading/error/empty/retry | 无 context generation，租户/工作区切换时旧响应可覆盖新上下文；refresh 阻塞 | 纳入 |
++| Quality Dashboard | loading/error/empty/retry | 无 context generation；refresh 与初次 loading 未区分 | 纳入 |
++| Quarantine List/Detail | list error/retry、detail error | list/detail 均无 generation，旧响应可覆盖新筛选/上下文；detail error 无明确 retry | 纳入 |
++| Task Result Evidence / Task Trace | 已有 request generation、分区 error/retry | 可作为 accepted 参考，未发现必须重写的核心缺口 | 默认不改；仅共享 helper 接口兼容所需的极小调整 |
++| standalone Excel / 其他管理页 | 非本次核心任务闭环 | 范围漂移风险 | 排除 |
++
++## Scope
++
++### Allowed
++
++- `web/src/views/tasks/TaskList.vue`
++- `web/src/views/tasks/TaskDetail.vue`
++- `web/src/views/tasks/TaskCreate.vue`
++- `web/src/views/excel/ExcelMatch.vue`（仅 embedded/core-flow 行为）
++- `web/src/views/data/ProductList.vue`
++- `web/src/views/management/QualityDashboard.vue`
++- `web/src/views/management/QuarantineList.vue`
++- `web/src/utils/requestGeneration.js` 兼容扩展，或新增一个小型 async-view/status helper
++- 最多一个共享轻量状态组件；不引入全局状态库
++- `web/scripts/` 下真实 mounted component/contract tests
++- 本 Task 文档、权威状态文档和专属验证制品
++
++### Frozen behavior
++
++1. 初次 loading 可阻塞；已有数据的 background refresh 不清空内容，并提供可见刷新状态。
++2. empty 仅在“请求成功且数据为空”时显示；error 不得伪装为空或成功。
++3. retry 使用当前权威 tenant/workspace/route/filter；重复 refresh/retry 的旧响应不得覆盖新上下文。
++4. Task 状态文案由明确映射产生；未知状态安全显示“未知状态（原值）”，不得映射为完成/成功。
++5. TaskCreate/embedded Excel 成功 ACK 只进入 `/tasks/{canonical_task_id}`；失败保留 frozen canonical payload 与用户输入，明确可重试且不得生成新 submission identity。
++6. 403/404/NOT_FOUND 沿用统一 HTTP client、RBAC 与服务端权威资源边界。
++
++### Forbidden
++
++- Server API/SQL/transaction、Oracle Schema/migration
++- Android、真实账号/真机/线上采集
++- Generic SKU、P1 Schema、Phase 6B
++- Excel 导出归属变更或删除独立 Excel 菜单
++- release、后续任务、全站 UI 重构、全局大状态库、依赖大升级
++
++## Non-goals
++
++- 不改变 Task Complete、Product/Quality、tenant/workspace、RBAC 或 NOT_FOUND 语义。
++- 不把 HTTP 200、页面完成或本地状态当作业务成功。
++- 不将所有历史页面统一重写。
++
++## Dependencies
++
++- `WEB-TASK-IMPORT-001` 与 state sync 已 MERGED/ACCEPTED。
++- `main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41`。
++
++## Affected Modules
++
++- Web Vue views、现有 tenant-aware HTTP client、request generation helper、Node mounted tests。
++- Oracle/Server/Android：不适用，除回归门禁外不得修改。
++
++## ADR
++
++None。采用现有 request-generation/HTTP client 边界的增量收口，不新增长期架构模型。
++
++## Acceptance Criteria
++
++- [x] 初次 loading、background refresh、empty、error、retry 可被 mounted test 区分。
++- [x] Task List、Product Library、Quality、Quarantine 的旧 context/filter/route 响应不能覆盖新状态。
++- [x] 重复 refresh/retry 最终只保留当前 generation 的结果与反馈。
++- [x] Task 状态映射覆盖 Accepted 状态；未知状态不显示为成功/完成。
++- [x] TaskCreate/embedded Excel ACK 成功只跳 canonical Task Detail；失败保留上下文并以同 submission/payload 重试。
++- [x] error 与 empty 互斥；未确认数据不显示为存在。
++- [x] 无 Server/Schema/Android/业务语义变更。
++- [x] targeted mounted tests、Web production build 通过；Python/Android 环境回归按实际 SKIPPED/FAIL 记录。
++- [x] 四制品和另一副本 rollback 通过；`MODIFIED_FILE` 保持 changed。
++- [ ] Independent Review `ACCEPT`、E2E `PASS`、Hosted CI 终态完成。
++
++## Test Plan
++
++| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
++|---|---|---|---|---|---:|---|
++| Baseline mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | Node 22.18.0 | existing mounted flow passes | two PASS lines | 0 | PASS |
++| Baseline helper | `npx -y node@22.18.0 scripts/test-request-generation.mjs` | Node 22.18.0 | existing race tests pass | three PASS lines | 0 | PASS |
++| Baseline Web | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | dependencies installed by Node 22.18.0 npm | production build | 1682 modules; built in 6.05s | 0 | PASS |
++| Targeted modified | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | mounted delayed adapter | six literal PASS lines | PASS | 0 | PASS |
++| Web strict | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | Node 22.18.0 | build | 1683 modules; built in 0.554s | 0 | PASS |
++| Python applicable | `python scripts/run_python_unit_tests.py` | host Python 3.10 / pydantic mismatch | unit collection | `ImportError: cannot import name field_validator` | 1 | SKIPPED_ENVIRONMENT |
++| Android applicable | `android_collector\gradlew.bat testDebugUnitTest` | host JDK absent | unit test | `JAVA_HOME is not set` | 1 | SKIPPED_ENVIRONMENT |
++
++Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite build 因 Rolldown optional native binding 缺失而 FAIL；随后使用 Node 22.18.0 调用 npm CLI 重新 `npm ci`，build PASS。失败保留为环境诊断，不冒充 PASS。
++
++## Oracle Gate
++
++- Required：No
++- Reason：冻结范围禁止 Server SQL/transaction/Schema；若实际 diff 触及相关文件立即停止并重新分类。
++- Local isolated environment identifier：N/A
++- Fixed Head SHA：set after Dev evidence commit
++- Canonical command / test count / literal result hash / exit：SKIPPED / not applicable
++- Evidence generated at / expiry：N/A
++- Four artifacts / rollback / persistent business changes：PASS / persistent business changes=false
++- Hosted evidence validator：预计 SKIPPED
++- Independent Reviewer provenance check：pending
++
++## Real-device Gate
++
++- Required：No
++- Device/scenario：纯 Web 状态与离线 adapter 测试；不得登录真实账号或采集。
++- Command or steps / result：SKIPPED / not applicable
++
++## Rollback
++
++- Code rollback：revert 本 Task commits。
++- Configuration rollback：None。
++- Data recovery：None。
++- Irreversible items：None。
++
++## Human Decision Points
++
++- merge、release、启动后续任务必须由 Product Owner 明确批准。
++- 若需改变 Task/Product/Quality/tenant 业务语义，或触及 Server SQL/transaction/Schema，立即停止。
++
++## Stop Condition
++
++- Review `ACCEPT` + E2E `PASS` + Hosted CI 完成后停在 Draft PR merge 前；
++- 或出现业务语义、Schema/Oracle、真实账号/设备、范围扩大决策时停止；
++- 禁止自动 merge、release 或启动后续任务。
++
++## Evidence
++
++- Original evidence：上述 baseline 状态矩阵及 baseline commands。
++- Derived artifacts：`docs/tasks/WEB-STATE-UX-001-verification/`。
++- Review findings：DEV_COMPLETE_AWAITING_INDEPENDENT_REVIEW。
++- Commit / PR：Dev commit pending; no PR created.
+diff --git a/web/scripts/test-task-import-components.mjs b/web/scripts/test-task-import-components.mjs
+index 9af304f..8e7142d 100644
+--- a/web/scripts/test-task-import-components.mjs
++++ b/web/scripts/test-task-import-components.mjs
+@@ -8,6 +8,7 @@ import { createRenderer, h, nextTick, reactive, ref } from 'vue'
+ const webRoot = path.resolve(import.meta.dirname, '..')
+ const vueUrl = pathToFileURL(path.join(webRoot, 'node_modules/vue/index.mjs')).href
+ const utilsUrl = pathToFileURL(path.join(webRoot, 'src/utils/taskDraft.js')).href
++const taskStatusUrl = pathToFileURL(path.join(webRoot, 'src/utils/taskStatus.js')).href
+
+ function deferred() {
+   let resolve, reject
+@@ -24,11 +25,18 @@ async function loadComponent(relative, injected = {}) {
+     .replace("from 'vue'", `from '${vueUrl}'`)
+     .replace(/import \{ onBeforeRouteLeave, useRouter \} from 'vue-router'/, 'const useRouter = () => globalThis.__componentRouter; const onBeforeRouteLeave = (guard) => globalThis.__routeGuards.push(guard)')
+     .replace(/import \{ useRouter \} from 'vue-router'/, 'const useRouter = () => globalThis.__componentRouter')
++    .replace(/import \{ useRoute \} from 'vue-router'/, 'const useRoute = () => globalThis.__componentRoute')
++    .replace(/import \{ useRoute, useRouter \} from 'vue-router'/, 'const useRoute = () => globalThis.__componentRoute; const useRouter = () => globalThis.__componentRouter')
+     .replace(/import \{ ElMessage \} from 'element-plus'/, 'const ElMessage = globalThis.__componentMessage')
++    .replace(/import \{ ElMessage, ElMessageBox \} from 'element-plus'/, 'const ElMessage = globalThis.__componentMessage; const ElMessageBox = globalThis.__componentMessageBox')
++    .replace(/import \{ ElEmpty, ElTable, ElTableColumn \} from 'element-plus'/, 'const ElEmpty = globalThis.__componentStub; const ElTable = globalThis.__componentStub; const ElTableColumn = globalThis.__componentStub')
+     .replace(/import http from '@\/api\/http'/, 'const http = globalThis.__componentHttp')
+     .replace(/import ExcelMatch from '@\/views\/excel\/ExcelMatch\.vue'/, 'const ExcelMatch = globalThis.__ExcelMatch')
+     .replace(/import \{ useUserStore \} from '@\/stores\/user'/, 'const useUserStore = () => globalThis.__componentStore')
+     .replace("from '@/utils/taskDraft'", `from '${utilsUrl}'`)
++    .replace("from '@/utils/taskStatus'", `from '${taskStatusUrl}'`)
++    .replace("from '@/utils/requestGeneration'", `from '${pathToFileURL(path.join(webRoot, 'src/utils/requestGeneration.js')).href}'`)
++    .replace(/import dayjs from 'dayjs'/, 'const dayjs = (value) => ({ toISOString: () => new Date(value).toISOString(), format: () => String(value) })')
+   const template = compileTemplate({ source: descriptor.template.content, filename, id: relative, compilerOptions: { bindingMetadata: compiled.bindings } }).code
+     .replace('from "vue"', `from '${vueUrl}'`)
+     .replace('export function render', 'function render')
+@@ -52,13 +60,15 @@ const renderer = createRenderer({
+ const stub = { render: () => null }
+ function mount(component, props = {}) {
+   const app = renderer.createApp(component, props)
+-  for (const name of ['el-form', 'el-form-item', 'el-input', 'el-radio-group', 'el-radio', 'el-radio-button', 'el-select', 'el-option', 'el-input-number', 'el-divider', 'el-checkbox', 'el-alert', 'el-table', 'el-table-column', 'el-button', 'el-upload', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty']) app.component(name, stub)
++  for (const name of ['el-form', 'el-date-picker', 'el-pagination', 'el-drawer', 'el-descriptions', 'el-descriptions-item', 'el-row', 'el-col', 'el-card', 'el-statistic', 'el-space', 'el-tabs', 'el-tab-pane', 'el-text', 'el-form-item', 'el-input', 'el-radio-group', 'el-radio', 'el-radio-button', 'el-select', 'el-option', 'el-input-number', 'el-divider', 'el-checkbox', 'el-alert', 'el-table', 'el-table-column', 'el-button', 'el-upload', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty']) app.component(name, stub)
+   app.directive('loading', {})
+   const root = { type: 'root', children: [] }
+   return { proxy: app.mount(root), app }
+ }
+
+ globalThis.__componentMessage = { success() {}, warning() {}, error() {} }
++globalThis.__componentMessageBox = { confirm: async () => true }
++globalThis.__componentStub = { render: () => null }
+ globalThis.__componentStore = { hasPerm: () => true }
+ globalThis.__routeGuards = []
+ const matchRequests = []
+@@ -149,3 +159,61 @@ posts[3].deferred.resolve({ data: { task_id: 8 } })
+ await edited
+ assert.equal(pushes.includes('/tasks/8'), false)
+ console.log('TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push')
++
++
++// Mount the actual list, product, quality, and quarantine components with a
++// controllable adapter.  The assertions exercise first load, refresh, error,
++// retry, and context/route stale-response fences rather than source strings.
++globalThis.__componentRoute = reactive({ params: {}, query: {}, fullPath: '/management/quarantines' })
++globalThis.__componentStore = reactive({ enterpriseId: 'tenant-a', workspaceId: 'workspace-a', profile: {}, hasPerm: () => true })
++const stateRequests = []
++globalThis.__componentHttp = {
++  get(url, options) { const request = { url, options, deferred: deferred() }; stateRequests.push(request); return request.deferred.promise },
++  post: async () => ({ data: {} }), put: async () => ({ ok: true }), delete: async () => ({ ok: true }),
++}
++
++async function settle(request, data) { request.deferred.resolve({ data }); await request.deferred.promise; await nextTick() }
++const { default: TaskList } = await loadComponent('src/views/tasks/TaskList.vue')
++const taskList = mount(TaskList); await nextTick()
++assert.equal(taskList.proxy.$.setupState.loading, true)
++await settle(stateRequests.shift(), { items: [{ task_id: 1, status: 'pending' }], total: 1 })
++assert.equal(taskList.proxy.$.setupState.loaded, true)
++const taskRefreshA = taskList.proxy.$.setupState.load(); const taskRefreshB = taskList.proxy.$.setupState.load()
++assert.equal(taskList.proxy.$.setupState.refreshing, true)
++const staleTask = stateRequests.shift(); const currentTask = stateRequests.shift()
++await settle(staleTask, { items: [{ task_id: 99, status: 'succeeded' }], total: 1 })
++await settle(currentTask, { items: [{ task_id: 2, status: 'mystery' }], total: 1 }); await Promise.all([taskRefreshA, taskRefreshB])
++assert.equal(taskList.proxy.$.setupState.list[0].task_id, 2)
++assert.equal(taskList.proxy.$.setupState.statusText({ status: 'mystery' }), '未知状态（mystery）')
++console.log('TASK_LIST_COMPONENT=PASS mounted=TaskList initial_loading background_refresh duplicate_refresh stale_response status_unknown_safe')
++taskList.app.unmount()
++
++const { default: ProductList } = await loadComponent('src/views/data/ProductList.vue')
++const product = mount(ProductList); await nextTick()
++const platformRequest = stateRequests.shift()
++await settle(platformRequest, [])
++const productInitial = stateRequests.shift(); await settle(productInitial, { items: [{ product_id: 1 }], total: 1 })
++const productRefresh = product.proxy.$.setupState.load(); const oldProduct = stateRequests.shift()
++globalThis.__componentStore.enterpriseId = 'tenant-b'; await nextTick()
++const newProduct = stateRequests.shift(); await settle(oldProduct, { items: [{ product_id: 9 }], total: 1 }); await settle(newProduct, { items: [], total: 0 }); await productRefresh
++assert.equal(product.proxy.$.setupState.list.length, 0); assert.equal(product.proxy.$.setupState.loaded, true); assert.equal(product.proxy.$.setupState.error, '')
++console.log('PRODUCT_COMPONENT=PASS mounted=ProductList refresh_empty tenant_context_stale_fenced')
++product.app.unmount()
++
++const { default: QualityDashboard } = await loadComponent('src/views/management/QualityDashboard.vue')
++const quality = mount(QualityDashboard); await nextTick()
++const initialQuality = stateRequests.shift(); initialQuality.deferred.reject(new Error('quality down')); try { await initialQuality.deferred.promise } catch {} await nextTick()
++assert.equal(quality.proxy.$.setupState.error, 'quality down')
++const qualityRetry = quality.proxy.$.setupState.load(); const retryQuality = stateRequests.shift(); await settle(retryQuality, { overall: { total_count: 0 } }); await qualityRetry
++assert.equal(quality.proxy.$.setupState.loaded, true); assert.equal(quality.proxy.$.setupState.error, '')
++console.log('QUALITY_COMPONENT=PASS mounted=QualityDashboard initial_error retry empty_distinct')
++quality.app.unmount()
++
++const { default: QuarantineList } = await loadComponent('src/views/management/QuarantineList.vue')
++const quarantine = mount(QuarantineList); await nextTick()
++const initialQuarantine = stateRequests.shift(); await settle(initialQuarantine, { items: [{ quarantine_id: 1 }], total: 1 })
++const oldQuarantine = quarantine.proxy.$.setupState.load(); const oldRequest = stateRequests.shift()
++globalThis.__componentRoute.fullPath = '/management/quarantines?platform=jd'; await nextTick()
++const freshRequest = stateRequests.shift(); await settle(oldRequest, { items: [{ quarantine_id: 88 }], total: 1 }); await settle(freshRequest, { items: [], total: 0 }); await oldQuarantine
++assert.equal(quarantine.proxy.$.setupState.items.length, 0); assert.equal(quarantine.proxy.$.setupState.loaded, true)
++console.log('QUARANTINE_COMPONENT=PASS mounted=QuarantineList refresh_empty route_context_stale_fenced')
+diff --git a/web/src/utils/requestGeneration.js b/web/src/utils/requestGeneration.js
+index 8d09d4d..ee3112a 100644
+--- a/web/src/utils/requestGeneration.js
++++ b/web/src/utils/requestGeneration.js
+@@ -2,21 +2,27 @@ export function createRequestGeneration() {
+   let generation = 0
+   let scope = ''
+
++  const token = () => ({ generation, scope })
+   return {
+     reset(nextScope, resetState) {
+       scope = String(nextScope)
+       generation += 1
+       resetState?.()
+-      return { generation, scope }
++      return token()
++    },
++    next(nextScope = scope) {
++      scope = String(nextScope)
++      generation += 1
++      return token()
+     },
+     capture() {
+-      return { generation, scope }
++      return token()
+     },
+-    isCurrent(token, currentScope = scope) {
+-      return Boolean(token)
+-        && token.generation === generation
+-        && token.scope === scope
+-        && token.scope === String(currentScope)
++    isCurrent(candidate, currentScope = scope) {
++      return Boolean(candidate)
++        && candidate.generation === generation
++        && candidate.scope === scope
++        && candidate.scope === String(currentScope)
+     },
+   }
+ }
+diff --git a/web/src/utils/taskStatus.js b/web/src/utils/taskStatus.js
+new file mode 100644
+index 0000000..73772b4
+--- /dev/null
++++ b/web/src/utils/taskStatus.js
+@@ -0,0 +1,28 @@
++export const TASK_STATUS_LABELS = Object.freeze({
++  pending: '待执行',
++  running: '执行中',
++  succeeded: '全部完成',
++  partially_succeeded: '部分成功',
++  done: '全部完成',
++  failed: '执行失败',
++  cancelled: '已取消',
++  timed_out: '执行超时',
++})
++
++export const TASK_STATUS_TYPES = Object.freeze({
++  pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning',
++  done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger',
++})
++
++export function taskStatusText(status, fallback) {
++  const raw = status || fallback
++  return TASK_STATUS_LABELS[status] || `未知状态（${raw || '-'}）`
++}
++
++export function taskStatusType(status) {
++  return TASK_STATUS_TYPES[status] || 'info'
++}
++
++export function viewScope(...values) {
++  return values.map((value) => String(value ?? '')).join('|')
++}
+diff --git a/web/src/views/data/ProductList.vue b/web/src/views/data/ProductList.vue
+index 33466a3..f125e71 100644
+--- a/web/src/views/data/ProductList.vue
++++ b/web/src/views/data/ProductList.vue
+@@ -10,13 +10,15 @@
+         <el-input v-model="q.item_id" placeholder="商品ID" clearable style="width:160px" />
+         <el-input v-model="q.approval_no" placeholder="批准文号" clearable style="width:160px" />
+         <el-button type="primary" @click="applyFilters">查询</el-button>
++        <el-button :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新' }}</el-button>
+         <el-button v-if="store.hasPerm('data:export')" @click="exportSelected">导出选中</el-button>
+       </div>
+       <el-alert v-if="displayError" :title="displayError" type="error" show-icon :closable="false" style="margin-bottom:12px">
+         <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+       </el-alert>
++      <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前商品列表</div>
+       <el-table v-loading="loading" :data="list" stripe border @selection-change="(rows) => (selected = rows)">
+-        <template #empty><el-empty :description="loading ? '正在加载' : (error ? '商品列表加载失败' : '暂无商品')" /></template>
++        <template #empty><el-empty v-if="loaded && !error" description="暂无商品" /></template>
+         <el-table-column type="selection" width="48" fixed />
+         <el-table-column prop="product_id" label="ID" width="70" fixed />
+         <el-table-column label="平台" width="90">
+@@ -154,16 +156,20 @@
+ </template>
+
+ <script setup>
+-import { computed, onMounted, reactive, ref } from 'vue'
++import { computed, onMounted, reactive, ref, watch } from 'vue'
+ import { ElMessage, ElMessageBox } from 'element-plus'
+ import http from '@/api/http'
+ import { useUserStore } from '@/stores/user'
++import { createRequestGeneration } from '@/utils/requestGeneration'
++import { viewScope } from '@/utils/taskStatus'
+
+ const store = useUserStore()
+ const platforms = ref([])
+ const list = ref([])
+ const selected = ref([])
+ const loading = ref(false)
++const refreshing = ref(false)
++const loaded = ref(false)
+ const error = ref('')
+ const platformError = ref('')
+ const displayError = computed(() => error.value || platformError.value)
+@@ -253,26 +259,30 @@ function openGallery(row) {
+   galleryVisible.value = true
+ }
+
++const requestGeneration = createRequestGeneration()
++const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, page.value, limit.value, q.platform_code, q.keyword, q.brand, q.item_id, q.approval_no))
+ async function load() {
+-  loading.value = true
++  const token = requestGeneration.next(scope.value)
++  const initial = !loaded.value
++  loading.value = initial
++  refreshing.value = !initial
+   error.value = ''
+   const params = new URLSearchParams()
+   Object.entries(q).forEach(([k, v]) => { if (v) params.set(k, v) })
+-  params.set('page', String(page.value))
+-  params.set('limit', String(limit.value))
++  params.set('page', String(page.value)); params.set('limit', String(limit.value))
+   try {
+     const res = await http.get(`/api/products?${params}`)
+-    list.value = res.data?.items || []
+-    total.value = Number(res.data?.total || 0)
++    if (!requestGeneration.isCurrent(token, scope.value)) return
++    list.value = res.data?.items || []; total.value = Number(res.data?.total || 0); loaded.value = true
+   } catch (e) {
+-    list.value = []
+-    total.value = 0
++    if (!requestGeneration.isCurrent(token, scope.value)) return
+     error.value = e?.message || e?.detail || '商品列表加载失败'
+   } finally {
+-    loading.value = false
++    if (requestGeneration.isCurrent(token, scope.value)) { loading.value = false; refreshing.value = false }
+   }
+ }
+ function applyFilters() { page.value = 1; load() }
++watch(() => viewScope(store.enterpriseId, store.workspaceId), () => { requestGeneration.reset(scope.value, () => { list.value=[]; total.value=0; loaded.value=false; error.value=''; loading.value=false; refreshing.value=false }); load() })
+
+ async function openDetail(row) {
+   const res = await http.get(`/api/products/${row.product_id}`)
+diff --git a/web/src/views/management/QualityDashboard.vue b/web/src/views/management/QualityDashboard.vue
+index f4f6f43..02e1056 100644
+--- a/web/src/views/management/QualityDashboard.vue
++++ b/web/src/views/management/QualityDashboard.vue
+@@ -4,10 +4,11 @@
+       <div class="toolbar">
+         <el-date-picker v-model="range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" />
+         <el-input v-model="filters.platform" clearable placeholder="平台" style="width:130px" />
+-        <el-button type="primary" @click="load">刷新指标</el-button>
++        <el-button type="primary" :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新指标' }}</el-button>
+       </div>
+       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="load">重试</el-button></template></el-alert>
+       <div v-loading="loading">
++        <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前质量指标</div>
+         <el-empty v-if="!loading && !error && !hasData" description="当前筛选范围内暂无质量数据" />
+         <template v-else-if="hasData">
+           <el-row :gutter="12" class="metrics">
+@@ -31,12 +32,16 @@
+ </template>
+
+ <script setup>
+-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
++import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+ import { ElEmpty, ElTable, ElTableColumn } from 'element-plus'
+ import dayjs from 'dayjs'
+ import http from '@/api/http'
++import { useUserStore } from '@/stores/user'
++import { createRequestGeneration } from '@/utils/requestGeneration'
++import { viewScope } from '@/utils/taskStatus'
+
+-const loading=ref(false), error=ref(''), data=ref({}), range=ref([])
++const loading=ref(false), refreshing=ref(false), loaded=ref(false), error=ref(''), data=ref({}), range=ref([])
++const store = useUserStore()
+ const filters=reactive({platform:''})
+ const overall=computed(()=>data.value.overall||{})
+ const hasData=computed(()=>Number(overall.value.total_count||0)>0)
+@@ -63,7 +68,16 @@ function anomalyText(a){
+ }
+ function ratio(v){const n=Number(v||0);return n<=1?n*100:n} function pct(v){return `${ratio(v).toFixed(2)}%`}
+ const MetricTable=defineComponent({props:{rows:Array,label:String},setup(props){return()=>h(ElTable,{data:props.rows||[],border:true},{empty:()=>h(ElEmpty,{description:'无版本分组数据'}),default:()=>[h(ElTableColumn,{prop:'version',label:props.label,minWidth:150}),h(ElTableColumn,{prop:'total_count',label:'总量',width:90}),h(ElTableColumn,{prop:'accepted_count',label:'PASS',width:90}),h(ElTableColumn,{prop:'quarantine_count',label:'隔离',width:90}),h(ElTableColumn,{label:'通过率',width:110},{default:({row})=>pct(row.quality_pass_rate)})]})}})
+-async function load(){loading.value=true;error.value='';try{const params={};Object.entries(filters).forEach(([k,v])=>{if(v)params[k]=v});if(range.value?.length){params.start_at=dayjs(range.value[0]).toISOString();params.end_at=dayjs(range.value[1]).toISOString()}const res=await http.get('/api/management/quality/metrics',{params});data.value=res.data||{}}catch(e){data.value={};error.value=e.response?.data?.detail||e.message||'加载质量指标失败'}finally{loading.value=false}}
++const requestGeneration = createRequestGeneration()
++const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, filters.platform, range.value?.map((value) => String(value)).join(',')))
++async function load(){
++  const token=requestGeneration.next(scope.value); const initial=!loaded.value
++  loading.value=initial; refreshing.value=!initial; error.value=''
++  try{const params={};Object.entries(filters).forEach(([k,v])=>{if(v)params[k]=v});if(range.value?.length){params.start_at=dayjs(range.value[0]).toISOString();params.end_at=dayjs(range.value[1]).toISOString()}const res=await http.get('/api/management/quality/metrics',{params});if(!requestGeneration.isCurrent(token,scope.value))return;data.value=res.data||{};loaded.value=true}
++  catch(e){if(!requestGeneration.isCurrent(token,scope.value))return;error.value=e.response?.data?.detail||e.message||'加载质量指标失败'}
++  finally{if(requestGeneration.isCurrent(token,scope.value)){loading.value=false;refreshing.value=false}}
++}
++watch(()=>viewScope(store.enterpriseId,store.workspaceId),()=>{requestGeneration.reset(scope.value,()=>{data.value={};loaded.value=false;error.value='';loading.value=false;refreshing.value=false});load()})
+ onMounted(load)
+ </script>
+ <style scoped>.metrics{row-gap:12px}.anomaly{margin-top:12px}</style>
+diff --git a/web/src/views/management/QuarantineList.vue b/web/src/views/management/QuarantineList.vue
+index 6475bfd..1cac5c3 100644
+--- a/web/src/views/management/QuarantineList.vue
++++ b/web/src/views/management/QuarantineList.vue
+@@ -11,14 +11,16 @@
+       <el-input v-model="filters.parser_version" clearable placeholder="Parser version" style="width:150px" />
+       <el-input v-model="filters.quality_rules_version" clearable placeholder="Rules version" style="width:150px" />
+       <el-button type="primary" @click="search">查询</el-button>
++      <el-button :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新' }}</el-button>
+       <el-button @click="reset">重置</el-button>
+     </div>
+
+     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
+       <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+     </el-alert>
++    <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前 Quarantine 列表</div>
+     <el-table v-loading="loading" :data="items" border stripe @row-click="openDetail">
+-      <template #empty><el-empty :description="loading ? '正在加载' : '没有匹配的 Quarantine 记录'" /></template>
++      <template #empty><el-empty v-if="loaded && !error" description="没有匹配的 Quarantine 记录" /></template>
+       <el-table-column prop="quarantine_id" label="ID" width="90" />
+       <el-table-column label="时间" width="175"><template #default="{row}">{{ fmt(row.collected_at || row.create_time) }}</template></el-table-column>
+       <el-table-column prop="platform" label="平台" width="100"><template #default="{row}">{{ row.platform || row.platform_code || '-' }}</template></el-table-column>
+@@ -34,7 +36,7 @@
+
+     <el-drawer v-model="drawer" title="Quarantine 详情" size="62%" destroy-on-close>
+       <div v-loading="detailLoading">
+-        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false" />
++        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="openDetail(detail || { quarantine_id: route.query.quarantine_id })">重试</el-button></template></el-alert>
+         <template v-else-if="detail">
+           <el-descriptions :column="2" border>
+             <el-descriptions-item label="Quarantine">#{{ detail.quarantine_id }}</el-descriptions-item>
+@@ -63,14 +65,18 @@
+ </template>
+
+ <script setup>
+-import { onMounted, reactive, ref } from 'vue'
++import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
+ import { useRoute } from 'vue-router'
+ import dayjs from 'dayjs'
+ import http from '@/api/http'
++import { useUserStore } from '@/stores/user'
++import { createRequestGeneration } from '@/utils/requestGeneration'
++import { viewScope } from '@/utils/taskStatus'
+
+ const items = ref([]); const total = ref(0); const page = ref(1); const limit = ref(20)
+ const route = useRoute()
+-const loading = ref(false); const error = ref(''); const range = ref([])
++const store = useUserStore()
++const loading = ref(false); const refreshing = ref(false); const loaded = ref(false); const error = ref(''); const range = ref([])
+ const drawer = ref(false); const detail = ref(null); const detailLoading = ref(false); const detailError = ref('')
+ const filters = reactive({ error_code:'', failure_reason:'', platform:'', product_identity:'', task_id:'', job_id:'', parser_version:'', quality_rules_version:'' })
+ function fmt(v){ return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
+@@ -79,10 +85,14 @@ function join(v){ return parse(v).join(', ') || '-' }
+ function pretty(v){ if(v===undefined || v===null) return '-'; if(typeof v==='string'){try{return JSON.stringify(JSON.parse(v),null,2)}catch{return v}} return JSON.stringify(v,null,2) }
+ function productIdentity(row){ return row.product_identity || row.platform_product_id || row.item_id || '-' }
+ function params(){ const p={page:page.value,limit:limit.value}; Object.entries(filters).forEach(([k,v])=>{if(v!=='')p[k]=v}); if(range.value?.length){p.start_at=dayjs(range.value[0]).toISOString();p.end_at=dayjs(range.value[1]).toISOString()} return p }
+-async function load(){ loading.value=true; error.value=''; try{const res=await http.get('/api/management/quarantines',{params:params()}); items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value)}catch(e){items.value=[];total.value=0;error.value=e.response?.data?.detail||e.message||'加载 Quarantine 失败'}finally{loading.value=false} }
++const listGeneration = createRequestGeneration(); const detailGeneration = createRequestGeneration()
++const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, route.fullPath, page.value, limit.value, JSON.stringify(filters), range.value?.map(String).join(',')))
++async function load(){ const token=listGeneration.next(scope.value);const initial=!loaded.value;loading.value=initial;refreshing.value=!initial;error.value='';try{const res=await http.get('/api/management/quarantines',{params:params()});if(!listGeneration.isCurrent(token,scope.value))return;items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);loaded.value=true}catch(e){if(!listGeneration.isCurrent(token,scope.value))return;error.value=e.response?.data?.detail||e.message||'加载 Quarantine 失败'}finally{if(listGeneration.isCurrent(token,scope.value)){loading.value=false;refreshing.value=false}} }
+ function search(){page.value=1;load()} function reset(){Object.keys(filters).forEach(k=>filters[k]='');range.value=[];search()}
+ function changePage(v){page.value=v;load()} function changeLimit(v){limit.value=v;page.value=1;load()}
+-async function openDetail(row){drawer.value=true;detail.value=null;detailError.value='';detailLoading.value=true;try{const res=await http.get(`/api/management/quarantines/${row.quarantine_id}`);detail.value=res.data}catch(e){detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{detailLoading.value=false}}
++async function openDetail(row){const expected=viewScope(store.enterpriseId,store.workspaceId,row.quarantine_id);const token=detailGeneration.next(expected);drawer.value=true;detailError.value='';detailLoading.value=!detail.value;try{const res=await http.get(`/api/management/quarantines/${row.quarantine_id}`);if(!detailGeneration.isCurrent(token,expected))return;detail.value=res.data}catch(e){if(!detailGeneration.isCurrent(token,expected))return;detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{if(detailGeneration.isCurrent(token,expected))detailLoading.value=false}}
++watch(()=>viewScope(store.enterpriseId,store.workspaceId,route.fullPath),()=>{listGeneration.reset(scope.value,()=>{items.value=[];total.value=0;loaded.value=false;error.value='';loading.value=false;refreshing.value=false});detailGeneration.reset('',()=>{detail.value=null;detailError.value='';detailLoading.value=false});load()})
++onBeforeUnmount(()=>{listGeneration.next('unmounted');detailGeneration.next('unmounted')})
+ onMounted(()=>{Object.keys(filters).forEach(k=>{if(route.query[k]!==undefined)filters[k]=String(route.query[k])});load()})
+ </script>
+ <style scoped>.pager{margin-top:16px;justify-content:flex-end}.block-title{margin-top:22px}pre{white-space:pre-wrap;word-break:break-word;background:#f7f8fa;padding:12px;border-radius:4px}</style>
+diff --git a/web/src/views/tasks/TaskCreate.vue b/web/src/views/tasks/TaskCreate.vue
+index 429820f..4c545be 100644
+--- a/web/src/views/tasks/TaskCreate.vue
++++ b/web/src/views/tasks/TaskCreate.vue
+@@ -24,6 +24,7 @@
+       <template v-if="source === 'excel'"><ExcelMatch embedded :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
+       <el-divider content-position="left">审核摘要</el-divider>
+       <el-alert :title="reviewTitle" :type="review.ready ? 'info' : 'warning'" :closable="false" show-icon />
++      <el-alert v-if="submissionError" :title="submissionError" type="error" :closable="false" show-icon style="margin-top:12px"><template #default><el-button link type="primary" :loading="loading" @click="submit">使用原提交重试</el-button></template></el-alert>
+       <el-table v-if="draftRows.length" :data="draftRows" row-key="row_id" size="small" border style="margin:14px 0">
+         <el-table-column prop="source_row_index" label="行" width="64" />
+         <el-table-column prop="normalized_value" label="输入/目标" min-width="180" />
+@@ -47,7 +48,7 @@ import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelR
+
+ const router = useRouter()
+ const platforms = ref([]); const devices = ref([]); const accounts = ref([])
+-const source = ref('manual'); const loading = ref(false); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
++const source = ref('manual'); const loading = ref(false); const submissionError = ref(''); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
+ let routeGeneration = 0
+ const form = reactive({ task_name: '', task_type: 'collect', platform_code: 'pinduoduo', device_id: null, account_id: null, priority: 5, keywordsText: '', delay_min_sec: 2, delay_max_sec: 5, max_detail: 5, enable_price_sort: false, enable_sales_sort: false, pace_mode: 'steady', item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25, busy_response: 'retry', busy_retry_count: 0, busy_cooldown_sec: 15, risk_cooldown_sec: 60, sold_out_stop_threshold: 2, anomaly_stop_threshold: 3 })
+ const pacePresets = { steady: { item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25 }, balanced: { item_gap_min_sec: 4, item_gap_max_sec: 8, batch_size: 5, batch_cooldown_sec: 20 }, fast: { item_gap_min_sec: 2, item_gap_max_sec: 5, batch_size: 8, batch_cooldown_sec: 10 } }
+@@ -57,7 +58,7 @@ const review = computed(() => reviewDraft(draftRows.value))
+ const enabledPlatforms = computed(() => platforms.value.filter((platform) => Number(platform.enabled) === 1))
+ const reviewTitle = computed(() => `有效目标 ${review.value.ready}；错误 ${review.value.invalid}；去重 ${review.value.duplicate}；排除 ${review.value.excluded}；待选择 ${review.value.choice_required}`)
+ const canSubmit = computed(() => canSubmitDraft(draftRows.value))
+-function invalidateSubmission() { frozenPayload.value = null; submissionId.value = newSubmissionId() }
++function invalidateSubmission() { frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
+ watch(sourceRows, (rows) => { draftRows.value = prepareDraftRows(rows, form.platform_code); invalidateSubmission() }, { immediate: true, deep: true })
+ watch(form, invalidateSubmission, { deep: true })
+ function setExcelRows(rows) { excelRows.value = rows }
+@@ -67,7 +68,7 @@ function config() { normalizeRange(); return { delay_min_sec: form.delay_min_sec
+ function toggleRow(row) { draftRows.value = setRowSelection(draftRows.value, row.row_id, row.selection_status === 'excluded'); invalidateSubmission() }
+ async function load() { const [p, d, a] = await Promise.all([http.get('/api/platforms'), http.get('/api/devices'), http.get('/api/accounts')]); platforms.value = p.data || []; if (!enabledPlatforms.value.some((platform) => platform.platform_code === form.platform_code) && enabledPlatforms.value.length) form.platform_code = enabledPlatforms.value[0].platform_code; devices.value = (d.data || []).filter((x) => x.online); accounts.value = a.data || [] }
+ function nextPayload() { return buildCanonicalPayload({ submissionId: submissionId.value, source: source.value, task: { task_name: form.task_name || `采集任务-${new Date().toLocaleString()}`, task_type: form.task_type, platform_code: form.platform_code, device_id: form.device_id, priority: form.priority, config: config() }, rows: draftRows.value }) }
+-async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } finally { if (requestGeneration === routeGeneration) loading.value = false } }
++async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; submissionError.value = ''; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } catch (error) { if (requestGeneration === routeGeneration) { submissionError.value = '创建未确认：已保留当前审核内容，可使用同一提交重试。'; ElMessage.error(submissionError.value) } throw error } finally { if (requestGeneration === routeGeneration) loading.value = false } }
+ onMounted(load)
+ onBeforeRouteLeave(() => { routeGeneration += 1; return true })
+ </script>
+diff --git a/web/src/views/tasks/TaskDetail.vue b/web/src/views/tasks/TaskDetail.vue
+index 1e97379..a81207b 100644
+--- a/web/src/views/tasks/TaskDetail.vue
++++ b/web/src/views/tasks/TaskDetail.vue
+@@ -11,12 +11,13 @@
+         <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+       </el-alert>
+       <div v-loading="taskLoading">
++      <div v-if="taskRefreshing" class="refreshing-hint">正在刷新，保留当前任务详情</div>
+       <el-empty v-if="!taskLoading && !taskError && !task" description="任务不存在或当前租户不可见" />
+       <el-descriptions v-else-if="task" :column="3" border>
+         <el-descriptions-item label="任务">#{{ task.task_id }} {{ task.task_name }}</el-descriptions-item>
+         <el-descriptions-item label="平台">{{ task.platform_code }}</el-descriptions-item>
+         <el-descriptions-item label="任务状态">
+-          <el-tag :type="taskStatusType(task.status)">{{ task.ui_status }}</el-tag>
++          <el-tag :type="taskStatusType(task.status)">{{ taskStatusTextFor(task) }}</el-tag>
+         </el-descriptions-item>
+         <el-descriptions-item label="进度">
+           成功 {{ okItems.length }} / 失败 {{ failItems.length }} / 待处理 {{ pendingItems.length }} / 目标 {{ items.length }}
+@@ -46,6 +47,7 @@
+     </div>
+
+     <div class="page-card" v-loading="resultsLoading">
++      <div v-if="resultsRefreshing" class="refreshing-hint">正在刷新，保留当前采集结果</div>
+       <div class="toolbar">
+         <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
+         <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
+@@ -56,7 +58,7 @@
+         <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
+       </el-alert>
+       <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
+-        <template #empty><el-empty :description="resultsLoading ? '正在加载本次采集结果' : '该 Task 暂无采集结果'" /></template>
++        <template #empty><el-empty v-if="resultsLoaded && !resultsError" description="该 Task 暂无采集结果" /></template>
+         <el-table-column type="selection" width="48" :selectable="canSelectResult" />
+         <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
+         <el-table-column prop="canonical_name" label="规范商品名称" min-width="160" />
+@@ -158,15 +160,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
+ import http from '@/api/http'
+ import { useUserStore } from '@/stores/user'
+ import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
++import { taskStatusText, taskStatusType as mappedTaskStatusType } from '@/utils/taskStatus'
+
+ const route = useRoute()
+ const router = useRouter()
+ const store = useUserStore()
+ const task = ref(null)
+ const taskLoading = ref(false)
++const taskRefreshing = ref(false)
++const taskLoaded = ref(false)
+ const taskError = ref('')
+ const taskResults = ref([])
+ const resultsLoading = ref(false)
++const resultsRefreshing = ref(false)
++const resultsLoaded = ref(false)
+ const resultsError = ref('')
+ const selectedProducts = ref([])
+ const resultPage = ref(1)
+@@ -211,9 +218,8 @@ function matchStatusText(row) {
+ function matchStatusType(row) {
+   return { succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
+ }
+-function taskStatusType(status) {
+-  return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
+-}
++function taskStatusType(status) { return mappedTaskStatusType(status) }
++function taskStatusTextFor(taskRow) { return taskStatusText(taskRow?.status, taskRow?.ui_status) }
+
+ function requestError(e, fallback) {
+   if (e.response?.status === 403) return `无权限（403）：${fallback}`
+@@ -244,25 +250,29 @@ async function load() {
+ async function loadTask() {
+   const expectedTaskId = String(route.params.id)
+   const token = requestGeneration.capture()
+-  taskLoading.value = true
++  const initial = !taskLoaded.value
++  taskLoading.value = initial
++  taskRefreshing.value = !initial
+   taskError.value = ''
+   try {
+     const res = await http.get(`/api/tasks/${expectedTaskId}`)
+     if (!requestGeneration.isCurrent(token, route.params.id)) return
+     task.value = res.data || null
++    taskLoaded.value = true
+   } catch (e) {
+     if (!requestGeneration.isCurrent(token, route.params.id)) return
+-    task.value = null
+     taskError.value = requestError(e, '加载任务失败')
+   } finally {
+-    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
++    if (requestGeneration.isCurrent(token, route.params.id)) { taskLoading.value = false; taskRefreshing.value = false }
+   }
+ }
+
+ async function loadResults() {
+   const expectedTaskId = String(route.params.id)
+   const token = requestGeneration.capture()
+-  resultsLoading.value = true
++  const initial = !resultsLoaded.value
++  resultsLoading.value = initial
++  resultsRefreshing.value = !initial
+   resultsError.value = ''
+   try {
+     const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
+@@ -274,14 +284,13 @@ async function loadResults() {
+     resultPage.value = Number(res.data?.page || resultPage.value)
+     resultLimit.value = Number(res.data?.limit || resultLimit.value)
+     selectedProducts.value = []
++    resultsLoaded.value = true
+   } catch (e) {
+     if (!requestGeneration.isCurrent(token, route.params.id)) return
+-    taskResults.value = []
+     selectedProducts.value = []
+-    resultTotal.value = 0
+     resultsError.value = requestError(e, '加载本次采集结果失败')
+   } finally {
+-    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
++    if (requestGeneration.isCurrent(token, route.params.id)) { resultsLoading.value = false; resultsRefreshing.value = false }
+   }
+ }
+ function changeResultPage(value) { resultPage.value = value; loadResults() }
+@@ -321,8 +330,8 @@ async function requeueFails() {
+ }
+
+ function resetTaskState() {
+-  task.value=null;taskError.value='';taskLoading.value=false
+-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
++  task.value=null;taskError.value='';taskLoading.value=false;taskRefreshing.value=false;taskLoaded.value=false
++  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultsRefreshing.value=false;resultsLoaded.value=false;resultTotal.value=0;resultPage.value=1
+   selectedProducts.value=[];editVisible.value=false
+   Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
+ }
+diff --git a/web/src/views/tasks/TaskList.vue b/web/src/views/tasks/TaskList.vue
+index fcc03f3..8dcdee4 100644
+--- a/web/src/views/tasks/TaskList.vue
++++ b/web/src/views/tasks/TaskList.vue
+@@ -16,14 +16,15 @@
+     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" style="margin-bottom:12px">
+       <template #default><el-button link type="primary" @click="load">重试</el-button></template>
+     </el-alert>
+-    <el-table v-loading="loading" :data="list" stripe border @row-click="goDetail">
+-      <template #empty><el-empty :description="loading ? '正在加载' : (error ? '任务列表加载失败' : '暂无任务')" /></template>
++    <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前任务列表</div>
++      <el-table v-loading="loading" :data="list" stripe border @row-click="goDetail">
++      <template #empty><el-empty v-if="loaded && !error" description="暂无任务" /></template>
+       <el-table-column prop="task_id" label="任务ID" width="90" />
+       <el-table-column prop="task_name" label="任务名称" min-width="160" />
+       <el-table-column prop="platform_code" label="平台" width="110" />
+       <el-table-column label="状态" width="110">
+         <template #default="{ row }">
+-          <el-tag :type="tagType(row.ui_status)" effect="light">{{ row.ui_status }}</el-tag>
++          <el-tag :type="tagType(row)" effect="light">{{ statusText(row) }}</el-tag>
+         </template>
+       </el-table-column>
+       <el-table-column label="数量" width="160">
+@@ -59,18 +60,22 @@
+ </template>
+
+ <script setup>
+-import { onMounted, ref } from 'vue'
++import { computed, onMounted, ref, watch } from 'vue'
+ import { ElMessage, ElMessageBox } from 'element-plus'
+ import { useRouter } from 'vue-router'
+ import dayjs from 'dayjs'
+ import http from '@/api/http'
+ import { useUserStore } from '@/stores/user'
++import { createRequestGeneration } from '@/utils/requestGeneration'
++import { taskStatusText, taskStatusType, viewScope } from '@/utils/taskStatus'
+
+ const store = useUserStore()
+ const router = useRouter()
+ const list = ref([])
+ const status = ref('')
+ const loading = ref(false)
++const refreshing = ref(false)
++const loaded = ref(false)
+ const page = ref(1)
+ const limit = ref(20)
+ const total = ref(0)
+@@ -80,12 +85,10 @@ function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
+ function countText(row) {
+   return `${row.success_count || 0}/${row.fail_count || 0} / ${row.target_count || 0}`
+ }
+-function tagType(s) {
+-  if (s === '全部完成') return 'success'
+-  if (s === '执行中' || s === '部分成功') return 'warning'
+-  if (s === '执行失败') return 'danger'
+-  return 'info'
+-}
++const requestGeneration = createRequestGeneration()
++const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, status.value, page.value, limit.value))
++function tagType(row) { return taskStatusType(row.status) }
++function statusText(row) { return taskStatusText(row.status, row.ui_status) }
+ function goDetail(row) {
+   router.push(`/tasks/${row.task_id}`)
+ }
+@@ -100,22 +103,34 @@ async function review(row, decision) {
+ }
+
+ async function load() {
+-  loading.value = true
++  const expected = scope.value
++  const token = requestGeneration.next(expected)
++  const initial = !loaded.value
++  loading.value = initial
++  refreshing.value = !initial
+   error.value = ''
+   try {
+     const params = new URLSearchParams({ page: String(page.value), limit: String(limit.value) })
+     if (status.value) params.set('status', status.value)
+     const res = await http.get(`/api/tasks?${params}`)
++    if (!requestGeneration.isCurrent(token, scope.value)) return
+     list.value = res.data?.items || []
+-    total.value = res.data?.total || 0
++    total.value = Number(res.data?.total || 0)
++    loaded.value = true
+   } catch (e) {
+-    list.value = []
+-    total.value = 0
++    if (!requestGeneration.isCurrent(token, scope.value)) return
+     error.value = e?.message || e?.detail || '任务列表加载失败'
+   } finally {
+-    loading.value = false
++    if (requestGeneration.isCurrent(token, scope.value)) {
++      loading.value = false
++      refreshing.value = false
++    }
+   }
+ }
+ function applyFilters() { page.value = 1; load() }
++watch(() => viewScope(store.enterpriseId, store.workspaceId), () => {
++  requestGeneration.reset(scope.value, () => { list.value = []; total.value = 0; loaded.value = false; error.value = ''; loading.value = false; refreshing.value = false })
++  load()
++})
+ onMounted(load)
+ </script>

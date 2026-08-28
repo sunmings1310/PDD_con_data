@@ -4,10 +4,11 @@
       <div class="toolbar">
         <el-date-picker v-model="range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" />
         <el-input v-model="filters.platform" clearable placeholder="平台" style="width:130px" />
-        <el-button type="primary" @click="load">刷新指标</el-button>
+        <el-button type="primary" :loading="loading || refreshing" @click="load">{{ refreshing ? '正在刷新' : '刷新指标' }}</el-button>
       </div>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="load">重试</el-button></template></el-alert>
       <div v-loading="loading">
+        <div v-if="refreshing" class="refreshing-hint">正在刷新，保留当前质量指标</div>
         <el-empty v-if="!loading && !error && !hasData" description="当前筛选范围内暂无质量数据" />
         <template v-else-if="hasData">
           <el-row :gutter="12" class="metrics">
@@ -31,12 +32,16 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
 import { ElEmpty, ElTable, ElTableColumn } from 'element-plus'
 import dayjs from 'dayjs'
 import http from '@/api/http'
+import { useUserStore } from '@/stores/user'
+import { createRequestGeneration } from '@/utils/requestGeneration'
+import { viewScope } from '@/utils/taskStatus'
 
-const loading=ref(false), error=ref(''), data=ref({}), range=ref([])
+const loading=ref(false), refreshing=ref(false), loaded=ref(false), error=ref(''), data=ref({}), range=ref([])
+const store = useUserStore()
 const filters=reactive({platform:''})
 const overall=computed(()=>data.value.overall||{})
 const hasData=computed(()=>Number(overall.value.total_count||0)>0)
@@ -63,7 +68,16 @@ function anomalyText(a){
 }
 function ratio(v){const n=Number(v||0);return n<=1?n*100:n} function pct(v){return `${ratio(v).toFixed(2)}%`}
 const MetricTable=defineComponent({props:{rows:Array,label:String},setup(props){return()=>h(ElTable,{data:props.rows||[],border:true},{empty:()=>h(ElEmpty,{description:'无版本分组数据'}),default:()=>[h(ElTableColumn,{prop:'version',label:props.label,minWidth:150}),h(ElTableColumn,{prop:'total_count',label:'总量',width:90}),h(ElTableColumn,{prop:'accepted_count',label:'PASS',width:90}),h(ElTableColumn,{prop:'quarantine_count',label:'隔离',width:90}),h(ElTableColumn,{label:'通过率',width:110},{default:({row})=>pct(row.quality_pass_rate)})]})}})
-async function load(){loading.value=true;error.value='';try{const params={};Object.entries(filters).forEach(([k,v])=>{if(v)params[k]=v});if(range.value?.length){params.start_at=dayjs(range.value[0]).toISOString();params.end_at=dayjs(range.value[1]).toISOString()}const res=await http.get('/api/management/quality/metrics',{params});data.value=res.data||{}}catch(e){data.value={};error.value=e.response?.data?.detail||e.message||'加载质量指标失败'}finally{loading.value=false}}
+const requestGeneration = createRequestGeneration()
+const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, filters.platform, range.value?.map((value) => String(value)).join(',')))
+async function load(){
+  const token=requestGeneration.next(scope.value); const initial=!loaded.value
+  loading.value=initial; refreshing.value=!initial; error.value=''
+  try{const params={};Object.entries(filters).forEach(([k,v])=>{if(v)params[k]=v});if(range.value?.length){params.start_at=dayjs(range.value[0]).toISOString();params.end_at=dayjs(range.value[1]).toISOString()}const res=await http.get('/api/management/quality/metrics',{params});if(!requestGeneration.isCurrent(token,scope.value))return;data.value=res.data||{};loaded.value=true}
+  catch(e){if(!requestGeneration.isCurrent(token,scope.value))return;error.value=e.response?.data?.detail||e.message||'加载质量指标失败'}
+  finally{if(requestGeneration.isCurrent(token,scope.value)){loading.value=false;refreshing.value=false}}
+}
+watch(()=>viewScope(store.enterpriseId,store.workspaceId),()=>{requestGeneration.reset(scope.value,()=>{data.value={};loaded.value=false;error.value='';loading.value=false;refreshing.value=false});load()})
 onMounted(load)
 </script>
 <style scoped>.metrics{row-gap:12px}.anomaly{margin-top:12px}</style>

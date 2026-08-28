@@ -24,6 +24,7 @@
       <template v-if="source === 'excel'"><ExcelMatch embedded :platform-code="form.platform_code" @draft-rows="setExcelRows" /></template>
       <el-divider content-position="left">审核摘要</el-divider>
       <el-alert :title="reviewTitle" :type="review.ready ? 'info' : 'warning'" :closable="false" show-icon />
+      <el-alert v-if="submissionError" :title="submissionError" type="error" :closable="false" show-icon style="margin-top:12px"><template #default><el-button link type="primary" :loading="loading" @click="submit">使用原提交重试</el-button></template></el-alert>
       <el-table v-if="draftRows.length" :data="draftRows" row-key="row_id" size="small" border style="margin:14px 0">
         <el-table-column prop="source_row_index" label="行" width="64" />
         <el-table-column prop="normalized_value" label="输入/目标" min-width="180" />
@@ -47,7 +48,7 @@ import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelR
 
 const router = useRouter()
 const platforms = ref([]); const devices = ref([]); const accounts = ref([])
-const source = ref('manual'); const loading = ref(false); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
+const source = ref('manual'); const loading = ref(false); const submissionError = ref(''); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
 let routeGeneration = 0
 const form = reactive({ task_name: '', task_type: 'collect', platform_code: 'pinduoduo', device_id: null, account_id: null, priority: 5, keywordsText: '', delay_min_sec: 2, delay_max_sec: 5, max_detail: 5, enable_price_sort: false, enable_sales_sort: false, pace_mode: 'steady', item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25, busy_response: 'retry', busy_retry_count: 0, busy_cooldown_sec: 15, risk_cooldown_sec: 60, sold_out_stop_threshold: 2, anomaly_stop_threshold: 3 })
 const pacePresets = { steady: { item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25 }, balanced: { item_gap_min_sec: 4, item_gap_max_sec: 8, batch_size: 5, batch_cooldown_sec: 20 }, fast: { item_gap_min_sec: 2, item_gap_max_sec: 5, batch_size: 8, batch_cooldown_sec: 10 } }
@@ -57,7 +58,7 @@ const review = computed(() => reviewDraft(draftRows.value))
 const enabledPlatforms = computed(() => platforms.value.filter((platform) => Number(platform.enabled) === 1))
 const reviewTitle = computed(() => `有效目标 ${review.value.ready}；错误 ${review.value.invalid}；去重 ${review.value.duplicate}；排除 ${review.value.excluded}；待选择 ${review.value.choice_required}`)
 const canSubmit = computed(() => canSubmitDraft(draftRows.value))
-function invalidateSubmission() { frozenPayload.value = null; submissionId.value = newSubmissionId() }
+function invalidateSubmission() { frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
 watch(sourceRows, (rows) => { draftRows.value = prepareDraftRows(rows, form.platform_code); invalidateSubmission() }, { immediate: true, deep: true })
 watch(form, invalidateSubmission, { deep: true })
 function setExcelRows(rows) { excelRows.value = rows }
@@ -67,7 +68,7 @@ function config() { normalizeRange(); return { delay_min_sec: form.delay_min_sec
 function toggleRow(row) { draftRows.value = setRowSelection(draftRows.value, row.row_id, row.selection_status === 'excluded'); invalidateSubmission() }
 async function load() { const [p, d, a] = await Promise.all([http.get('/api/platforms'), http.get('/api/devices'), http.get('/api/accounts')]); platforms.value = p.data || []; if (!enabledPlatforms.value.some((platform) => platform.platform_code === form.platform_code) && enabledPlatforms.value.length) form.platform_code = enabledPlatforms.value[0].platform_code; devices.value = (d.data || []).filter((x) => x.online); accounts.value = a.data || [] }
 function nextPayload() { return buildCanonicalPayload({ submissionId: submissionId.value, source: source.value, task: { task_name: form.task_name || `采集任务-${new Date().toLocaleString()}`, task_type: form.task_type, platform_code: form.platform_code, device_id: form.device_id, priority: form.priority, config: config() }, rows: draftRows.value }) }
-async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } finally { if (requestGeneration === routeGeneration) loading.value = false } }
+async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; submissionError.value = ''; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } catch (error) { if (requestGeneration === routeGeneration) { submissionError.value = '创建未确认：已保留当前审核内容，可使用同一提交重试。'; ElMessage.error(submissionError.value) } throw error } finally { if (requestGeneration === routeGeneration) loading.value = false } }
 onMounted(load)
 onBeforeRouteLeave(() => { routeGeneration += 1; return true })
 </script>

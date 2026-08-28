@@ -11,12 +11,13 @@
         <template #default><el-button link type="primary" @click="load">重试</el-button></template>
       </el-alert>
       <div v-loading="taskLoading">
+      <div v-if="taskRefreshing" class="refreshing-hint">正在刷新，保留当前任务详情</div>
       <el-empty v-if="!taskLoading && !taskError && !task" description="任务不存在或当前租户不可见" />
       <el-descriptions v-else-if="task" :column="3" border>
         <el-descriptions-item label="任务">#{{ task.task_id }} {{ task.task_name }}</el-descriptions-item>
         <el-descriptions-item label="平台">{{ task.platform_code }}</el-descriptions-item>
         <el-descriptions-item label="任务状态">
-          <el-tag :type="taskStatusType(task.status)">{{ task.ui_status }}</el-tag>
+          <el-tag :type="taskStatusType(task.status)">{{ taskStatusTextFor(task) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="进度">
           成功 {{ okItems.length }} / 失败 {{ failItems.length }} / 待处理 {{ pendingItems.length }} / 目标 {{ items.length }}
@@ -46,6 +47,7 @@
     </div>
 
     <div class="page-card" v-loading="resultsLoading">
+      <div v-if="resultsRefreshing" class="refreshing-hint">正在刷新，保留当前采集结果</div>
       <div class="toolbar">
         <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
         <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
@@ -56,7 +58,7 @@
         <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
       </el-alert>
       <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
-        <template #empty><el-empty :description="resultsLoading ? '正在加载本次采集结果' : '该 Task 暂无采集结果'" /></template>
+        <template #empty><el-empty v-if="resultsLoaded && !resultsError" description="该 Task 暂无采集结果" /></template>
         <el-table-column type="selection" width="48" :selectable="canSelectResult" />
         <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
         <el-table-column prop="canonical_name" label="规范商品名称" min-width="160" />
@@ -158,15 +160,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
+import { taskStatusText, taskStatusType as mappedTaskStatusType } from '@/utils/taskStatus'
 
 const route = useRoute()
 const router = useRouter()
 const store = useUserStore()
 const task = ref(null)
 const taskLoading = ref(false)
+const taskRefreshing = ref(false)
+const taskLoaded = ref(false)
 const taskError = ref('')
 const taskResults = ref([])
 const resultsLoading = ref(false)
+const resultsRefreshing = ref(false)
+const resultsLoaded = ref(false)
 const resultsError = ref('')
 const selectedProducts = ref([])
 const resultPage = ref(1)
@@ -211,9 +218,8 @@ function matchStatusText(row) {
 function matchStatusType(row) {
   return { succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[row.status] || 'warning'
 }
-function taskStatusType(status) {
-  return { pending: 'info', running: 'warning', succeeded: 'success', partially_succeeded: 'warning', done: 'success', failed: 'danger', cancelled: 'info', timed_out: 'danger' }[status] || 'info'
-}
+function taskStatusType(status) { return mappedTaskStatusType(status) }
+function taskStatusTextFor(taskRow) { return taskStatusText(taskRow?.status, taskRow?.ui_status) }
 
 function requestError(e, fallback) {
   if (e.response?.status === 403) return `无权限（403）：${fallback}`
@@ -244,25 +250,29 @@ async function load() {
 async function loadTask() {
   const expectedTaskId = String(route.params.id)
   const token = requestGeneration.capture()
-  taskLoading.value = true
+  const initial = !taskLoaded.value
+  taskLoading.value = initial
+  taskRefreshing.value = !initial
   taskError.value = ''
   try {
     const res = await http.get(`/api/tasks/${expectedTaskId}`)
     if (!requestGeneration.isCurrent(token, route.params.id)) return
     task.value = res.data || null
+    taskLoaded.value = true
   } catch (e) {
     if (!requestGeneration.isCurrent(token, route.params.id)) return
-    task.value = null
     taskError.value = requestError(e, '加载任务失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) taskLoading.value = false
+    if (requestGeneration.isCurrent(token, route.params.id)) { taskLoading.value = false; taskRefreshing.value = false }
   }
 }
 
 async function loadResults() {
   const expectedTaskId = String(route.params.id)
   const token = requestGeneration.capture()
-  resultsLoading.value = true
+  const initial = !resultsLoaded.value
+  resultsLoading.value = initial
+  resultsRefreshing.value = !initial
   resultsError.value = ''
   try {
     const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
@@ -274,14 +284,13 @@ async function loadResults() {
     resultPage.value = Number(res.data?.page || resultPage.value)
     resultLimit.value = Number(res.data?.limit || resultLimit.value)
     selectedProducts.value = []
+    resultsLoaded.value = true
   } catch (e) {
     if (!requestGeneration.isCurrent(token, route.params.id)) return
-    taskResults.value = []
     selectedProducts.value = []
-    resultTotal.value = 0
     resultsError.value = requestError(e, '加载本次采集结果失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) resultsLoading.value = false
+    if (requestGeneration.isCurrent(token, route.params.id)) { resultsLoading.value = false; resultsRefreshing.value = false }
   }
 }
 function changeResultPage(value) { resultPage.value = value; loadResults() }
@@ -321,8 +330,8 @@ async function requeueFails() {
 }
 
 function resetTaskState() {
-  task.value=null;taskError.value='';taskLoading.value=false
-  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultTotal.value=0;resultPage.value=1
+  task.value=null;taskError.value='';taskLoading.value=false;taskRefreshing.value=false;taskLoaded.value=false
+  taskResults.value=[];resultsError.value='';resultsLoading.value=false;resultsRefreshing.value=false;resultsLoaded.value=false;resultTotal.value=0;resultPage.value=1
   selectedProducts.value=[];editVisible.value=false
   Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 }
