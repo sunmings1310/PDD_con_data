@@ -205,7 +205,8 @@ const percent = computed(() => {
 function fmt(v) { return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 
 function itemStatusText(status) {
-  return { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }[status] || status || '-'
+  const labels = { pending: '待采集', running: '采集中', succeeded: '采集成功', done: '采集成功', not_matched: '未匹配', failed: '采集失败', cancelled: '已取消' }
+  return labels[status] || `未知状态（${status || '-'}）`
 }
 function itemStatusType(status) {
   return { pending: 'info', running: 'warning', succeeded: 'success', done: 'success', not_matched: 'warning', failed: 'danger', cancelled: 'info' }[status] || 'info'

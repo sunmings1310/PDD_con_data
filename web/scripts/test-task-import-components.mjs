@@ -130,7 +130,7 @@ const pushes = []
 globalThis.__componentRouter = { push: async (target) => { pushes.push(target) } }
 globalThis.__componentHttp = {
   get: async () => ({ data: [] }),
-  post(url, body) { const request = { url, body, deferred: deferred() }; posts.push(request); return request.deferred.promise },
+  post(url, body, config) { const request = { url, body, config, deferred: deferred() }; posts.push(request); return request.deferred.promise },
 }
 const { default: TaskCreate } = await loadComponent('src/views/tasks/TaskCreate.vue')
 const mounted = mount(TaskCreate)
@@ -156,6 +156,9 @@ const edited = taskState.submit()
 assert.notEqual(posts[3].body.submission_id, posts[0].body.submission_id)
 globalThis.__componentStore.enterpriseId = 'tenant-b'
 await nextTick()
+assert.equal(posts[3].config.signal.aborted, true)
+assert.equal(taskState.loading, false)
+assert.equal(taskState.canSubmit, true)
 posts[3].deferred.resolve({ data: { task_id: 8 } })
 await edited
 assert.equal(pushes.includes('/tasks/8'), false)
@@ -232,6 +235,8 @@ const oldTaskRefresh = detailPage.proxy.$.setupState.loadTask(); const oldTaskRe
 const currentTaskRefresh = detailPage.proxy.$.setupState.loadTask(); const currentTaskRequest = stateRequests.shift()
 await settle(oldTaskRequest, { task_id: 99, status: 'succeeded', items: [] }); await settle(currentTaskRequest, { task_id: 1, status: 'running', items: [] }); await Promise.all([oldTaskRefresh, currentTaskRefresh])
 assert.equal(detailPage.proxy.$.setupState.task.task_id, 1)
+assert.equal(detailPage.proxy.$.setupState.taskStatusTextFor({ ui_status: 'running' }), '执行中')
+assert.equal(detailPage.proxy.$.setupState.itemStatusText('raw-item-status'), '未知状态（raw-item-status）')
 const oldResultsRefresh = detailPage.proxy.$.setupState.loadResults(); const oldResultsRequest = stateRequests.shift()
 const currentResultsRefresh = detailPage.proxy.$.setupState.loadResults(); const currentResultsRequest = stateRequests.shift()
 await settle(oldResultsRequest, { items: [{ product_id: 99 }], total: 1 }); await settle(currentResultsRequest, { items: [{ product_id: 1 }], total: 1 }); await Promise.all([oldResultsRefresh, currentResultsRefresh])

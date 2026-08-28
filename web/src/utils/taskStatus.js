@@ -16,7 +16,7 @@ export const TASK_STATUS_TYPES = Object.freeze({
 
 export function taskStatusText(status, fallback) {
   const raw = status || fallback
-  return TASK_STATUS_LABELS[status] || `未知状态（${raw || '-'}）`
+  return TASK_STATUS_LABELS[status] || TASK_STATUS_LABELS[fallback] || `未知状态（${raw || '-'}）`
 }
 
 export function taskStatusType(status) {

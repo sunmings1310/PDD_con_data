@@ -158,3 +158,9 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 - Status：`DEV_COMPLETE_AWAITING_RE_REVIEW`。
 - Code baseline for initial Dev commit：`45058aaa71c40aaacd4403795dc1563fd0852f5c`；本 Review Fix code candidate：`66972bb4ec08647dd77c4c56e4c0fd9c5fc1e1f4`；后续证据包装提交不在内容中预写自身 SHA。
 - Oracle / real device：`SKIPPED_NOT_APPLICABLE`（仅 Web 状态层，未触及 Server SQL/transaction/schema 或 Android）。
+
+## Second Re-review Fix
+
+- Final `--unified=0` DIFF is a prior-wrapper-to-final business/governance target range and excludes self-referential artifacts; it is reverse-checked with `--unidiff-zero`.
+- TaskCreate context abort/loading fence, safe status fallback/item raw handling, and changed-byte rollback precondition are covered by mounted tests and rollback probe.
+- Evidence wrapper SHA is determined after commit; no document prewrites its own SHA.
