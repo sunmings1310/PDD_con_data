@@ -39,7 +39,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import ExcelMatch from '@/views/excel/ExcelMatch.vue'
@@ -48,6 +48,7 @@ import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelR
 const router = useRouter()
 const platforms = ref([]); const devices = ref([]); const accounts = ref([])
 const source = ref('manual'); const loading = ref(false); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
+let routeGeneration = 0
 const form = reactive({ task_name: '', task_type: 'collect', platform_code: 'pinduoduo', device_id: null, account_id: null, priority: 5, keywordsText: '', delay_min_sec: 2, delay_max_sec: 5, max_detail: 5, enable_price_sort: false, enable_sales_sort: false, pace_mode: 'steady', item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25, busy_response: 'retry', busy_retry_count: 0, busy_cooldown_sec: 15, risk_cooldown_sec: 60, sold_out_stop_threshold: 2, anomaly_stop_threshold: 3 })
 const pacePresets = { steady: { item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25 }, balanced: { item_gap_min_sec: 4, item_gap_max_sec: 8, batch_size: 5, batch_cooldown_sec: 20 }, fast: { item_gap_min_sec: 2, item_gap_max_sec: 5, batch_size: 8, batch_cooldown_sec: 10 } }
 const sourceRows = computed(() => source.value === 'manual' ? normalizeManualRows(form.keywordsText, form.platform_code) : normalizeExcelRows(excelRows.value, form.platform_code))
@@ -66,8 +67,9 @@ function config() { normalizeRange(); return { delay_min_sec: form.delay_min_sec
 function toggleRow(row) { draftRows.value = setRowSelection(draftRows.value, row.row_id, row.selection_status === 'excluded'); invalidateSubmission() }
 async function load() { const [p, d, a] = await Promise.all([http.get('/api/platforms'), http.get('/api/devices'), http.get('/api/accounts')]); platforms.value = p.data || []; if (!enabledPlatforms.value.some((platform) => platform.platform_code === form.platform_code) && enabledPlatforms.value.length) form.platform_code = enabledPlatforms.value[0].platform_code; devices.value = (d.data || []).filter((x) => x.online); accounts.value = a.data || [] }
 function nextPayload() { return buildCanonicalPayload({ submissionId: submissionId.value, source: source.value, task: { task_name: form.task_name || `采集任务-${new Date().toLocaleString()}`, task_type: form.task_type, platform_code: form.platform_code, device_id: form.device_id, priority: form.priority, config: config() }, rows: draftRows.value }) }
-async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); router.push(`/tasks/${res.data.task_id}`) } finally { loading.value = false } }
+async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } finally { if (requestGeneration === routeGeneration) loading.value = false } }
 onMounted(load)
+onBeforeRouteLeave(() => { routeGeneration += 1; return true })
 </script>
 
 <style scoped>.form-hint { color:#86909c;font-size:12px;line-height:1.5 }.inline-hint { margin-left:10px }.range-separator { margin:0 8px;color:#86909c }.compact-number { width:110px;margin:0 8px }</style>

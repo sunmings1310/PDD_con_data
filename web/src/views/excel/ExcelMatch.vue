@@ -151,7 +151,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
@@ -177,6 +177,8 @@ const dispatching = ref(false)
 const candidateDialog = ref(false)
 const activeRow = ref(null)
 const tableRef = ref(null)
+let matchGeneration = 0
+let matchAbort = null
 const unmatchedRows = computed(() => rows.value.filter((row) => !row.matched))
 const availableDevices = computed(() => devices.value.filter(
   (device) => device.online && device.platform_code === platform.value,
@@ -187,14 +189,20 @@ watch(availableDevices, (items) => {
     deviceId.value = items.length === 1 ? items[0].device_id : null
   }
 })
+function invalidateMatchRows() {
+  matchGeneration += 1
+  matchAbort?.abort()
+  matchAbort = null
+  rows.value = []
+  stats.value = null
+  emitDraftRows(matchGeneration, platform.value)
+}
+watch(platform, (value, previous) => {
+  if (previous && value !== previous) invalidateMatchRows()
+})
 watch(() => props.platformCode, (value) => {
   if (props.embedded && value && value !== platform.value) {
     platform.value = value
-    // Match results are tenant/platform scoped.  Do not let a parent platform
-    // switch submit stale rows from the old context.
-    rows.value = []
-    stats.value = null
-    emitDraftRows()
   }
 }, { immediate: true })
 
@@ -216,26 +224,35 @@ async function downloadTemplate() {
 }
 
 async function uploadMatch({ file }) {
+  matchAbort?.abort()
+  const requestGeneration = ++matchGeneration
+  const requestPlatform = platform.value
+  const controller = new AbortController()
+  matchAbort = controller
   uploading.value = true
   selectedRows.value = []
   try {
     const form = new FormData()
     form.append('file', file)
     const response = await http.post(
-      `/api/excel/match?platform_code=${encodeURIComponent(platform.value)}`,
+      `/api/excel/match?platform_code=${encodeURIComponent(requestPlatform)}`,
       form,
+      { signal: controller.signal },
     )
+    if (requestGeneration !== matchGeneration || requestPlatform !== platform.value) return
     rows.value = response.data.rows || []
     stats.value = response.data
-    emitDraftRows()
+    emitDraftRows(requestGeneration, requestPlatform)
     ElMessage.success('匹配完成')
   } finally {
-    uploading.value = false
+    if (requestGeneration === matchGeneration) uploading.value = false
   }
 }
 
-function emitDraftRows() {
-  if (props.embedded) emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
+function emitDraftRows(expectedGeneration = matchGeneration, expectedPlatform = platform.value) {
+  if (props.embedded && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
+    emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
+  }
 }
 
 function openCandidates(row) {
@@ -334,6 +351,7 @@ onMounted(async () => {
     platform.value = platforms.value[0].platform_code
   }
 })
+onBeforeUnmount(() => matchAbort?.abort())
 </script>
 
 <style scoped>

@@ -32,7 +32,7 @@ from server.main import tenant_media  # noqa: E402
 from server.media_access import _signature, signed_media_url  # noqa: E402
 from server.ota_meta import apk_dir, save_meta  # noqa: E402
 from server.quota import (ACTIVE_TASK, DAILY_SNAPSHOT, STORAGE_BYTES, QuotaExceeded,
-                          period_key, reserve_and_commit)  # noqa: E402
+                          commit, period_key, release, reserve, reserve_and_commit)  # noqa: E402
 from server.routers import cast, dashboard, devices, jobs, ota, products, tasks  # noqa: E402
 from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn, TaskCreateIn
 from server.task_creation_service import create_canonical_task  # noqa: E402
@@ -478,7 +478,33 @@ class Phase55OracleFinalGate(unittest.TestCase):
             self.assertEqual(1, int(cur.fetchone()[0]))
             cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:id", {"id": first["task_id"]})
             self.assertEqual(1, int(cur.fetchone()[0]))
+
+            # These are rejected before any Task row can be made, while still
+            # using the accepted platform/quota tables in this Oracle session.
+            duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
+                "targets": [*body.model_dump()["targets"], {"row_id": "excel:3", "source": "excel",
+                    "source_row_index": 3, "keyword": "药品A"}]})
+            result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("DUPLICATE_TARGET", error)
+            disabled = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-disabled",
+                "platform_code": "tmall", "targets": [{"row_id": "excel:4", "source": "excel",
+                    "source_row_index": 4, "platform_code": "tmall", "keyword": "平台关闭目标"}]})
+            result, error = create_canonical_task(cur, body=disabled, tenant=context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("PLATFORM_NOT_AVAILABLE", error)
             self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
+
+        with get_conn() as conn:
+            cur = conn.cursor()
+            quota_enterprise, quota_workspace = self._tenant(cur, active=0)
+            quota_context = TenantContext(quota_enterprise, quota_workspace, 1, 1, "super_admin", frozenset({"task:create"}))
+            quota_body = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-quota"})
+            result, error = create_canonical_task(cur, body=quota_body, tenant=quota_context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("ACTIVE_TASK_QUOTA_EXCEEDED", error)
+            self._cleanup_task_import_fixture(cur, quota_enterprise, quota_workspace)
             conn.commit()
 
 
@@ -512,6 +538,52 @@ class Phase55OracleFinalGate(unittest.TestCase):
                         {"e": enterprise_id, "w": workspace_id, "name": marker})
             self.assertEqual(1, int(cur.fetchone()[0]))
             self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
+
+    def test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock(self):
+        marker = "task-import-lock-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, active=10)
+            held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
+                           metric=ACTIVE_TASK, amount=1, resource_type="gate", resource_key=marker)
+            conn.commit()
+        barrier = threading.Barrier(2)
+
+        def canonical_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                body = TaskCreateIn.model_validate({"submission_id": marker, "source": "manual", "task_name": marker,
+                    "task_type": "collect", "platform_code": "pinduoduo", "priority": 5,
+                    "targets": [{"row_id": "manual:1", "source": "manual", "source_row_index": 1, "keyword": "锁序目标"}]})
+                barrier.wait()
+                result, error = create_canonical_task(conn.cursor(), body=body,
+                    tenant=TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"})),
+                    user={"user_id": 1, "username": "oracle-gate"}, request=None)
+                conn.commit()
+                return "canonical", result, error
+            finally:
+                conn.close()
+
+        def lifecycle_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                barrier.wait()
+                committed = commit(conn.cursor(), held.reservation_id)
+                released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
+                                   resource_type="gate", resource_key=marker)
+                conn.commit()
+                return "lifecycle", committed.status, released
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
+        self.assertIsNone(results["canonical"][1])
+        self.assertFalse(results["canonical"][0]["idempotent"])
+        self.assertEqual(["committed", True], results["lifecycle"])
+        with get_conn() as conn:
+            self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
             conn.commit()
 
 

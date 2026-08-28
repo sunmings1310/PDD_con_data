@@ -150,6 +150,16 @@ def reserve(cur: Any, *, enterprise_id: int, workspace_id: int, metric: str, amo
 
 
 def commit(cur: Any, reservation_id: int) -> Reservation:
+    # Discover the scope without taking a conflicting reservation lock, then
+    # acquire the shared usage -> enterprise quota fence before locking it.
+    cur.execute(
+        """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
+                  RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
+             WHERE RESERVATION_ID=:id""", {"id": reservation_id})
+    row = cur.fetchone()
+    if not row:
+        raise RuntimeError("QUOTA_RESERVATION_NOT_FOUND")
+    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]))
     cur.execute(
         """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
                   RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
@@ -179,6 +189,7 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
 
 def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
     period = period_key(metric)
+    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
     cur.execute(
         """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
              WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period

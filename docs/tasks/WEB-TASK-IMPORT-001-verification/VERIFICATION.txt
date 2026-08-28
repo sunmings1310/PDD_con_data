@@ -1,9 +1,9 @@
-WEB-TASK-IMPORT-001 REVIEW-FIX VERIFICATION
+WEB-TASK-IMPORT-001 SECOND-REVIEW VERIFICATION
 DATE=2026-08-28
 BRANCH=codex/web-task-import-001
 BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
-PREVIOUS_FIXED_HEAD=5b6aba46c396a17b85a8a9eae0aa09bc6a000c9d
-CHANGED_FIELD=canonical Task import: strict draft blockers, frozen delayed-ACK payload, tenant-bound target validation, usage-to-quota lock order, and compatibility selected-context RBAC.
+PREVIOUS_FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64 (historical only; not asserted for this changed candidate)
+CHANGED_FIELD=Excel match platform/generation stale fence; TaskCreate route stale fence; quota lifecycle usage-to-enterprise-quota lock order; real mounted TaskCreate/embedded ExcelMatch race coverage; real Oracle fixture additions.
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
@@ -21,14 +21,22 @@ STATUS=PASS
 
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-INPUT=review-fix Task evidence
-LITERAL_OUTPUT=MODIFIED_FILE refreshed and remains changed
+INPUT=second-review Task evidence
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=8056cca18c66fceac38d4701b085017ea5d26bdc0170834c7ea6b1da0a5163b5; changed from setup source
 EXIT_STATUS=0
 STATUS=PASS
 
-NODE_REAL_FLOW
-COMMAND=node web/scripts/test-task-import-contract.mjs
-INPUT=manual + embedded Excel canonical row flow, duplicate click, multiple re-include, delayed ACK retry, user edit
+COMPONENT_NODE_TARGETED
+COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
+INPUT=actual compiled/mounted TaskCreate plus embedded ExcelMatch; delayed HTTP adapter
+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
+EXIT_STATUS=0
+STATUS=PASS
+
+NODE_CONTRACT_TARGETED
+COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
+INPUT=canonical draft states and delayed-ACK flow
 LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
 LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
 LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
@@ -36,19 +44,19 @@ LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=rep
 EXIT_STATUS=0
 STATUS=PASS
 
-TARGETED_PYTHON
-COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_web_client_contract
-INPUT=semantic duplicate/product identity, draft/route contract
-LITERAL_OUTPUT=Ran 17 tests in 0.016s
-LITERAL_OUTPUT=OK
+PYTHON_TARGETED
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_task_import_behavior tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock
+INPUT=canonical semantic duplicate and quota lock ordering; Oracle targeted discovery
+LITERAL_OUTPUT=Ran 10 tests in 0.002s
+LITERAL_OUTPUT=OK (skipped=3)
 EXIT_STATUS=0
-STATUS=PASS
+STATUS=PASS for offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process
 
 PYTHON_FULL
 COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
 INPUT=repository Python suite
-LITERAL_OUTPUT=Ran 244 tests in 0.467s
-LITERAL_OUTPUT=OK (skipped=27)
+LITERAL_OUTPUT=Ran 245 tests in 0.464s
+LITERAL_OUTPUT=OK (skipped=28)
 LITERAL_OUTPUT=[PASS] python-unit: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
@@ -56,9 +64,9 @@ STATUS=PASS
 
 WEB_FULL
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
-INPUT=Node 22 ignored runtime junction
+INPUT=Node 22.18 ignored runtime junction
 LITERAL_OUTPUT=✓ 1682 modules transformed.
-LITERAL_OUTPUT=✓ built in 572ms
+LITERAL_OUTPUT=✓ built in 544ms
 LITERAL_OUTPUT=[PASS] web-build: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
@@ -66,70 +74,42 @@ STATUS=PASS
 
 ANDROID_FULL
 COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
-INPUT=JDK 17 + SDK 34
+INPUT=JDK 17 and SDK platform/build-tools 34
 LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s
 LITERAL_OUTPUT=[PASS] android-jvm: exit=0
 LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
 STATUS=PASS
 
-COMPILE_AND_WORKTREE_DIFF
+COMPILE_AND_RANGE_DIFF
 COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests; git diff --check
-INPUT=current review-fix worktree
+INPUT=uncommitted second-review candidate
 LITERAL_OUTPUT=compile no output; diff no errors
 EXIT_STATUS=0
 STATUS=PASS
 
-ORACLE_REQUIRED_FINAL_HEAD
+ORACLE_REQUIRED
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-INPUT=approved isolated writable Oracle; post-commit fixed candidate required
-RESULT=PASS at fixed Head 91b1aae00b93eddfd0c61dfad29f3c750a2abf64; see final evidence below.
-STATUS=PASS
-CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes SJZQ_COLLECTION_LEASE/CHECKPOINT/ATTEMPT/OUTBOX/JOB_EVENT/COLLECTION_JOB/TASK_ITEM/TASK_LOG/TASK/QUOTA_LEDGER/QUOTA_RESERVATION/QUOTA_USAGE/WORKSPACE/ENTERPRISE_QUOTA/ENTERPRISE then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
-CLEANUP_RESULT=PASS; cleanup assertions observed zero residue; persistent_business_changes=false.
+INPUT=Control-approved isolated writable Oracle at post-commit fixed Head
+LITERAL_OUTPUT=local process: test_05/test_06/test_07 skipped because PHASE55_ORACLE_TEST_ENABLED/T003 environment was not injected
+EXIT_STATUS=0 for skipped targeted discovery
+STATUS=PENDING external fixed-Head required gate; no prior-head Oracle result is claimed for this code candidate
+REQUIRED_CASES=disabled-or-unaccepted platform; semantic duplicate; active-task quota failure; canonical replay; reserve/create against commit/release cross-session lock order; compatibility endpoint selected-context task:create plus task:dispatch; cleanup zero residue.
+CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes Task/Item/Job/lease/checkpoint/attempt/outbox/log/quota/workspace/enterprise fixture rows then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
+CLEANUP_RESULT=PENDING external Oracle run; persistent_business_changes=false is required assertion.
 
 ROLLBACK
-COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt; & 'D:\Git\bin\bash.exe' docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt
+COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt; D:\Git\bin\bash.exe docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt
 INPUT=separate artifact copy
 LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task
 LITERAL_OUTPUT=RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
 LITERAL_OUTPUT=ROLLBACK_EXIT=0
 EXIT_STATUS=0
 STATUS=PASS
-RESTORED_BEHAVIOR_STATUS=probe is setup Task; MODIFIED_FILE remains changed.
+RESTORED_BEHAVIOR_STATUS=probe restored setup Task; MODIFIED_FILE remains changed.
 
 REAL_DEVICE
 RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
 STATUS=SKIPPED
-ORACLE_CLEANUP_BIND_REPAIR
-FAILED_FIXED_HEAD=1736e199592d34a90ac0e8eb8f176bdcee16e2a2
-FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-FAILED_LITERAL_OUTPUT=Ran 49 tests; errors=2; test_05/test_06 cleanup DPY-4008: no bind placeholder named ':w' found; exit=1
-FAILED_STATUS=FAIL (fixture cleanup bind map; no Task create business assertion failure reported)
-MODIFIED_FIELD=tests/test_phase55_oracle.py::_cleanup_task_import_fixture
-FIX=each cleanup/assert SQL receives scoped_binds={e,w} only when both placeholders exist, otherwise enterprise_binds={e}.
-TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
-TARGETED_LITERAL_OUTPUT=Ran 2 tests in 0.000s; OK (skipped=2: Phase 5.5 Oracle sandbox test not enabled)
-TARGETED_EXIT_STATUS=0
-TARGETED_STATUS=SKIPPED (no isolated Oracle environment in this process)
-FINAL_ORACLE_STATUS=PASS Control fixed-Head targeted test_05/test_06 then oracle strict; fixture remains persistent=false after cleanup.
 
-FINAL_FIXED_HEAD_ORACLE
-FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64
-TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
-TARGETED_INPUT=Control-approved isolated writable Oracle
-TARGETED_LITERAL_OUTPUT=Ran 2 tests in 6.265s
-TARGETED_LITERAL_OUTPUT=OK
-TARGETED_EXIT_STATUS=0
-TARGETED_STATUS=PASS
-ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-ORACLE_INPUT=Control-approved isolated writable Oracle
-ORACLE_LITERAL_OUTPUT=Ran 49 tests in 165.693s
-ORACLE_LITERAL_OUTPUT=OK
-ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
-ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-ORACLE_EXIT_STATUS=0
-ORACLE_STATUS=PASS
-CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
-PERSISTENT_BUSINESS_CHANGES=false
-REVIEW_FIX_STATUS=PASS; ready for Independent Re-review. A docs-only evidence commit follows; Control owns its final external manifest rerun on that new Head.ROLLBACK_FINAL_RERUN=PASS; command exit=0; restored SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; MODIFIED_FILE remains changed.
+REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.

@@ -52,8 +52,12 @@ class TaskImportContractTests(unittest.TestCase):
         quota = (ROOT / 'server/quota.py').read_text(encoding='utf-8')
         scope = quota[quota.index('def lock_metric_scope'):quota.index('def _ledger')]
         reserve = quota[quota.index('def reserve('):quota.index('def commit(')]
+        commit = quota[quota.index('def commit('):quota.index('def release(')]
+        release = quota[quota.index('def release('):quota.index('def reserve_and_commit(')]
         self.assertLess(scope.index('_usage_row'), scope.index('_limit'))
         self.assertLess(reserve.index('_usage_row'), reserve.index('_limit'))
+        self.assertLess(commit.index('lock_metric_scope'), commit.index('FOR UPDATE'))
+        self.assertLess(release.index('lock_metric_scope'), release.index('FOR UPDATE'))
 
 
 if __name__ == '__main__':

@@ -189,7 +189,7 @@
 - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
 - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
 - Local isolated environment identifier：Control-approved isolated writable Oracle
-- Fixed Head SHA：`91b1aae00b93eddfd0c61dfad29f3c750a2abf64`
+- Fixed Head SHA：待本轮提交后由 Control 在新固定 Head 运行（`91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 仅为上一轮历史证据）
 - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
 - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
 - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
@@ -263,3 +263,11 @@
 
 - Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
 - `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
+
+### Second Independent Review repair（2026-08-28）
+
+- `ExcelMatch.vue` 对每次 `/api/excel/match` 捕获 `platform_code` 与 generation；平台切换会 abort 旧请求、清空旧 rows，且响应写入与 embedded emit 均同时核验两者，故平台 A 的延迟响应不会标记为平台 B。
+- `TaskCreate.vue` 在 ACK 前冻结完整 canonical payload（包括默认任务名）；重复提交和 ACK 丢失重试复用原 submission id/payload，用户编辑使其失效并生成新 id。离开当前 route 时 generation fence 阻止过期响应 toast/`router.push`。
+- 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
+- `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
+- 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。

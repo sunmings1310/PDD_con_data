@@ -1,75 +1,662 @@
-diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index 15537de..5dc0825 100644
---- a/docs/tasks/WEB-TASK-IMPORT-001.md
-+++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -174,13 +174,13 @@
- | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
- | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
- | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
--| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | pending | NOT RUN |
--| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | pending | NOT RUN |
--| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | pending | NOT RUN |
--| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | pending | NOT RUN |
--| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | pending | NOT RUN |
-+| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | `TASK_CREATE_FLOW=PASS` | PASS |
-+| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
-+| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
-+| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
-+| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL; exit 0 | PASS |
- | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | clean | compile/diff exit 0 | PASS |
--| E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | pending | NOT RUN |
-+| E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | Independent E2E PASS | PASS |
+diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+index 5dc0825..4172352 100644
+--- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
++++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+@@ -165,7 +165,7 @@
+ - [x] 创建 Task、TaskItem、CollectionJob 和提交 receipt/ACK 的事务边界可测试。
+ - [x] 成功 ACK 后只跳转 canonical Task Detail；失败保留可恢复 draft。
+ - [x] 独立 Excel 菜单保留；导出、资料库、Generic SKU/P1/Phase6B/Android 均未改变。
+-- [ ] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过（新 fixed Head Oracle Required 交 Control 重跑）。
++- [x] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过（最终 docs-only Head 的外部 Oracle manifest 由 Control 固定并验证）。
 
- 首次 Node 观察只证明系统 Node 为 20.11.1 且新 worktree 未含 ignored `web/node_modules`；它不是项目固定 Node 22 Web Gate 的 PASS。Dev 必须使用仓库 canonical strict 入口或批准的 ignored runtime junction 后运行真实门禁。
+ ## Test Plan
 
-@@ -188,10 +188,10 @@
-
+@@ -189,7 +189,7 @@
  - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
  - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
--- Local isolated environment identifier：pending final fixed Head
--- Fixed Head SHA：pending
-+- Local isolated environment identifier：Control-approved isolated writable Oracle
-+- Fixed Head SHA：`91b1aae00b93eddfd0c61dfad29f3c750a2abf64`
+ - Local isolated environment identifier：Control-approved isolated writable Oracle
+-- Fixed Head SHA：`91b1aae00b93eddfd0c61dfad29f3c750a2abf64`
++- Fixed Head SHA：待本轮提交后由 Control 在新固定 Head 运行（`91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 仅为上一轮历史证据）
  - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
--- Evidence / validator / Reviewer provenance：pending
-+- Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
+ - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
  - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
+@@ -262,4 +262,12 @@
+ ### Final review-fix Oracle evidence（2026-08-28）
 
- ## Real-device Gate
-@@ -224,8 +224,8 @@
-
- - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
- - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
--- Review findings：pending。
--- Commit / PR：Task setup pending commit；Dev 不创建 PR。
-+- Review findings：Independent Review fixes accepted for re-review; Oracle code gate PASS at `91b1aae`。
-+- Commit / PR：Dev commits through `91b1aae`; Dev 不创建 PR。
-
- ## Dev implementation evidence（2026-08-28）
-
-@@ -236,13 +236,13 @@
- ### Dev repair evidence（2026-08-28）
-
- - Oracle 实跑发现 `test_06` 的断言对 `[None, None]` 排序触发 Python `TypeError`；业务线程均返回 `error=None`。已最小改为 `all(error is None for _, error in results)`，不改变 Task 创建语义。
--- 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果仍为 Required/PENDING external gate。
-+- 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果当时为 Required external gate；现已由 `91b1aae` Oracle PASS 收口。
-
- ### Final Dev evidence（2026-08-28）
-
- - Control 在候选 `ec3ce365b186fb8926047e9213abf43685f5958e` 的隔离 Oracle 环境运行：`test_06` 为 `Ran 1 test in 2.522s` / `OK` / exit 0；canonical Oracle strict 为 `Ran 49 tests in 162.102s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`。
- - Dev gates：targeted Python 13/OK；Node canonical contract 3 PASS；Python strict 240/OK (skipped=27)；Web strict 1682 modules/PASS；Android strict `BUILD SUCCESSFUL`、`[PASS] android-jvm: exit=0`；compile/diff 均 exit 0。
--- 本次 evidence-only 提交会移动 Head；因此 final external Oracle fixed-Head strict 必须由 Control 在新的提交上重跑。该待运行 gate 为 `PENDING`，不把 `ec3ce36` 的结果标为新 Head 的 PASS。
-+- 本次 evidence-only 提交会移动 Head；因此 final external Oracle fixed-Head strict 必须由 Control 在新的提交上重跑。该历史 gate 当时未运行；不把 `ec3ce36` 的结果标为后续 Head 的 PASS，最终 `91b1aae` 结果见下文。
-
- ### Final whitespace repair（2026-08-28）
-
-@@ -258,3 +258,8 @@
- ### Oracle cleanup repair（2026-08-28）
-
- - Control 在 fixed Head `1736e199592d34a90ac0e8eb8f176bdcee16e2a2` 实跑 Oracle Required：49 tests 中 `test_05` 与 `test_06` 在 fixture cleanup 触发 `DPY-4008: no bind placeholder named ':w' found`，exit 1；创建语义断言未报业务失败。清理 helper 已最小修复为每条 SQL 只传入其实际 `:e` / `:w` binds，且保留逐表零残留断言。新固定 Head 必须由 Control 重跑 targeted 和 Oracle strict。
-+
-+### Final review-fix Oracle evidence（2026-08-28）
-+
-+- Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
-+- `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
+ - Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
+-- `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
 \ No newline at end of file
++- `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
++
++### Second Independent Review repair（2026-08-28）
++
++- `ExcelMatch.vue` 对每次 `/api/excel/match` 捕获 `platform_code` 与 generation；平台切换会 abort 旧请求、清空旧 rows，且响应写入与 embedded emit 均同时核验两者，故平台 A 的延迟响应不会标记为平台 B。
++- `TaskCreate.vue` 在 ACK 前冻结完整 canonical payload（包括默认任务名）；重复提交和 ACK 丢失重试复用原 submission id/payload，用户编辑使其失效并生成新 id。离开当前 route 时 generation fence 阻止过期响应 toast/`router.push`。
++- 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
++- `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
++- 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。
+diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
+index bb3b8b5..710e325 100644
+--- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
++++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
+@@ -1,9 +1,9 @@
+-WEB-TASK-IMPORT-001 REVIEW-FIX VERIFICATION
++WEB-TASK-IMPORT-001 SECOND-REVIEW VERIFICATION
+ DATE=2026-08-28
+ BRANCH=codex/web-task-import-001
+ BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
+-PREVIOUS_FIXED_HEAD=5b6aba46c396a17b85a8a9eae0aa09bc6a000c9d
+-CHANGED_FIELD=canonical Task import: strict draft blockers, frozen delayed-ACK payload, tenant-bound target validation, usage-to-quota lock order, and compatibility selected-context RBAC.
++PREVIOUS_FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64 (historical only; not asserted for this changed candidate)
++CHANGED_FIELD=Excel match platform/generation stale fence; TaskCreate route stale fence; quota lifecycle usage-to-enterprise-quota lock order; real mounted TaskCreate/embedded ExcelMatch race coverage; real Oracle fixture additions.
+
+ ARTIFACTS
+ MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
+@@ -21,14 +21,22 @@ STATUS=PASS
+
+ MODIFIED
+ COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+-INPUT=review-fix Task evidence
+-LITERAL_OUTPUT=MODIFIED_FILE refreshed and remains changed
++INPUT=second-review Task evidence
++LITERAL_OUTPUT=MODIFIED_FILE SHA256=8056cca18c66fceac38d4701b085017ea5d26bdc0170834c7ea6b1da0a5163b5; changed from setup source
+ EXIT_STATUS=0
+ STATUS=PASS
+
+-NODE_REAL_FLOW
+-COMMAND=node web/scripts/test-task-import-contract.mjs
+-INPUT=manual + embedded Excel canonical row flow, duplicate click, multiple re-include, delayed ACK retry, user edit
++COMPONENT_NODE_TARGETED
++COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
++INPUT=actual compiled/mounted TaskCreate plus embedded ExcelMatch; delayed HTTP adapter
++LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded
++LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
++EXIT_STATUS=0
++STATUS=PASS
++
++NODE_CONTRACT_TARGETED
++COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
++INPUT=canonical draft states and delayed-ACK flow
+ LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
+ LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
+ LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+@@ -36,19 +44,19 @@ LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=rep
+ EXIT_STATUS=0
+ STATUS=PASS
+
+-TARGETED_PYTHON
+-COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_web_client_contract
+-INPUT=semantic duplicate/product identity, draft/route contract
+-LITERAL_OUTPUT=Ran 17 tests in 0.016s
+-LITERAL_OUTPUT=OK
++PYTHON_TARGETED
++COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_task_import_behavior tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock
++INPUT=canonical semantic duplicate and quota lock ordering; Oracle targeted discovery
++LITERAL_OUTPUT=Ran 10 tests in 0.002s
++LITERAL_OUTPUT=OK (skipped=3)
+ EXIT_STATUS=0
+-STATUS=PASS
++STATUS=PASS for offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process
+
+ PYTHON_FULL
+ COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+ INPUT=repository Python suite
+-LITERAL_OUTPUT=Ran 244 tests in 0.467s
+-LITERAL_OUTPUT=OK (skipped=27)
++LITERAL_OUTPUT=Ran 245 tests in 0.464s
++LITERAL_OUTPUT=OK (skipped=28)
+ LITERAL_OUTPUT=[PASS] python-unit: exit=0
+ LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ EXIT_STATUS=0
+@@ -56,9 +64,9 @@ STATUS=PASS
+
+ WEB_FULL
+ COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+-INPUT=Node 22 ignored runtime junction
++INPUT=Node 22.18 ignored runtime junction
+ LITERAL_OUTPUT=✓ 1682 modules transformed.
+-LITERAL_OUTPUT=✓ built in 572ms
++LITERAL_OUTPUT=✓ built in 544ms
+ LITERAL_OUTPUT=[PASS] web-build: exit=0
+ LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ EXIT_STATUS=0
+@@ -66,70 +74,42 @@ STATUS=PASS
+
+ ANDROID_FULL
+ COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+-INPUT=JDK 17 + SDK 34
++INPUT=JDK 17 and SDK platform/build-tools 34
+ LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s
+ LITERAL_OUTPUT=[PASS] android-jvm: exit=0
+ LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ EXIT_STATUS=0
+ STATUS=PASS
+
+-COMPILE_AND_WORKTREE_DIFF
++COMPILE_AND_RANGE_DIFF
+ COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests; git diff --check
+-INPUT=current review-fix worktree
++INPUT=uncommitted second-review candidate
+ LITERAL_OUTPUT=compile no output; diff no errors
+ EXIT_STATUS=0
+ STATUS=PASS
+
+-ORACLE_REQUIRED_FINAL_HEAD
++ORACLE_REQUIRED
+ COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+-INPUT=approved isolated writable Oracle; post-commit fixed candidate required
+-RESULT=PASS at fixed Head 91b1aae00b93eddfd0c61dfad29f3c750a2abf64; see final evidence below.
+-STATUS=PASS
+-CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes SJZQ_COLLECTION_LEASE/CHECKPOINT/ATTEMPT/OUTBOX/JOB_EVENT/COLLECTION_JOB/TASK_ITEM/TASK_LOG/TASK/QUOTA_LEDGER/QUOTA_RESERVATION/QUOTA_USAGE/WORKSPACE/ENTERPRISE_QUOTA/ENTERPRISE then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
+-CLEANUP_RESULT=PASS; cleanup assertions observed zero residue; persistent_business_changes=false.
++INPUT=Control-approved isolated writable Oracle at post-commit fixed Head
++LITERAL_OUTPUT=local process: test_05/test_06/test_07 skipped because PHASE55_ORACLE_TEST_ENABLED/T003 environment was not injected
++EXIT_STATUS=0 for skipped targeted discovery
++STATUS=PENDING external fixed-Head required gate; no prior-head Oracle result is claimed for this code candidate
++REQUIRED_CASES=disabled-or-unaccepted platform; semantic duplicate; active-task quota failure; canonical replay; reserve/create against commit/release cross-session lock order; compatibility endpoint selected-context task:create plus task:dispatch; cleanup zero residue.
++CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes Task/Item/Job/lease/checkpoint/attempt/outbox/log/quota/workspace/enterprise fixture rows then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
++CLEANUP_RESULT=PENDING external Oracle run; persistent_business_changes=false is required assertion.
+
+ ROLLBACK
+-COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt; & 'D:\Git\bin\bash.exe' docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt
++COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt; D:\Git\bin\bash.exe docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt
+ INPUT=separate artifact copy
+ LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task
+ LITERAL_OUTPUT=RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+ LITERAL_OUTPUT=ROLLBACK_EXIT=0
+ EXIT_STATUS=0
+ STATUS=PASS
+-RESTORED_BEHAVIOR_STATUS=probe is setup Task; MODIFIED_FILE remains changed.
++RESTORED_BEHAVIOR_STATUS=probe restored setup Task; MODIFIED_FILE remains changed.
+
+ REAL_DEVICE
+ RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
+ STATUS=SKIPPED
+-ORACLE_CLEANUP_BIND_REPAIR
+-FAILED_FIXED_HEAD=1736e199592d34a90ac0e8eb8f176bdcee16e2a2
+-FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+-FAILED_LITERAL_OUTPUT=Ran 49 tests; errors=2; test_05/test_06 cleanup DPY-4008: no bind placeholder named ':w' found; exit=1
+-FAILED_STATUS=FAIL (fixture cleanup bind map; no Task create business assertion failure reported)
+-MODIFIED_FIELD=tests/test_phase55_oracle.py::_cleanup_task_import_fixture
+-FIX=each cleanup/assert SQL receives scoped_binds={e,w} only when both placeholders exist, otherwise enterprise_binds={e}.
+-TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
+-TARGETED_LITERAL_OUTPUT=Ran 2 tests in 0.000s; OK (skipped=2: Phase 5.5 Oracle sandbox test not enabled)
+-TARGETED_EXIT_STATUS=0
+-TARGETED_STATUS=SKIPPED (no isolated Oracle environment in this process)
+-FINAL_ORACLE_STATUS=PASS Control fixed-Head targeted test_05/test_06 then oracle strict; fixture remains persistent=false after cleanup.
+
+-FINAL_FIXED_HEAD_ORACLE
+-FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64
+-TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
+-TARGETED_INPUT=Control-approved isolated writable Oracle
+-TARGETED_LITERAL_OUTPUT=Ran 2 tests in 6.265s
+-TARGETED_LITERAL_OUTPUT=OK
+-TARGETED_EXIT_STATUS=0
+-TARGETED_STATUS=PASS
+-ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+-ORACLE_INPUT=Control-approved isolated writable Oracle
+-ORACLE_LITERAL_OUTPUT=Ran 49 tests in 165.693s
+-ORACLE_LITERAL_OUTPUT=OK
+-ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+-ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+-ORACLE_EXIT_STATUS=0
+-ORACLE_STATUS=PASS
+-CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
+-PERSISTENT_BUSINESS_CHANGES=false
+-REVIEW_FIX_STATUS=PASS; ready for Independent Re-review. A docs-only evidence commit follows; Control owns its final external manifest rerun on that new Head.ROLLBACK_FINAL_RERUN=PASS; command exit=0; restored SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; MODIFIED_FILE remains changed.
++REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.
+\ No newline at end of file
+diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
+index 6dc0812..4172352 100644
+--- a/docs/tasks/WEB-TASK-IMPORT-001.md
++++ b/docs/tasks/WEB-TASK-IMPORT-001.md
+@@ -189,7 +189,7 @@
+ - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
+ - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
+ - Local isolated environment identifier：Control-approved isolated writable Oracle
+-- Fixed Head SHA：`91b1aae00b93eddfd0c61dfad29f3c750a2abf64`
++- Fixed Head SHA：待本轮提交后由 Control 在新固定 Head 运行（`91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 仅为上一轮历史证据）
+ - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
+ - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
+ - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
+@@ -263,3 +263,11 @@
+
+ - Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
+ - `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
++
++### Second Independent Review repair（2026-08-28）
++
++- `ExcelMatch.vue` 对每次 `/api/excel/match` 捕获 `platform_code` 与 generation；平台切换会 abort 旧请求、清空旧 rows，且响应写入与 embedded emit 均同时核验两者，故平台 A 的延迟响应不会标记为平台 B。
++- `TaskCreate.vue` 在 ACK 前冻结完整 canonical payload（包括默认任务名）；重复提交和 ACK 丢失重试复用原 submission id/payload，用户编辑使其失效并生成新 id。离开当前 route 时 generation fence 阻止过期响应 toast/`router.push`。
++- 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
++- `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
++- 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。
+diff --git a/server/quota.py b/server/quota.py
+index 284c46a..e6166df 100644
+--- a/server/quota.py
++++ b/server/quota.py
+@@ -150,6 +150,16 @@ def reserve(cur: Any, *, enterprise_id: int, workspace_id: int, metric: str, amo
+
+
+ def commit(cur: Any, reservation_id: int) -> Reservation:
++    # Discover the scope without taking a conflicting reservation lock, then
++    # acquire the shared usage -> enterprise quota fence before locking it.
++    cur.execute(
++        """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
++                  RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
++             WHERE RESERVATION_ID=:id""", {"id": reservation_id})
++    row = cur.fetchone()
++    if not row:
++        raise RuntimeError("QUOTA_RESERVATION_NOT_FOUND")
++    lock_metric_scope(cur, enterprise_id=int(row[0]), metric=str(row[2]))
+     cur.execute(
+         """SELECT ENTERPRISE_ID,WORKSPACE_ID,METRIC_CODE,PERIOD_KEY,AMOUNT,RESOURCE_TYPE,
+                   RESOURCE_KEY,STATUS FROM SJZQ_QUOTA_RESERVATION
+@@ -179,6 +189,7 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
+
+ def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
+     period = period_key(metric)
++    lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
+     cur.execute(
+         """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
+              WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
+diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
+index cc28393..db601f5 100644
+--- a/tests/test_phase55_oracle.py
++++ b/tests/test_phase55_oracle.py
+@@ -32,7 +32,7 @@ from server.main import tenant_media  # noqa: E402
+ from server.media_access import _signature, signed_media_url  # noqa: E402
+ from server.ota_meta import apk_dir, save_meta  # noqa: E402
+ from server.quota import (ACTIVE_TASK, DAILY_SNAPSHOT, STORAGE_BYTES, QuotaExceeded,
+-                          period_key, reserve_and_commit)  # noqa: E402
++                          commit, period_key, release, reserve, reserve_and_commit)  # noqa: E402
+ from server.routers import cast, dashboard, devices, jobs, ota, products, tasks  # noqa: E402
+ from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn, TaskCreateIn
+ from server.task_creation_service import create_canonical_task  # noqa: E402
+@@ -478,9 +478,35 @@ class Phase55OracleFinalGate(unittest.TestCase):
+             self.assertEqual(1, int(cur.fetchone()[0]))
+             cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:id", {"id": first["task_id"]})
+             self.assertEqual(1, int(cur.fetchone()[0]))
++
++            # These are rejected before any Task row can be made, while still
++            # using the accepted platform/quota tables in this Oracle session.
++            duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
++                "targets": [*body.model_dump()["targets"], {"row_id": "excel:3", "source": "excel",
++                    "source_row_index": 3, "keyword": "药品A"}]})
++            result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
++            self.assertIsNone(result)
++            self.assertEqual("DUPLICATE_TARGET", error)
++            disabled = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-disabled",
++                "platform_code": "tmall", "targets": [{"row_id": "excel:4", "source": "excel",
++                    "source_row_index": 4, "platform_code": "tmall", "keyword": "平台关闭目标"}]})
++            result, error = create_canonical_task(cur, body=disabled, tenant=context, user=user, request=None)
++            self.assertIsNone(result)
++            self.assertEqual("PLATFORM_NOT_AVAILABLE", error)
+             self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+             conn.commit()
+
++        with get_conn() as conn:
++            cur = conn.cursor()
++            quota_enterprise, quota_workspace = self._tenant(cur, active=0)
++            quota_context = TenantContext(quota_enterprise, quota_workspace, 1, 1, "super_admin", frozenset({"task:create"}))
++            quota_body = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-quota"})
++            result, error = create_canonical_task(cur, body=quota_body, tenant=quota_context, user=user, request=None)
++            self.assertIsNone(result)
++            self.assertEqual("ACTIVE_TASK_QUOTA_EXCEEDED", error)
++            self._cleanup_task_import_fixture(cur, quota_enterprise, quota_workspace)
++            conn.commit()
++
+
+     def test_06_canonical_submission_concurrent_replay_is_single_task(self):
+         marker = "task-import-race-" + uuid.uuid4().hex[:12]
+@@ -514,6 +540,52 @@ class Phase55OracleFinalGate(unittest.TestCase):
+             self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+             conn.commit()
+
++    def test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock(self):
++        marker = "task-import-lock-" + uuid.uuid4().hex[:12]
++        with get_conn() as conn:
++            cur = conn.cursor()
++            enterprise_id, workspace_id = self._tenant(cur, active=10)
++            held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
++                           metric=ACTIVE_TASK, amount=1, resource_type="gate", resource_key=marker)
++            conn.commit()
++        barrier = threading.Barrier(2)
++
++        def canonical_worker():
++            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
++            try:
++                body = TaskCreateIn.model_validate({"submission_id": marker, "source": "manual", "task_name": marker,
++                    "task_type": "collect", "platform_code": "pinduoduo", "priority": 5,
++                    "targets": [{"row_id": "manual:1", "source": "manual", "source_row_index": 1, "keyword": "锁序目标"}]})
++                barrier.wait()
++                result, error = create_canonical_task(conn.cursor(), body=body,
++                    tenant=TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"})),
++                    user={"user_id": 1, "username": "oracle-gate"}, request=None)
++                conn.commit()
++                return "canonical", result, error
++            finally:
++                conn.close()
++
++        def lifecycle_worker():
++            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
++            try:
++                barrier.wait()
++                committed = commit(conn.cursor(), held.reservation_id)
++                released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
++                                   resource_type="gate", resource_key=marker)
++                conn.commit()
++                return "lifecycle", committed.status, released
++            finally:
++                conn.close()
++
++        with ThreadPoolExecutor(max_workers=2) as executor:
++            results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
++        self.assertIsNone(results["canonical"][1])
++        self.assertFalse(results["canonical"][0]["idempotent"])
++        self.assertEqual(["committed", True], results["lifecycle"])
++        with get_conn() as conn:
++            self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
++            conn.commit()
++
+
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_task_import_contract.py b/tests/test_task_import_contract.py
+index cf90f09..c9f4759 100644
+--- a/tests/test_task_import_contract.py
++++ b/tests/test_task_import_contract.py
+@@ -52,8 +52,12 @@ class TaskImportContractTests(unittest.TestCase):
+         quota = (ROOT / 'server/quota.py').read_text(encoding='utf-8')
+         scope = quota[quota.index('def lock_metric_scope'):quota.index('def _ledger')]
+         reserve = quota[quota.index('def reserve('):quota.index('def commit(')]
++        commit = quota[quota.index('def commit('):quota.index('def release(')]
++        release = quota[quota.index('def release('):quota.index('def reserve_and_commit(')]
+         self.assertLess(scope.index('_usage_row'), scope.index('_limit'))
+         self.assertLess(reserve.index('_usage_row'), reserve.index('_limit'))
++        self.assertLess(commit.index('lock_metric_scope'), commit.index('FOR UPDATE'))
++        self.assertLess(release.index('lock_metric_scope'), release.index('FOR UPDATE'))
+
+
+ if __name__ == '__main__':
+diff --git a/web/package.json b/web/package.json
+index 29ec701..1f6b9ef 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -13,7 +13,8 @@
+     "test:client-contract": "node scripts/test-client-contract.mjs",
+     "test:result-visibility": "node scripts/test-request-generation.mjs",
+     "preview": "vite preview",
+-    "test:task-import-contract": "node scripts/test-task-import-contract.mjs"
++    "test:task-import-contract": "node scripts/test-task-import-contract.mjs",
++    "test:task-import-components": "node scripts/test-task-import-components.mjs"
+   },
+   "dependencies": {
+     "@element-plus/icons-vue": "^2.3.2",
+diff --git a/web/scripts/test-task-import-components.mjs b/web/scripts/test-task-import-components.mjs
+new file mode 100644
+index 0000000..89167b5
+--- /dev/null
++++ b/web/scripts/test-task-import-components.mjs
+@@ -0,0 +1,132 @@
++import assert from 'node:assert/strict'
++import fs from 'node:fs'
++import path from 'node:path'
++import { pathToFileURL } from 'node:url'
++import { compileScript, compileTemplate, parse } from '@vue/compiler-sfc'
++import { createRenderer, h, nextTick, reactive, ref } from 'vue'
++
++const webRoot = path.resolve(import.meta.dirname, '..')
++const vueUrl = pathToFileURL(path.join(webRoot, 'node_modules/vue/index.mjs')).href
++const utilsUrl = pathToFileURL(path.join(webRoot, 'src/utils/taskDraft.js')).href
++
++function deferred() {
++  let resolve, reject
++  const promise = new Promise((ok, fail) => { resolve = ok; reject = fail })
++  return { promise, resolve, reject }
++}
++
++async function loadComponent(relative, injected = {}) {
++  const filename = path.join(webRoot, relative)
++  const descriptor = parse(fs.readFileSync(filename, 'utf8'), { filename }).descriptor
++  const compiled = compileScript(descriptor, { id: relative })
++  let script = compiled.content
++  script = script
++    .replace("from 'vue'", `from '${vueUrl}'`)
++    .replace(/import \{ onBeforeRouteLeave, useRouter \} from 'vue-router'/, 'const useRouter = () => globalThis.__componentRouter; const onBeforeRouteLeave = (guard) => globalThis.__routeGuards.push(guard)')
++    .replace(/import \{ useRouter \} from 'vue-router'/, 'const useRouter = () => globalThis.__componentRouter')
++    .replace(/import \{ ElMessage \} from 'element-plus'/, 'const ElMessage = globalThis.__componentMessage')
++    .replace(/import http from '@\/api\/http'/, 'const http = globalThis.__componentHttp')
++    .replace(/import ExcelMatch from '@\/views\/excel\/ExcelMatch\.vue'/, 'const ExcelMatch = globalThis.__ExcelMatch')
++    .replace(/import \{ useUserStore \} from '@\/stores\/user'/, 'const useUserStore = () => globalThis.__componentStore')
++    .replace("from '@/utils/taskDraft'", `from '${utilsUrl}'`)
++  const template = compileTemplate({ source: descriptor.template.content, filename, id: relative, compilerOptions: { bindingMetadata: compiled.bindings } }).code
++    .replace('from "vue"', `from '${vueUrl}'`)
++    .replace('export function render', 'function render')
++  script = script.replace('export default {', 'const __component = {')
++  const source = `${script}\n${template}\n__component.render = render; export default __component;`
++  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}#${Date.now()}${Math.random()}`)
++}
++
++const renderer = createRenderer({
++  patchProp(el, key, _old, value) { el.props[key] = value },
++  insert(el, parent) { parent.children.push(el); el.parent = parent },
++  remove(el) { const index = el.parent?.children.indexOf(el); if (index >= 0) el.parent.children.splice(index, 1) },
++  createElement(type) { return { type, props: {}, children: [] } },
++  createText(text) { return { type: '#text', text } },
++  createComment(text) { return { type: '#comment', text } },
++  setText(node, text) { node.text = text },
++  setElementText(node, text) { node.children = [{ type: '#text', text }] },
++  parentNode(node) { return node.parent },
++  nextSibling() { return null },
++})
++const stub = { render: () => null }
++function mount(component, props = {}) {
++  const app = renderer.createApp(component, props)
++  for (const name of ['el-form', 'el-form-item', 'el-input', 'el-radio-group', 'el-radio', 'el-radio-button', 'el-select', 'el-option', 'el-input-number', 'el-divider', 'el-checkbox', 'el-alert', 'el-table', 'el-table-column', 'el-button', 'el-upload', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty']) app.component(name, stub)
++  app.directive('loading', {})
++  const root = { type: 'root', children: [] }
++  return { proxy: app.mount(root), app }
++}
++
++globalThis.__componentMessage = { success() {}, warning() {}, error() {} }
++globalThis.__componentStore = { hasPerm: () => true }
++globalThis.__routeGuards = []
++const matchRequests = []
++globalThis.__componentHttp = {
++  get: async () => ({ data: [] }),
++  post(url, body, config) {
++    const request = { url, body, config, deferred: deferred() }
++    matchRequests.push(request)
++    return request.deferred.promise
++  },
++  getBlob: async () => new Blob(), postBlob: async () => new Blob(),
++}
++
++const { default: ExcelMatch } = await loadComponent('src/views/excel/ExcelMatch.vue')
++globalThis.__ExcelMatch = ExcelMatch
++
++// Mount the actual embedded component and prove an old delayed A response is
++// neither retained nor emitted after its parent platform switches to B.
++const platform = reactive({ value: 'pinduoduo' })
++const emitted = []
++const child = ref(null)
++const excelRoot = { render: () => h(ExcelMatch, { ref: child, embedded: true, platformCode: platform.value, onDraftRows: (rows) => emitted.push(rows) }) }
++const excelApp = renderer.createApp(excelRoot)
++for (const name of ['el-select', 'el-option', 'el-upload', 'el-button', 'el-table', 'el-table-column', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty', 'el-alert']) excelApp.component(name, stub)
++excelApp.directive('loading', {})
++excelApp.mount({ type: 'root', children: [] })
++await nextTick()
++const upload = child.value.$.setupState.uploadMatch({ file: { name: 'a.xlsx' } })
++assert.equal(matchRequests.length, 1)
++platform.value = 'tmall'
++await nextTick()
++matchRequests[0].deferred.resolve({ data: { rows: [{ row_index: 2, input_product_name: 'A' }] } })
++await upload
++await nextTick()
++assert.equal(emitted.some((rows) => rows.some((row) => row.input_product_name === 'A')), false)
++console.log('EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded')
++
++const posts = []
++const pushes = []
++globalThis.__componentRouter = { push: async (target) => { pushes.push(target) } }
++globalThis.__componentHttp = {
++  get: async () => ({ data: [] }),
++  post(url, body) { const request = { url, body, deferred: deferred() }; posts.push(request); return request.deferred.promise },
++}
++const { default: TaskCreate } = await loadComponent('src/views/tasks/TaskCreate.vue')
++const mounted = mount(TaskCreate)
++await nextTick()
++const taskState = mounted.proxy.$.setupState
++taskState.form.keywordsText = 'first target'
++await nextTick()
++const first = taskState.submit()
++const duplicate = taskState.submit()
++assert.equal(posts.length, 2)
++assert.deepEqual(posts[0].body, posts[1].body)
++posts[0].deferred.reject(new Error('ACK_LOST'))
++posts[1].deferred.resolve({ data: { task_id: 7, idempotent: true } })
++await Promise.allSettled([first, duplicate])
++const retry = taskState.submit()
++assert.equal(posts[2].body.submission_id, posts[0].body.submission_id)
++assert.deepEqual(posts[2].body, posts[0].body)
++posts[2].deferred.resolve({ data: { task_id: 7, idempotent: true } })
++await retry
++taskState.form.keywordsText = 'edited target'
++await nextTick()
++const edited = taskState.submit()
++assert.notEqual(posts[3].body.submission_id, posts[0].body.submission_id)
++globalThis.__routeGuards.forEach((guard) => guard())
++posts[3].deferred.resolve({ data: { task_id: 8 } })
++await edited
++assert.equal(pushes.includes('/tasks/8'), false)
++console.log('TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push')
+diff --git a/web/src/views/excel/ExcelMatch.vue b/web/src/views/excel/ExcelMatch.vue
+index 9ff33d2..9971222 100644
+--- a/web/src/views/excel/ExcelMatch.vue
++++ b/web/src/views/excel/ExcelMatch.vue
+@@ -151,7 +151,7 @@
+ </template>
+
+ <script setup>
+-import { computed, onMounted, ref, watch } from 'vue'
++import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+ import { useRouter } from 'vue-router'
+ import { ElMessage } from 'element-plus'
+ import http from '@/api/http'
+@@ -177,6 +177,8 @@ const dispatching = ref(false)
+ const candidateDialog = ref(false)
+ const activeRow = ref(null)
+ const tableRef = ref(null)
++let matchGeneration = 0
++let matchAbort = null
+ const unmatchedRows = computed(() => rows.value.filter((row) => !row.matched))
+ const availableDevices = computed(() => devices.value.filter(
+   (device) => device.online && device.platform_code === platform.value,
+@@ -187,14 +189,20 @@ watch(availableDevices, (items) => {
+     deviceId.value = items.length === 1 ? items[0].device_id : null
+   }
+ })
++function invalidateMatchRows() {
++  matchGeneration += 1
++  matchAbort?.abort()
++  matchAbort = null
++  rows.value = []
++  stats.value = null
++  emitDraftRows(matchGeneration, platform.value)
++}
++watch(platform, (value, previous) => {
++  if (previous && value !== previous) invalidateMatchRows()
++})
+ watch(() => props.platformCode, (value) => {
+   if (props.embedded && value && value !== platform.value) {
+     platform.value = value
+-    // Match results are tenant/platform scoped.  Do not let a parent platform
+-    // switch submit stale rows from the old context.
+-    rows.value = []
+-    stats.value = null
+-    emitDraftRows()
+   }
+ }, { immediate: true })
+
+@@ -216,26 +224,35 @@ async function downloadTemplate() {
+ }
+
+ async function uploadMatch({ file }) {
++  matchAbort?.abort()
++  const requestGeneration = ++matchGeneration
++  const requestPlatform = platform.value
++  const controller = new AbortController()
++  matchAbort = controller
+   uploading.value = true
+   selectedRows.value = []
+   try {
+     const form = new FormData()
+     form.append('file', file)
+     const response = await http.post(
+-      `/api/excel/match?platform_code=${encodeURIComponent(platform.value)}`,
++      `/api/excel/match?platform_code=${encodeURIComponent(requestPlatform)}`,
+       form,
++      { signal: controller.signal },
+     )
++    if (requestGeneration !== matchGeneration || requestPlatform !== platform.value) return
+     rows.value = response.data.rows || []
+     stats.value = response.data
+-    emitDraftRows()
++    emitDraftRows(requestGeneration, requestPlatform)
+     ElMessage.success('匹配完成')
+   } finally {
+-    uploading.value = false
++    if (requestGeneration === matchGeneration) uploading.value = false
+   }
+ }
+
+-function emitDraftRows() {
+-  if (props.embedded) emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
++function emitDraftRows(expectedGeneration = matchGeneration, expectedPlatform = platform.value) {
++  if (props.embedded && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
++    emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
++  }
+ }
+
+ function openCandidates(row) {
+@@ -334,6 +351,7 @@ onMounted(async () => {
+     platform.value = platforms.value[0].platform_code
+   }
+ })
++onBeforeUnmount(() => matchAbort?.abort())
+ </script>
+
+ <style scoped>
+diff --git a/web/src/views/tasks/TaskCreate.vue b/web/src/views/tasks/TaskCreate.vue
+index aea2e9b..429820f 100644
+--- a/web/src/views/tasks/TaskCreate.vue
++++ b/web/src/views/tasks/TaskCreate.vue
+@@ -39,7 +39,7 @@
+
+ <script setup>
+ import { computed, onMounted, reactive, ref, watch } from 'vue'
+-import { useRouter } from 'vue-router'
++import { onBeforeRouteLeave, useRouter } from 'vue-router'
+ import { ElMessage } from 'element-plus'
+ import http from '@/api/http'
+ import ExcelMatch from '@/views/excel/ExcelMatch.vue'
+@@ -48,6 +48,7 @@ import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelR
+ const router = useRouter()
+ const platforms = ref([]); const devices = ref([]); const accounts = ref([])
+ const source = ref('manual'); const loading = ref(false); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
++let routeGeneration = 0
+ const form = reactive({ task_name: '', task_type: 'collect', platform_code: 'pinduoduo', device_id: null, account_id: null, priority: 5, keywordsText: '', delay_min_sec: 2, delay_max_sec: 5, max_detail: 5, enable_price_sort: false, enable_sales_sort: false, pace_mode: 'steady', item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25, busy_response: 'retry', busy_retry_count: 0, busy_cooldown_sec: 15, risk_cooldown_sec: 60, sold_out_stop_threshold: 2, anomaly_stop_threshold: 3 })
+ const pacePresets = { steady: { item_gap_min_sec: 6, item_gap_max_sec: 10, batch_size: 4, batch_cooldown_sec: 25 }, balanced: { item_gap_min_sec: 4, item_gap_max_sec: 8, batch_size: 5, batch_cooldown_sec: 20 }, fast: { item_gap_min_sec: 2, item_gap_max_sec: 5, batch_size: 8, batch_cooldown_sec: 10 } }
+ const sourceRows = computed(() => source.value === 'manual' ? normalizeManualRows(form.keywordsText, form.platform_code) : normalizeExcelRows(excelRows.value, form.platform_code))
+@@ -66,8 +67,9 @@ function config() { normalizeRange(); return { delay_min_sec: form.delay_min_sec
+ function toggleRow(row) { draftRows.value = setRowSelection(draftRows.value, row.row_id, row.selection_status === 'excluded'); invalidateSubmission() }
+ async function load() { const [p, d, a] = await Promise.all([http.get('/api/platforms'), http.get('/api/devices'), http.get('/api/accounts')]); platforms.value = p.data || []; if (!enabledPlatforms.value.some((platform) => platform.platform_code === form.platform_code) && enabledPlatforms.value.length) form.platform_code = enabledPlatforms.value[0].platform_code; devices.value = (d.data || []).filter((x) => x.online); accounts.value = a.data || [] }
+ function nextPayload() { return buildCanonicalPayload({ submissionId: submissionId.value, source: source.value, task: { task_name: form.task_name || `采集任务-${new Date().toLocaleString()}`, task_type: form.task_type, platform_code: form.platform_code, device_id: form.device_id, priority: form.priority, config: config() }, rows: draftRows.value }) }
+-async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); router.push(`/tasks/${res.data.task_id}`) } finally { loading.value = false } }
++async function submit() { if (!canSubmit.value) return ElMessage.warning('请修正错误行、完成候选选择或明确排除后再提交'); const requestGeneration = routeGeneration; loading.value = true; try { const payload = frozenPayload.value || nextPayload(); frozenPayload.value = payload; const res = await http.post('/api/tasks', payload); if (requestGeneration !== routeGeneration) return; ElMessage.success(`任务已创建 #${res.data.task_id}${res.data.idempotent ? '（已确认重放）' : ''}`); await router.push(`/tasks/${res.data.task_id}`) } finally { if (requestGeneration === routeGeneration) loading.value = false } }
+ onMounted(load)
++onBeforeRouteLeave(() => { routeGeneration += 1; return true })
+ </script>
+
+ <style scoped>.form-hint { color:#86909c;font-size:12px;line-height:1.5 }.inline-hint { margin-left:10px }.range-separator { margin:0 8px;color:#86909c }.compact-number { width:110px;margin:0 8px }</style>
