@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-EVIDENCE-VALIDATION-001
 - **Title**：验证输入商品的真实 SKU_PANEL 证据链
-- **Status**：HUMAN_GATE / BLOCKED（Real-device device unavailable）
+- **Status**：PARTIAL / HUMAN_GATE BLOCKED（本机 ADB 未枚举到已批准真机；Server unavailable）
 - **Approved base**：`main@f7d037cd612df09059dcea83189e63f99097042d`
 - **Branch / worktree**：`codex/sku-evidence-validation-001` / `D:\work\PDD_con_data_sku_evidence_validation`
 - **Approved input**：`C:\Users\Eden\Desktop\123.xlsx`，SHA-256 `bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557`
@@ -63,7 +63,7 @@
 | Price/state | 组合级显示价格与可选状态；主商品价不得复制 | PENDING_REAL_DEVICE |
 | Platform SKU ID | 平台直接提供则 `OBSERVED`；否则 `NOT_OBSERVED` | PENDING_REAL_DEVICE |
 | Exit | 退出面板且 order/submit/payment guards 全为 false | PENDING_REAL_DEVICE |
-| Replay/DTO | Raw → Replay → DTO identity/version/quality | PENDING_REAL_DEVICE |
+| Replay/DTO | Raw → Replay → DTO identity/version/quality | DEFERRED_SERVER_UNAVAILABLE；且尚无 real-device Raw |
 
 ## Acceptance Criteria
 
@@ -86,8 +86,8 @@
 | Input hash | `Get-FileHash` source and isolated copy | identical / PASS |
 | Server parse | isolated `offline_parse.py` importing current `excel_match.py` helpers | rows=5, headers=4 / PASS |
 | Web draft | isolated `offline_matrix.mjs` importing current `taskDraft.js` | valid=5, duplicate=0, invalid=0 / PASS |
-| Real-device precheck | approved SDK `adb devices -l` | no device / BLOCKED |
-| Raw/replay/DTO | after real capture | PENDING_REAL_DEVICE |
+| Real-device precheck | approved SDK `adb devices -l`；restart daemon 后再次枚举 | device_count=0 / BLOCKED |
+| Raw/replay/DTO | after real capture | DEFERRED_SERVER_UNAVAILABLE；不得宣称 PASS |
 | Regression | only after tracked evidence is finalized | PENDING |
 
 ## Oracle Gate
@@ -100,8 +100,15 @@
 
 - Required：Yes。
 - Approved scope：现有合法测试账号、真机、人工监督；单商品低频串行，仅打开/读取/退出 SKU 面板。
-- Precheck：`adb devices -l` 启动本机 adb daemon 后设备列表为空；后续命令返回 `no devices/emulators found`。
+- Precheck：固定 Head `eb8a3221b55fba435a09f59dbc683047dd750431` 起步；`adb devices -l` 设备列表为空。随后执行 `adb kill-server` / `adb start-server` 并再次枚举，仍为 `DEVICE_COUNT=0`，因此 screen、PDD package 和现有会话检查均未执行。
 - Current status：`HUMAN_GATE / BLOCKED — APPROVED_DEVICE_NOT_CONNECTED`。
+
+## Server-unavailable Degradation
+
+- Product Owner 明确声明服务器暂时未连接，本轮仅允许 `DEVICE-LOCAL EVIDENCE ONLY`；
+- 本轮未尝试 Oracle、生产 DB 或 API；
+- `Raw → Replay → DTO` 明确标记 `DEFERRED_SERVER_UNAVAILABLE`，不记为 PASS；
+- 因 ADB 未枚举到设备，本轮没有点击前详情、SKU_PANEL、组合或退出面板证据；样本数与 Raw Capture 数均为 0。
 
 ## Rollback
 
@@ -118,7 +125,7 @@
 
 ## Stop Condition
 
-- 当前已触发：批准设备未连接，Real-device Gate 为 `HUMAN_GATE / BLOCKED`；
+- 当前已触发：本机 ADB 经 daemon restart 后仍未枚举到批准设备，Real-device Gate 为 `HUMAN_GATE / BLOCKED`；Server replay/DTO 同时为 `DEFERRED_SERVER_UNAVAILABLE`；
 - 后续证据足以提交独立 ADR/Schema Review，或证据推翻模型假设时停止；
 - 不自动创建产品功能 PR，不实施 Schema/runtime，不 release，不启动下一任务。
 

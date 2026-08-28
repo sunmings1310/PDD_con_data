@@ -32,12 +32,16 @@
   },
   "real_device": {
     "required": true,
-    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED",
+    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_ENUMERATED_AFTER_ADB_RESTART",
     "samples_created": 0,
     "raw_captures_created": 0,
     "order_confirmation_clicked": false,
     "order_submitted": false,
-    "payment_started": false
+    "payment_started": false,
+    "adb_device_count": 0,
+    "screen_check": "NOT_EXECUTED_NO_DEVICE",
+    "pdd_package_check": "NOT_EXECUTED_NO_DEVICE",
+    "local_precheck_evidence_sha256": "3fe59b0c59a5519e692a52fce08b7e70dac7bf1896c485e3d87abe30febd6cc8"
   },
   "privacy": {
     "credentials_committed": false,
@@ -45,5 +49,12 @@
     "raw_screenshot_committed": false,
     "unredacted_network_capture_committed": false
   },
-  "persistent_business_changes": false
+  "persistent_business_changes": false,
+  "server": {
+    "status": "UNAVAILABLE_DECLARED_BY_PRODUCT_OWNER",
+    "oracle_attempted": false,
+    "production_db_attempted": false,
+    "api_write_attempted": false,
+    "raw_replay_dto": "DEFERRED_SERVER_UNAVAILABLE"
+  }
 }

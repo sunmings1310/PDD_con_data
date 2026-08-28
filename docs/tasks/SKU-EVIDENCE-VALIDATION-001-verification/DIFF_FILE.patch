@@ -1,12 +1,12 @@
 diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
-index aa87b13..47efaaf 100644
+index aa87b13..c9051a3 100644
 --- a/docs/CURRENT_STATE.md
 +++ b/docs/CURRENT_STATE.md
 @@ -120,0 +121,2 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
-+Product Owner 已批准启动证据优先 Task `SKU-EVIDENCE-VALIDATION-001`。Control 已从 `main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立分支与 worktree；本 Task 只验证真实 SKU_PANEL 证据，不实施 Generic SKU runtime、P1 Schema/migration、历史回填或 Phase 6B。当前离线 Excel 门禁通过，Real-device 预检因未检测到已连接设备而停在 `HUMAN_GATE / BLOCKED`。
++Product Owner 已批准启动证据优先 Task `SKU-EVIDENCE-VALIDATION-001`。Control 已从 `main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立分支与 worktree；本 Task 只验证真实 SKU_PANEL 证据，不实施 Generic SKU runtime、P1 Schema/migration、历史回填或 Phase 6B。当前离线 Excel 门禁通过；在用户声明真机已准备后，本机 ADB 重启 daemon 并再次枚举仍得到 `DEVICE_COUNT=0`，Real-device Gate 保持 `HUMAN_GATE / BLOCKED`。服务器暂不可用，本轮未尝试 Oracle/生产 DB/API，`Raw → Replay → DTO` 为 `DEFERRED_SERVER_UNAVAILABLE`。
 +
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 70e822e..97a4702 100644
+index 70e822e..766af00 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -31,0 +32,6 @@
@@ -14,14 +14,14 @@ index 70e822e..97a4702 100644
 +
 +| Task | 状态 | 范围 | 下一步 |
 +|---|---|---|---|
-+| SKU-EVIDENCE-VALIDATION-001 | HUMAN_GATE / BLOCKED | 从 `main@f7d037c` 验证给定 5 行 Excel 与最多 1～2 个真实 SKU_PANEL 样本；不实施 runtime/Schema/migration | 离线矩阵已通过；连接已批准真机并确认现有受控登录会话后，继续低频单商品采样 |
++| SKU-EVIDENCE-VALIDATION-001 | PARTIAL / HUMAN_GATE BLOCKED | 从 `main@f7d037c` 验证给定 5 行 Excel 与最多 1～2 个真实 SKU_PANEL 样本；不实施 runtime/Schema/migration | 离线矩阵已通过；ADB daemon restart 后仍为 `DEVICE_COUNT=0`。连接已批准真机并确认现有受控登录会话后继续；Server 恢复后再执行 Raw→Replay→DTO，当前为 `DEFERRED_SERVER_UNAVAILABLE` |
 +
 diff --git a/docs/tasks/SKU-EVIDENCE-VALIDATION-001-evidence-manifest.json b/docs/tasks/SKU-EVIDENCE-VALIDATION-001-evidence-manifest.json
 new file mode 100644
-index 0000000..5732012
+index 0000000..b479891
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-VALIDATION-001-evidence-manifest.json
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,60 @@
 +{
 +  "task_id": "SKU-EVIDENCE-VALIDATION-001",
 +  "base_sha": "f7d037cd612df09059dcea83189e63f99097042d",
@@ -56,12 +56,16 @@ index 0000000..5732012
 +  },
 +  "real_device": {
 +    "required": true,
-+    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED",
++    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_ENUMERATED_AFTER_ADB_RESTART",
 +    "samples_created": 0,
 +    "raw_captures_created": 0,
 +    "order_confirmation_clicked": false,
 +    "order_submitted": false,
-+    "payment_started": false
++    "payment_started": false,
++    "adb_device_count": 0,
++    "screen_check": "NOT_EXECUTED_NO_DEVICE",
++    "pdd_package_check": "NOT_EXECUTED_NO_DEVICE",
++    "local_precheck_evidence_sha256": "3fe59b0c59a5519e692a52fce08b7e70dac7bf1896c485e3d87abe30febd6cc8"
 +  },
 +  "privacy": {
 +    "credentials_committed": false,
@@ -69,7 +73,14 @@ index 0000000..5732012
 +    "raw_screenshot_committed": false,
 +    "unredacted_network_capture_committed": false
 +  },
-+  "persistent_business_changes": false
++  "persistent_business_changes": false,
++  "server": {
++    "status": "UNAVAILABLE_DECLARED_BY_PRODUCT_OWNER",
++    "oracle_attempted": false,
++    "production_db_attempted": false,
++    "api_write_attempted": false,
++    "raw_replay_dto": "DEFERRED_SERVER_UNAVAILABLE"
++  }
 +}
 diff --git a/docs/tasks/SKU-EVIDENCE-VALIDATION-001-fixture.json b/docs/tasks/SKU-EVIDENCE-VALIDATION-001-fixture.json
 new file mode 100644
@@ -138,16 +149,16 @@ index 0000000..6bfb75e
 +当前 `stableDedupKey()` 对所有四字段目标使用字面 namespace `drug`，因此 `湘械注准` 行虽然完整保留且未丢弃，其 dedup key 仍带 `|drug|`。本 Task 只记录该事实，不修改产品分类或 dedup 契约；是否需要改为通用 regulated-product identity 属于后续独立产品/契约决策。
 diff --git a/docs/tasks/SKU-EVIDENCE-VALIDATION-001-real-device-precheck.md b/docs/tasks/SKU-EVIDENCE-VALIDATION-001-real-device-precheck.md
 new file mode 100644
-index 0000000..4ce0144
+index 0000000..46c267e
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-VALIDATION-001-real-device-precheck.md
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,44 @@
 +# SKU-EVIDENCE-VALIDATION-001 Real-device Precheck
 +
 +- Date：2026-08-28
 +- Gate：Required
 +- Approved SDK adb：`D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe`
-+- Interaction performed：passive device enumeration only
++- Interaction performed：passive device enumeration and local adb daemon restart only
 +
 +## Literal result
 +
@@ -159,6 +170,20 @@ index 0000000..4ce0144
 +adb.exe: no devices/emulators found
 +```
 +
++用户声明真机已准备并完成 ADB 授权后，本机再次执行：
++
++```text
++adb kill-server
++adb start-server
++* daemon not running; starting now at tcp:5037
++* daemon started successfully
++List of devices attached
++DEVICE_COUNT=0
++EXIT=0
++```
++
++脱敏本地证据：`C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-VALIDATION-001\evidence\adb-precheck-20260828-retry.txt`（不提交），SHA-256 `3fe59b0c59a5519e692a52fce08b7e70dac7bf1896c485e3d87abe30febd6cc8`。
++
 +## Gate result
 +
 +`HUMAN_GATE / BLOCKED — APPROVED_DEVICE_NOT_CONNECTED`
@@ -167,20 +192,22 @@ index 0000000..4ce0144
 +- 未打开拼多多、未搜索商品、未点击购买入口；
 +- 未创建采样任务或 Raw Capture；
 +- 未发生订单、购物车、提交或支付动作；
-+- `persistent_business_changes=false`。
++- 因没有设备连接，screen、PDD package 和登录会话检查均为 `NOT_EXECUTED_NO_DEVICE`；
++- Product Owner 声明 Server unavailable，本轮未尝试 Oracle、生产 DB 或 API，`Raw → Replay → DTO=DEFERRED_SERVER_UNAVAILABLE`；
++- 在已观测范围内 `persistent_business_changes=false`。
 +
 +恢复条件：连接已批准真机并完成现有 ADB 授权；设备上存在已批准的受控登录会话。若需要新账号、密码、OTP、验证码或人工验证，仍保持 Human Gate 并停止。
 diff --git a/docs/tasks/SKU-EVIDENCE-VALIDATION-001.md b/docs/tasks/SKU-EVIDENCE-VALIDATION-001.md
 new file mode 100644
-index 0000000..76a13ba
+index 0000000..b02e6b3
 --- /dev/null
 +++ b/docs/tasks/SKU-EVIDENCE-VALIDATION-001.md
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,138 @@
 +# SKU-EVIDENCE-VALIDATION-001：真实 SKU 证据验证
 +
 +- **Task ID**：SKU-EVIDENCE-VALIDATION-001
 +- **Title**：验证输入商品的真实 SKU_PANEL 证据链
-+- **Status**：HUMAN_GATE / BLOCKED（Real-device device unavailable）
++- **Status**：PARTIAL / HUMAN_GATE BLOCKED（本机 ADB 未枚举到已批准真机；Server unavailable）
 +- **Approved base**：`main@f7d037cd612df09059dcea83189e63f99097042d`
 +- **Branch / worktree**：`codex/sku-evidence-validation-001` / `D:\work\PDD_con_data_sku_evidence_validation`
 +- **Approved input**：`C:\Users\Eden\Desktop\123.xlsx`，SHA-256 `bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557`
@@ -241,7 +268,7 @@ index 0000000..76a13ba
 +| Price/state | 组合级显示价格与可选状态；主商品价不得复制 | PENDING_REAL_DEVICE |
 +| Platform SKU ID | 平台直接提供则 `OBSERVED`；否则 `NOT_OBSERVED` | PENDING_REAL_DEVICE |
 +| Exit | 退出面板且 order/submit/payment guards 全为 false | PENDING_REAL_DEVICE |
-+| Replay/DTO | Raw → Replay → DTO identity/version/quality | PENDING_REAL_DEVICE |
++| Replay/DTO | Raw → Replay → DTO identity/version/quality | DEFERRED_SERVER_UNAVAILABLE；且尚无 real-device Raw |
 +
 +## Acceptance Criteria
 +
@@ -264,8 +291,8 @@ index 0000000..76a13ba
 +| Input hash | `Get-FileHash` source and isolated copy | identical / PASS |
 +| Server parse | isolated `offline_parse.py` importing current `excel_match.py` helpers | rows=5, headers=4 / PASS |
 +| Web draft | isolated `offline_matrix.mjs` importing current `taskDraft.js` | valid=5, duplicate=0, invalid=0 / PASS |
-+| Real-device precheck | approved SDK `adb devices -l` | no device / BLOCKED |
-+| Raw/replay/DTO | after real capture | PENDING_REAL_DEVICE |
++| Real-device precheck | approved SDK `adb devices -l`；restart daemon 后再次枚举 | device_count=0 / BLOCKED |
++| Raw/replay/DTO | after real capture | DEFERRED_SERVER_UNAVAILABLE；不得宣称 PASS |
 +| Regression | only after tracked evidence is finalized | PENDING |
 +
 +## Oracle Gate
@@ -278,8 +305,15 @@ index 0000000..76a13ba
 +
 +- Required：Yes。
 +- Approved scope：现有合法测试账号、真机、人工监督；单商品低频串行，仅打开/读取/退出 SKU 面板。
-+- Precheck：`adb devices -l` 启动本机 adb daemon 后设备列表为空；后续命令返回 `no devices/emulators found`。
++- Precheck：固定 Head `eb8a3221b55fba435a09f59dbc683047dd750431` 起步；`adb devices -l` 设备列表为空。随后执行 `adb kill-server` / `adb start-server` 并再次枚举，仍为 `DEVICE_COUNT=0`，因此 screen、PDD package 和现有会话检查均未执行。
 +- Current status：`HUMAN_GATE / BLOCKED — APPROVED_DEVICE_NOT_CONNECTED`。
++
++## Server-unavailable Degradation
++
++- Product Owner 明确声明服务器暂时未连接，本轮仅允许 `DEVICE-LOCAL EVIDENCE ONLY`；
++- 本轮未尝试 Oracle、生产 DB 或 API；
++- `Raw → Replay → DTO` 明确标记 `DEFERRED_SERVER_UNAVAILABLE`，不记为 PASS；
++- 因 ADB 未枚举到设备，本轮没有点击前详情、SKU_PANEL、组合或退出面板证据；样本数与 Raw Capture 数均为 0。
 +
 +## Rollback
 +
@@ -296,7 +330,7 @@ index 0000000..76a13ba
 +
 +## Stop Condition
 +
-+- 当前已触发：批准设备未连接，Real-device Gate 为 `HUMAN_GATE / BLOCKED`；
++- 当前已触发：本机 ADB 经 daemon restart 后仍未枚举到批准设备，Real-device Gate 为 `HUMAN_GATE / BLOCKED`；Server replay/DTO 同时为 `DEFERRED_SERVER_UNAVAILABLE`；
 +- 后续证据足以提交独立 ADR/Schema Review，或证据推翻模型假设时停止；
 +- 不自动创建产品功能 PR，不实施 Schema/runtime，不 release，不启动下一任务。
 +
