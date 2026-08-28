@@ -12,7 +12,9 @@
     "build": "vite build",
     "test:client-contract": "node scripts/test-client-contract.mjs",
     "test:result-visibility": "node scripts/test-request-generation.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:task-import-contract": "node scripts/test-task-import-contract.mjs",
+    "test:task-import-components": "node scripts/test-task-import-components.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",

@@ -1,0 +1,100 @@
+WEB-TASK-IMPORT-001 FINAL VERIFICATION
+DATE=2026-08-28
+BRANCH=codex/web-task-import-001
+BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
+TESTED_CODE_COMMIT=d4281adab920cabf0b59d02ec3442a9698e24d0a
+EVIDENCE_DOCS_WRAPPER_COMMIT=e0d2166bcaea3814cfe7681a98e72727484d85e2
+WRAPPER_HEAD_SEMANTICS=documentation closure Head is never prewritten into tracked content; stable external manifest head_sha/git_head is the sole authority and is checked against git rev-parse HEAD after commit.
+EXTERNAL_MANIFEST_PATH=C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json
+HISTORICAL_E0_MANIFEST_SHA256=35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4
+FINAL_STATUS=PASS
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ROLLBACK.sh
+ORIGINAL_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ORIGINAL_FILE (historical evidence only; not a manifest role)
+
+BASELINE
+COMMAND=git show d3eff55958c619463ffb28f498e72e32618792e1:docs/tasks/WEB-TASK-IMPORT-001.md
+INPUT=setup Task source
+LITERAL_OUTPUT=ORIGINAL_FILE SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+EXIT_STATUS=0
+STATUS=PASS
+
+MODIFIED
+COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+INPUT=final Task record for tested code d4281ad
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=c8a5818bbd7f2bd3c1f868f78234ca288832cfb2b1761d4b6589118af36a29b4; changed from setup source
+EXIT_STATUS=0
+STATUS=PASS
+
+COMPONENT_GATE
+COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
+INPUT=actual compiled/mounted embedded ExcelMatch and TaskCreate with delayed HTTP adapter
+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
+EXIT_STATUS=0
+STATUS=PASS
+
+HELPER_CONTRACT_GATE
+COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
+INPUT=canonical draft/payload helper contract
+LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
+LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
+LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=replay user_edit=new_submission
+EXIT_STATUS=0
+STATUS=PASS
+
+PYTHON_FULL
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+LITERAL_OUTPUT=Ran 249 tests in 0.451s
+LITERAL_OUTPUT=OK (skipped=31)
+LITERAL_OUTPUT=[PASS] python-unit: exit=0
+LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_FINAL
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+INPUT=Control-approved isolated writable Oracle; tested code d4281ad then documentation wrapper e0d2166
+TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
+TARGETED_LITERAL_OUTPUT=OK
+TARGETED_EXIT_STATUS=0
+TESTED_CODE_LITERAL_OUTPUT=Ran 53 tests in 184.957s
+TESTED_CODE_LITERAL_OUTPUT=OK
+TESTED_CODE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+TESTED_CODE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+TESTED_CODE_EXIT_STATUS=0
+TESTED_CODE_STATUS=PASS
+WRAPPER_ORACLE_LITERAL_OUTPUT=Ran 53 tests in 176.794s
+WRAPPER_ORACLE_LITERAL_OUTPUT=OK
+WRAPPER_ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+WRAPPER_ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WRAPPER_ORACLE_EXIT_STATUS=0
+WRAPPER_ORACLE_STATUS=PASS
+COVERAGE=test_07 lifecycle lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy no-reservation/no-quota no-op; test_10 DAILY_SNAPSHOT cross-midnight persisted period.
+CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
+PERSISTENT_BUSINESS_CHANGES=false
+
+ROLLBACK
+COMMAND=Copy-Item MODIFIED_FILE rollback probe; D:\Git\bin\bash.exe ROLLBACK.sh <probe>
+INPUT=separate MODIFIED_FILE copy
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task
+LITERAL_OUTPUT=RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+EXIT_STATUS=0
+STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe equals setup Task; MODIFIED_FILE remains changed.
+
+HISTORICAL_FAILURES
+060c61b=FAIL semantic-duplicate fixture used distinct drug/keyword identities; repaired by duplicated normalized drug identity.
+5f159f5=FAIL legacy release locked missing quota; repaired by absent-reservation no-op before locking.
+1736e19=FAIL cleanup bind map included :w for SQL without :w; repaired with exact bind maps.
+These entries are historical diagnostics, superseded by the tested-code Oracle PASS above.
+
+POST_COMMIT_PROVENANCE
+STATUS=PASS_EXTERNAL_MANIFEST_REQUIRED_FOR_POST_DOC_HEAD
+CONTROL_ACTION=after this closure commit, Control reruns strict and overwrites EXTERNAL_MANIFEST_PATH; manifest head_sha/git_head is compared with git rev-parse HEAD before Independent Re-review.

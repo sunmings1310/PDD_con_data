@@ -10,7 +10,7 @@
           v-model="platform"
           placeholder="请选择平台"
           style="width: 180px"
-          :disabled="uploading || dispatching"
+          :disabled="uploading || dispatching || embedded"
         >
           <el-option
             v-for="item in platforms"
@@ -19,8 +19,7 @@
             :value="item.platform_code"
           />
         </el-select>
-        <el-select
-          v-model="deviceId"
+        <el-select v-if="!embedded" v-model="deviceId"
           clearable
           filterable
           placeholder="请选择采集设备"
@@ -35,7 +34,7 @@
             :value="device.device_id"
           />
         </el-select>
-        <el-select v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
+        <el-select v-if="!embedded" v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
           <el-option :value="5" label="每项核对 5 个" />
           <el-option :value="10" label="每项核对 10 个" />
           <el-option :value="20" label="每项核对 20 个" />
@@ -54,8 +53,7 @@
         <el-button v-if="store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
           批量导出（{{ selectedRows.length }}）
         </el-button>
-        <el-button
-          type="warning"
+        <el-button v-if="!embedded" type="warning"
           :disabled="!unmatchedRows.length"
           :loading="dispatching"
           @click="dispatchAndroidMatch"
@@ -153,14 +151,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 
+
 const platforms = ref([])
-const { embedded = false } = defineProps({ embedded: Boolean })
+const props = defineProps({ embedded: Boolean, platformCode: { type: String, default: '' } })
+const embedded = computed(() => props.embedded)
+const emit = defineEmits(['draft-rows'])
 const devices = ref([])
 const router = useRouter()
 const store = useUserStore()
@@ -176,6 +177,8 @@ const dispatching = ref(false)
 const candidateDialog = ref(false)
 const activeRow = ref(null)
 const tableRef = ref(null)
+let matchGeneration = 0
+let matchAbort = null
 const unmatchedRows = computed(() => rows.value.filter((row) => !row.matched))
 const availableDevices = computed(() => devices.value.filter(
   (device) => device.online && device.platform_code === platform.value,
@@ -186,6 +189,23 @@ watch(availableDevices, (items) => {
     deviceId.value = items.length === 1 ? items[0].device_id : null
   }
 })
+function invalidateMatchRows({ emitRows = true } = {}) {
+  matchGeneration += 1
+  matchAbort?.abort()
+  matchAbort = null
+  uploading.value = false
+  rows.value = []
+  stats.value = null
+  if (emitRows) emitDraftRows(matchGeneration, platform.value)
+}
+watch(platform, (value, previous) => {
+  if (previous && value !== previous) invalidateMatchRows()
+})
+watch(() => props.platformCode, (value) => {
+  if (props.embedded && value && value !== platform.value) {
+    platform.value = value
+  }
+}, { immediate: true })
 
 function beforeUpload(file) {
   if (!platform.value) {
@@ -205,20 +225,37 @@ async function downloadTemplate() {
 }
 
 async function uploadMatch({ file }) {
+  matchAbort?.abort()
+  const requestGeneration = ++matchGeneration
+  const requestPlatform = platform.value
+  const controller = new AbortController()
+  matchAbort = controller
   uploading.value = true
   selectedRows.value = []
   try {
     const form = new FormData()
     form.append('file', file)
     const response = await http.post(
-      `/api/excel/match?platform_code=${encodeURIComponent(platform.value)}`,
+      `/api/excel/match?platform_code=${encodeURIComponent(requestPlatform)}`,
       form,
+      { signal: controller.signal },
     )
+    if (requestGeneration !== matchGeneration || requestPlatform !== platform.value) return
     rows.value = response.data.rows || []
     stats.value = response.data
+    emitDraftRows(requestGeneration, requestPlatform)
     ElMessage.success('匹配完成')
   } finally {
-    uploading.value = false
+    if (requestGeneration === matchGeneration) {
+      uploading.value = false
+      if (matchAbort === controller) matchAbort = null
+    }
+  }
+}
+
+function emitDraftRows(expectedGeneration = matchGeneration, expectedPlatform = platform.value) {
+  if (props.embedded && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
+    emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
   }
 }
 
@@ -238,7 +275,8 @@ function chooseCandidate(candidate) {
     match_count: activeRow.value.match_count,
     candidates: activeRow.value.candidates,
   }
-  Object.assign(activeRow.value, candidate, keep)
+  Object.assign(activeRow.value, candidate, keep, { selected_candidate: candidate })
+  emitDraftRows()
   candidateDialog.value = false
   ElMessage.success('已替换为所选商品')
 }
@@ -317,6 +355,7 @@ onMounted(async () => {
     platform.value = platforms.value[0].platform_code
   }
 })
+onBeforeUnmount(() => invalidateMatchRows({ emitRows: false }))
 </script>
 
 <style scoped>

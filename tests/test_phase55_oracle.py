@@ -12,9 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
+from unittest.mock import patch
 
 import oracledb
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 for _key, _value in {
     "APP_ENV": "test", "ORACLE_HOST": "127.0.0.1", "ORACLE_PORT": "1521",
@@ -27,14 +29,16 @@ from server import management_queries  # noqa: E402
 from server.cast_state import cast_state  # noqa: E402
 from server.db import close_pool, get_conn, init_pool, next_id  # noqa: E402
 from server.device_enrollment import issue  # noqa: E402
+from server.auth_util import create_token  # noqa: E402
 from server.job_service import create_jobs_for_task  # noqa: E402
 from server.main import tenant_media  # noqa: E402
 from server.media_access import _signature, signed_media_url  # noqa: E402
 from server.ota_meta import apk_dir, save_meta  # noqa: E402
 from server.quota import (ACTIVE_TASK, DAILY_SNAPSHOT, STORAGE_BYTES, QuotaExceeded,
-                          period_key, reserve_and_commit)  # noqa: E402
-from server.routers import cast, dashboard, devices, jobs, ota, products, tasks  # noqa: E402
-from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn  # noqa: E402
+                          commit, period_key, release, reserve, reserve_and_commit)  # noqa: E402
+from server.routers import cast, dashboard, devices, excel_match, jobs, ota, products, tasks  # noqa: E402
+from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn, TaskCreateIn
+from server.task_creation_service import create_canonical_task  # noqa: E402
 from server.tenant import TenantContext  # noqa: E402
 
 ENABLED = os.getenv("PHASE55_ORACLE_TEST_ENABLED") == "1"
@@ -86,6 +90,42 @@ class Phase55OracleFinalGate(unittest.TestCase):
     def _ctx(self, enterprise_id: int, workspace_id: int) -> TenantContext:
         return TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin",
                              frozenset({"task:view", "data:view", "device:manage", "device:cast"}))
+
+    def _cleanup_task_import_fixture(self, cur, enterprise_id: int, workspace_id: int):
+        """Remove every durable row created by the canonical-import fixtures."""
+        task_scope = "SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w"
+        job_scope = f"SELECT JOB_ID FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})"
+        scoped_binds = {"e": enterprise_id, "w": workspace_id}
+        enterprise_binds = {"e": enterprise_id}
+        for sql, binds in (
+            (f"DELETE FROM SJZQ_COLLECTION_LEASE WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_CHECKPOINT WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID IN ({job_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_OUTBOX WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_JOB_EVENT WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_COLLECTION_JOB WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_TASK_ITEM WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            (f"DELETE FROM SJZQ_TASK_LOG WHERE TASK_ID IN ({task_scope})", scoped_binds),
+            ("DELETE FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
+            ("DELETE FROM SJZQ_QUOTA_LEDGER WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_QUOTA_RESERVATION WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_WORKSPACE_MEMBERSHIP WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
+            ("DELETE FROM SJZQ_ENTERPRISE_MEMBERSHIP WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_WORKSPACE WHERE WORKSPACE_ID=:w AND ENTERPRISE_ID=:e", scoped_binds),
+            ("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:e", enterprise_binds),
+            ("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:e", enterprise_binds),
+        ):
+            cur.execute(sql, binds)
+        for table, predicate, binds in (
+            ("SJZQ_TASK", "ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
+            ("SJZQ_TASK_ITEM", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)", scoped_binds),
+            ("SJZQ_COLLECTION_JOB", "TASK_ID IN (SELECT TASK_ID FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w)", scoped_binds),
+            ("SJZQ_QUOTA_USAGE", "ENTERPRISE_ID=:e", enterprise_binds),
+            ("SJZQ_ENTERPRISE", "ENTERPRISE_ID=:e", enterprise_binds),
+        ):
+            cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {predicate}", binds)
+            self.assertEqual(0, int(cur.fetchone()[0] or 0), table)
 
     def test_01_migration_first_run_and_rerun_are_applied(self):
         from server.migrate import ensure_schema_patches
@@ -410,6 +450,294 @@ class Phase55OracleFinalGate(unittest.TestCase):
                     WHERE ENTERPRISE_ID=:e AND METRIC_CODE=:metric""",
                             {"e": enterprise_id, "metric": metric})
                 self.assertEqual(2, int(cur.fetchone()[0]), metric)
+
+
+    def test_05_canonical_task_submission_replays_without_device_or_second_task(self):
+        marker = "task-import-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, active=10)
+            body = TaskCreateIn.model_validate({
+                "submission_id": marker, "source": "excel", "task_name": marker,
+                "task_type": "collect", "platform_code": "pinduoduo", "device_id": None,
+                "priority": 5, "config": {"max_detail": 5},
+                "targets": [{"row_id": "excel:2", "source": "excel", "source_row_index": 2,
+                             "keyword": "药品A", "approval": "H1", "name": "药品A",
+                             "spec": "10mg", "manufacturer": "厂家A"}],
+            })
+            context = TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"}))
+            user = {"user_id": 1, "username": "oracle-gate"}
+            first, error = create_canonical_task(cur, body=body, tenant=context, user=user, request=None)
+            self.assertIsNone(error)
+            replay, error = create_canonical_task(cur, body=body, tenant=context, user=user, request=None)
+            self.assertIsNone(error)
+            self.assertFalse(first["idempotent"])
+            self.assertTrue(replay["idempotent"])
+            self.assertEqual(first["task_id"], replay["task_id"])
+            changed = TaskCreateIn.model_validate({**body.model_dump(), "priority": 6})
+            conflict, error = create_canonical_task(cur, body=changed, tenant=context, user=user, request=None)
+            self.assertIsNone(conflict)
+            self.assertEqual("IDEMPOTENCY_CONFLICT", error)
+            cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w AND TASK_NAME=:name",
+                        {"e": enterprise_id, "w": workspace_id, "name": marker})
+            self.assertEqual(1, int(cur.fetchone()[0]))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:id", {"id": first["task_id"]})
+            self.assertEqual(1, int(cur.fetchone()[0]))
+
+            # These are rejected before any Task row can be made, while still
+            # using the accepted platform/quota tables in this Oracle session.
+            first_target = body.model_dump()["targets"][0]
+            duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
+                "targets": [first_target, {**first_target, "row_id": "excel:3", "source_row_index": 3}]})
+            result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("DUPLICATE_TARGET", error)
+            disabled = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-disabled",
+                "platform_code": "tmall", "targets": [{"row_id": "excel:4", "source": "excel",
+                    "source_row_index": 4, "platform_code": "tmall", "keyword": "平台关闭目标"}]})
+            result, error = create_canonical_task(cur, body=disabled, tenant=context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("PLATFORM_NOT_AVAILABLE", error)
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
+
+        with get_conn() as conn:
+            cur = conn.cursor()
+            quota_enterprise, quota_workspace = self._tenant(cur, active=0)
+            quota_context = TenantContext(quota_enterprise, quota_workspace, 1, 1, "super_admin", frozenset({"task:create"}))
+            quota_body = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-quota"})
+            result, error = create_canonical_task(cur, body=quota_body, tenant=quota_context, user=user, request=None)
+            self.assertIsNone(result)
+            self.assertEqual("ACTIVE_TASK_QUOTA_EXCEEDED", error)
+            self._cleanup_task_import_fixture(cur, quota_enterprise, quota_workspace)
+            conn.commit()
+
+
+    def test_06_canonical_submission_concurrent_replay_is_single_task(self):
+        marker = "task-import-race-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            enterprise_id, workspace_id = self._tenant(conn.cursor(), active=10)
+        barrier = threading.Barrier(2)
+        def worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                body = TaskCreateIn.model_validate({"submission_id": marker, "source": "manual", "task_name": marker,
+                    "task_type": "collect", "platform_code": "pinduoduo", "priority": 5,
+                    "targets": [{"row_id": "manual:1", "source": "manual", "source_row_index": 1, "keyword": "并发目标"}]})
+                barrier.wait()
+                result, error = create_canonical_task(conn.cursor(), body=body,
+                    tenant=TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"})),
+                    user={"user_id": 1, "username": "oracle-gate"}, request=None)
+                conn.commit()
+                return result, error
+            finally:
+                conn.close()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: worker(), range(2)))
+        self.assertTrue(all(error is None for _, error in results))
+        self.assertEqual([False, True], sorted(result["idempotent"] for result, _ in results))
+        self.assertEqual(1, len({result["task_id"] for result, _ in results}))
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w AND TASK_NAME=:name",
+                        {"e": enterprise_id, "w": workspace_id, "name": marker})
+            self.assertEqual(1, int(cur.fetchone()[0]))
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
+
+    def test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock(self):
+        marker = "task-import-lock-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, active=10)
+            held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
+                           metric=ACTIVE_TASK, amount=1, resource_type="gate", resource_key=marker)
+            conn.commit()
+        barrier = threading.Barrier(2)
+
+        def canonical_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                body = TaskCreateIn.model_validate({"submission_id": marker, "source": "manual", "task_name": marker,
+                    "task_type": "collect", "platform_code": "pinduoduo", "priority": 5,
+                    "targets": [{"row_id": "manual:1", "source": "manual", "source_row_index": 1, "keyword": "锁序目标"}]})
+                barrier.wait()
+                result, error = create_canonical_task(conn.cursor(), body=body,
+                    tenant=TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"})),
+                    user={"user_id": 1, "username": "oracle-gate"}, request=None)
+                conn.commit()
+                return "canonical", result, error
+            finally:
+                conn.close()
+
+        def lifecycle_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                barrier.wait()
+                committed = commit(conn.cursor(), held.reservation_id)
+                released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
+                                   resource_type="gate", resource_key=marker)
+                released_again = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
+                                         resource_type="gate", resource_key=marker)
+                conn.commit()
+                return "lifecycle", committed.status, released, released_again
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
+        self.assertIsNone(results["canonical"][1])
+        self.assertFalse(results["canonical"][0]["idempotent"])
+        self.assertEqual(["committed", True, False], results["lifecycle"])
+        with get_conn() as conn:
+            self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
+            conn.commit()
+
+    def test_09_legacy_release_without_reservation_or_quota_is_noop(self):
+        """A legacy completion can have neither quota row nor reservation."""
+        with get_conn() as conn:
+            cur = conn.cursor()
+            absent_enterprise = self._seq(cur, "SJZQ_SEQ_ENTERPRISE")
+            self.assertFalse(release(cur, enterprise_id=absent_enterprise, metric=ACTIVE_TASK,
+                                     resource_type="legacy", resource_key="missing"))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id",
+                        {"enterprise_id": absent_enterprise})
+            self.assertEqual(0, int(cur.fetchone()[0]))
+
+    def test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight(self):
+        """Commit/release must retain the reservation's day, not today's day."""
+        marker = "daily-midnight-" + uuid.uuid4().hex[:12]
+        old_period, new_period = "2026-08-27", "2026-08-28"
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, daily=10)
+            with patch("server.quota.period_key", return_value=old_period):
+                held = reserve(cur, enterprise_id=enterprise_id, workspace_id=workspace_id,
+                               metric=DAILY_SNAPSHOT, amount=1, resource_type="daily", resource_key=marker)
+            conn.commit()
+        with get_conn() as conn:
+            with patch("server.quota.period_key", return_value=new_period):
+                committed = commit(conn.cursor(), held.reservation_id)
+            self.assertEqual("committed", committed.status)
+            conn.commit()
+
+        barrier = threading.Barrier(2)
+        def release_worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                barrier.wait()
+                with patch("server.quota.period_key", return_value=new_period):
+                    released = release(conn.cursor(), enterprise_id=enterprise_id, metric=DAILY_SNAPSHOT,
+                                       resource_type="daily", resource_key=marker)
+                conn.commit()
+                return released
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            self.assertEqual([False, True], sorted(executor.map(lambda _: release_worker(), range(2))))
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""SELECT USED_VALUE,RESERVED_VALUE FROM SJZQ_QUOTA_USAGE
+                WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period""",
+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": old_period})
+            self.assertEqual((0, 0), tuple(map(int, cur.fetchone())))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period",
+                        {"enterprise_id": enterprise_id, "metric": DAILY_SNAPSHOT, "period": new_period})
+            self.assertEqual(0, int(cur.fetchone()[0]))
+            self._cleanup_task_import_fixture(cur, enterprise_id, workspace_id)
+            conn.commit()
+
+    def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
+        """The actual compatibility route cannot borrow global/other-tenant dispatch."""
+        tag = uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            global_role = self._seq(cur, "SJZQ_SEQ_ROLE")
+            create_role = self._seq(cur, "SJZQ_SEQ_ROLE")
+            combined_role = self._seq(cur, "SJZQ_SEQ_ROLE")
+            user_id = self._seq(cur, "SJZQ_SEQ_USER")
+            enterprise_a, workspace_a = self._tenant(cur, active=10)
+            enterprise_b, workspace_b = self._tenant(cur, active=10)
+            for role_id, suffix in ((global_role, "global"), (create_role, "create"), (combined_role, "both")):
+                cur.execute("INSERT INTO SJZQ_ROLE (ROLE_ID,ROLE_CODE,ROLE_NAME) VALUES (:id,:code,:name)",
+                            {"id": role_id, "code": f"p55-{suffix}-{tag}", "name": f"P55 {suffix} {tag}"})
+            for role_id, permission in ((global_role, "task:dispatch"), (create_role, "task:create"),
+                                        (combined_role, "task:create"), (combined_role, "task:dispatch")):
+                cur.execute("INSERT INTO SJZQ_ROLE_PERM (ROLE_ID,PERM_CODE) VALUES (:role_id,:permission)",
+                            {"role_id": role_id, "permission": permission})
+            username = f"p55-route-{tag}"
+            cur.execute("""INSERT INTO SJZQ_USER (USER_ID,USERNAME,PASSWORD_HASH,ROLE_ID,STATUS)
+                           VALUES (:id,:username,'test-only',:role_id,'enabled')""",
+                        {"id": user_id, "username": username, "role_id": global_role})
+            for enterprise_id, workspace_id, role_id in ((enterprise_a, workspace_a, create_role),
+                                                         (enterprise_b, workspace_b, global_role)):
+                cur.execute("""INSERT INTO SJZQ_ENTERPRISE_MEMBERSHIP
+                    (MEMBERSHIP_ID,ENTERPRISE_ID,USER_ID,ROLE_ID,STATUS)
+                    VALUES (:id,:enterprise_id,:user_id,:role_id,'active')""",
+                            {"id": self._seq(cur, "SJZQ_SEQ_ENT_MEMBERSHIP"), "enterprise_id": enterprise_id,
+                             "user_id": user_id, "role_id": role_id})
+                cur.execute("""INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
+                    (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
+                    VALUES (:enterprise_id,:workspace_id,:user_id,:role_id)""",
+                            {"enterprise_id": enterprise_id, "workspace_id": workspace_id,
+                             "user_id": user_id, "role_id": role_id})
+            conn.commit()
+
+        route_app = FastAPI()
+        route_app.include_router(excel_match.router)
+        token = create_token({"user_id": user_id, "username": username, "role_code": f"p55-global-{tag}"})
+        body = {"submission_id": f"compat-{tag}", "task_name": f"compat-{tag}", "platform_code": "pinduoduo",
+                "rows": [{"row_index": 2, "input_approval_no": "H123", "input_product_name": "路由药品",
+                          "input_spec": "10mg", "input_manufacturer": "路由厂家"}]}
+        try:
+            with TestClient(route_app) as client:
+                headers_a = {"Authorization": f"Bearer {token}", "X-Enterprise-Id": str(enterprise_a),
+                             "X-Workspace-Id": str(workspace_a)}
+                denied = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_a)
+                self.assertEqual(403, denied.status_code)  # global dispatch cannot replace selected A dispatch
+                headers_b = {"Authorization": f"Bearer {token}", "X-Enterprise-Id": str(enterprise_b),
+                             "X-Workspace-Id": str(workspace_b)}
+                denied_create = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_b)
+                self.assertEqual(403, denied_create.status_code)  # selected B dispatch cannot replace selected create
+                with get_conn() as conn:
+                    cur = conn.cursor()
+                    cur.execute("""UPDATE SJZQ_ENTERPRISE_MEMBERSHIP SET ROLE_ID=:role_id
+                                   WHERE ENTERPRISE_ID=:enterprise_id AND USER_ID=:user_id""",
+                                {"role_id": combined_role, "enterprise_id": enterprise_a, "user_id": user_id})
+                    cur.execute("""UPDATE SJZQ_WORKSPACE_MEMBERSHIP SET ROLE_ID=:role_id
+                                   WHERE ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND USER_ID=:user_id""",
+                                {"role_id": combined_role, "enterprise_id": enterprise_a,
+                                 "workspace_id": workspace_a, "user_id": user_id})
+                    conn.commit()
+                allowed = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_a)
+                self.assertEqual(200, allowed.status_code)
+                self.assertTrue(allowed.json()["ok"])
+            with get_conn() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
+                            {"e": enterprise_a, "w": workspace_a})
+                self.assertEqual(1, int(cur.fetchone()[0]))
+                cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
+                            {"e": enterprise_b, "w": workspace_b})
+                self.assertEqual(0, int(cur.fetchone()[0]))
+        finally:
+            with get_conn() as conn:
+                cur = conn.cursor()
+                self._cleanup_task_import_fixture(cur, enterprise_a, workspace_a)
+                self._cleanup_task_import_fixture(cur, enterprise_b, workspace_b)
+                cur.execute("DELETE FROM SJZQ_ROLE_PERM WHERE ROLE_ID IN (:global_role,:create_role,:combined_role)",
+                            {"global_role": global_role, "create_role": create_role, "combined_role": combined_role})
+                cur.execute("DELETE FROM SJZQ_USER WHERE USER_ID=:user_id", {"user_id": user_id})
+                cur.execute("DELETE FROM SJZQ_ROLE WHERE ROLE_ID IN (:global_role,:create_role,:combined_role)",
+                            {"global_role": global_role, "create_role": create_role, "combined_role": combined_role})
+                for table, predicate, binds in (
+                    ("SJZQ_ROLE", "ROLE_ID IN (:global_role,:create_role,:combined_role)", {"global_role": global_role, "create_role": create_role, "combined_role": combined_role}),
+                    ("SJZQ_USER", "USER_ID=:user_id", {"user_id": user_id}),
+                ):
+                    cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {predicate}", binds)
+                    self.assertEqual(0, int(cur.fetchone()[0] or 0), table)
+                conn.commit()
 
 
 if __name__ == "__main__":
