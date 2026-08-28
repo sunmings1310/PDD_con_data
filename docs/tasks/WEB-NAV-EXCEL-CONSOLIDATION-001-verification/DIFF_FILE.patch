@@ -1,0 +1,18 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index aa87b13..573c0a5 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -120,0 +121,2 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
++Product Owner 已批准启动 `WEB-NAV-EXCEL-CONSOLIDATION-001`。Control 已从 `origin/main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立 branch/worktree；范围仅为 Web Excel 导航、兼容重定向、任务导入/资料库查库 mode 分离及其测试，不改 Server、Schema、canonical Task、Android 或采集语义。当前状态为 `IN_PROGRESS`，停止点为 Draft PR + Hosted CI 后的 merge 决策。
++
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 70e822e..606ae64 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -31,0 +32,6 @@
++## Current approved Web task（2026-08-28）
++
++| Task | 状态 | 范围 | 下一步 |
++|---|---|---|---|
++| WEB-NAV-EXCEL-CONSOLIDATION-001 | IN_PROGRESS | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Dev 实现与分层测试 → Independent Review → Draft PR/Hosted CI；STOP before merge |
++

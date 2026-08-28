@@ -118,6 +118,8 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 已批准的 Web 执行队列至第 5 项全部完成。当前等待 Product Owner 选择下一阶段；下列未启动路线仅记录事实，不构成批准、排序或启动：
 
+Product Owner 已批准启动 `WEB-NAV-EXCEL-CONSOLIDATION-001`。Control 已从 `origin/main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立 branch/worktree；范围仅为 Web Excel 导航、兼容重定向、任务导入/资料库查库 mode 分离及其测试，不改 Server、Schema、canonical Task、Android 或采集语义。当前状态为 `IN_PROGRESS`，停止点为 Draft PR + Hosted CI 后的 merge 决策。
+
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；
 - Phase 6B：仍为 `NOT STARTED`；

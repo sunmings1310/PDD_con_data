@@ -1,0 +1,55 @@
+WEB-NAV-EXCEL-CONSOLIDATION-001 SETUP VERIFICATION
+DATE=2026-08-28
+BASE=origin/main@f7d037cd612df09059dcea83189e63f99097042d
+BRANCH=codex/web-nav-excel-consolidation-001
+STATUS=IN_PROGRESS
+
+BASELINE_INSTALL
+COMMAND=npx -y -p node@22.18.0 -p npm@10.9.3 npm ci --include=optional
+INPUT=web/package-lock.json; clean task worktree; fixed Node/npm toolchain
+LITERAL_OUTPUT=added 127 packages in 9s
+EXIT_STATUS=0
+RESULT=PASS
+
+BASELINE_MOUNTED
+COMMAND=npx -y node@22.18.0 scripts/test-task-import-components.mjs
+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id tenant_stale=no_push
+LITERAL_OUTPUT=TASK_LIST_COMPONENT=PASS mounted=TaskList initial_loading background_refresh duplicate_refresh stale_response status_unknown_safe
+LITERAL_OUTPUT=PRODUCT_COMPONENT=PASS mounted=ProductList refresh_empty tenant_context_stale_fenced
+LITERAL_OUTPUT=QUALITY_COMPONENT=PASS mounted=QualityDashboard initial_error retry empty_distinct
+LITERAL_OUTPUT=QUARANTINE_COMPONENT=PASS mounted=QuarantineList filter_race detail_retry refresh_empty route_context_stale_fenced
+LITERAL_OUTPUT=TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate
+EXIT_STATUS=0
+RESULT=PASS
+
+BASELINE_TASK_CONTRACT
+COMMAND=npx -y node@22.18.0 scripts/test-task-import-contract.mjs
+LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=replay user_edit=new_submission
+EXIT_STATUS=0
+RESULT=PASS
+
+BASELINE_CLIENT_CONTRACT
+COMMAND=npx -y node@22.18.0 scripts/test-client-contract.mjs
+LITERAL_OUTPUT=CLIENT_CONTRACT_EXIT=0
+EXIT_STATUS=0
+RESULT=PASS
+
+BASELINE_BUILD
+COMMAND=npx -y node@22.18.0 node_modules/vite/bin/vite.js build
+LITERAL_OUTPUT=✓ 1683 modules transformed.
+LITERAL_OUTPUT=✓ built in 5.27s
+EXIT_STATUS=0
+RESULT=PASS
+
+HISTORICAL_BASELINE_ENV_FAILURE
+INPUT=system Node 20.11.1 with missing node_modules
+LITERAL_OUTPUT=ERR_MODULE_NOT_FOUND; vite is not recognized; BUILD_EXIT=1
+RESULT=FAIL_HISTORICAL_FIXED_BY_REQUIRED_NODE22_INSTALL
+
+ORACLE=SKIPPED_NOT_APPLICABLE_WEB_ONLY_NO_SERVER_SQL_TRANSACTION_SCHEMA
+REAL_DEVICE=SKIPPED_NOT_APPLICABLE_NO_ANDROID_OR_REAL_COLLECTION
+IMPLEMENTATION_TESTS=PENDING
+INDEPENDENT_REVIEW=PENDING
+PR=PENDING
