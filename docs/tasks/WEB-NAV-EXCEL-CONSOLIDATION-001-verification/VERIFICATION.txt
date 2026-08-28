@@ -71,10 +71,10 @@ RESULT=PASS
 HISTORICAL_ENV_FAILURE=system Python discovery exit 1 because pydantic 1 lacked field_validator and loguru/jwt were absent; this is not counted as PASS.
 
 WEB_BUILD
-COMMAND=npx -y node@22.18.0 web/node_modules/vite/bin/vite.js build
-INPUT=Node 22.18 / npm-installed web dependencies
+COMMAND=Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit
+INPUT=worktree root D:\work\PDD_con_data_web_nav_excel_consolidation; command enters web before resolving node_modules
 LITERAL_OUTPUT=✓ 1683 modules transformed.
-LITERAL_OUTPUT=✓ built in 705ms
+LITERAL_OUTPUT=✓ built in 672ms
 EXIT_STATUS=0
 RESULT=PASS
 

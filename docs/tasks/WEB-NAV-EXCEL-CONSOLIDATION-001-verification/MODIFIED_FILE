@@ -83,13 +83,13 @@
 |---|---|---|---|---|---:|---|
 | Baseline mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | Node 22.18；`npm ci --include=optional` | existing mounted flows pass | 7 component groups PASS | 0 | PASS |
 | Baseline contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | contract PASS；client contract PASS | 0 | PASS |
-| Baseline build | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | dependencies installed by Node 22.18/npm 10.9.3 | production build | `✓ built in 5.27s` | 0 | PASS |
+| Baseline build | `Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit` | dependencies installed by Node 22.18/npm 10.9.3 | production build | `✓ built in 672ms` | 0 | PASS |
 | Targeted | `npx -y node@22.18.0 scripts/test-nav-excel-consolidation-components.mjs` | mounted TaskCreate/ExcelMatch/ProductList + actual router + delayed adapter | navigation/query/mode/permission/stale fences | 4 PASS lines | 0 | PASS |
 | Existing mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | existing mounted task-import/state flows | no regression | 7 component groups PASS | 0 | PASS |
 | Node contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | all printed contracts PASS | 0 | PASS |
 | Python offline targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_task_import_contract tests.test_web_client_contract` | Python 3.10 / pydantic 2.13.4 | compatibility contracts pass | `Ran 15 tests` / `OK` | 0 | PASS |
 | Python offline full | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py'` | Python 3.10 / no Oracle env | applicable regression | `Ran 257 tests` / `OK (skipped=39)` | 0 | PASS |
-| Module/full | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | Node 22.18 | production build | `✓ 1683 modules transformed.` / `✓ built in 0.737s` | 0 | PASS |
+| Module/full | `Push-Location web; npx -y node@22.18.0 node_modules/vite/bin/vite.js build; $exit=$LASTEXITCODE; Pop-Location; exit $exit` | Node 22.18 | production build | `✓ 1683 modules transformed.` / `✓ built in 672ms` | 0 | PASS |
 | Android | no Android source or Gradle change | Web-only scope | not applicable | `SKIPPED / not applicable` |  | SKIPPED |
 
 Baseline 首次在系统 Node 20.11.1 且缺 `node_modules` 时得到 component/client `ERR_MODULE_NOT_FOUND`、build `vite is not recognized`；随后使用固定 Node 22.18/npm 10.9.3 执行 `npm ci --include=optional` 后，以上 baseline PASS。失败历史不计为 PASS。
