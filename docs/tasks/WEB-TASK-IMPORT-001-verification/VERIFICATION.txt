@@ -22,7 +22,7 @@ STATUS=PASS
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 INPUT=second-review Task evidence
-LITERAL_OUTPUT=MODIFIED_FILE SHA256=8056cca18c66fceac38d4701b085017ea5d26bdc0170834c7ea6b1da0a5163b5; changed from setup source
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=18c42f2ac2c41b28003fffc94216622e71fc3d9b2685f65533f4fe967ab6e572; changed from setup source
 EXIT_STATUS=0
 STATUS=PASS
 
@@ -154,3 +154,21 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=2)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
 FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
+
+FINAL_SECOND_REVIEW_ORACLE_EVIDENCE
+FIXED_HEAD=f579a3eb797a62330c56613a3f31d49f31f7eb2c
+TARGETED_COMMAND=Control isolated Oracle targeted: job reconciliation test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent, test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint, Phase55 test_05 through test_08; then correct Phase55 test_09 alone.
+TARGETED_RESULT=all named business tests passed; the first test_09 command had one loader-name error only; corrected test_09 LITERAL_OUTPUT=Ran 1 test in 0.645s; OK.
+ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_INPUT=Control-approved isolated writable Oracle
+ORACLE_LITERAL_OUTPUT=Ran 52 tests in 173.867s
+ORACLE_LITERAL_OUTPUT=OK
+ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ORACLE_EXIT_STATUS=0
+ORACLE_STATUS=PASS
+ORACLE_SKIPPED=0
+COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/quota failure; test_06 concurrent replay; test_07 cross-session create with commit/release lock order; test_08 actual compatibility route selected-context Tenant A/B RBAC; test_09 absent reservation/no-quota release False.
+CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
+FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
+POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.

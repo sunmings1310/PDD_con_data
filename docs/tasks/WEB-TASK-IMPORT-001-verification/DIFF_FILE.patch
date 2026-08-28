@@ -1,149 +1,141 @@
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-index 6bfb145..82f0ef8 100644
+index 82f0ef8..0b2d7cd 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-@@ -282,3 +282,9 @@
- - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
- - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
- - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
+@@ -2,7 +2,7 @@
+
+ - **Task ID**：WEB-TASK-IMPORT-001
+ - **Title**：统一手动输入与 Excel 导入的 canonical Task 创建/下发契约
+-- **Status**：IN_PROGRESS
++- **Status**：IN_REVIEW
+ - **Base**：`origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b`
+ - **Branch**：`codex/web-task-import-001`
+ - **Worktree**：`D:\work\PDD_con_data_web_task_import`
+@@ -174,7 +174,7 @@
+ | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
+ | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
+ | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
+-| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | `TASK_CREATE_FLOW=PASS` | PASS |
++| Node component + contract | actual compiled/mounted TaskCreate + embedded ExcelMatch, plus helper contract | mounted delayed HTTP race: 2 PASS lines; helper state/payload flow: 4 PASS lines | `EXCEL_COMPONENT_RACE=PASS`; `TASK_CREATE_COMPONENT=PASS`; 4 contract PASS lines | PASS |
+ | Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
+ | Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
+ | Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
+@@ -189,7 +189,7 @@
+ - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
+ - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
+ - Local isolated environment identifier：Control-approved isolated writable Oracle
+-- Fixed Head SHA：待本轮提交后由 Control 在新固定 Head 运行（`91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 仅为上一轮历史证据）
++- Fixed Head SHA：`f579a3eb797a62330c56613a3f31d49f31f7eb2c`（本轮代码候选；后续 docs evidence commit 不继承此 Oracle PASS）
+ - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
+ - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
+ - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
+@@ -224,8 +224,8 @@
+
+ - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
+ - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
+-- Review findings：Independent Review fixes accepted for re-review; Oracle code gate PASS at `91b1aae`。
+-- Commit / PR：Dev commits through `91b1aae`; Dev 不创建 PR。
++- Review findings：第二轮修复已完成；Oracle code gate PASS at `f579a3e`，本 evidence-only Head 的独立复审/外部 manifest 待 Control。
++- Commit / PR：Dev commits through `f579a3e`; Dev 不创建 PR。
+
+ ## Dev implementation evidence（2026-08-28）
+
+@@ -288,3 +288,10 @@
+ - Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
+ - `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
+ - 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
 +
-+### Quota legacy-release Oracle repair（2026-08-28）
++### Final second-review Oracle evidence（2026-08-28）
 +
-+- Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
-+- `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
-+- 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
++- Control 在 fixed Head `f579a3eb797a62330c56613a3f31d49f31f7eb2c` 执行 targeted：两条 job reconciliation lifecycle 加 `Phase55OracleFinalGate.test_05`..`test_08` 的全部业务断言通过。初次命令误将 test_09 写为不存在的 loader name，唯一错误不代表业务失败；随后正确的 test_09 单独执行为 `Ran 1 test in 0.645s` / `OK`。
++- 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
++- `_cleanup_task_import_fixture` 清理 fixture 的 lease/checkpoint/attempt/outbox/log/Task/TaskItem/Job/quota/workspace/enterprise 及 membership，并逐表断言零残留；`persistent_business_changes=false`。历史 `060c61b` semantic fixture 和 `5f159f5` legacy release failure 均保留为失败诊断，已由本 fixed-Head 运行收口。
++- 本段之后的 docs-only evidence commit 会移动 Head，故不将 `f579a3e` 的 Oracle PASS 扩展到该 docs Head；Control 负责新 Head external manifest 和 Independent Re-review。
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-index 0566609..996e10f 100644
+index 996e10f..3303f32 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-@@ -138,3 +138,19 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=4)
+@@ -22,7 +22,7 @@ STATUS=PASS
+ MODIFIED
+ COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+ INPUT=second-review Task evidence
+-LITERAL_OUTPUT=MODIFIED_FILE SHA256=8056cca18c66fceac38d4701b085017ea5d26bdc0170834c7ea6b1da0a5163b5; changed from setup source
++LITERAL_OUTPUT=MODIFIED_FILE SHA256=18c42f2ac2c41b28003fffc94216622e71fc3d9b2685f65533f4fe967ab6e572; changed from setup source
+ EXIT_STATUS=0
+ STATUS=PASS
+
+@@ -154,3 +154,21 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=2)
  LOCAL_EXIT_STATUS=0
- LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
- FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
+ LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+ FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
 +
-+ORACLE_LEGACY_RELEASE_FIX
-+FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
-+FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-+FAILED_LITERAL_OUTPUT=Ran 51 tests in 188.503s; errors=2; exit=1.
-+FAILED_LITERAL_OUTPUT=test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent and test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint called _aggregate_task_from_jobs -> quota.release without a reservation/quota fixture; release raised ENTERPRISE_QUOTA_NOT_CONFIGURED. test_05/test_06/test_07/test_08 passed.
-+FAILED_STATUS=FAIL (release regression introduced by lifecycle lock-order change)
-+FIX=release performs non-locking reservation discovery and returns False for absent/released rows before quota locking; mutable reservation then locks usage->enterprise quota->reservation and re-reads FOR UPDATE.
-+REGRESSION_OFFLINE=tests.test_task_import_behavior.CanonicalImportBehaviorTests.test_legacy_release_without_reservation_or_quota_is_noop asserts False and that only reservation discovery executes.
-+REGRESSION_ORACLE=test_09_legacy_release_without_reservation_or_quota_is_noop exercises actual Oracle with no enterprise/quota/reservation row; test_07 cross-session create/commit/release additionally asserts a second release returns False.
-+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_09_legacy_release_without_reservation_or_quota_is_noop
-+LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
-+LOCAL_LITERAL_OUTPUT=OK (skipped=2)
-+LOCAL_EXIT_STATUS=0
-+LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-+FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 5f159f5 result is claimed for the repaired candidate.
++FINAL_SECOND_REVIEW_ORACLE_EVIDENCE
++FIXED_HEAD=f579a3eb797a62330c56613a3f31d49f31f7eb2c
++TARGETED_COMMAND=Control isolated Oracle targeted: job reconciliation test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent, test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint, Phase55 test_05 through test_08; then correct Phase55 test_09 alone.
++TARGETED_RESULT=all named business tests passed; the first test_09 command had one loader-name error only; corrected test_09 LITERAL_OUTPUT=Ran 1 test in 0.645s; OK.
++ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
++ORACLE_INPUT=Control-approved isolated writable Oracle
++ORACLE_LITERAL_OUTPUT=Ran 52 tests in 173.867s
++ORACLE_LITERAL_OUTPUT=OK
++ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
++ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
++ORACLE_EXIT_STATUS=0
++ORACLE_STATUS=PASS
++ORACLE_SKIPPED=0
++COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/quota failure; test_06 concurrent replay; test_07 cross-session create with commit/release lock order; test_08 actual compatibility route selected-context Tenant A/B RBAC; test_09 absent reservation/no-quota release False.
++CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
++FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
++POST_DOC_HEAD_STATUS=PENDING Control external fixed-Head manifest/re-review; f579a3e Oracle PASS is not asserted for this docs-only evidence commit.ACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index 6bfb145..82f0ef8 100644
+index 82f0ef8..0b2d7cd 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001.md
 +++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -282,3 +282,9 @@
- - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
- - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
- - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
+@@ -2,7 +2,7 @@
+
+ - **Task ID**：WEB-TASK-IMPORT-001
+ - **Title**：统一手动输入与 Excel 导入的 canonical Task 创建/下发契约
+-- **Status**：IN_PROGRESS
++- **Status**：IN_REVIEW
+ - **Base**：`origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b`
+ - **Branch**：`codex/web-task-import-001`
+ - **Worktree**：`D:\work\PDD_con_data_web_task_import`
+@@ -174,7 +174,7 @@
+ | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
+ | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
+ | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
+-| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | `TASK_CREATE_FLOW=PASS` | PASS |
++| Node component + contract | actual compiled/mounted TaskCreate + embedded ExcelMatch, plus helper contract | mounted delayed HTTP race: 2 PASS lines; helper state/payload flow: 4 PASS lines | `EXCEL_COMPONENT_RACE=PASS`; `TASK_CREATE_COMPONENT=PASS`; 4 contract PASS lines | PASS |
+ | Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
+ | Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
+ | Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
+@@ -189,7 +189,7 @@
+ - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
+ - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
+ - Local isolated environment identifier：Control-approved isolated writable Oracle
+-- Fixed Head SHA：待本轮提交后由 Control 在新固定 Head 运行（`91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 仅为上一轮历史证据）
++- Fixed Head SHA：`f579a3eb797a62330c56613a3f31d49f31f7eb2c`（本轮代码候选；后续 docs evidence commit 不继承此 Oracle PASS）
+ - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
+ - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
+ - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
+@@ -224,8 +224,8 @@
+
+ - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
+ - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
+-- Review findings：Independent Review fixes accepted for re-review; Oracle code gate PASS at `91b1aae`。
+-- Commit / PR：Dev commits through `91b1aae`; Dev 不创建 PR。
++- Review findings：第二轮修复已完成；Oracle code gate PASS at `f579a3e`，本 evidence-only Head 的独立复审/外部 manifest 待 Control。
++- Commit / PR：Dev commits through `f579a3e`; Dev 不创建 PR。
+
+ ## Dev implementation evidence（2026-08-28）
+
+@@ -288,3 +288,10 @@
+ - Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
+ - `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
+ - 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
 +
-+### Quota legacy-release Oracle repair（2026-08-28）
++### Final second-review Oracle evidence（2026-08-28）
 +
-+- Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
-+- `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
-+- 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
-diff --git a/server/quota.py b/server/quota.py
-index e6166df..d98d998 100644
---- a/server/quota.py
-+++ b/server/quota.py
-@@ -189,6 +189,20 @@ def commit(cur: Any, reservation_id: int) -> Reservation:
-
- def release(cur: Any, *, enterprise_id: int, metric: str, resource_type: str, resource_key: str) -> bool:
-     period = period_key(metric)
-+    # Legacy lifecycle callers may release a resource that never reserved a
-+    # quota.  Preserve that no-op before attempting to materialize/lock a
-+    # quota scope which may not exist for the legacy tenant.
-+    cur.execute(
-+        """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-+             WHERE ENTERPRISE_ID=:enterprise_id AND METRIC_CODE=:metric AND PERIOD_KEY=:period
-+               AND RESOURCE_TYPE=:resource_type AND RESOURCE_KEY=:resource_key""",
-+        {"enterprise_id": enterprise_id, "metric": metric, "period": period,
-+         "resource_type": resource_type, "resource_key": resource_key})
-+    row = cur.fetchone()
-+    if not row or str(row[3]).lower() == "released":
-+        return False
-+    # A mutable reservation exists: acquire the common usage -> enterprise
-+    # quota fence, then re-read it under its row lock before changing usage.
-     lock_metric_scope(cur, enterprise_id=enterprise_id, metric=metric)
-     cur.execute(
-         """SELECT RESERVATION_ID,WORKSPACE_ID,AMOUNT,STATUS FROM SJZQ_QUOTA_RESERVATION
-diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
-index b141751..7068f73 100644
---- a/tests/test_phase55_oracle.py
-+++ b/tests/test_phase55_oracle.py
-@@ -576,8 +576,10 @@ class Phase55OracleFinalGate(unittest.TestCase):
-                 committed = commit(conn.cursor(), held.reservation_id)
-                 released = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
-                                    resource_type="gate", resource_key=marker)
-+                released_again = release(conn.cursor(), enterprise_id=enterprise_id, metric=ACTIVE_TASK,
-+                                         resource_type="gate", resource_key=marker)
-                 conn.commit()
--                return "lifecycle", committed.status, released
-+                return "lifecycle", committed.status, released, released_again
-             finally:
-                 conn.close()
-
-@@ -585,11 +587,22 @@ class Phase55OracleFinalGate(unittest.TestCase):
-             results = dict((kind, payload) for kind, *payload in executor.map(lambda fn: fn(), (canonical_worker, lifecycle_worker)))
-         self.assertIsNone(results["canonical"][1])
-         self.assertFalse(results["canonical"][0]["idempotent"])
--        self.assertEqual(["committed", True], results["lifecycle"])
-+        self.assertEqual(["committed", True, False], results["lifecycle"])
-         with get_conn() as conn:
-             self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
-             conn.commit()
-
-+    def test_09_legacy_release_without_reservation_or_quota_is_noop(self):
-+        """A legacy completion can have neither quota row nor reservation."""
-+        with get_conn() as conn:
-+            cur = conn.cursor()
-+            absent_enterprise = self._seq(cur, "SJZQ_SEQ_ENTERPRISE")
-+            self.assertFalse(release(cur, enterprise_id=absent_enterprise, metric=ACTIVE_TASK,
-+                                     resource_type="legacy", resource_key="missing"))
-+            cur.execute("SELECT COUNT(*) FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id",
-+                        {"enterprise_id": absent_enterprise})
-+            self.assertEqual(0, int(cur.fetchone()[0]))
-+
-     def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
-         """The actual compatibility route cannot borrow global/other-tenant dispatch."""
-         tag = uuid.uuid4().hex[:12]
-diff --git a/tests/test_task_import_behavior.py b/tests/test_task_import_behavior.py
-index b13a5f9..d569413 100644
---- a/tests/test_task_import_behavior.py
-+++ b/tests/test_task_import_behavior.py
-@@ -11,6 +11,7 @@ for key, value in {
-     os.environ.setdefault(key, value)
-
- from server.task_creation_service import _targets
-+from server.quota import ACTIVE_TASK, release
-
-
- class CanonicalImportBehaviorTests(unittest.TestCase):
-@@ -39,6 +40,19 @@ class CanonicalImportBehaviorTests(unittest.TestCase):
-         self.assertEqual("123", targets[0]["platform_product_id"])
-         self.assertEqual("123", targets[0]["keyword"])
-
-+    def test_legacy_release_without_reservation_or_quota_is_noop(self):
-+        class Cursor:
-+            def __init__(self): self.calls = []
-+            def execute(self, sql, binds): self.calls.append((sql, binds))
-+            def fetchone(self): return None
-+
-+        cur = Cursor()
-+        self.assertFalse(release(cur, enterprise_id=999999, metric=ACTIVE_TASK,
-+                                 resource_type="legacy", resource_key="missing"))
-+        self.assertEqual(1, len(cur.calls))
-+        self.assertIn("SJZQ_QUOTA_RESERVATION", cur.calls[0][0])
-+        self.assertNotIn("SJZQ_ENTERPRISE_QUOTA", cur.calls[0][0])
-+
-
- if __name__ == "__main__":
-     unittest.main()
++- Control 在 fixed Head `f579a3eb797a62330c56613a3f31d49f31f7eb2c` 执行 targeted：两条 job reconciliation lifecycle 加 `Phase55OracleFinalGate.test_05`..`test_08` 的全部业务断言通过。初次命令误将 test_09 写为不存在的 loader name，唯一错误不代表业务失败；随后正确的 test_09 单独执行为 `Ran 1 test in 0.645s` / `OK`。
++- 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
++- `_cleanup_task_import_fixture` 清理 fixture 的 lease/checkpoint/attempt/outbox/log/Task/TaskItem/Job/quota/workspace/enterprise 及 membership，并逐表断言零残留；`persistent_business_changes=false`。历史 `060c61b` semantic fixture 和 `5f159f5` legacy release failure 均保留为失败诊断，已由本 fixed-Head 运行收口。
++- 本段之后的 docs-only evidence commit 会移动 Head，故不将 `f579a3e` 的 Oracle PASS 扩展到该 docs Head；Control 负责新 Head external manifest 和 Independent Re-review。
