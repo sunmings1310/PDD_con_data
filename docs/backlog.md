@@ -1,6 +1,6 @@
 # 稳定数据采集系统 Backlog
 
-> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-27）**
+> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-28）**
 > 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
 
 ## Completed governance tasks
@@ -24,8 +24,8 @@
 | 1 | BL-110-WS-TENANT-BOUNDARY | MERGED / ACCEPTED / P0 | PR #5 已普通 merge；`main@09e717c` 已包含实时日志 WS 认证、`device:view`、服务端权威租户/资源归属、撤销重验、分区广播、可靠调度和失败可观察性 |
 | 2 | WEB-RESULT-VISIBILITY-001 | MERGED / ACCEPTED / P1 | PR #7 已普通 merge 为 `main@f7ba0fd`；draft 结果、Snapshot exact ID、Task→Raw→Quality/Quarantine 下钻、资料库边界及页面状态已通过 Review/E2E/Oracle/Hosted CI |
 | 3 | WEB-CLIENT-CONTRACT-001 | MERGED / ACCEPTED / P1 | PR #9 已普通 merge 为 `main@a02c8a8`；统一 tenant-aware Web client、Excel 请求头、selected-context permissions、错误映射与租户切换 stale fence；Review `ACCEPT`、E2E `PASS`、Oracle 47/47、Hosted CI 全绿 |
-| 4 | WEB-TASK-IMPORT-001 | IN_PROGRESS / P1-P2 | Product Owner 已批准；从 `main@2200ef0` 建立独立 Task/分支/worktree。统一 manual/Excel canonical draft、目标选择、配置、审核、幂等 submit；不进入导出、Schema、Generic SKU、Phase 6B 或 release |
-| 5 | WEB-STATE-UX-001 | APPROVED / WAITING FOR #4 MERGE / P2 | 收口页面 loading/error/empty/retry、状态文案与刷新；依赖 #4 merge |
+| 4 | WEB-TASK-IMPORT-001 | MERGED / ACCEPTED / P1-P2 | PR #11 已普通 merge 为 `main@40e3e95`；功能 Head `caf4746f`。Review `ACCEPT`、E2E `PASS`、Hosted CI 全绿、本地 Oracle 53/53（skipped=0、cleanup=0、persistent=false） |
+| 5 | WEB-STATE-UX-001 | READY FOR PRODUCT OWNER START APPROVAL / P2 | #4 已 merge，依赖已满足；尚未启动、未创建实现分支或 worktree |
 
 `WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 

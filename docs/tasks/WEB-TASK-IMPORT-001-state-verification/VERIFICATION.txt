@@ -1,0 +1,135 @@
+WEB-TASK-IMPORT-001-STATE-SYNC VERIFICATION
+DATE=2026-08-28
+BRANCH=codex/web-task-import-001-state-sync
+BASELINE=origin/main@40e3e958aa27b37cd0dcbf06150317789898895f
+CHANGED_BRANCH_FIELD=WEB-TASK-IMPORT-001 MERGED / ACCEPTED; current Accepted main 40e3e958; WEB-STATE-UX-001 READY FOR PRODUCT OWNER START APPROVAL
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_task_import_state\docs\tasks\WEB-TASK-IMPORT-001-state-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_task_import_state\docs\tasks\WEB-TASK-IMPORT-001-state-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_task_import_state\docs\tasks\WEB-TASK-IMPORT-001-state-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_task_import_state\docs\tasks\WEB-TASK-IMPORT-001-state-verification\ROLLBACK.sh
+
+ORIGINAL_HASHES
+COMMAND=python -c "import hashlib,subprocess; base='40e3e958aa27b37cd0dcbf06150317789898895f'; [(print(f+'='+hashlib.sha256(subprocess.check_output(['git','show',base+':'+f])).hexdigest())) for f in ['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md']]"
+INPUT=Git objects at exact baseline 40e3e958aa27b37cd0dcbf06150317789898895f
+LITERAL_OUTPUT=docs/CURRENT_STATE.md=8ca077d30598a252ec0684a2ccbdc0679b13ef749a15b67ea17a45c5e04e4796
+LITERAL_OUTPUT=docs/backlog.md=7d4786bb77da44b8c4ee39807c329f705395aea3cae6cd16ef2b9acfec3cfdd6
+LITERAL_OUTPUT=docs/roadmap.md=bcaed6bfe03e29168f28c8e8e7017e7e7456ff2ec7faa30b30521b2f5165ba71
+EXIT_STATUS=0
+RESULT=PASS
+
+BASELINE
+COMMAND=python -c "import subprocess; t='\n'.join(subprocess.check_output(['git','show','40e3e958aa27b37cd0dcbf06150317789898895f:'+f],text=True,encoding='utf-8') for f in ['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md']); print('BASELINE_IMPORT_STATUS=' + ('IN_PROGRESS' if 'WEB-TASK-IMPORT-001 | IN_PROGRESS / P1-P2' in t else 'OTHER')); print('BASELINE_STATE_UX=' + ('WAITING' if 'APPROVED / WAITING FOR #4 MERGE' in t else 'OTHER'))"
+INPUT=three authority documents at baseline commit
+LITERAL_OUTPUT=BASELINE_IMPORT_STATUS=IN_PROGRESS
+LITERAL_OUTPUT=BASELINE_STATE_UX=WAITING
+EXIT_STATUS=0
+RESULT=PASS
+
+MODIFIED
+COMMAND=python -c "from pathlib import Path; files={p:Path(p).read_text(encoding='utf-8') for p in ['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md']}; t='\n'.join(files.values()); assert '40e3e958aa27b37cd0dcbf06150317789898895f' in files['docs/CURRENT_STATE.md']; assert 'caf4746f808421b6b9eb5e3d427591717e463402' in files['docs/CURRENT_STATE.md']; assert 'WEB-TASK-IMPORT-001 | MERGED / ACCEPTED / P1-P2' in files['docs/backlog.md']; assert 'WEB-STATE-UX-001 | READY FOR PRODUCT OWNER START APPROVAL / P2' in files['docs/backlog.md']; assert '当前为 `IN_PROGRESS`' not in t; assert 'APPROVED / WAITING FOR #4 MERGE' not in t; print('STATUS_CONSISTENCY=PASS'); print('CURRENT_MAIN=40e3e958aa27b37cd0dcbf06150317789898895f'); print('WEB_TASK_IMPORT=MERGED_ACCEPTED'); print('WEB_STATE_UX=READY_FOR_PRODUCT_OWNER_START_APPROVAL')"
+INPUT=working tree authority documents after docs-only state synchronization
+LITERAL_OUTPUT=STATUS_CONSISTENCY=PASS
+LITERAL_OUTPUT=CURRENT_MAIN=40e3e958aa27b37cd0dcbf06150317789898895f
+LITERAL_OUTPUT=WEB_TASK_IMPORT=MERGED_ACCEPTED
+LITERAL_OUTPUT=WEB_STATE_UX=READY_FOR_PRODUCT_OWNER_START_APPROVAL
+EXIT_STATUS=0
+RESULT=PASS
+
+ROLLBACK
+COMMAND=& 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_web_task_import_state/docs/tasks/WEB-TASK-IMPORT-001-state-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_web_task_import_state/docs/tasks/WEB-TASK-IMPORT-001-state-verification/rollback_probe'
+INPUT=another copy containing the three modified authority documents under rollback_probe/docs
+LITERAL_OUTPUT=RESTORED_FILE=docs/CURRENT_STATE.md
+LITERAL_OUTPUT=RESTORED_SHA256=8ca077d30598a252ec0684a2ccbdc0679b13ef749a15b67ea17a45c5e04e4796
+LITERAL_OUTPUT=RESTORED_FILE=docs/backlog.md
+LITERAL_OUTPUT=RESTORED_SHA256=7d4786bb77da44b8c4ee39807c329f705395aea3cae6cd16ef2b9acfec3cfdd6
+LITERAL_OUTPUT=RESTORED_FILE=docs/roadmap.md
+LITERAL_OUTPUT=RESTORED_SHA256=bcaed6bfe03e29168f28c8e8e7017e7e7456ff2ec7faa30b30521b2f5165ba71
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_state_sync_documents
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+LITERAL_OUTPUT=MODIFIED_REMAINS_CHANGED=true
+EXIT_STATUS=0
+RESULT=PASS
+RESTORED_BEHAVIOR_STATUS=all three probe documents match baseline bytes; repository authority documents and MODIFIED_FILE remain changed
+
+MARKDOWN_LINKS
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+INPUT=repository Markdown corpus including new verification directory
+LITERAL_OUTPUT=Validated 64 Markdown files
+EXIT_STATUS=0
+RESULT=PASS
+
+YAML
+COMMAND=python -c "import pathlib,yaml; fs=list(pathlib.Path('.github/workflows').glob('*.yml')); [yaml.safe_load(p.read_text(encoding='utf-8')) for p in fs]; print(f'YAML_VALIDATED={len(fs)}')"
+INPUT=.github/workflows/*.yml
+LITERAL_OUTPUT=YAML_VALIDATED=1
+EXIT_STATUS=0
+RESULT=PASS
+
+GOVERNANCE_RESOLVER
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
+INPUT=PR, push, workflow_dispatch and invalid-base resolver fixtures
+LITERAL_OUTPUT=RESOLVER_INVALID_BASE_OUTPUT=BLOCKED: pull_request base commit is missing or invalid: not-a-commit
+LITERAL_OUTPUT=RESOLVER_INVALID_BASE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_INVALID_HEAD_OUTPUT=BLOCKED: head commit is missing or invalid: not-a-head
+LITERAL_OUTPUT=RESOLVER_INVALID_HEAD_EXIT=2
+LITERAL_OUTPUT=RESOLVER_FETCH_FAILURE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_MERGE_BASE_FAILURE_EXIT=2
+LITERAL_OUTPUT=RESOLVER_TESTS=PASS
+EXIT_STATUS=0
+RESULT=PASS
+
+DIFF_CHECK
+COMMAND=git diff --check 40e3e958aa27b37cd0dcbf06150317789898895f
+INPUT=baseline-to-working-tree docs-only change
+LITERAL_OUTPUT=no output
+EXIT_STATUS=0
+RESULT=PASS
+
+DIFF_ARTIFACT
+COMMAND=git apply --check --reverse --unidiff-zero docs/tasks/WEB-TASK-IMPORT-001-state-verification/DIFF_FILE.patch
+INPUT=current modified authority documents; zero-context patch generated from baseline 40e3e958
+LITERAL_OUTPUT=no output
+EXIT_STATUS=0
+RESULT=PASS
+
+ALLOWLIST_AND_SENSITIVE_SCAN
+COMMAND=@'
+import pathlib,re,subprocess
+allowed_prefix='docs/tasks/WEB-TASK-IMPORT-001-state-verification/'
+allowed_exact={'docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md'}
+changed=[]
+for line in subprocess.check_output(['git','status','--porcelain=v1'],text=True,encoding='utf-8').splitlines():
+    path=line[3:].replace('\\','/')
+    if ' -> ' in path:path=path.split(' -> ',1)[1]
+    changed.append(path)
+bad=[p for p in changed if p not in allowed_exact and not p.startswith(allowed_prefix)]
+print('CHANGED_FILES='+str(len(changed)))
+print('ALLOWLIST_VIOLATIONS='+str(len(bad)))
+if bad:raise SystemExit(1)
+patterns=[re.compile(r'(?i)(password|passwd|token|secret|api[_-]?key)\s*[:=]\s*["\']?[^\s"\']+'),re.compile(r'(?i)oracle(?:_dsn|\s+dsn)\s*[:=]\s*[^\s]+'),re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----')]
+hits=[]
+for path in changed:
+    file=pathlib.Path(path)
+    if file.is_file():
+        data=file.read_text(encoding='utf-8',errors='ignore')
+        for pattern in patterns:
+            if pattern.search(data):hits.append((path,pattern.pattern))
+print('SENSITIVE_HITS='+str(len(hits)))
+if hits:raise SystemExit(2)
+print('SENSITIVE_SCAN=PASS')
+'@ | python -
+INPUT=git status --porcelain paths; allowed exact authority documents plus docs/tasks/WEB-TASK-IMPORT-001-state-verification/ prefix
+LITERAL_OUTPUT=CHANGED_FILES=7
+LITERAL_OUTPUT=ALLOWLIST_VIOLATIONS=0
+LITERAL_OUTPUT=SENSITIVE_HITS=0
+LITERAL_OUTPUT=SENSITIVE_SCAN=PASS
+EXIT_STATUS=0
+RESULT=PASS
+
+ORACLE_STATUS=SKIPPED; docs-only accepted-state synchronization does not change schema, SQL, tenant, transaction or runtime behavior
+REAL_DEVICE_STATUS=SKIPPED; docs-only accepted-state synchronization does not change Android or collection behavior
+RELEASE_STATUS=NOT_STARTED
+NEXT_STATE=STOPPED_BEFORE_MERGE; WEB-STATE-UX-001 remains READY FOR PRODUCT OWNER START APPROVAL and is not started
