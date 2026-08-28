@@ -19,9 +19,6 @@
           <el-menu-item index="/quality">数据质量</el-menu-item>
           <el-menu-item index="/quarantines">Quarantine 工作台</el-menu-item>
         </el-sub-menu>
-        <el-menu-item v-if="store.hasPerm('excel:match')" index="/excel">
-          <el-icon><Document /></el-icon><span>Excel匹配回填</span>
-        </el-menu-item>
         <el-menu-item v-if="store.hasPerm('account:view')" index="/accounts">
           <el-icon><User /></el-icon><span>账号养护</span>
         </el-menu-item>

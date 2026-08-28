@@ -118,7 +118,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 已批准的 Web 执行队列至第 5 项全部完成。当前等待 Product Owner 选择下一阶段；下列未启动路线仅记录事实，不构成批准、排序或启动：
 
-Product Owner 已批准启动 `WEB-NAV-EXCEL-CONSOLIDATION-001`。Control 已从 `origin/main@f7d037cd612df09059dcea83189e63f99097042d` 建立独立 branch/worktree；范围仅为 Web Excel 导航、兼容重定向、任务导入/资料库查库 mode 分离及其测试，不改 Server、Schema、canonical Task、Android 或采集语义。当前状态为 `IN_PROGRESS`，停止点为 Draft PR + Hosted CI 后的 merge 决策。
+`WEB-NAV-EXCEL-CONSOLIDATION-001` 是当前未合并的 Web-only `TEST / REVIEW CANDIDATE`：导航移除独立 Excel 一级入口，兼容 `/excel` 重定向到 canonical TaskCreate，资料库承载 Excel 查库/导出，未修改 Server/Schema/canonical Task/Android。实际 Node mounted/router、既有 Node contracts、Python offline full（257 / skipped=39）和 Web build 已通过；Oracle/真机均 `SKIPPED / not applicable`。下一门禁为 Independent Review，禁止自行建 PR、merge 或 release。
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；

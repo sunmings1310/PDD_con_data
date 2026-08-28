@@ -71,6 +71,7 @@ globalThis.__componentMessageBox = { confirm: async () => true }
 globalThis.__componentStub = { render: () => null }
 globalThis.__componentStore = reactive({ enterpriseId: 'tenant-a', workspaceId: 'workspace-a', hasPerm: () => true })
 globalThis.__routeGuards = []
+globalThis.__componentRoute = reactive({ query: {}, params: {}, fullPath: '/tasks/create' })
 const matchRequests = []
 globalThis.__componentHttp = {
   get: async () => ({ data: [] }),
@@ -90,7 +91,7 @@ globalThis.__ExcelMatch = ExcelMatch
 const platform = reactive({ value: 'pinduoduo' })
 const emitted = []
 const child = ref(null)
-const excelRoot = { render: () => h(ExcelMatch, { ref: child, embedded: true, platformCode: platform.value, onDraftRows: (rows) => emitted.push(rows) }) }
+const excelRoot = { render: () => h(ExcelMatch, { ref: child, embedded: true, mode: 'task-import', platformCode: platform.value, onDraftRows: (rows) => emitted.push(rows) }) }
 const excelApp = renderer.createApp(excelRoot)
 for (const name of ['el-select', 'el-option', 'el-upload', 'el-button', 'el-table', 'el-table-column', 'el-link', 'el-tag', 'el-dialog', 'el-image', 'el-empty', 'el-alert']) excelApp.component(name, stub)
 excelApp.directive('loading', {})

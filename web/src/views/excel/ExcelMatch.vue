@@ -1,8 +1,8 @@
 <template>
-  <div :class="embedded ? 'excel-match-page embedded-excel' : 'page-card excel-match-page'">
+  <div :class="isTaskImport ? 'excel-match-page embedded-excel' : 'page-card excel-match-page'">
     <div class="page-head">
       <div>
-        <h2 v-if="!embedded" class="page-title">Excel 导入匹配</h2>
+        <h2 v-if="isLibraryMatch" class="page-title">Excel 批量查库/导出</h2>
         <div class="page-subtitle">按“国药准字 + 品名 + 规格 + 生产厂家”匹配，保留原始行</div>
       </div>
       <div class="toolbar">
@@ -10,7 +10,7 @@
           v-model="platform"
           placeholder="请选择平台"
           style="width: 180px"
-          :disabled="uploading || dispatching || embedded"
+          :disabled="uploading || isTaskImport"
         >
           <el-option
             v-for="item in platforms"
@@ -18,27 +18,6 @@
             :label="item.platform_name"
             :value="item.platform_code"
           />
-        </el-select>
-        <el-select v-if="!embedded" v-model="deviceId"
-          clearable
-          filterable
-          placeholder="请选择采集设备"
-          no-data-text="当前平台没有在线设备"
-          style="width: 240px"
-          :disabled="dispatching"
-        >
-          <el-option
-            v-for="device in availableDevices"
-            :key="device.device_id"
-            :label="`${device.device_name || device.device_key}（${device.ui_status}）`"
-            :value="device.device_id"
-          />
-        </el-select>
-        <el-select v-if="!embedded" v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
-          <el-option :value="5" label="每项核对 5 个" />
-          <el-option :value="10" label="每项核对 10 个" />
-          <el-option :value="20" label="每项核对 20 个" />
-          <el-option :value="30" label="每项核对 30 个" />
         </el-select>
         <el-upload
           v-if="store.hasPerm('excel:match')"
@@ -50,15 +29,8 @@
           <el-button type="primary" :loading="uploading">导入 Excel</el-button>
         </el-upload>
         <el-button v-if="store.hasPerm('excel:import')" @click="downloadTemplate">下载模板</el-button>
-        <el-button v-if="store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
+        <el-button v-if="isLibraryMatch && store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
           批量导出（{{ selectedRows.length }}）
-        </el-button>
-        <el-button v-if="!embedded" type="warning"
-          :disabled="!unmatchedRows.length"
-          :loading="dispatching"
-          @click="dispatchAndroidMatch"
-        >
-          安卓采集未匹配（{{ unmatchedRows.length }}）
         </el-button>
       </div>
     </div>
@@ -152,43 +124,28 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 
 
 const platforms = ref([])
-const props = defineProps({ embedded: Boolean, platformCode: { type: String, default: '' } })
-const embedded = computed(() => props.embedded)
+const props = defineProps({ embedded: Boolean, mode: { type: String, default: 'library-match' }, platformCode: { type: String, default: '' } })
+const isTaskImport = computed(() => props.mode === 'task-import')
+const isLibraryMatch = computed(() => !isTaskImport.value)
 const emit = defineEmits(['draft-rows'])
-const devices = ref([])
-const router = useRouter()
 const store = useUserStore()
 const platform = ref('pinduoduo')
-const deviceId = ref(null)
-const maxDetail = ref(10)
 const rows = ref([])
 const stats = ref(null)
 const selectedRows = ref([])
 const uploading = ref(false)
 const exporting = ref(false)
-const dispatching = ref(false)
 const candidateDialog = ref(false)
 const activeRow = ref(null)
 const tableRef = ref(null)
 let matchGeneration = 0
 let matchAbort = null
-const unmatchedRows = computed(() => rows.value.filter((row) => !row.matched))
-const availableDevices = computed(() => devices.value.filter(
-  (device) => device.online && device.platform_code === platform.value,
-))
-
-watch(availableDevices, (items) => {
-  if (!items.some((device) => device.device_id === deviceId.value)) {
-    deviceId.value = items.length === 1 ? items[0].device_id : null
-  }
-})
 function invalidateMatchRows({ emitRows = true } = {}) {
   matchGeneration += 1
   matchAbort?.abort()
@@ -202,7 +159,7 @@ watch(platform, (value, previous) => {
   if (previous && value !== previous) invalidateMatchRows()
 })
 watch(() => props.platformCode, (value) => {
-  if (props.embedded && value && value !== platform.value) {
+  if (isTaskImport.value && value && value !== platform.value) {
     platform.value = value
   }
 }, { immediate: true })
@@ -254,7 +211,7 @@ async function uploadMatch({ file }) {
 }
 
 function emitDraftRows(expectedGeneration = matchGeneration, expectedPlatform = platform.value) {
-  if (props.embedded && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
+  if (isTaskImport.value && expectedGeneration === matchGeneration && expectedPlatform === platform.value) {
     emit('draft-rows', rows.value.map((row) => ({ ...row, platform_code: props.platformCode, selected_candidate: row.selected_candidate || null })))
   }
 }
@@ -298,27 +255,6 @@ async function exportBatch() {
   }
 }
 
-async function dispatchAndroidMatch() {
-  if (!deviceId.value) {
-    ElMessage.warning('请先选择在线采集设备')
-    return
-  }
-  dispatching.value = true
-  try {
-    const response = await http.post('/api/excel/unmatched-to-task', {
-      platform_code: platform.value,
-      device_id: deviceId.value,
-      rows: unmatchedRows.value,
-      max_detail: maxDetail.value,
-      task_name: `Excel安卓匹配-${new Date().toLocaleString()}`,
-    })
-    ElMessage.success(`已下发 ${response.data.count} 行，任务 #${response.data.task_id}`)
-    router.push(`/tasks/${response.data.task_id}`)
-  } finally {
-    dispatching.value = false
-  }
-}
-
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
@@ -345,12 +281,8 @@ function statusText(status) {
 }
 
 onMounted(async () => {
-  const [platformResponse, deviceResponse] = await Promise.all([
-    http.get('/api/platforms'),
-    http.get('/api/devices'),
-  ])
+  const platformResponse = await http.get('/api/platforms')
   platforms.value = platformResponse.data || []
-  devices.value = deviceResponse.data || []
   if (!platforms.value.some((item) => item.platform_code === platform.value) && platforms.value.length) {
     platform.value = platforms.value[0].platform_code
   }

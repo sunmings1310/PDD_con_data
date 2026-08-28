@@ -2,7 +2,7 @@
 
 - **Task ID**：WEB-NAV-EXCEL-CONSOLIDATION-001
 - **Title**：收敛 Excel 入口与统一任务创建流程
-- **Status**：IN_PROGRESS
+- **Status**：TEST / REVIEW CANDIDATE
 - **Base**：`origin/main@f7d037cd612df09059dcea83189e63f99097042d`
 - **Branch / worktree**：`codex/web-nav-excel-consolidation-001` / `D:\work\PDD_con_data_web_nav_excel_consolidation`
 
@@ -65,16 +65,16 @@
 
 ## Acceptance Criteria
 
-- [ ] 左侧导航不存在 Excel 一级菜单；
-- [ ] `/excel` 重定向至 `/tasks/create?source=excel`；
-- [ ] query 可靠选择 Excel source，错误值安全回退；
-- [ ] 商品资料库存在明确“Excel 批量查库/导出”入口；
-- [ ] `task-import` mode 不显示导出、不直接下发，只 emit draft rows；
-- [ ] `library-match` mode 可模板/上传/匹配/候选/导出，但不创建或下发 Task；
-- [ ] 生产 Web 不引用 `/api/excel/unmatched-to-task`；
-- [ ] tenant/workspace/platform 切换与 unmount stale/abort 行为保持；
-- [ ] canonical Task payload、submission id 与 ACK retry 行为保持；
-- [ ] mounted component/router contract、existing Excel/task regressions 与 production build 通过；
+- [x] 左侧导航不存在 Excel 一级菜单；
+- [x] `/excel` 重定向至 `/tasks/create?source=excel`；
+- [x] query 可靠选择 Excel source，错误值安全回退；
+- [x] 商品资料库存在明确“Excel 批量查库/导出”入口；
+- [x] `task-import` mode 不显示导出、不直接下发，只 emit draft rows；
+- [x] `library-match` mode 可模板/上传/匹配/候选/导出，但不创建或下发 Task；
+- [x] 生产 Web 不引用 `/api/excel/unmatched-to-task`；
+- [x] tenant/workspace/platform 切换与 unmount stale/abort 行为保持；
+- [x] canonical Task payload、submission id 与 ACK retry 行为保持；
+- [x] mounted component/router contract、existing Excel/task regressions 与 production build 通过；
 - [ ] Independent Review `ACCEPT`；Draft PR Hosted CI 全绿后 STOP before merge。
 
 ## Test Plan
@@ -84,9 +84,13 @@
 | Baseline mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | Node 22.18；`npm ci --include=optional` | existing mounted flows pass | 7 component groups PASS | 0 | PASS |
 | Baseline contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | contract PASS；client contract PASS | 0 | PASS |
 | Baseline build | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | dependencies installed by Node 22.18/npm 10.9.3 | production build | `✓ built in 5.27s` | 0 | PASS |
-| Targeted | 新增 mounted/router/mode test | delayed adapter、route/query/context races | all acceptance paths | PENDING |  | PENDING |
-| Python offline | existing applicable contract tests | no Oracle | server compatibility unchanged | PENDING |  | PENDING |
-| Module/full | Web build + applicable Python/Android baseline | fixed Head | no regression | PENDING |  | PENDING |
+| Targeted | `npx -y node@22.18.0 scripts/test-nav-excel-consolidation-components.mjs` | mounted TaskCreate/ExcelMatch/ProductList + actual router + delayed adapter | navigation/query/mode/permission/stale fences | 4 PASS lines | 0 | PASS |
+| Existing mounted | `npx -y node@22.18.0 scripts/test-task-import-components.mjs` | existing mounted task-import/state flows | no regression | 7 component groups PASS | 0 | PASS |
+| Node contracts | `test-task-import-contract.mjs` + `test-client-contract.mjs` | Node 22.18 | canonical/client contracts pass | all printed contracts PASS | 0 | PASS |
+| Python offline targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_task_import_contract tests.test_web_client_contract` | Python 3.10 / pydantic 2.13.4 | compatibility contracts pass | `Ran 15 tests` / `OK` | 0 | PASS |
+| Python offline full | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py'` | Python 3.10 / no Oracle env | applicable regression | `Ran 257 tests` / `OK (skipped=39)` | 0 | PASS |
+| Module/full | `npx -y node@22.18.0 node_modules/vite/bin/vite.js build` | Node 22.18 | production build | `✓ 1683 modules transformed.` / `✓ built in 0.737s` | 0 | PASS |
+| Android | no Android source or Gradle change | Web-only scope | not applicable | `SKIPPED / not applicable` |  | SKIPPED |
 
 Baseline 首次在系统 Node 20.11.1 且缺 `node_modules` 时得到 component/client `ERR_MODULE_NOT_FOUND`、build `vite is not recognized`；随后使用固定 Node 22.18/npm 10.9.3 执行 `npm ci --include=optional` 后，以上 baseline PASS。失败历史不计为 PASS。
 
@@ -121,7 +125,9 @@ Baseline 首次在系统 Node 20.11.1 且缺 `node_modules` 时得到 component/
 
 ## Evidence
 
-- Original evidence：固定 base 源码与 Product Owner 批准事实；
-- Derived artifacts：`WEB-NAV-EXCEL-CONSOLIDATION-001-verification/`；
-- Review findings：PENDING；
-- Commit / PR：PENDING。
+- Original evidence：固定 base 源码与 Product Owner 批准事实；原始 Task blob SHA-256 在 `VERIFICATION.txt` 记录，未覆盖。
+- Derived artifacts：`WEB-NAV-EXCEL-CONSOLIDATION-001-verification/`；`MODIFIED_FILE` 保持本 Task 当前 changed 内容，`DIFF_FILE.patch` 仅包含 base→候选的业务/治理目标文件，四制品自身不进入自引用补丁。
+- Dev evidence：新增 mounted/router test 覆盖 `/excel` redirect、query fallback/route abort、task-import/library-match 互斥、ProductList permission entry；既有 mounted/Node/Python/Web build 全部 PASS。
+- Historical environment failure：系统 Python 3.10 的 pydantic 1 与缺少 `loguru`/`jwt` 使 discovery 失败（exit 1）；改用既有 `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe`（pydantic 2.13.4）后 full PASS，失败不计为通过。
+- Oracle / Real-device：均为 `SKIPPED / not applicable`；本 Task 未触及 Server/SQL/transaction/Schema 或 Android。
+- Review findings：待 Independent Review；Commit / PR：待 Dev 提交，禁止自行建 PR。
