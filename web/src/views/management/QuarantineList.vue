@@ -36,7 +36,7 @@
 
     <el-drawer v-model="drawer" title="Quarantine 详情" size="62%" destroy-on-close>
       <div v-loading="detailLoading">
-        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="openDetail(detail || { quarantine_id: route.query.quarantine_id })">重试</el-button></template></el-alert>
+        <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryDetail">重试</el-button></template></el-alert>
         <template v-else-if="detail">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="Quarantine">#{{ detail.quarantine_id }}</el-descriptions-item>
@@ -77,7 +77,7 @@ const items = ref([]); const total = ref(0); const page = ref(1); const limit = 
 const route = useRoute()
 const store = useUserStore()
 const loading = ref(false); const refreshing = ref(false); const loaded = ref(false); const error = ref(''); const range = ref([])
-const drawer = ref(false); const detail = ref(null); const detailLoading = ref(false); const detailError = ref('')
+const drawer = ref(false); const detail = ref(null); const selectedDetailId = ref(null); const detailLoading = ref(false); const detailError = ref('')
 const filters = reactive({ error_code:'', failure_reason:'', platform:'', product_identity:'', task_id:'', job_id:'', parser_version:'', quality_rules_version:'' })
 function fmt(v){ return v ? dayjs(v).format('YYYY-MM-DD HH:mm:ss') : '-' }
 function parse(v){ if(Array.isArray(v)) return v; if(!v) return []; try{return JSON.parse(v)}catch{return [v]} }
@@ -90,8 +90,9 @@ const scope = computed(() => viewScope(store.enterpriseId, store.workspaceId, ro
 async function load(){ const token=listGeneration.next(scope.value);const initial=!loaded.value;loading.value=initial;refreshing.value=!initial;error.value='';try{const res=await http.get('/api/management/quarantines',{params:params()});if(!listGeneration.isCurrent(token,scope.value))return;items.value=res.data?.items||[];total.value=Number(res.data?.total||0);page.value=Number(res.data?.page||page.value);limit.value=Number(res.data?.limit||limit.value);loaded.value=true}catch(e){if(!listGeneration.isCurrent(token,scope.value))return;error.value=e.response?.data?.detail||e.message||'加载 Quarantine 失败'}finally{if(listGeneration.isCurrent(token,scope.value)){loading.value=false;refreshing.value=false}} }
 function search(){page.value=1;load()} function reset(){Object.keys(filters).forEach(k=>filters[k]='');range.value=[];search()}
 function changePage(v){page.value=v;load()} function changeLimit(v){limit.value=v;page.value=1;load()}
-async function openDetail(row){const expected=viewScope(store.enterpriseId,store.workspaceId,row.quarantine_id);const token=detailGeneration.next(expected);drawer.value=true;detailError.value='';detailLoading.value=!detail.value;try{const res=await http.get(`/api/management/quarantines/${row.quarantine_id}`);if(!detailGeneration.isCurrent(token,expected))return;detail.value=res.data}catch(e){if(!detailGeneration.isCurrent(token,expected))return;detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{if(detailGeneration.isCurrent(token,expected))detailLoading.value=false}}
-watch(()=>viewScope(store.enterpriseId,store.workspaceId,route.fullPath),()=>{listGeneration.reset(scope.value,()=>{items.value=[];total.value=0;loaded.value=false;error.value='';loading.value=false;refreshing.value=false});detailGeneration.reset('',()=>{detail.value=null;detailError.value='';detailLoading.value=false});load()})
+async function openDetail(row){ const detailId=row?.quarantine_id; if(detailId===null||detailId===undefined)return; selectedDetailId.value=detailId; const expected=viewScope(store.enterpriseId,store.workspaceId,detailId);const token=detailGeneration.next(expected);drawer.value=true;detailError.value='';detailLoading.value=!detail.value;try{const res=await http.get(`/api/management/quarantines/${detailId}`);if(!detailGeneration.isCurrent(token,expected))return;detail.value=res.data}catch(e){if(!detailGeneration.isCurrent(token,expected))return;detailError.value=e.response?.data?.detail||e.message||'加载详情失败'}finally{if(detailGeneration.isCurrent(token,expected))detailLoading.value=false}}
+function retryDetail(){ if(selectedDetailId.value!==null) return openDetail({quarantine_id:selectedDetailId.value}) }
+watch(()=>viewScope(store.enterpriseId,store.workspaceId,route.fullPath),()=>{listGeneration.reset(scope.value,()=>{items.value=[];total.value=0;loaded.value=false;error.value='';loading.value=false;refreshing.value=false});detailGeneration.reset('',()=>{detail.value=null;selectedDetailId.value=null;detailError.value='';detailLoading.value=false});load()})
 onBeforeUnmount(()=>{listGeneration.next('unmounted');detailGeneration.next('unmounted')})
 onMounted(()=>{Object.keys(filters).forEach(k=>{if(route.query[k]!==undefined)filters[k]=String(route.query[k])});load()})
 </script>

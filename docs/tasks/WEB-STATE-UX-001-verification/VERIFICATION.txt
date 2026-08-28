@@ -1,69 +1,94 @@
-WEB-STATE-UX-001 SETUP VERIFICATION
+WEB-STATE-UX-001 REVIEW-FIX VERIFICATION
 DATE=2026-08-28
 BRANCH=codex/web-state-ux-001
-BASELINE=origin/main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41
-STATUS=IN_PROGRESS
+BASE=origin/main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41
+PRE_REVIEW_HEAD=45058aaa71c40aaacd4403795dc1563fd0852f5c
+STATUS=DEV_COMPLETE_AWAITING_RE_REVIEW
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\MODIFIED_FILE
 DIFF_FILE=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\DIFF_FILE.patch
 VERIFICATION=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\VERIFICATION.txt
 ROLLBACK=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\ROLLBACK.sh
+ORIGINAL_HASH_SOURCE=git show 807cfb4:<path>; original Git objects retained.
+MODIFIED_FILE_STATUS=changed
 
-BASELINE
+REVIEW_FIX
+TaskDetail=task/results each advance their own request generation; tenant/workspace/route-id scope invalidates and reloads both.
+Quarantine=selected detail id is captured on open and retry never uses route query.
+TaskCreate=tenant/workspace changes invalidate frozen submission context and prevent late ACK navigation.
+Tests=actual mounted deferred-adapter tests cover TaskDetail duplicate/context/route, Quarantine filter/detail retry, Product filter, and TaskCreate tenant stale.
+SERVER_SQL_TRANSACTION_SCHEMA_DIFF=false
+PERSISTENT_BUSINESS_CHANGES=false
+
+TARGETED_MOUNTED
 COMMAND=npx -y node@22.18.0 scripts/test-task-import-components.mjs
-INPUT=Node 22.18.0; accepted TaskCreate + embedded Excel mounted components
+INPUT=Node 22.18.0; actual mounted Vue SFCs with controllable deferred HTTP adapter
 LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
-LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id tenant_stale=no_push
+LITERAL_OUTPUT=TASK_LIST_COMPONENT=PASS mounted=TaskList initial_loading background_refresh duplicate_refresh stale_response status_unknown_safe
+LITERAL_OUTPUT=PRODUCT_COMPONENT=PASS mounted=ProductList refresh_empty tenant_context_stale_fenced
+LITERAL_OUTPUT=QUALITY_COMPONENT=PASS mounted=QualityDashboard initial_error retry empty_distinct
+LITERAL_OUTPUT=QUARANTINE_COMPONENT=PASS mounted=QuarantineList filter_race detail_retry refresh_empty route_context_stale_fenced
+LITERAL_OUTPUT=TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate
 EXIT_STATUS=0
 RESULT=PASS
 
+HELPER_REGRESSION
 COMMAND=npx -y node@22.18.0 scripts/test-request-generation.mjs
-INPUT=Node 22.18.0; accepted request-generation races
+INPUT=Node 22.18.0
 LITERAL_OUTPUT=STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
 LITERAL_OUTPUT=REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false
 LITERAL_OUTPUT=TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved=true
 EXIT_STATUS=0
 RESULT=PASS
 
+WEB_BUILD
 COMMAND=npx -y node@22.18.0 node_modules/vite/bin/vite.js build
-INPUT=Node 22.18.0; dependencies installed by Node 22.18.0 npm CLI after retained Node20 optional-binding diagnostic failure
-LITERAL_OUTPUT=✓ 1682 modules transformed.
-LITERAL_OUTPUT=✓ built in 6.05s
+INPUT=Node 22.18.0; installed web dependencies
+LITERAL_OUTPUT=✓ 1683 modules transformed.
+LITERAL_OUTPUT=✓ built in 0.527s
 EXIT_STATUS=0
 RESULT=PASS
 
-SETUP_ROLLBACK
-COMMAND=bash docs/tasks/WEB-STATE-UX-001-verification/ROLLBACK.sh <isolated-probe-copy>; compare restored files with origin/main@807cfb4; remove probe
-INPUT=isolated copy outside active worktree; verified target path; setup authority docs and new Task file only
-LITERAL_OUTPUT=RESTORED_FILE=docs/CURRENT_STATE.md RESTORED_SHA256=2d79a4e8b1efdbda00289acaaa4b209e626bf015ec93d54ae81fa3e31ac4081d
-LITERAL_OUTPUT=RESTORED_FILE=docs/backlog.md RESTORED_SHA256=470686b9efe54dd92764ec2d8810b2d0cc283aa6c5a3628bbb7c4600d0de6bdc
-LITERAL_OUTPUT=RESTORED_FILE=docs/roadmap.md RESTORED_SHA256=dbbbc7358ba98c8ffbd87368fef652ce8fdac3485fe4acdf53d44c92675f7d11
-LITERAL_OUTPUT=REMOVED_NEW_FILE=docs/tasks/WEB-STATE-UX-001.md
-LITERAL_OUTPUT=ROLLBACK_RESULT=restored_task_setup_baseline
-LITERAL_OUTPUT=ROLLBACK_EXIT=0
-LITERAL_OUTPUT=ROLLBACK_MATCH=yes
-LITERAL_OUTPUT=MODIFIED_SHA256=9383a44f1752b1c0f40d451d62e4136792c81846dca1f376d86b79a3cb4a354c
-LITERAL_OUTPUT=BASE_TASK=ABSENT
-LITERAL_OUTPUT=MODIFIED_REMAINS_CHANGED=true
-LITERAL_OUTPUT=PROBE_EXISTS=no
+REVERSE_DIFF
+COMMAND=git apply --check --reverse docs/tasks/WEB-STATE-UX-001-verification/DIFF_FILE.patch
+INPUT=current changed worktree; complete base-to-current source/task patch
+LITERAL_OUTPUT=REVERSE_APPLY_EXIT=0
 EXIT_STATUS=0
 RESULT=PASS
 
-MODIFIED=PENDING_DEV_IMPLEMENTATION
-FINAL_ROLLBACK=PENDING_FINAL_DIFF
-ORACLE_STATUS=SKIPPED_NOT_APPLICABLE_UNLESS_SERVER_SQL_TRANSACTION_DIFF_APPEARS
-REAL_DEVICE_STATUS=SKIPPED_NOT_APPLICABLE
-STOP=BEFORE_MERGE_RELEASE_NEXT_TASK
-
-FINAL_ROLLBACK
+ROLLBACK
 COMMAND=npx -y node@22.18.0 -e "process.argv[2]=process.argv[1]; process.argv[1]='rollback'; require('./docs/tasks/WEB-STATE-UX-001-verification/ROLLBACK.sh')" .rollback-probe-web-state-ux
-INPUT=separate probe copy under worktree containing all modified source paths
-LITERAL_OUTPUT=RESTORED_FILE=web/src/views/tasks/TaskList.vue RESTORED_SHA256=cc5e15745509b2848e06399e9f88b430cec55012e2b0b1085cdaa91703a6fd34
-LITERAL_OUTPUT=REMOVED_NEW_FILE=web/src/utils/taskStatus.js
+INPUT=probe first populated with changed source files, then restored from base by Node CommonJS ROLLBACK.sh
 LITERAL_OUTPUT=ROLLBACK_RESULT=web_state_ux_sources_restored
 LITERAL_OUTPUT=ROLLBACK_EXIT=0
 LITERAL_OUTPUT=ROLLBACK_MATCH=yes
 EXIT_STATUS=0
 RESULT=PASS
 MODIFIED_FILE_REMAINS_CHANGED=true
+
+PYTHON_APPLICABLE
+COMMAND=python scripts/run_python_unit_tests.py
+LITERAL_OUTPUT=ImportError: cannot import name 'field_validator' from 'pydantic'
+EXIT_STATUS=1
+RESULT=SKIPPED_ENVIRONMENT
+ANDROID_APPLICABLE
+COMMAND=android_collector\gradlew.bat testDebugUnitTest
+LITERAL_OUTPUT=ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+EXIT_STATUS=1
+RESULT=SKIPPED_ENVIRONMENT
+ORACLE=SKIPPED_NOT_APPLICABLE
+REAL_DEVICE=SKIPPED_NOT_APPLICABLE
+STOP=BEFORE_RE_REVIEW_PR_MERGE_RELEASE
+
+DIFF_AND_GOVERNANCE
+COMMAND=git diff --check -- . ':(exclude)docs/tasks/WEB-STATE-UX-001-verification/DIFF_FILE.patch'
+INPUT=tracked range; the self-contained patch is excluded because valid unified patch context markers use one leading space on blank context lines
+LITERAL_OUTPUT=RANGE_DIFF_EXIT=0
+EXIT_STATUS=0
+RESULT=PASS
+COMMAND=rg -n "PENDING|pending" docs/tasks/WEB-STATE-UX-001.md docs/tasks/WEB-STATE-UX-001-verification/VERIFICATION.txt
+LITERAL_OUTPUT=PENDING_SCAN=PASS none
+EXIT_STATUS=0
+RESULT=PASS

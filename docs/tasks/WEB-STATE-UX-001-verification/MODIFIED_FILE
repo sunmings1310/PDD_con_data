@@ -14,5 +14,5 @@ web/src/views/tasks/TaskDetail.vue
 web/src/views/tasks/TaskList.vue
 
 DIFF_FILE_SHA256=
-8dbab74b4f462d88f2ac48520c8db43b954054566fc22e65b41bac6c5b85d870
+78514086a09892fe0de6c03f98100085f6e42de4a5a116799447aad9c79d125b
 ORIGINAL_HASH_SOURCE=git show 807cfb4:<path>

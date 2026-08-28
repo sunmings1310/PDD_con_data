@@ -44,9 +44,11 @@ import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import ExcelMatch from '@/views/excel/ExcelMatch.vue'
+import { useUserStore } from '@/stores/user'
 import { buildCanonicalPayload, canSubmitDraft, newSubmissionId, normalizeExcelRows, normalizeManualRows, prepareDraftRows, reviewDraft, setRowSelection } from '@/utils/taskDraft'
 
 const router = useRouter()
+const store = useUserStore()
 const platforms = ref([]); const devices = ref([]); const accounts = ref([])
 const source = ref('manual'); const loading = ref(false); const submissionError = ref(''); const excelRows = ref([]); const submissionId = ref(newSubmissionId()); const frozenPayload = ref(null)
 let routeGeneration = 0
@@ -61,6 +63,7 @@ const canSubmit = computed(() => canSubmitDraft(draftRows.value))
 function invalidateSubmission() { frozenPayload.value = null; submissionError.value = ''; submissionId.value = newSubmissionId() }
 watch(sourceRows, (rows) => { draftRows.value = prepareDraftRows(rows, form.platform_code); invalidateSubmission() }, { immediate: true, deep: true })
 watch(form, invalidateSubmission, { deep: true })
+watch(() => `${store.enterpriseId || ''}:${store.workspaceId || ''}`, () => { routeGeneration += 1; invalidateSubmission() })
 function setExcelRows(rows) { excelRows.value = rows }
 function applyPacePreset(mode) { if (pacePresets[mode]) Object.assign(form, pacePresets[mode]) }
 function normalizeRange() { if (form.delay_max_sec < form.delay_min_sec) form.delay_max_sec = form.delay_min_sec; if (form.item_gap_max_sec < form.item_gap_min_sec) form.item_gap_max_sec = form.item_gap_min_sec }

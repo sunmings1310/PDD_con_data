@@ -115,7 +115,7 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 - Evidence generated at / expiry：N/A
 - Four artifacts / rollback / persistent business changes：PASS / persistent business changes=false
 - Hosted evidence validator：预计 SKIPPED
-- Independent Reviewer provenance check：pending
+- Independent Reviewer provenance check：DEV_COMPLETE_AWAITING_RE_REVIEW
 
 ## Real-device Gate
 
@@ -146,4 +146,15 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 - Original evidence：上述 baseline 状态矩阵及 baseline commands。
 - Derived artifacts：`docs/tasks/WEB-STATE-UX-001-verification/`。
 - Review findings：DEV_COMPLETE_AWAITING_INDEPENDENT_REVIEW。
-- Commit / PR：Dev commit pending; no PR created.
+- Commit / PR：Review-Fix Dev commit will be recorded after this evidence update; no PR created.
+
+## Review Fix History
+
+- 2026-08-28 Independent Review：`CHANGES REQUIRED`。发现 Task Detail 的 task/results refresh 共用未推进 token、缺 tenant/workspace 监听；Quarantine detail retry 依赖 route query；初版 DIFF_FILE 不是可逆补丁；rollback 命令记录与 Node 实现不一致。
+- 2026-08-28 Dev Review Fix：Task Detail 使用 task/results 独立 generation，并由 tenant/workspace/route id 统一 invalidate/reload；Quarantine 保存 selected detail id 并从该 id retry；TaskCreate tenant/workspace 切换使迟到 ACK 失效并重置 submission context；mounted suite 新增 TaskDetail duplicate/context/route、Quarantine filter/detail retry、Product filter、TaskCreate tenant stale 实测。DIFF_FILE 将以 `git apply --check --reverse` 验证；rollback 用 Node CommonJS loader 的精确命令在 changed probe 上重跑。
+
+## Review-Fix Final Status
+
+- Status：`DEV_COMPLETE_AWAITING_RE_REVIEW`。
+- Code baseline for initial Dev commit：`45058aaa71c40aaacd4403795dc1563fd0852f5c`；本 Review Fix 的 fixed Head 在提交后记录于 VERIFICATION，不在提交前自引用。
+- Oracle / real device：`SKIPPED_NOT_APPLICABLE`（仅 Web 状态层，未触及 Server SQL/transaction/schema 或 Android）。

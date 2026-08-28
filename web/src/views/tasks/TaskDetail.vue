@@ -160,7 +160,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 import { createRequestGeneration, REQUEST_STALE, runGuardedAfter } from '@/utils/requestGeneration'
-import { taskStatusText, taskStatusType as mappedTaskStatusType } from '@/utils/taskStatus'
+import { taskStatusText, taskStatusType as mappedTaskStatusType, viewScope } from '@/utils/taskStatus'
 
 const route = useRoute()
 const router = useRouter()
@@ -183,6 +183,9 @@ const editVisible = ref(false)
 const editForm = reactive({product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 let timer
 const requestGeneration = createRequestGeneration()
+const taskRequestGeneration = createRequestGeneration()
+const resultsRequestGeneration = createRequestGeneration()
+const requestScope = () => viewScope(store.enterpriseId, store.workspaceId, route.params.id)
 
 const items = computed(() => task.value?.items || [])
 const okItems = computed(() => items.value.filter((x) => ['succeeded', 'done'].includes(x.status)))
@@ -249,27 +252,29 @@ async function load() {
 
 async function loadTask() {
   const expectedTaskId = String(route.params.id)
-  const token = requestGeneration.capture()
+  const expectedScope = requestScope()
+  const token = taskRequestGeneration.next(expectedScope)
   const initial = !taskLoaded.value
   taskLoading.value = initial
   taskRefreshing.value = !initial
   taskError.value = ''
   try {
     const res = await http.get(`/api/tasks/${expectedTaskId}`)
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!taskRequestGeneration.isCurrent(token, requestScope())) return
     task.value = res.data || null
     taskLoaded.value = true
   } catch (e) {
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!taskRequestGeneration.isCurrent(token, requestScope())) return
     taskError.value = requestError(e, '加载任务失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) { taskLoading.value = false; taskRefreshing.value = false }
+    if (taskRequestGeneration.isCurrent(token, requestScope())) { taskLoading.value = false; taskRefreshing.value = false }
   }
 }
 
 async function loadResults() {
   const expectedTaskId = String(route.params.id)
-  const token = requestGeneration.capture()
+  const expectedScope = requestScope()
+  const token = resultsRequestGeneration.next(expectedScope)
   const initial = !resultsLoaded.value
   resultsLoading.value = initial
   resultsRefreshing.value = !initial
@@ -278,7 +283,7 @@ async function loadResults() {
     const res = await http.get(`/api/management/tasks/${expectedTaskId}/results`, {
       params: { page: resultPage.value, limit: resultLimit.value },
     })
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!resultsRequestGeneration.isCurrent(token, requestScope())) return
     taskResults.value = res.data?.items || []
     resultTotal.value = Number(res.data?.total || 0)
     resultPage.value = Number(res.data?.page || resultPage.value)
@@ -286,11 +291,11 @@ async function loadResults() {
     selectedProducts.value = []
     resultsLoaded.value = true
   } catch (e) {
-    if (!requestGeneration.isCurrent(token, route.params.id)) return
+    if (!resultsRequestGeneration.isCurrent(token, requestScope())) return
     selectedProducts.value = []
     resultsError.value = requestError(e, '加载本次采集结果失败')
   } finally {
-    if (requestGeneration.isCurrent(token, route.params.id)) { resultsLoading.value = false; resultsRefreshing.value = false }
+    if (resultsRequestGeneration.isCurrent(token, requestScope())) { resultsLoading.value = false; resultsRefreshing.value = false }
   }
 }
 function changeResultPage(value) { resultPage.value = value; loadResults() }
@@ -335,8 +340,14 @@ function resetTaskState() {
   selectedProducts.value=[];editVisible.value=false
   Object.assign(editForm,{product_id:null,scope:'capture',platform_title:'',canonical_name:'',brand:'',product_attribute_spec:'',approval_number:'',manufacturer:'',dosage_form:'',category:'',expiry:''})
 }
-function switchTask(taskId){requestGeneration.reset(taskId,resetTaskState);load()}
-watch(()=>String(route.params.id),switchTask,{immediate:true})
+function switchTask() {
+  const expectedScope = requestScope()
+  requestGeneration.reset(String(route.params.id), resetTaskState)
+  taskRequestGeneration.reset(expectedScope)
+  resultsRequestGeneration.reset(expectedScope)
+  load()
+}
+watch(() => requestScope(), switchTask, { immediate: true })
 onMounted(() => { timer = setInterval(load, 5000) })
 onUnmounted(() => clearInterval(timer))
 </script>
