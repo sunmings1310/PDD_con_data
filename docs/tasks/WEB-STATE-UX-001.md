@@ -156,5 +156,5 @@ Baseline install note：首次使用系统 Node 20 执行 `npm ci` 后 Vite buil
 ## Review-Fix Final Status
 
 - Status：`DEV_COMPLETE_AWAITING_RE_REVIEW`。
-- Code baseline for initial Dev commit：`45058aaa71c40aaacd4403795dc1563fd0852f5c`；本 Review Fix 的 fixed Head 在提交后记录于 VERIFICATION，不在提交前自引用。
+- Code baseline for initial Dev commit：`45058aaa71c40aaacd4403795dc1563fd0852f5c`；本 Review Fix code candidate：`66972bb4ec08647dd77c4c56e4c0fd9c5fc1e1f4`；后续证据包装提交不在内容中预写自身 SHA。
 - Oracle / real device：`SKIPPED_NOT_APPLICABLE`（仅 Web 状态层，未触及 Server SQL/transaction/schema 或 Android）。

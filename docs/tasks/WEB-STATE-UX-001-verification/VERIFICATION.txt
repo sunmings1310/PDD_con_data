@@ -3,6 +3,8 @@ DATE=2026-08-28
 BRANCH=codex/web-state-ux-001
 BASE=origin/main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41
 PRE_REVIEW_HEAD=45058aaa71c40aaacd4403795dc1563fd0852f5c
+REVIEW_FIX_CODE_HEAD=66972bb4ec08647dd77c4c56e4c0fd9c5fc1e1f4
+EVIDENCE_WRAPPER=the documentation-only commit following this code candidate; no self-referential SHA is prewritten.
 STATUS=DEV_COMPLETE_AWAITING_RE_REVIEW
 
 ARTIFACTS
