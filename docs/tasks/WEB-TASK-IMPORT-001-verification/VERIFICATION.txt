@@ -124,3 +124,17 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=1)
 LOCAL_EXIT_STATUS=0
 LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
 FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
+
+ORACLE_SEMANTIC_DUPLICATE_FIX
+FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
+FAILED_COMMAND=Control isolated Oracle targeted test_05/test_06/test_07/test_08
+FAILED_LITERAL_OUTPUT=Ran 4 tests in 15.556s; failures=1; test_05 AssertionError at line 492: duplicate fixture returned {'task_id': 3109, 'idempotent': False, 'submission_id': 'task-import-...-duplicate'} instead of None; test_06/test_07/test_08 passed; exit=1.
+FAILED_STATUS=FAIL (test fixture used distinct canonical drug and keyword identities; not a Task service rejection failure)
+FIX=duplicate fixture now copies the first complete approval/name/spec/manufacturer target and changes only row_id/source_row_index, yielding the same normalized drug semantic key.
+CLEANUP_AUDIT=server.db.get_conn rolls back on AssertionError before its normal commit; failed test_05 did not reach its cleanup/commit call, so its Task/tenant writes were rolled back. Passing test path retains scoped cleanup zero-residue assertions.
+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
+LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
+LOCAL_LITERAL_OUTPUT=OK (skipped=4)
+LOCAL_EXIT_STATUS=0
+LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.

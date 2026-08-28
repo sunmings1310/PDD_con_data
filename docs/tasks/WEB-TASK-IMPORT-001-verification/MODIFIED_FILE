@@ -276,3 +276,9 @@
 
 - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
 - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
+
+### Oracle semantic-duplicate fixture repair（2026-08-28）
+
+- Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
+- fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
+- 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。

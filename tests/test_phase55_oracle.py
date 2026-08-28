@@ -485,9 +485,9 @@ class Phase55OracleFinalGate(unittest.TestCase):
 
             # These are rejected before any Task row can be made, while still
             # using the accepted platform/quota tables in this Oracle session.
+            first_target = body.model_dump()["targets"][0]
             duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
-                "targets": [*body.model_dump()["targets"], {"row_id": "excel:3", "source": "excel",
-                    "source_row_index": 3, "keyword": "药品A"}]})
+                "targets": [first_target, {**first_target, "row_id": "excel:3", "source_row_index": 3}]})
             result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
             self.assertIsNone(result)
             self.assertEqual("DUPLICATE_TARGET", error)

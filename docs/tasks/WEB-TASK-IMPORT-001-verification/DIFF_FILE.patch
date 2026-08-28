@@ -1,185 +1,66 @@
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-index 4172352..c7ea244 100644
+index c7ea244..6bfb145 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-@@ -271,3 +271,8 @@
- - 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
- - `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
- - 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。
+@@ -276,3 +276,9 @@
+
+ - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
+ - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
 +
-+### Compatibility route Oracle evidence repair（2026-08-28）
++### Oracle semantic-duplicate fixture repair（2026-08-28）
 +
-+- `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
-+- 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
++- Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
++- fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
++- 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-index 710e325..e915a5b 100644
+index e915a5b..0566609 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-@@ -112,4 +112,15 @@ REAL_DEVICE
- RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
- STATUS=SKIPPED
-
--REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.
-\ No newline at end of file
-+REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.
-+COMPATIBILITY_ROUTE_ORACLE_REPAIR
-+MODIFIED_FIELD=tests/test_phase55_oracle.py::Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
-+ROUTE=/api/excel/unmatched-to-task (actual FastAPI router execution via TestClient)
-+FIXTURE=real Oracle Tenant A/B, workspace membership, tenant roles, global role, user, JWT
-+EXPECTED=Tenant A selected task:create-only returns HTTP 403 despite global task:dispatch; Tenant B selected task:dispatch-only returns HTTP 403; promoting selected A to task:create+task:dispatch returns HTTP 200 and reaches canonical Task creation; A task count=1/B task count=0; cleanup zero residue.
-+LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch tests.test_task_import_contract tests.test_web_client_contract
-+LOCAL_LITERAL_OUTPUT=Ran 16 tests in 0.015s
-+LOCAL_LITERAL_OUTPUT=OK (skipped=1)
+@@ -124,3 +124,17 @@ LOCAL_LITERAL_OUTPUT=OK (skipped=1)
+ LOCAL_EXIT_STATUS=0
+ LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
+ FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
++
++ORACLE_SEMANTIC_DUPLICATE_FIX
++FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
++FAILED_COMMAND=Control isolated Oracle targeted test_05/test_06/test_07/test_08
++FAILED_LITERAL_OUTPUT=Ran 4 tests in 15.556s; failures=1; test_05 AssertionError at line 492: duplicate fixture returned {'task_id': 3109, 'idempotent': False, 'submission_id': 'task-import-...-duplicate'} instead of None; test_06/test_07/test_08 passed; exit=1.
++FAILED_STATUS=FAIL (test fixture used distinct canonical drug and keyword identities; not a Task service rejection failure)
++FIX=duplicate fixture now copies the first complete approval/name/spec/manufacturer target and changes only row_id/source_row_index, yielding the same normalized drug semantic key.
++CLEANUP_AUDIT=server.db.get_conn rolls back on AssertionError before its normal commit; failed test_05 did not reach its cleanup/commit call, so its Task/tenant writes were rolled back. Passing test path retains scoped cleanup zero-residue assertions.
++LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
++LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
++LOCAL_LITERAL_OUTPUT=OK (skipped=4)
 +LOCAL_EXIT_STATUS=0
-+LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
-+FINAL_ORACLE_STATUS=PENDING Control fixed-Head required run; previous 91b1aae and current 384a78c results are not claimed as the next candidate result.
++LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
++FINAL_ORACLE_STATUS=PENDING Control required fixed-Head rerun; no 060c61b result is claimed for the repaired candidate.
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index 4172352..c7ea244 100644
+index c7ea244..6bfb145 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001.md
 +++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -271,3 +271,8 @@
- - 配额 `reserve`、replay、`commit`、`release` 统一先锁 `SJZQ_QUOTA_USAGE` 再锁 `SJZQ_ENTERPRISE_QUOTA`，最后才锁 reservation；新增 Oracle 双连接 canonical create 与 commit/release 交叉用例。
- - `web/scripts/test-task-import-components.mjs` 使用 `@vue/compiler-sfc` + Vue renderer 实际编译并挂载 `TaskCreate` 和 embedded `ExcelMatch`，以可控延迟 HTTP adapter 覆盖 duplicate click、ACK 丢失 replay、编辑换 id、平台切换与离开 route 的 stale response。它不是源码字符串检查。
- - 本机离线/构建门禁已通过；本进程未注入隔离 Oracle 环境，`test_05`、`test_06`、`test_07` 的本机结果为 `SKIPPED`。Oracle Required 由 Control 在本轮提交固定 Head 上执行，结果不得以前轮 `91b1aae` 代替。
+@@ -276,3 +276,9 @@
+
+ - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
+ - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
 +
-+### Compatibility route Oracle evidence repair（2026-08-28）
++### Oracle semantic-duplicate fixture repair（2026-08-28）
 +
-+- `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
-+- 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
++- Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
++- fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
++- 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
 diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
-index db601f5..a2ca4f4 100644
+index a2ca4f4..b141751 100644
 --- a/tests/test_phase55_oracle.py
 +++ b/tests/test_phase55_oracle.py
-@@ -14,7 +14,8 @@ from types import SimpleNamespace
- from urllib.parse import parse_qs, urlparse
+@@ -485,9 +485,9 @@ class Phase55OracleFinalGate(unittest.TestCase):
 
- import oracledb
--from fastapi import HTTPException
-+from fastapi import FastAPI, HTTPException
-+from fastapi.testclient import TestClient
-
- for _key, _value in {
-     "APP_ENV": "test", "ORACLE_HOST": "127.0.0.1", "ORACLE_PORT": "1521",
-@@ -27,13 +28,14 @@ from server import management_queries  # noqa: E402
- from server.cast_state import cast_state  # noqa: E402
- from server.db import close_pool, get_conn, init_pool, next_id  # noqa: E402
- from server.device_enrollment import issue  # noqa: E402
-+from server.auth_util import create_token  # noqa: E402
- from server.job_service import create_jobs_for_task  # noqa: E402
- from server.main import tenant_media  # noqa: E402
- from server.media_access import _signature, signed_media_url  # noqa: E402
- from server.ota_meta import apk_dir, save_meta  # noqa: E402
- from server.quota import (ACTIVE_TASK, DAILY_SNAPSHOT, STORAGE_BYTES, QuotaExceeded,
-                           commit, period_key, release, reserve, reserve_and_commit)  # noqa: E402
--from server.routers import cast, dashboard, devices, jobs, ota, products, tasks  # noqa: E402
-+from server.routers import cast, dashboard, devices, excel_match, jobs, ota, products, tasks  # noqa: E402
- from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn, TaskCreateIn
- from server.task_creation_service import create_canonical_task  # noqa: E402
- from server.tenant import TenantContext  # noqa: E402
-@@ -107,6 +109,8 @@ class Phase55OracleFinalGate(unittest.TestCase):
-             ("DELETE FROM SJZQ_QUOTA_LEDGER WHERE ENTERPRISE_ID=:e", enterprise_binds),
-             ("DELETE FROM SJZQ_QUOTA_RESERVATION WHERE ENTERPRISE_ID=:e", enterprise_binds),
-             ("DELETE FROM SJZQ_QUOTA_USAGE WHERE ENTERPRISE_ID=:e", enterprise_binds),
-+            ("DELETE FROM SJZQ_WORKSPACE_MEMBERSHIP WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w", scoped_binds),
-+            ("DELETE FROM SJZQ_ENTERPRISE_MEMBERSHIP WHERE ENTERPRISE_ID=:e", enterprise_binds),
-             ("DELETE FROM SJZQ_WORKSPACE WHERE WORKSPACE_ID=:w AND ENTERPRISE_ID=:e", scoped_binds),
-             ("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:e", enterprise_binds),
-             ("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:e", enterprise_binds),
-@@ -586,6 +590,97 @@ class Phase55OracleFinalGate(unittest.TestCase):
-             self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
-             conn.commit()
-
-+    def test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch(self):
-+        """The actual compatibility route cannot borrow global/other-tenant dispatch."""
-+        tag = uuid.uuid4().hex[:12]
-+        with get_conn() as conn:
-+            cur = conn.cursor()
-+            global_role = self._seq(cur, "SJZQ_SEQ_ROLE")
-+            create_role = self._seq(cur, "SJZQ_SEQ_ROLE")
-+            combined_role = self._seq(cur, "SJZQ_SEQ_ROLE")
-+            user_id = self._seq(cur, "SJZQ_SEQ_USER")
-+            enterprise_a, workspace_a = self._tenant(cur, active=10)
-+            enterprise_b, workspace_b = self._tenant(cur, active=10)
-+            for role_id, suffix in ((global_role, "global"), (create_role, "create"), (combined_role, "both")):
-+                cur.execute("INSERT INTO SJZQ_ROLE (ROLE_ID,ROLE_CODE,ROLE_NAME) VALUES (:id,:code,:name)",
-+                            {"id": role_id, "code": f"p55-{suffix}-{tag}", "name": f"P55 {suffix} {tag}"})
-+            for role_id, permission in ((global_role, "task:dispatch"), (create_role, "task:create"),
-+                                        (combined_role, "task:create"), (combined_role, "task:dispatch")):
-+                cur.execute("INSERT INTO SJZQ_ROLE_PERM (ROLE_ID,PERM_CODE) VALUES (:role_id,:permission)",
-+                            {"role_id": role_id, "permission": permission})
-+            username = f"p55-route-{tag}"
-+            cur.execute("""INSERT INTO SJZQ_USER (USER_ID,USERNAME,PASSWORD_HASH,ROLE_ID,STATUS)
-+                           VALUES (:id,:username,'test-only',:role_id,'enabled')""",
-+                        {"id": user_id, "username": username, "role_id": global_role})
-+            for enterprise_id, workspace_id, role_id in ((enterprise_a, workspace_a, create_role),
-+                                                         (enterprise_b, workspace_b, global_role)):
-+                cur.execute("""INSERT INTO SJZQ_ENTERPRISE_MEMBERSHIP
-+                    (MEMBERSHIP_ID,ENTERPRISE_ID,USER_ID,ROLE_ID,STATUS)
-+                    VALUES (:id,:enterprise_id,:user_id,:role_id,'active')""",
-+                            {"id": self._seq(cur, "SJZQ_SEQ_ENT_MEMBERSHIP"), "enterprise_id": enterprise_id,
-+                             "user_id": user_id, "role_id": role_id})
-+                cur.execute("""INSERT INTO SJZQ_WORKSPACE_MEMBERSHIP
-+                    (ENTERPRISE_ID,WORKSPACE_ID,USER_ID,ROLE_ID)
-+                    VALUES (:enterprise_id,:workspace_id,:user_id,:role_id)""",
-+                            {"enterprise_id": enterprise_id, "workspace_id": workspace_id,
-+                             "user_id": user_id, "role_id": role_id})
-+            conn.commit()
-+
-+        route_app = FastAPI()
-+        route_app.include_router(excel_match.router)
-+        token = create_token({"user_id": user_id, "username": username, "role_code": f"p55-global-{tag}"})
-+        body = {"submission_id": f"compat-{tag}", "task_name": f"compat-{tag}", "platform_code": "pinduoduo",
-+                "rows": [{"row_index": 2, "input_approval_no": "H123", "input_product_name": "路由药品",
-+                          "input_spec": "10mg", "input_manufacturer": "路由厂家"}]}
-+        try:
-+            with TestClient(route_app) as client:
-+                headers_a = {"Authorization": f"Bearer {token}", "X-Enterprise-Id": str(enterprise_a),
-+                             "X-Workspace-Id": str(workspace_a)}
-+                denied = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_a)
-+                self.assertEqual(403, denied.status_code)  # global dispatch cannot replace selected A dispatch
-+                headers_b = {"Authorization": f"Bearer {token}", "X-Enterprise-Id": str(enterprise_b),
-+                             "X-Workspace-Id": str(workspace_b)}
-+                denied_create = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_b)
-+                self.assertEqual(403, denied_create.status_code)  # selected B dispatch cannot replace selected create
-+                with get_conn() as conn:
-+                    cur = conn.cursor()
-+                    cur.execute("""UPDATE SJZQ_ENTERPRISE_MEMBERSHIP SET ROLE_ID=:role_id
-+                                   WHERE ENTERPRISE_ID=:enterprise_id AND USER_ID=:user_id""",
-+                                {"role_id": combined_role, "enterprise_id": enterprise_a, "user_id": user_id})
-+                    cur.execute("""UPDATE SJZQ_WORKSPACE_MEMBERSHIP SET ROLE_ID=:role_id
-+                                   WHERE ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND USER_ID=:user_id""",
-+                                {"role_id": combined_role, "enterprise_id": enterprise_a,
-+                                 "workspace_id": workspace_a, "user_id": user_id})
-+                    conn.commit()
-+                allowed = client.post("/api/excel/unmatched-to-task", json=body, headers=headers_a)
-+                self.assertEqual(200, allowed.status_code)
-+                self.assertTrue(allowed.json()["ok"])
-+            with get_conn() as conn:
-+                cur = conn.cursor()
-+                cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
-+                            {"e": enterprise_a, "w": workspace_a})
-+                self.assertEqual(1, int(cur.fetchone()[0]))
-+                cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w",
-+                            {"e": enterprise_b, "w": workspace_b})
-+                self.assertEqual(0, int(cur.fetchone()[0]))
-+        finally:
-+            with get_conn() as conn:
-+                cur = conn.cursor()
-+                self._cleanup_task_import_fixture(cur, enterprise_a, workspace_a)
-+                self._cleanup_task_import_fixture(cur, enterprise_b, workspace_b)
-+                cur.execute("DELETE FROM SJZQ_ROLE_PERM WHERE ROLE_ID IN (:global_role,:create_role,:combined_role)",
-+                            {"global_role": global_role, "create_role": create_role, "combined_role": combined_role})
-+                cur.execute("DELETE FROM SJZQ_USER WHERE USER_ID=:user_id", {"user_id": user_id})
-+                cur.execute("DELETE FROM SJZQ_ROLE WHERE ROLE_ID IN (:global_role,:create_role,:combined_role)",
-+                            {"global_role": global_role, "create_role": create_role, "combined_role": combined_role})
-+                for table, predicate, binds in (
-+                    ("SJZQ_ROLE", "ROLE_ID IN (:global_role,:create_role,:combined_role)", {"global_role": global_role, "create_role": create_role, "combined_role": combined_role}),
-+                    ("SJZQ_USER", "USER_ID=:user_id", {"user_id": user_id}),
-+                ):
-+                    cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {predicate}", binds)
-+                    self.assertEqual(0, int(cur.fetchone()[0] or 0), table)
-+                conn.commit()
-+
-
- if __name__ == "__main__":
-     unittest.main()
+             # These are rejected before any Task row can be made, while still
+             # using the accepted platform/quota tables in this Oracle session.
++            first_target = body.model_dump()["targets"][0]
+             duplicate = TaskCreateIn.model_validate({**body.model_dump(), "submission_id": marker + "-duplicate",
+-                "targets": [*body.model_dump()["targets"], {"row_id": "excel:3", "source": "excel",
+-                    "source_row_index": 3, "keyword": "药品A"}]})
++                "targets": [first_target, {**first_target, "row_id": "excel:3", "source_row_index": 3}]})
+             result, error = create_canonical_task(cur, body=duplicate, tenant=context, user=user, request=None)
+             self.assertIsNone(result)
+             self.assertEqual("DUPLICATE_TARGET", error)
