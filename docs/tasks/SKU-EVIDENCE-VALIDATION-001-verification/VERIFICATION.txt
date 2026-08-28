@@ -1,0 +1,118 @@
+SKU-EVIDENCE-VALIDATION-001 SETUP VERIFICATION
+DATE=2026-08-28
+BRANCH=codex/sku-evidence-validation-001
+BASELINE=origin/main@f7d037cd612df09059dcea83189e63f99097042d
+STATUS=HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED
+
+INPUT_HASH
+COMMAND=Get-FileHash source and isolated copy -Algorithm SHA256
+LITERAL_OUTPUT=SOURCE_SHA256=bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557
+LITERAL_OUTPUT=ISOLATED_COPY_SHA256=bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557
+LITERAL_OUTPUT=HASH_MATCH=True
+EXIT_STATUS=0
+RESULT=PASS
+
+OFFLINE_SERVER_PARSE
+COMMAND=D:\work\PDD_con_data\.venv\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-VALIDATION-001\derived\offline_parse.py
+INPUT=isolated unchanged 123.xlsx; current server Excel helper imports; dummy offline Oracle config; no network/catalog
+LITERAL_OUTPUT=EXCEL_PARSE=PASS sheet=导入模板 range=A1:D6 rows=5 headers=4
+LITERAL_OUTPUT=MIXED_CERTIFICATE_TYPES=PASS drug=4 medical_device=1
+LITERAL_OUTPUT=SPECIAL_CHARACTER=PASS bullet_preserved=1
+LITERAL_OUTPUT=REQUIRED_COMPLETE=5/5
+LITERAL_OUTPUT=OFFLINE_MATCH=EMPTY_CATALOG_BRANCH_ONLY_NOT_A_LIBRARY_VERDICT
+EXIT_STATUS=0
+RESULT=PASS
+
+OFFLINE_TASK_DRAFT
+COMMAND=npx -y node@22.18.0 C:\Users\Eden\AppData\Local\Temp\SKU-EVIDENCE-VALIDATION-001\derived\offline_matrix.mjs
+INPUT=server_rows.json; current web/src/utils/taskDraft.js; no HTTP/catalog
+LITERAL_OUTPUT=TASK_DRAFT_PIPELINE=PASS rows=5 valid=5 ready=5 duplicate=0 invalid=0
+LITERAL_OUTPUT=MIXED_CERTIFICATE_TYPES=PASS drug=4 medical_device=1
+LITERAL_OUTPUT=SPECIAL_CHARACTER=PASS bullet_preserved=1
+LITERAL_OUTPUT=SKU_INFERENCE=PASS dimension=0 combination=0 spec=product_attribute_candidate_only
+LITERAL_OUTPUT=CATALOG_MATCH=NOT_EXECUTED_OFFLINE_NO_TENANT_CATALOG
+EXIT_STATUS=0
+RESULT=PASS
+
+REAL_DEVICE_PRECHECK
+COMMAND=D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe devices -l; passive getprop/activity/package queries only if a device is present
+INPUT=approved local adb; no account input and no platform interaction
+LITERAL_OUTPUT=List of devices attached
+LITERAL_OUTPUT=<empty device list>
+LITERAL_OUTPUT=adb.exe: no devices/emulators found
+EXIT_STATUS=1 for post-enumeration device queries
+RESULT=BLOCKED
+GATE=HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED
+
+PROVENANCE
+LITERAL_OUTPUT=server/routers/excel_match.py SHA256=660d659c5bde002194793b2145b576ea533e277846f6d3237683dc685976c5cf
+LITERAL_OUTPUT=web/src/utils/taskDraft.js SHA256=0fc9fddad86a15be2b75739d1e2f9da8e2bdec883872699b9db0eede5d264e63
+LITERAL_OUTPUT=offline_parse.py SHA256=70876eb1d61ca85f32de53468facbc6961bea24d6dd824c154c77e42e67d36c5
+LITERAL_OUTPUT=server_rows.json SHA256=98126a14d16da1fb884b82c65fac89e771094e2bc03fb9ea4020121d64d4ce96
+LITERAL_OUTPUT=offline_matrix.mjs SHA256=46f27da5f635042eb7369620a3bde0001b1874edd298fc783bc292cb1d81d3b9
+LITERAL_OUTPUT=offline_matrix.json SHA256=d43c98bb84820306454ed8bfea0cb26fef49754d9591d0bce3f9c2159031dc1e
+RESULT=PASS
+
+ROLLBACK
+COMMAND=git worktree add --detach D:\work\PDD_con_data_sku_evidence_validation_probe f7d037cd612df09059dcea83189e63f99097042d; $files=@('docs/CURRENT_STATE.md','docs/backlog.md','docs/tasks/SKU-EVIDENCE-VALIDATION-001.md','docs/tasks/SKU-EVIDENCE-VALIDATION-001-offline-matrix.md','docs/tasks/SKU-EVIDENCE-VALIDATION-001-real-device-precheck.md','docs/tasks/SKU-EVIDENCE-VALIDATION-001-fixture.json','docs/tasks/SKU-EVIDENCE-VALIDATION-001-evidence-manifest.json'); foreach($f in $files){$dest=Join-Path 'D:\work\PDD_con_data_sku_evidence_validation_probe' $f; New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent)|Out-Null; Copy-Item $f $dest -Force}; D:\Git\bin\bash.exe docs/tasks/SKU-EVIDENCE-VALIDATION-001-verification/ROLLBACK.sh /d/work/PDD_con_data_sku_evidence_validation_probe; git worktree remove --force D:\work\PDD_con_data_sku_evidence_validation_probe
+INPUT=another detached fixed-base worktree populated with current changed bytes
+LITERAL_OUTPUT=all seven BEFORE_SHA256 values matched EXPECTED_MODIFIED_SHA256
+LITERAL_OUTPUT=REMOVED_NEW_FILE count=5
+LITERAL_OUTPUT=RESTORED_SHA256[docs/CURRENT_STATE.md]=9a137d7e96673888543efee9d0ab38d460ad119a3a001c48462e940fcc6c166b
+LITERAL_OUTPUT=RESTORED_SHA256[docs/backlog.md]=c0c1cc173a29ca9916301afda3dac0d8bc661a60351d0cb624495d13bebed21d
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_sku_evidence_validation_baseline
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=RESTORED_MATCH=True
+LITERAL_OUTPUT=NEW_FILES_REMAIN=0
+LITERAL_OUTPUT=PROBE_EXISTS=False
+LITERAL_OUTPUT=MODIFIED_REMAINS_CHANGED=True
+EXIT_STATUS=0
+RESULT=PASS
+
+MARKDOWN
+COMMAND=python -c "import pathlib,re,sys; files=sorted(set(list(pathlib.Path('.').glob('*.md'))+list(pathlib.Path('docs').rglob('*.md'))+list(pathlib.Path('server').glob('*.md'))+list(pathlib.Path('android_collector').glob('*.md'))+list(pathlib.Path('web').glob('*.md'))+list(pathlib.Path('.github').glob('*.md')))); failures=[]; pattern=re.compile(r'(?<!!)\[[^\]]*\]\(([^)]+)\)'); [(failures.append(f'{s}: missing link target {t}') if not ((s.parent / t.strip().split()[0].strip('<>').split('#',1)[0]).resolve().exists()) else None) for s in files for t in pattern.findall(s.read_text(encoding='utf-8')) if t.strip() and not t.strip().startswith(('http://','https://','mailto:','#')) and t.strip().split()[0].strip('<>').split('#',1)[0]]; print('\n'.join(failures) if failures else f'Validated {len(files)} Markdown files'); sys.exit(bool(failures))"
+INPUT=repository Markdown files
+LITERAL_OUTPUT=Validated 68 Markdown files
+EXIT_STATUS=0
+RESULT=PASS
+
+YAML
+COMMAND=python -c "import pathlib,yaml; files=list(pathlib.Path('.github/workflows').glob('*.yml')); [yaml.safe_load(p.read_text(encoding='utf-8')) for p in files]; print(f'YAML_VALIDATED={len(files)}')"
+LITERAL_OUTPUT=YAML_VALIDATED=1
+EXIT_STATUS=0
+RESULT=PASS
+
+GOVERNANCE
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
+LITERAL_OUTPUT=RESOLVER_TESTS=PASS
+EXIT_STATUS=0
+RESULT=PASS
+
+ALLOWLIST
+COMMAND=git diff --cached --name-only; reject paths outside docs/CURRENT_STATE.md, docs/backlog.md and docs/tasks/SKU-EVIDENCE-VALIDATION-001*
+LITERAL_OUTPUT=CHANGED_COUNT=11
+LITERAL_OUTPUT=ALLOWLIST_VIOLATIONS=0
+EXIT_STATUS=0
+RESULT=PASS
+
+SENSITIVE
+COMMAND=$diff=git diff --cached -- . ':(exclude)docs/tasks/SKU-EVIDENCE-VALIDATION-001-verification/DIFF_FILE.patch'; $hits=@($diff|Select-String -Pattern '(?i)(password\s*[=:]\s*[^<\s]|authorization:\s*bearer\s+\S|oracle.*dsn\s*[=:]\s*\S|token\s*[=:]\s*[A-Za-z0-9_\-]{16,}|cookie\s*[=:]\s*\S)'); Write-Output "SENSITIVE_HITS=$($hits.Count)"
+LITERAL_OUTPUT=SENSITIVE_HITS=0
+EXIT_STATUS=0
+RESULT=PASS
+
+DIFF
+COMMAND=git diff --cached --check
+LITERAL_OUTPUT=<empty>
+EXIT_STATUS=0
+RESULT=PASS
+
+COMMAND=git apply --check --reverse --unidiff-zero docs/tasks/SKU-EVIDENCE-VALIDATION-001-verification/DIFF_FILE.patch
+LITERAL_OUTPUT=<empty>
+EXIT_STATUS=0
+RESULT=PASS
+
+ORACLE=SKIPPED_NOT_APPLICABLE_NO_SQL_SCHEMA
+PERSISTENT_BUSINESS_CHANGES=false
+STOP=HUMAN_GATE

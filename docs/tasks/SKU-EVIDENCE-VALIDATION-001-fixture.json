@@ -1,0 +1,16 @@
+{
+  "fixture_type": "sanitized_excel_evidence_input",
+  "source_sha256": "bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557",
+  "sheet": "导入模板",
+  "range": "A1:D6",
+  "rows": [
+    {"row": 2, "certificate_type": "drug_approval", "name_has_leading_bullet": true, "required_complete": true, "dedupe": "unique", "spec_semantics": "product_attribute_candidate_only"},
+    {"row": 3, "certificate_type": "drug_approval", "name_has_leading_bullet": false, "required_complete": true, "dedupe": "unique", "spec_semantics": "product_attribute_candidate_only"},
+    {"row": 4, "certificate_type": "medical_device_registration", "name_has_leading_bullet": false, "required_complete": true, "dedupe": "unique", "spec_semantics": "product_attribute_candidate_only"},
+    {"row": 5, "certificate_type": "drug_approval", "name_has_leading_bullet": false, "required_complete": true, "dedupe": "unique", "spec_semantics": "product_attribute_candidate_only"},
+    {"row": 6, "certificate_type": "drug_approval", "name_has_leading_bullet": false, "required_complete": true, "dedupe": "unique", "spec_semantics": "product_attribute_candidate_only"}
+  ],
+  "catalog_match": "NOT_EXECUTED_OFFLINE_NO_TENANT_CATALOG",
+  "sku_dimension_inferred": false,
+  "sku_combination_inferred": false
+}

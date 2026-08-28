@@ -1,0 +1,49 @@
+{
+  "task_id": "SKU-EVIDENCE-VALIDATION-001",
+  "base_sha": "f7d037cd612df09059dcea83189e63f99097042d",
+  "input": {
+    "original_path_committed": false,
+    "sha256": "bb5f02ca3d4995619f179ae1a58ccd889c0576bbb1b27af0c73d453f365cd557",
+    "isolated_copy_sha256_match": true,
+    "sheet": "导入模板",
+    "range": "A1:D6",
+    "row_count": 5
+  },
+  "offline": {
+    "parse": "PASS",
+    "required_complete": "5/5",
+    "dedupe_duplicate_count": 0,
+    "drug_approval_count": 4,
+    "medical_device_registration_count": 1,
+    "leading_bullet_preserved_count": 1,
+    "catalog_match": "NOT_EXECUTED_OFFLINE_NO_TENANT_CATALOG",
+    "sku_inference_count": 0,
+    "provenance": {
+      "server_helper_path": "server/routers/excel_match.py",
+      "server_helper_sha256": "660d659c5bde002194793b2145b576ea533e277846f6d3237683dc685976c5cf",
+      "web_helper_path": "web/src/utils/taskDraft.js",
+      "web_helper_sha256": "0fc9fddad86a15be2b75739d1e2f9da8e2bdec883872699b9db0eede5d264e63",
+      "local_parse_script_sha256": "70876eb1d61ca85f32de53468facbc6961bea24d6dd824c154c77e42e67d36c5",
+      "local_server_rows_sha256": "98126a14d16da1fb884b82c65fac89e771094e2bc03fb9ea4020121d64d4ce96",
+      "local_draft_script_sha256": "46f27da5f635042eb7369620a3bde0001b1874edd298fc783bc292cb1d81d3b9",
+      "local_matrix_sha256": "d43c98bb84820306454ed8bfea0cb26fef49754d9591d0bce3f9c2159031dc1",
+      "local_derived_files_committed": false
+    }
+  },
+  "real_device": {
+    "required": true,
+    "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED",
+    "samples_created": 0,
+    "raw_captures_created": 0,
+    "order_confirmation_clicked": false,
+    "order_submitted": false,
+    "payment_started": false
+  },
+  "privacy": {
+    "credentials_committed": false,
+    "device_identifier_committed": false,
+    "raw_screenshot_committed": false,
+    "unredacted_network_capture_committed": false
+  },
+  "persistent_business_changes": false
+}
