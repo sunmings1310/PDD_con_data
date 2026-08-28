@@ -83,10 +83,10 @@ STATUS=PASS
 ORACLE_REQUIRED_FINAL_HEAD
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
 INPUT=approved isolated writable Oracle; post-commit fixed candidate required
-RESULT=PENDING Control fixed-Head execution. Previous candidate ec3ce365b186fb8926047e9213abf43685f5958e passed 49 tests but does not cover this changed Head.
-STATUS=PENDING
+RESULT=PASS at fixed Head 91b1aae00b93eddfd0c61dfad29f3c750a2abf64; see final evidence below.
+STATUS=PASS
 CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes SJZQ_COLLECTION_LEASE/CHECKPOINT/ATTEMPT/OUTBOX/JOB_EVENT/COLLECTION_JOB/TASK_ITEM/TASK_LOG/TASK/QUOTA_LEDGER/QUOTA_RESERVATION/QUOTA_USAGE/WORKSPACE/ENTERPRISE_QUOTA/ENTERPRISE then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
-CLEANUP_RESULT=PENDING Oracle fixed-Head run; persistent=false after fixture cleanup.
+CLEANUP_RESULT=PASS; cleanup assertions observed zero residue; persistent_business_changes=false.
 
 ROLLBACK
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt; & 'D:\Git\bin\bash.exe' docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt
@@ -112,4 +112,24 @@ TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest 
 TARGETED_LITERAL_OUTPUT=Ran 2 tests in 0.000s; OK (skipped=2: Phase 5.5 Oracle sandbox test not enabled)
 TARGETED_EXIT_STATUS=0
 TARGETED_STATUS=SKIPPED (no isolated Oracle environment in this process)
-FINAL_ORACLE_STATUS=PENDING Control fixed-Head targeted test_05/test_06 then oracle strict; fixture remains persistent=false after cleanup.
+FINAL_ORACLE_STATUS=PASS Control fixed-Head targeted test_05/test_06 then oracle strict; fixture remains persistent=false after cleanup.
+
+FINAL_FIXED_HEAD_ORACLE
+FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64
+TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
+TARGETED_INPUT=Control-approved isolated writable Oracle
+TARGETED_LITERAL_OUTPUT=Ran 2 tests in 6.265s
+TARGETED_LITERAL_OUTPUT=OK
+TARGETED_EXIT_STATUS=0
+TARGETED_STATUS=PASS
+ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_INPUT=Control-approved isolated writable Oracle
+ORACLE_LITERAL_OUTPUT=Ran 49 tests in 165.693s
+ORACLE_LITERAL_OUTPUT=OK
+ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ORACLE_EXIT_STATUS=0
+ORACLE_STATUS=PASS
+CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
+PERSISTENT_BUSINESS_CHANGES=false
+REVIEW_FIX_STATUS=PASS; ready for Independent Re-review. A docs-only evidence commit follows; Control owns its final external manifest rerun on that new Head.ROLLBACK_FINAL_RERUN=PASS; command exit=0; restored SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; MODIFIED_FILE remains changed.

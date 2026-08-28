@@ -174,13 +174,13 @@
 | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
 | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
 | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
-| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | pending | NOT RUN |
-| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | pending | NOT RUN |
-| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | pending | NOT RUN |
-| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | pending | NOT RUN |
-| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | pending | NOT RUN |
+| New Node/flow contract | real builder + TaskCreate/Excel embedded flow | canonical equivalence, states, duplicate click, stale switch, error recovery | `TASK_CREATE_FLOW=PASS` | PASS |
+| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
+| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
+| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
+| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL; exit 0 | PASS |
 | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | clean | compile/diff exit 0 | PASS |
-| E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | pending | NOT RUN |
+| E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | Independent E2E PASS | PASS |
 
 首次 Node 观察只证明系统 Node 为 20.11.1 且新 worktree 未含 ignored `web/node_modules`；它不是项目固定 Node 22 Web Gate 的 PASS。Dev 必须使用仓库 canonical strict 入口或批准的 ignored runtime junction 后运行真实门禁。
 
@@ -188,10 +188,10 @@
 
 - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
 - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
-- Local isolated environment identifier：pending final fixed Head
-- Fixed Head SHA：pending
+- Local isolated environment identifier：Control-approved isolated writable Oracle
+- Fixed Head SHA：`91b1aae00b93eddfd0c61dfad29f3c750a2abf64`
 - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
-- Evidence / validator / Reviewer provenance：pending
+- Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
 - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
 
 ## Real-device Gate
@@ -224,8 +224,8 @@
 
 - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
 - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
-- Review findings：pending。
-- Commit / PR：Task setup pending commit；Dev 不创建 PR。
+- Review findings：Independent Review fixes accepted for re-review; Oracle code gate PASS at `91b1aae`。
+- Commit / PR：Dev commits through `91b1aae`; Dev 不创建 PR。
 
 ## Dev implementation evidence（2026-08-28）
 
@@ -236,13 +236,13 @@
 ### Dev repair evidence（2026-08-28）
 
 - Oracle 实跑发现 `test_06` 的断言对 `[None, None]` 排序触发 Python `TypeError`；业务线程均返回 `error=None`。已最小改为 `all(error is None for _, error in results)`，不改变 Task 创建语义。
-- 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果仍为 Required/PENDING external gate。
+- 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果当时为 Required external gate；现已由 `91b1aae` Oracle PASS 收口。
 
 ### Final Dev evidence（2026-08-28）
 
 - Control 在候选 `ec3ce365b186fb8926047e9213abf43685f5958e` 的隔离 Oracle 环境运行：`test_06` 为 `Ran 1 test in 2.522s` / `OK` / exit 0；canonical Oracle strict 为 `Ran 49 tests in 162.102s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`。
 - Dev gates：targeted Python 13/OK；Node canonical contract 3 PASS；Python strict 240/OK (skipped=27)；Web strict 1682 modules/PASS；Android strict `BUILD SUCCESSFUL`、`[PASS] android-jvm: exit=0`；compile/diff 均 exit 0。
-- 本次 evidence-only 提交会移动 Head；因此 final external Oracle fixed-Head strict 必须由 Control 在新的提交上重跑。该待运行 gate 为 `PENDING`，不把 `ec3ce36` 的结果标为新 Head 的 PASS。
+- 本次 evidence-only 提交会移动 Head；因此 final external Oracle fixed-Head strict 必须由 Control 在新的提交上重跑。该历史 gate 当时未运行；不把 `ec3ce36` 的结果标为后续 Head 的 PASS，最终 `91b1aae` 结果见下文。
 
 ### Final whitespace repair（2026-08-28）
 
@@ -258,3 +258,8 @@
 ### Oracle cleanup repair（2026-08-28）
 
 - Control 在 fixed Head `1736e199592d34a90ac0e8eb8f176bdcee16e2a2` 实跑 Oracle Required：49 tests 中 `test_05` 与 `test_06` 在 fixture cleanup 触发 `DPY-4008: no bind placeholder named ':w' found`，exit 1；创建语义断言未报业务失败。清理 helper 已最小修复为每条 SQL 只传入其实际 `:e` / `:w` binds，且保留逐表零残留断言。新固定 Head 必须由 Control 重跑 targeted 和 Oracle strict。
+
+### Final review-fix Oracle evidence（2026-08-28）
+
+- Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
+- `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
