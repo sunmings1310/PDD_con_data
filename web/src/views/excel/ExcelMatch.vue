@@ -10,7 +10,7 @@
           v-model="platform"
           placeholder="请选择平台"
           style="width: 180px"
-          :disabled="uploading || dispatching"
+          :disabled="uploading || dispatching || embedded"
         >
           <el-option
             v-for="item in platforms"
@@ -19,8 +19,7 @@
             :value="item.platform_code"
           />
         </el-select>
-        <el-select
-          v-model="deviceId"
+        <el-select v-if="!embedded" v-model="deviceId"
           clearable
           filterable
           placeholder="请选择采集设备"
@@ -35,7 +34,7 @@
             :value="device.device_id"
           />
         </el-select>
-        <el-select v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
+        <el-select v-if="!embedded" v-model="maxDetail" style="width: 150px" :disabled="dispatching" title="每条目标最多核对商品数">
           <el-option :value="5" label="每项核对 5 个" />
           <el-option :value="10" label="每项核对 10 个" />
           <el-option :value="20" label="每项核对 20 个" />
@@ -54,8 +53,7 @@
         <el-button v-if="store.hasPerm('excel:export')" type="success" :disabled="!selectedRows.length" :loading="exporting" @click="exportBatch">
           批量导出（{{ selectedRows.length }}）
         </el-button>
-        <el-button
-          type="warning"
+        <el-button v-if="!embedded" type="warning"
           :disabled="!unmatchedRows.length"
           :loading="dispatching"
           @click="dispatchAndroidMatch"
@@ -159,8 +157,10 @@ import { ElMessage } from 'element-plus'
 import http from '@/api/http'
 import { useUserStore } from '@/stores/user'
 
+
 const platforms = ref([])
 const { embedded = false } = defineProps({ embedded: Boolean })
+const emit = defineEmits(['draft-rows'])
 const devices = ref([])
 const router = useRouter()
 const store = useUserStore()
@@ -216,10 +216,15 @@ async function uploadMatch({ file }) {
     )
     rows.value = response.data.rows || []
     stats.value = response.data
+    emitDraftRows()
     ElMessage.success('匹配完成')
   } finally {
     uploading.value = false
   }
+}
+
+function emitDraftRows() {
+  if (embedded) emit('draft-rows', rows.value.map((row) => ({ ...row, selected_candidate: row.selected_candidate || null })))
 }
 
 function openCandidates(row) {
@@ -238,7 +243,8 @@ function chooseCandidate(candidate) {
     match_count: activeRow.value.match_count,
     candidates: activeRow.value.candidates,
   }
-  Object.assign(activeRow.value, candidate, keep)
+  Object.assign(activeRow.value, candidate, keep, { selected_candidate: candidate })
+  emitDraftRows()
   candidateDialog.value = false
   ElMessage.success('已替换为所选商品')
 }

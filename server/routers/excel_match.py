@@ -8,6 +8,7 @@ import re
 import unicodedata
 import urllib.request
 import zipfile
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -22,10 +23,10 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from server.auth_util import require_perms, write_op_log
 from server.config import settings
 from server.db import get_conn, next_id, rows_as_dicts
-from server.schemas import ApiOk
+from server.schemas import ApiOk, TaskCreateIn
 from server.tenant import require_tenant_perms
 from server.media_access import signed_media_url
-from server.quota import ACTIVE_TASK, QuotaExceeded, reserve_and_commit
+from server.task_creation_service import create_canonical_task
 
 router = APIRouter(prefix="/api/excel", tags=["excel"])
 
@@ -580,115 +581,32 @@ def export_matched(body: dict, tenant=Depends(require_tenant_perms("excel:export
 @router.post("/unmatched-to-task")
 def unmatched_to_task(body: dict, user=Depends(require_perms("task:dispatch")),
                       tenant=Depends(require_tenant_perms("task:create"))):
-    """把 Excel 未匹配行下发给 Android，由 APP 按准字+规格核对详情。"""
-    rows = [row for row in (body.get("rows") or []) if not row.get("matched")]
+    """Legacy Excel action delegates into the canonical Task transaction."""
+    platform = _text(body.get("platform_code") or "pinduoduo")
     targets = []
-    for row in rows:
+    for index, row in enumerate(body.get("rows") or []):
+        if row.get("matched"):
+            continue
         approval = _text(row.get("input_approval_no") or row.get("approval_no"))[:128]
         name = _text(row.get("input_product_name") or row.get("product_name"))[:256]
         spec = _text(row.get("input_spec") or row.get("spec"))[:256]
         manufacturer = _text(row.get("input_manufacturer") or row.get("manufacturer"))[:256]
-        keyword = _text(row.get("search_keyword") or name or approval)[:256]
-        original_row = row.get("original_row") or {
-            "国药准字": approval, "品名": name, "规格": spec, "生产厂家": manufacturer,
-        }
-        if approval and name and spec and manufacturer and keyword:
-            targets.append({
-                "keyword": keyword, "approval": approval, "name": name,
-                "spec": spec, "manufacturer": manufacturer,
-                "original_row": original_row,
-            })
-    if not targets:
-        return ApiOk(ok=False, message="没有可生成任务的未匹配条目")
-    platform = body.get("platform_code") or "pinduoduo"
+        if approval and name and spec and manufacturer:
+            targets.append({"row_id": f"excel-compat:{row.get('row_index', index)}", "source": "excel",
+                "source_row_index": int(row.get("row_index") or index), "platform_code": platform,
+                "keyword": _text(row.get("search_keyword") or name or approval)[:256], "approval": approval,
+                "name": name, "spec": spec, "manufacturer": manufacturer,
+                "original_row": row.get("original_row") or {"国药准字": approval, "品名": name, "规格": spec, "生产厂家": manufacturer}})
     try:
-        device_id = int(body.get("device_id"))
-    except (TypeError, ValueError):
-        return ApiOk(ok=False, message="请选择有效的采集设备")
-    if device_id <= 0:
-        return ApiOk(ok=False, message="请选择有效的采集设备")
+        payload_data = {"submission_id": body.get("submission_id") or f"excel-compat-{uuid.uuid4().hex}",
+            "source": "excel", "task_name": body.get("task_name") or "Excel未匹配补采", "task_type": "collect",
+            "platform_code": platform, "device_id": body.get("device_id"), "priority": body.get("priority", 5),
+            "config": {"match_mode": "approval_name_spec_manufacturer", "max_detail": max(1, min(int(body.get("max_detail") or 10), 30))}, "targets": targets}
+        payload = TaskCreateIn.model_validate(payload_data) if hasattr(TaskCreateIn, "model_validate") else TaskCreateIn.parse_obj(payload_data)
+    except (TypeError, ValueError) as exc:
+        return ApiOk(ok=False, message=str(exc), data={"error_code": "INVALID_TARGET"})
     with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """SELECT PLATFORM_CODE, OWNER_USER_ID FROM SJZQ_DEVICE WHERE DEVICE_ID = :device_id
-                AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id AND REVOKED_AT IS NULL""",
-            {"device_id": device_id, **tenant.binds},
-        )
-        device = cur.fetchone()
-        if not device:
-            return ApiOk(ok=False, message="所选采集设备不存在")
-        if _text(device[0]) != _text(platform):
-            return ApiOk(ok=False, message="所选设备与当前平台不一致")
-        if tenant.role_code != "super_admin" and int(device[1] or 0) != int(user["user_id"]):
-            return ApiOk(ok=False, message="运营只能向本人绑定的设备下发任务")
-        task_id = next_id(cur, "SJZQ_SEQ_TASK")
-        try:
-            reserve_and_commit(cur, enterprise_id=tenant.enterprise_id, workspace_id=tenant.workspace_id,
-                               metric=ACTIVE_TASK, amount=1, resource_type="task", resource_key=str(task_id))
-        except QuotaExceeded as exc:
-            return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
-        cur.execute(
-            """
-            INSERT INTO SJZQ_TASK (
-                TASK_ID, TASK_NAME, TASK_TYPE, PLATFORM_CODE, DEVICE_ID, STATUS, PRIORITY,
-                KEYWORD_TEXT, TARGET_COUNT, CONFIG_JSON, CREATE_USER_ID, CREATE_USERNAME,
-                REVIEW_STATUS,ENTERPRISE_ID,WORKSPACE_ID
-            ) VALUES (
-                :task_id, :task_name, 'collect', :platform, :device_id, 'pending', 5,
-                :keywords, :target_count, :config_json, :user_id, :username, 'pending',:enterprise_id,:workspace_id
-            )
-            """,
-            {
-                "task_id": task_id,
-                "task_name": body.get("task_name") or f"Excel未匹配补采-{task_id}",
-                "platform": platform,
-                "device_id": device_id,
-                "keywords": "\n".join(target["keyword"] for target in targets),
-                "target_count": len(targets),
-                "config_json": json.dumps(
-                    {
-                        "match_mode": "approval_name_spec_manufacturer",
-                        "max_detail": max(1, min(int(body.get("max_detail") or 10), 30)),
-                    },
-                    ensure_ascii=False,
-                ),
-                "user_id": user["user_id"],
-                "username": user["username"], **tenant.binds,
-            },
-        )
-        for index, target in enumerate(targets):
-            item_id = next_id(cur, "SJZQ_SEQ_TASK_ITEM")
-            cur.execute(
-                """
-                INSERT INTO SJZQ_TASK_ITEM (
-                    ITEM_ID, TASK_ID, ROW_INDEX, KEYWORD,
-                    TARGET_SPEC, TARGET_APPROVAL, TARGET_NAME, TARGET_MANUFACTURER,
-                    ORIGINAL_ROW_JSON, STATUS,ENTERPRISE_ID,WORKSPACE_ID
-                ) VALUES (
-                    :item_id, :task_id, :row_index, :keyword,
-                    :target_spec, :target_approval, :target_name, :target_manufacturer,
-                    :original_row_json, 'pending',:enterprise_id,:workspace_id
-                )
-                """,
-                {
-                    "item_id": item_id,
-                    "task_id": task_id,
-                    "row_index": index,
-                    "keyword": target["keyword"],
-                    "target_spec": target["spec"],
-                    "target_approval": target["approval"],
-                    "target_name": target["name"],
-                    "target_manufacturer": target["manufacturer"],
-                    "original_row_json": json.dumps(target["original_row"], ensure_ascii=False), **tenant.binds,
-                },
-            )
-        write_op_log(
-            cur,
-            user_id=user["user_id"],
-            username=user["username"],
-            action="excel_android_match_task",
-            module="excel",
-            detail=f"未匹配下发 Android 任务 #{task_id} 设备={device_id} 共 {len(targets)} 条",
-            **tenant.binds,
-        )
-        return ApiOk(data={"task_id": task_id, "device_id": device_id, "count": len(targets)})
+        result, error = create_canonical_task(conn.cursor(), body=payload, tenant=tenant, user=user, request=None)
+        if error:
+            return ApiOk(ok=False, message=error, data={"error_code": error})
+        return ApiOk(data={**result, "count": len(targets)})

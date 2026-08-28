@@ -50,11 +50,29 @@ class DeviceOut(BaseModel):
     create_time: Optional[datetime] = None
 
 
+class TaskTargetIn(BaseModel):
+    row_id: str = Field(min_length=1, max_length=128)
+    source: str = Field(min_length=1, max_length=32)
+    source_row_index: int = Field(ge=0)
+    platform_code: Optional[str] = Field(default=None, max_length=32)
+    platform_product_id: Optional[str] = Field(default=None, max_length=128)
+    keyword: Optional[str] = Field(default=None, max_length=256)
+    approval: Optional[str] = Field(default=None, max_length=128)
+    name: Optional[str] = Field(default=None, max_length=512)
+    spec: Optional[str] = Field(default=None, max_length=256)
+    manufacturer: Optional[str] = Field(default=None, max_length=256)
+    original_row: Optional[dict[str, Any]] = None
+    provenance_row_ids: list[str] = Field(default_factory=list)
+
+
 class TaskCreateIn(BaseModel):
     task_name: str
     task_type: str = "collect"
     platform_code: str = "pinduoduo"
     keywords: list[str] = Field(default_factory=list)
+    targets: list[TaskTargetIn] = Field(default_factory=list)
+    submission_id: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    source: str = "manual"
     priority: int = 5
     device_id: Optional[int] = None
     target_count: int = 0

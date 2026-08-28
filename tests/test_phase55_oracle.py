@@ -34,7 +34,8 @@ from server.ota_meta import apk_dir, save_meta  # noqa: E402
 from server.quota import (ACTIVE_TASK, DAILY_SNAPSHOT, STORAGE_BYTES, QuotaExceeded,
                           period_key, reserve_and_commit)  # noqa: E402
 from server.routers import cast, dashboard, devices, jobs, ota, products, tasks  # noqa: E402
-from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn  # noqa: E402
+from server.schemas import DeviceHeartbeatIn, DeviceRegisterIn, JobAcquireIn, TaskCreateIn
+from server.task_creation_service import create_canonical_task  # noqa: E402
 from server.tenant import TenantContext  # noqa: E402
 
 ENABLED = os.getenv("PHASE55_ORACLE_TEST_ENABLED") == "1"
@@ -410,6 +411,71 @@ class Phase55OracleFinalGate(unittest.TestCase):
                     WHERE ENTERPRISE_ID=:e AND METRIC_CODE=:metric""",
                             {"e": enterprise_id, "metric": metric})
                 self.assertEqual(2, int(cur.fetchone()[0]), metric)
+
+
+    def test_05_canonical_task_submission_replays_without_device_or_second_task(self):
+        marker = "task-import-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_id, workspace_id = self._tenant(cur, active=10)
+            body = TaskCreateIn.model_validate({
+                "submission_id": marker, "source": "excel", "task_name": marker,
+                "task_type": "collect", "platform_code": "pinduoduo", "device_id": None,
+                "priority": 5, "config": {"max_detail": 5},
+                "targets": [{"row_id": "excel:2", "source": "excel", "source_row_index": 2,
+                             "keyword": "药品A", "approval": "H1", "name": "药品A",
+                             "spec": "10mg", "manufacturer": "厂家A"}],
+            })
+            context = TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"}))
+            user = {"user_id": 1, "username": "oracle-gate"}
+            first, error = create_canonical_task(cur, body=body, tenant=context, user=user, request=None)
+            self.assertIsNone(error)
+            replay, error = create_canonical_task(cur, body=body, tenant=context, user=user, request=None)
+            self.assertIsNone(error)
+            self.assertFalse(first["idempotent"])
+            self.assertTrue(replay["idempotent"])
+            self.assertEqual(first["task_id"], replay["task_id"])
+            changed = TaskCreateIn.model_validate({**body.model_dump(), "priority": 6})
+            conflict, error = create_canonical_task(cur, body=changed, tenant=context, user=user, request=None)
+            self.assertIsNone(conflict)
+            self.assertEqual("IDEMPOTENCY_CONFLICT", error)
+            cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w AND TASK_NAME=:name",
+                        {"e": enterprise_id, "w": workspace_id, "name": marker})
+            self.assertEqual(1, int(cur.fetchone()[0]))
+            cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:id", {"id": first["task_id"]})
+            self.assertEqual(1, int(cur.fetchone()[0]))
+            conn.rollback()
+
+
+    def test_06_canonical_submission_concurrent_replay_is_single_task(self):
+        marker = "task-import-race-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            enterprise_id, workspace_id = self._tenant(conn.cursor(), active=10)
+        barrier = threading.Barrier(2)
+        def worker():
+            conn = oracledb.connect(dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"], password=os.environ["T003_ORACLE_PASSWORD"])
+            try:
+                body = TaskCreateIn.model_validate({"submission_id": marker, "source": "manual", "task_name": marker,
+                    "task_type": "collect", "platform_code": "pinduoduo", "priority": 5,
+                    "targets": [{"row_id": "manual:1", "source": "manual", "source_row_index": 1, "keyword": "并发目标"}]})
+                barrier.wait()
+                result, error = create_canonical_task(conn.cursor(), body=body,
+                    tenant=TenantContext(enterprise_id, workspace_id, 1, 1, "super_admin", frozenset({"task:create"})),
+                    user={"user_id": 1, "username": "oracle-gate"}, request=None)
+                conn.commit()
+                return result, error
+            finally:
+                conn.close()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: worker(), range(2)))
+        self.assertEqual([None, None], sorted(error for _, error in results))
+        self.assertEqual([False, True], sorted(result["idempotent"] for result, _ in results))
+        self.assertEqual(1, len({result["task_id"] for result, _ in results}))
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM SJZQ_TASK WHERE ENTERPRISE_ID=:e AND WORKSPACE_ID=:w AND TASK_NAME=:name",
+                        {"e": enterprise_id, "w": workspace_id, "name": marker})
+            self.assertEqual(1, int(cur.fetchone()[0]))
 
 
 if __name__ == "__main__":

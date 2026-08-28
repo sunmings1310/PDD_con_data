@@ -86,3 +86,49 @@ STATUS=PASS
 ORACLE_STATUS=PENDING CLASSIFICATION; expected Required if Dev changes server SQL/transaction/tenant behavior
 REAL_DEVICE_STATUS=SKIPPED; no Android or real collection behavior in scope
 NEXT_STATE=IN_PROGRESS; Dev implementation delegated; no PR/merge/release
+DEV_IMPLEMENTATION_2026-08-28
+Changed branch/field: WEB-TASK-IMPORT-001 canonical submission path now uses Task CONFIG_JSON._submission plus enterprise quota row serialization; MODIFIED_FILE is current Task evidence copy.
+MODIFIED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+TARGETED_COMMAND=python -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
+TARGETED_LITERAL_OUTPUT=Ran 13 tests in 0.016s; OK
+TARGETED_EXIT_STATUS=0
+NODE_CONTRACT_COMMAND=node web/scripts/test-task-import-contract.mjs
+NODE_CONTRACT_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123; EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked; CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+NODE_CONTRACT_EXIT_STATUS=0
+PYTHON_FULL_COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+PYTHON_FULL_LITERAL_OUTPUT=Ran 238 tests in 0.475s; OK (skipped=25); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+PYTHON_FULL_EXIT_STATUS=0
+WEB_FULL_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+WEB_FULL_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 620ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WEB_FULL_EXIT_STATUS=0
+ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_RESULT=BLOCKED current process lacks isolated Oracle environment variables/flags; Required and not PASS.
+ANDROID_RESULT=XML inspection after strict JVM run: tests=70 failures=0 errors=0 skipped=1; canonical strict final exit needs final rerun.
+
+ROLLBACK_DEV_COMMAND=Copy-Item MODIFIED_FILE rollback_probe.txt; bash ROLLBACK.sh rollback_probe.txt
+ROLLBACK_DEV_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_base_task; RESTORED_SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; ROLLBACK_EXIT=0
+ROLLBACK_DEV_EXIT_STATUS=128
+RESTORED_BEHAVIOR_STATUS=rollback probe restores Base Task; MODIFIED_FILE remains current Dev Task evidence.
+
+ROLLBACK_DEV_FINAL_COMMAND=Copy-Item MODIFIED_FILE rollback_probe.txt; bash ROLLBACK.sh rollback_probe.txt
+ROLLBACK_DEV_FINAL_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task; RESTORED_SHA256=d04dea2c92286be34cec9c1ed9df74731a894e91e8a834c78531d5ea6b4874df; ROLLBACK_EXIT=0
+ROLLBACK_DEV_FINAL_EXIT_STATUS=1
+RESTORED_BEHAVIOR_STATUS=rollback probe restores setup Task; MODIFIED_FILE remains current Dev Task evidence.
+
+ROLLBACK_HASH_CORRECTION=setup_git_show_sha256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; final_exit=0
+
+MODIFIED_FILE_FINAL_SHA256=0c0e10c6a37801873b8b1370804bf9d2902e555f3d07b025305f3d51fcca6e69
+MODIFIED_FILE_SCOPE=current Task plus Dev evidence; ORIGINAL_FILE preserves setup Task SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4.
+
+FINAL_DEV_GATES_2026-08-28
+PYTHON_FULL_LITERAL_OUTPUT=Ran 240 tests in 0.469s; OK (skipped=27); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+PYTHON_FULL_EXIT_STATUS=0
+WEB_FULL_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 554ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WEB_FULL_EXIT_STATUS=0
+ANDROID_FULL_COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; 30 actionable tasks: 1 executed, 29 up-to-date; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+ANDROID_FULL_EXIT_STATUS=0
+ORACLE_STATUS=PENDING external fixed-Head gate; Required; current shell prior command recorded BLOCKED because credentials/flags absent, never PASS.
+DIFF_CHECK_FINAL_COMMAND=git diff --check
+DIFF_CHECK_FINAL_LITERAL_OUTPUT=no errors (line-ending warnings only)
+DIFF_CHECK_FINAL_EXIT_STATUS=0

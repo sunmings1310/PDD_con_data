@@ -226,9 +226,3 @@
 - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
 - Review findings：pending。
 - Commit / PR：Task setup pending commit；Dev 不创建 PR。
-
-## Dev implementation evidence（2026-08-28）
-
-- `server/task_creation_service.py` 是 manual 与 Excel compatibility 共用的 Task/TaskItem/Job 事务；embedded Excel 只回传审核行，不调用兼容下发端点。
-- Submission 以现有 `SJZQ_ENTERPRISE_QUOTA` 的 `FOR UPDATE` 串行化，再以 tenant/workspace + `SJZQ_TASK.CONFIG_JSON._submission.id` 查找。`_submission` 保存 server-recomputed payload SHA-256；同 hash 返回原 task，异 hash 返回 `IDEMPOTENCY_CONFLICT`，并支持 `device_id=null`。
-- 真实 Oracle gate 新增 `Phase55OracleFinalGate.test_05_*`（replay/conflict）和 `test_06_*`（两连接并发）；当前 shell 未有 T003 环境，Required gate 为 BLOCKED。

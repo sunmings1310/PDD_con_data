@@ -15,7 +15,6 @@ from server.tenant import TenantContext, require_tenant_perms
 from server.db import get_conn, next_id, row_as_dict, rows_as_dicts
 from server.config import settings
 from server.cast_state import cast_state
-from server.platforms import TASK_COLLECT, TASK_NURTURE
 from server.schemas import ApiOk, TaskCreateIn, TaskFinishIn, TaskProgressIn
 from server.services import (
     append_task_log,
@@ -36,8 +35,7 @@ from server.task_state_service import (
     transition_item,
     transition_task,
 )
-from server.job_service import create_jobs_for_task
-from server.quota import ACTIVE_TASK, QuotaExceeded, reserve_and_commit
+from server.task_creation_service import create_canonical_task
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -68,79 +66,17 @@ def create_task(
     tenant=Depends(require_tenant_perms("task:create")),
 ):
     tenant = _effective_tenant(tenant, user)
-    if body.task_type not in (TASK_COLLECT, TASK_NURTURE):
-        return ApiOk(ok=False, message=f"unsupported task_type: {body.task_type}")
-    keywords = [k.strip() for k in body.keywords if k and k.strip()]
     with get_conn() as conn:
         cur = conn.cursor()
-        if body.device_id is not None and tenant.role_code != "super_admin":
-            cur.execute("""SELECT OWNER_USER_ID FROM SJZQ_DEVICE WHERE DEVICE_ID=:id
-                            AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id""",
-                        {"id": body.device_id, **tenant.binds})
-            owner = cur.fetchone()
-            if not owner or owner[0] is None or int(owner[0]) != int(user["user_id"]):
-                return ApiOk(ok=False, message="运营只能向本人绑定设备创建任务")
-        task_id = next_id(cur, "SJZQ_SEQ_TASK")
-        try:
-            reserve_and_commit(
-                cur, enterprise_id=tenant.enterprise_id, workspace_id=tenant.workspace_id,
-                metric=ACTIVE_TASK, amount=1, resource_type="task", resource_key=str(task_id),
-            )
-        except QuotaExceeded as exc:
-            return ApiOk(ok=False, message=str(exc), data={"error_code": str(exc)})
-        keyword_text = "\n".join(keywords)
-        config_json = json.dumps(body.config or {}, ensure_ascii=False)
-        cur.execute(
-            """
-            INSERT INTO SJZQ_TASK (
-                TASK_ID, TASK_NAME, TASK_TYPE, PLATFORM_CODE, STATUS, PRIORITY,
-                DEVICE_ID, KEYWORD_TEXT, TARGET_COUNT, CONFIG_JSON, REVIEW_STATUS,
-                CREATE_USER_ID, CREATE_USERNAME, ENTERPRISE_ID, WORKSPACE_ID
-            ) VALUES (
-                :task_id, :task_name, :tt, :plat, 'pending', :pri,
-                :did, :kw, :tc, :cfg, 'pending', :create_user_id, :create_username, :enterprise_id, :workspace_id
-            )
-            """,
-            {
-                "task_id": task_id,
-                "task_name": body.task_name,
-                "tt": body.task_type,
-                "plat": body.platform_code,
-                "pri": body.priority,
-                "did": body.device_id,
-                "kw": keyword_text,
-                "tc": body.target_count or len(keywords),
-                "cfg": config_json,
-                "create_user_id": user["user_id"],
-                "create_username": user["username"],
-                **tenant.binds,
-            },
-        )
-        for i, kw in enumerate(keywords):
-            item_id = next_id(cur, "SJZQ_SEQ_TASK_ITEM")
-            cur.execute(
-                """
-                INSERT INTO SJZQ_TASK_ITEM (ITEM_ID, TASK_ID, ROW_INDEX, KEYWORD, STATUS, ENTERPRISE_ID, WORKSPACE_ID)
-                VALUES (:id, :tid, :ri, :kw, 'pending', :enterprise_id, :workspace_id)
-                """,
-                {"id": item_id, "tid": task_id, "ri": i, "kw": kw[:256], **tenant.binds},
-            )
-        # Phase 2 collection Jobs are materialized in the same transaction as
-        # their Task/TaskItem business identity. A retry returns the same
-        # JOB_KEY; no Worker lifecycle event can create a new business meaning.
-        if body.task_type == TASK_COLLECT:
-            create_jobs_for_task(cur, task_id=task_id)
-        append_task_log(cur, task_id, f"任务已创建，关键词 {len(keywords)} 个")
-        write_op_log(
-            cur,
-            user_id=user["user_id"],
-            username=user["username"],
-            action="task_create",
-            module="task",
-            detail=f"创建任务 #{task_id} {body.task_name}",
-            ip=request.client.host if request.client else None,
-        )
-        return ApiOk(message="created", data={"task_id": task_id})
+        result, error = create_canonical_task(cur, body=body, tenant=tenant, user=user, request=request)
+        if error:
+            message = "idempotency key payload conflict" if error == "IDEMPOTENCY_CONFLICT" else error
+            return ApiOk(ok=False, message=message, data={"error_code": error})
+        if not result["idempotent"]:
+            write_op_log(cur, user_id=user["user_id"], username=user["username"], action="task_create",
+                         module="task", detail=f"创建任务 #{result['task_id']} {body.task_name}",
+                         ip=request.client.host if request.client else None, **tenant.binds)
+        return ApiOk(message="already created" if result["idempotent"] else "created", data=result)
 
 
 def _task_ui_status(t: dict) -> str:

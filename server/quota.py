@@ -81,6 +81,11 @@ def _limit(cur: Any, enterprise_id: int, metric: str) -> int:
     return int(row[0])
 
 
+def lock_metric_scope(cur: Any, *, enterprise_id: int, metric: str) -> None:
+    """Lock the existing enterprise quota row as a durable create-scope mutex."""
+    _limit(cur, enterprise_id, metric)
+
+
 def _ledger(cur: Any, *, enterprise_id: int, workspace_id: int, metric: str, period: str,
             event_type: str, event_key: str, delta_used: int, delta_reserved: int,
             resource_type: str, resource_key: str) -> None:
