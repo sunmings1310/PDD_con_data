@@ -1,147 +1,115 @@
-WEB-TASK-IMPORT-001 START VERIFICATION
-DATE=2026-08-27
+WEB-TASK-IMPORT-001 FINAL DEV VERIFICATION
+DATE=2026-08-28
 BRANCH=codex/web-task-import-001
 BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
-CHANGED_FIELD=WEB-TASK-IMPORT-001 READY/NOT STARTED to IN_PROGRESS
+SETUP_HEAD=d3eff55958c619463ffb28f498e72e32618792e1
+ORACLE_VALIDATED_CANDIDATE=ec3ce365b186fb8926047e9213abf43685f5958e
+CHANGED_FIELD=manual/excel canonical draft and payload -> one server Task creation transaction with durable Task CONFIG_JSON._submission replay/conflict.
 
 ARTIFACTS
 MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
 DIFF_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\DIFF_FILE.patch
 VERIFICATION=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\VERIFICATION.txt
 ROLLBACK=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ROLLBACK.sh
-
-HASHES
-ORIGINAL_SHA256=320d5209fd6423f969c3c941d7703901311339f9d84d69bfbc18abbc78c75d00
-MODIFIED_SHA256=3c49f997a7f077b09185e5267048807aa52ffc17410a64ae86453d3416cfea56
+ORIGINAL_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\ORIGINAL_FILE (historical source evidence; not a manifest role)
 
 BASELINE
-COMMAND=python -c "import subprocess; s=subprocess.check_output(['git','show','2200ef021ed69f29fd3796b2c7a50252fa60575b:docs/backlog.md'],text=True,encoding='utf-8'); print('BASELINE_TASK_STATUS=' + ('ready_not_started' if 'WEB-TASK-IMPORT-001 | READY / NOT STARTED' in s else 'other'))"
-INPUT_ENVIRONMENT=repository D:\work\PDD_con_data_web_task_import; docs/backlog.md at fixed Base
-LITERAL_OUTPUT=BASELINE_TASK_STATUS=ready_not_started
+COMMAND=git show d3eff55958c619463ffb28f498e72e32618792e1:docs/tasks/WEB-TASK-IMPORT-001.md
+INPUT=setup Task source
+RESULT=original Task evidence preserved in ORIGINAL_FILE
 EXIT_STATUS=0
 STATUS=PASS
 
 MODIFIED
-COMMAND=python -c "from pathlib import Path; s=Path('docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE').read_text(encoding='utf-8'); print('MODIFIED_TASK_STATUS=' + ('in_progress' if 'WEB-TASK-IMPORT-001 | IN_PROGRESS' in s else 'other'))"
-INPUT_ENVIRONMENT=MODIFIED_FILE copied from updated docs/backlog.md
-LITERAL_OUTPUT=MODIFIED_TASK_STATUS=in_progress
+COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
+INPUT=current Task evidence
+RESULT=MODIFIED_FILE is changed current Task evidence copy
 EXIT_STATUS=0
 STATUS=PASS
 
-ROLLBACK
-COMMAND=Copy-Item 'docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE' 'docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; & 'D:\Git\bin\bash.exe' 'D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh' 'D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; $rollbackExit=$LASTEXITCODE; Remove-Item 'docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt'; exit $rollbackExit
-INPUT_ENVIRONMENT=PowerShell; rollback_probe is another copy under the repository
-LITERAL_OUTPUT=ROLLBACK_RESULT=restored_pre_task_start_backlog
-LITERAL_OUTPUT=RESTORED_SHA256=320d5209fd6423f969c3c941d7703901311339f9d84d69bfbc18abbc78c75d00
-LITERAL_OUTPUT=ROLLBACK_EXIT=0
-LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+TARGETED_PYTHON
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
+INPUT=offline contract tests
+LITERAL_OUTPUT=Ran 13 tests in 0.018s; OK
 EXIT_STATUS=0
 STATUS=PASS
-RESTORED_BEHAVIOR_STATUS=probe restores READY/NOT STARTED backlog exactly; MODIFIED_FILE remains IN_PROGRESS
 
-PYTHON_TARGETED
-COMMAND=python -m unittest -v tests.test_web_client_contract
-INPUT_ENVIRONMENT=clean new worktree; system Python; offline source contract tests
-LITERAL_OUTPUT=Ran 10 tests in 0.015s
+NODE_CONTRACT
+COMMAND=node web/scripts/test-task-import-contract.mjs
+INPUT=canonical draft helper
+LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
+LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
+LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
+EXIT_STATUS=0
+STATUS=PASS
+
+PYTHON_FULL
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+LITERAL_OUTPUT=Ran 240 tests in 0.469s; OK (skipped=27)
+LITERAL_OUTPUT=[PASS] python-unit: exit=0
+LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT_STATUS=0
+STATUS=PASS
+
+WEB_FULL
+COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 554ms
+LITERAL_OUTPUT=[PASS] web-build: exit=0
+LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT_STATUS=0
+STATUS=PASS
+
+ANDROID_FULL
+COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s
+LITERAL_OUTPUT=[PASS] android-jvm: exit=0
+LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT_STATUS=0
+STATUS=PASS
+
+ORACLE_TARGETED_EXTERNAL
+COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
+INPUT=Control-approved isolated writable Oracle; fixed candidate ec3ce365b186fb8926047e9213abf43685f5958e
+LITERAL_OUTPUT=Ran 1 test in 2.522s
 LITERAL_OUTPUT=OK
 EXIT_STATUS=0
 STATUS=PASS
 
-PYTHON_COMPILE
-COMMAND=python -m compileall -q server tests
-INPUT_ENVIRONMENT=clean new worktree
-LITERAL_OUTPUT=no output
+ORACLE_FULL_EXTERNAL
+COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+INPUT=Control-approved isolated writable Oracle; fixed candidate ec3ce365b186fb8926047e9213abf43685f5958e
+LITERAL_OUTPUT=Ran 49 tests in 162.102s
+LITERAL_OUTPUT=OK
+LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT_STATUS=0
 STATUS=PASS
 
-NODE_BASELINE
-COMMAND=node --version; Test-Path web/node_modules
-INPUT_ENVIRONMENT=new worktree before Dev ignored runtime setup
-LITERAL_OUTPUT=v20.11.1
-LITERAL_OUTPUT=WEB_NODE_MODULES=absent
-EXIT_STATUS=0
-STATUS=BLOCKED for project Node 22/Web gate; observation only and not claimed PASS
+ORACLE_FINAL_HEAD
+COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+INPUT=this evidence-only commit will create a new candidate Head
+RESULT=PENDING external fixed-Head rerun by Control; ec3ce36 PASS is not asserted for the moved Head.
+STATUS=PENDING
 
-STATUS_CONSISTENCY
-COMMAND=python -c "from pathlib import Path; files=['docs/CURRENT_STATE.md','docs/backlog.md','docs/roadmap.md','docs/tasks/WEB-TASK-IMPORT-001.md']; t='\n'.join(Path(p).read_text(encoding='utf-8') for p in files); assert t.count('WEB-TASK-IMPORT-001') >= 9; assert t.count('IN_PROGRESS') >= 4; assert '2200ef021ed69f29fd3796b2c7a50252fa60575b' in t; print('TASK_START_CONSISTENCY=PASS')"
-INPUT_ENVIRONMENT=repository root; CURRENT_STATE, backlog, roadmap, Task
-LITERAL_OUTPUT=TASK_START_CONSISTENCY=PASS
+COMPILE_AND_DIFF
+COMMAND=python -m compileall -q server tests; git diff --check
+INPUT=current worktree
+LITERAL_OUTPUT=compile no output; diff no errors (line-ending warnings only)
 EXIT_STATUS=0
 STATUS=PASS
 
-MARKDOWN
-COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
-INPUT_ENVIRONMENT=repository root
-LITERAL_OUTPUT=Validated 64 Markdown files
-EXIT_STATUS=0
-STATUS=PASS
+ROLLBACK
+COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt; & 'D:\Git\bin\bash.exe' docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe.txt
+INPUT=separate copy under repository
+RESULT=recorded after final rerun below; MODIFIED_FILE remains changed.
+STATUS=PENDING
 
-DIFF_CHECK
-COMMAND=git diff --check
-INPUT_ENVIRONMENT=repository worktree
-LITERAL_OUTPUT=no output except line-ending warnings
-EXIT_STATUS=0
-STATUS=PASS
-
-ORACLE_STATUS=PENDING CLASSIFICATION; expected Required if Dev changes server SQL/transaction/tenant behavior
-REAL_DEVICE_STATUS=SKIPPED; no Android or real collection behavior in scope
-NEXT_STATE=IN_PROGRESS; Dev implementation delegated; no PR/merge/release
-DEV_IMPLEMENTATION_2026-08-28
-Changed branch/field: WEB-TASK-IMPORT-001 canonical submission path now uses Task CONFIG_JSON._submission plus enterprise quota row serialization; MODIFIED_FILE is current Task evidence copy.
-MODIFIED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
-TARGETED_COMMAND=python -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
-TARGETED_LITERAL_OUTPUT=Ran 13 tests in 0.016s; OK
-TARGETED_EXIT_STATUS=0
-NODE_CONTRACT_COMMAND=node web/scripts/test-task-import-contract.mjs
-NODE_CONTRACT_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123; EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked; CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
-NODE_CONTRACT_EXIT_STATUS=0
-PYTHON_FULL_COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
-PYTHON_FULL_LITERAL_OUTPUT=Ran 238 tests in 0.475s; OK (skipped=25); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-PYTHON_FULL_EXIT_STATUS=0
-WEB_FULL_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
-WEB_FULL_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 620ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-WEB_FULL_EXIT_STATUS=0
-ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-ORACLE_RESULT=BLOCKED current process lacks isolated Oracle environment variables/flags; Required and not PASS.
-ANDROID_RESULT=XML inspection after strict JVM run: tests=70 failures=0 errors=0 skipped=1; canonical strict final exit needs final rerun.
-
-ROLLBACK_DEV_COMMAND=Copy-Item MODIFIED_FILE rollback_probe.txt; bash ROLLBACK.sh rollback_probe.txt
-ROLLBACK_DEV_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_base_task; RESTORED_SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855; ROLLBACK_EXIT=0
-ROLLBACK_DEV_EXIT_STATUS=128
-RESTORED_BEHAVIOR_STATUS=rollback probe restores Base Task; MODIFIED_FILE remains current Dev Task evidence.
-
-ROLLBACK_DEV_FINAL_COMMAND=Copy-Item MODIFIED_FILE rollback_probe.txt; bash ROLLBACK.sh rollback_probe.txt
-ROLLBACK_DEV_FINAL_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task; RESTORED_SHA256=d04dea2c92286be34cec9c1ed9df74731a894e91e8a834c78531d5ea6b4874df; ROLLBACK_EXIT=0
-ROLLBACK_DEV_FINAL_EXIT_STATUS=1
-RESTORED_BEHAVIOR_STATUS=rollback probe restores setup Task; MODIFIED_FILE remains current Dev Task evidence.
-
-ROLLBACK_HASH_CORRECTION=setup_git_show_sha256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; final_exit=0
-
-MODIFIED_FILE_FINAL_SHA256=0c0e10c6a37801873b8b1370804bf9d2902e555f3d07b025305f3d51fcca6e69
-MODIFIED_FILE_SCOPE=current Task plus Dev evidence; ORIGINAL_FILE preserves setup Task SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4.
-
-FINAL_DEV_GATES_2026-08-28
-PYTHON_FULL_LITERAL_OUTPUT=Ran 240 tests in 0.469s; OK (skipped=27); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-PYTHON_FULL_EXIT_STATUS=0
-WEB_FULL_LITERAL_OUTPUT=✓ 1682 modules transformed.; ✓ built in 554ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-WEB_FULL_EXIT_STATUS=0
-ANDROID_FULL_COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
-ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; 30 actionable tasks: 1 executed, 29 up-to-date; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-ANDROID_FULL_EXIT_STATUS=0
-ORACLE_STATUS=PENDING external fixed-Head gate; Required; current shell prior command recorded BLOCKED because credentials/flags absent, never PASS.
-DIFF_CHECK_FINAL_COMMAND=git diff --check
-DIFF_CHECK_FINAL_LITERAL_OUTPUT=no errors (line-ending warnings only)
-DIFF_CHECK_FINAL_EXIT_STATUS=0
-
-ORACLE_TEST_06_ASSERTION_REPAIR
-Changed branch/field: Phase55OracleFinalGate.test_06 error assertion uses all(error is None ...) instead of sorting None values.
-MODIFIED_SHA256_REPAIR=8577459f6588c8c1a4f48a33780c3173bcfa1c72d4ae1290a4e3342b81605a01
-TARGETED_ORACLE_COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; & $env:PDD_PYTHON -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task
-TARGETED_ORACLE_LITERAL_OUTPUT=Ran 1 test in 0.000s; OK (skipped=1); skip reason Phase 5.5 Oracle sandbox test not enabled.
-TARGETED_ORACLE_EXIT_STATUS=0
-TARGETED_ORACLE_STATUS=SKIPPED local no-env; external fixed-Head Oracle strict remains REQUIRED/PENDING.
-TARGETED_PYTHON_COMMAND=python -m unittest -v tests.test_task_import_contract tests.test_web_client_contract
-TARGETED_PYTHON_LITERAL_OUTPUT=Ran 13 tests in 0.018s; OK
-TARGETED_PYTHON_EXIT_STATUS=0
-PYTHON_COMPILE_REPAIR=python -m compileall -q server tests; no output; exit 0
-DIFF_REPAIR=git diff --check; no errors; exit 0
+REAL_DEVICE
+RESULT=SKIPPED (not applicable; no Android behavior change or real device work)
+STATUS=SKIPPED
+ROLLBACK_LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task; RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4; ROLLBACK_EXIT=0
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
+ROLLBACK_MODIFIED_SHA256=abdfb2297b223c67741ee03edc23a8f314373210c3cb4658ba3c32e0fcf29b23
+ROLLBACK_STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe restored setup Task while MODIFIED_FILE remained changed.

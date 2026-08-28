@@ -237,3 +237,9 @@
 
 - Oracle 实跑发现 `test_06` 的断言对 `[None, None]` 排序触发 Python `TypeError`；业务线程均返回 `error=None`。已最小改为 `all(error is None for _, error in results)`，不改变 Task 创建语义。
 - 当前 shell 的 targeted `test_06` 因未注入隔离 Oracle 环境为 `skipped`；新固定 Head 必须由 Control 重跑 Oracle strict，结果仍为 Required/PENDING external gate。
+
+### Final Dev evidence（2026-08-28）
+
+- Control 在候选 `ec3ce365b186fb8926047e9213abf43685f5958e` 的隔离 Oracle 环境运行：`test_06` 为 `Ran 1 test in 2.522s` / `OK` / exit 0；canonical Oracle strict 为 `Ran 49 tests in 162.102s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`。
+- Dev gates：targeted Python 13/OK；Node canonical contract 3 PASS；Python strict 240/OK (skipped=27)；Web strict 1682 modules/PASS；Android strict `BUILD SUCCESSFUL`、`[PASS] android-jvm: exit=0`；compile/diff 均 exit 0。
+- 本次 evidence-only 提交会移动 Head；因此 final external Oracle fixed-Head strict 必须由 Control 在新的提交上重跑。该待运行 gate 为 `PENDING`，不把 `ec3ce36` 的结果标为新 Head 的 PASS。
