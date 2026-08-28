@@ -311,5 +311,5 @@
 ## Final Status Summary（2026-08-28）
 
 - **FINAL_STATUS：PASS**。tested code commit 为 `d4281adab920cabf0b59d02ec3442a9698e24d0a`；mounted component 实测两条 PASS，helper contract 四条 PASS，Python full 为 `Ran 249 tests in 0.451s` / `OK (skipped=31)`。
-- Control fixed-code Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
-- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。wrapper Head 不在文档内自引用；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 绑定 stable external manifest，再进入 Independent Re-review。
+- tested code `d4281ad` Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；evidence/docs wrapper `e0d2166bcaea3814cfe7681a98e72727484d85e2` Oracle strict 为 `Ran 53 tests in 176.794s` / `OK` / skipped=0。`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
+- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。历史 e0 wrapper manifest SHA-256 为 `35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4`。本 closure Head 不在 tracked 内容预写自身 SHA；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 的 `head_sha`/`git_head` 与 `git rev-parse HEAD` 对照，再进入 Independent Re-review。

@@ -1,416 +1,99 @@
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-index 22e2470..a44bc09 100644
+index a44bc09..084beba 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
-@@ -174,11 +174,11 @@
- | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
- | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
- | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
--| Node component + contract | actual compiled/mounted TaskCreate + embedded ExcelMatch, plus helper contract | mounted delayed HTTP race: 2 PASS lines; helper state/payload flow: 4 PASS lines | `EXCEL_COMPONENT_RACE=PASS`; `TASK_CREATE_COMPONENT=PASS`; 4 contract PASS lines | PASS |
--| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
--| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
--| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
--| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL; exit 0 | PASS |
-+| Node component + helper contract | actual compiled/mounted TaskCreate + embedded ExcelMatch; separate helper contract | component exact 2 PASS lines; helper exact 4 PASS lines | component + helper PASS; exit 0 | PASS |
-+| Python API | canonical/tenant/RBAC/quota behavior + Oracle targeted | 10 offline targeted / OK (skipped=2); Oracle targeted 4 / OK | PASS |
-+| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; built in 565ms; exit 0 | PASS |
-+| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | Ran 249 tests in 0.451s; OK (skipped=31); exit 0 | PASS |
-+| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL in 7s; exit 0 | PASS |
- | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | clean | compile/diff exit 0 | PASS |
- | E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | Independent E2E PASS | PASS |
+@@ -311,5 +311,5 @@
+ ## Final Status Summary（2026-08-28）
 
-@@ -189,7 +189,7 @@
- - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
- - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
- - Local isolated environment identifier：Control-approved isolated writable Oracle
--- Fixed Head SHA：`f579a3eb797a62330c56613a3f31d49f31f7eb2c`（本轮代码候选；后续 docs evidence commit 不继承此 Oracle PASS）
-+- Tested code commit：`d4281adab920cabf0b59d02ec3442a9698e24d0a`；本次文档提交产生 wrapper Head，由提交后 stable external manifest 绑定：`C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json`
- - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
- - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
- - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
-@@ -224,8 +224,8 @@
-
- - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
- - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
--- Review findings：第二轮修复已完成；Oracle code gate PASS at `f579a3e`，本 evidence-only Head 的独立复审/外部 manifest 待 Control。
--- Commit / PR：Dev commits through `f579a3e`; Dev 不创建 PR。
-+- Review findings：第三轮代码门禁与 Oracle gate 已 PASS；最终 wrapper Head 的 external manifest 使用稳定路径绑定，随后进入 Independent Re-review。
-+- Commit / PR：tested code commit `d4281ad`；本次文档 wrapper Head 由提交后 manifest 绑定；Dev 不创建 PR。
-
- ## Dev implementation evidence（2026-08-28）
-
-@@ -259,7 +259,7 @@
-
- - Control 在 fixed Head `1736e199592d34a90ac0e8eb8f176bdcee16e2a2` 实跑 Oracle Required：49 tests 中 `test_05` 与 `test_06` 在 fixture cleanup 触发 `DPY-4008: no bind placeholder named ':w' found`，exit 1；创建语义断言未报业务失败。清理 helper 已最小修复为每条 SQL 只传入其实际 `:e` / `:w` binds，且保留逐表零残留断言。新固定 Head 必须由 Control 重跑 targeted 和 Oracle strict。
-
--### Final review-fix Oracle evidence（2026-08-28）
-+### Historical Oracle evidence（2026-08-28）
-
- - Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
- - `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
-@@ -277,19 +277,19 @@
- - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
- - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
-
--### Oracle semantic-duplicate fixture repair（2026-08-28）
-+### Historical semantic-duplicate fixture repair（2026-08-28）
-
- - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
- - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
- - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
-
--### Quota legacy-release Oracle repair（2026-08-28）
-+### Historical legacy-release Oracle repair（2026-08-28）
-
- - Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
- - `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
- - 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
-
--### Final second-review Oracle evidence（2026-08-28）
-+### Historical second-review Oracle evidence（2026-08-28）
-
- - Control 在 fixed Head `f579a3eb797a62330c56613a3f31d49f31f7eb2c` 执行 targeted：两条 job reconciliation lifecycle 加 `Phase55OracleFinalGate.test_05`..`test_08` 的全部业务断言通过。初次命令误将 test_09 写为不存在的 loader name，唯一错误不代表业务失败；随后正确的 test_09 单独执行为 `Ran 1 test in 0.645s` / `OK`。
- - 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
-@@ -307,3 +307,9 @@
- - Control 在 fixed Head `d4281adab920cabf0b59d02ec3442a9698e24d0a` targeted 运行 `test_07`/`test_08`/`test_09`/`test_10`：`Ran 4 tests in 18.361s` / `OK` / exit 0。覆盖 canonical create↔quota lifecycle 锁序、实际 compatibility route Tenant A/B selected-context RBAC、legacy release no-op，以及 DAILY_SNAPSHOT 跨日 reserve→commit→双连接 release/replay。
- - 同一 fixed Head Oracle strict：`Ran 53 tests in 185.264s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、exit 0、skipped=0。跨日 test 证明仅 reservation 持久化旧日 usage 被扣还，今日 usage 不被创建；fixture 清理零残留且 `persistent_business_changes=false`。
- - 第三轮全部 Dev/Oracle acceptance 已 PASS；本 docs-only commit 不改变业务代码。Control 将在 resulting docs Head 重新运行 strict 并生成 external manifest 绑定其 hash，之后进行 Independent Re-review；这属于 manifest provenance，不使本任务最终状态回退为 pending。
-+
-+## Final Status Summary（2026-08-28）
-+
-+- **FINAL_STATUS：PASS**。tested code commit 为 `d4281adab920cabf0b59d02ec3442a9698e24d0a`；mounted component 实测两条 PASS，helper contract 四条 PASS，Python full 为 `Ran 249 tests in 0.451s` / `OK (skipped=31)`。
-+- Control fixed-code Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
-+- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。wrapper Head 不在文档内自引用；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 绑定 stable external manifest，再进入 Independent Re-review。
+ - **FINAL_STATUS：PASS**。tested code commit 为 `d4281adab920cabf0b59d02ec3442a9698e24d0a`；mounted component 实测两条 PASS，helper contract 四条 PASS，Python full 为 `Ran 249 tests in 0.451s` / `OK (skipped=31)`。
+-- Control fixed-code Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
+-- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。wrapper Head 不在文档内自引用；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 绑定 stable external manifest，再进入 Independent Re-review。
++- tested code `d4281ad` Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；evidence/docs wrapper `e0d2166bcaea3814cfe7681a98e72727484d85e2` Oracle strict 为 `Ran 53 tests in 176.794s` / `OK` / skipped=0。`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
++- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。历史 e0 wrapper manifest SHA-256 为 `35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4`。本 closure Head 不在 tracked 内容预写自身 SHA；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 的 `head_sha`/`git_head` 与 `git rev-parse HEAD` 对照，再进入 Independent Re-review。
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-index eecf68a..17051b2 100644
+index 17051b2..fe40089 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
 +++ b/docs/tasks/WEB-TASK-IMPORT-001-verification/VERIFICATION.txt
-@@ -1,9 +1,11 @@
--WEB-TASK-IMPORT-001 SECOND-REVIEW VERIFICATION
-+WEB-TASK-IMPORT-001 FINAL VERIFICATION
- DATE=2026-08-28
+@@ -3,8 +3,10 @@ DATE=2026-08-28
  BRANCH=codex/web-task-import-001
  BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
--PREVIOUS_FIXED_HEAD=91b1aae00b93eddfd0c61dfad29f3c750a2abf64 (historical only; not asserted for this changed candidate)
--CHANGED_FIELD=Excel match platform/generation stale fence; TaskCreate route stale fence; quota lifecycle usage-to-enterprise-quota lock order; real mounted TaskCreate/embedded ExcelMatch race coverage; real Oracle fixture additions.
-+TESTED_CODE_COMMIT=d4281adab920cabf0b59d02ec3442a9698e24d0a
-+WRAPPER_HEAD_SEMANTICS=this documentation commit creates the wrapper Head; it is not self-referenced and is bound after commit by the stable external manifest below.
-+EXTERNAL_MANIFEST_PATH=C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json
-+FINAL_STATUS=PASS
+ TESTED_CODE_COMMIT=d4281adab920cabf0b59d02ec3442a9698e24d0a
+-WRAPPER_HEAD_SEMANTICS=this documentation commit creates the wrapper Head; it is not self-referenced and is bound after commit by the stable external manifest below.
++EVIDENCE_DOCS_WRAPPER_COMMIT=e0d2166bcaea3814cfe7681a98e72727484d85e2
++WRAPPER_HEAD_SEMANTICS=documentation closure Head is never prewritten into tracked content; stable external manifest head_sha/git_head is the sole authority and is checked against git rev-parse HEAD after commit.
+ EXTERNAL_MANIFEST_PATH=C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json
++HISTORICAL_E0_MANIFEST_SHA256=35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4
+ FINAL_STATUS=PASS
 
  ARTIFACTS
- MODIFIED_FILE=D:\work\PDD_con_data_web_task_import\docs\tasks\WEB-TASK-IMPORT-001-verification\MODIFIED_FILE
-@@ -21,22 +23,22 @@ STATUS=PASS
-
+@@ -24,7 +26,7 @@ STATUS=PASS
  MODIFIED
  COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
--INPUT=second-review Task evidence
--LITERAL_OUTPUT=MODIFIED_FILE SHA256=49fce7df9917d5524bb534430e2581d5b812869b5eb141ed713434eb541e8d36; changed from setup source
-+INPUT=final Task record for tested code d4281ad
-+LITERAL_OUTPUT=MODIFIED_FILE SHA256=d24efc86042a73b38c16eb03db763729a0a42a3a6f752bd52c5e24c4e0f19957; changed from setup source
+ INPUT=final Task record for tested code d4281ad
+-LITERAL_OUTPUT=MODIFIED_FILE SHA256=d24efc86042a73b38c16eb03db763729a0a42a3a6f752bd52c5e24c4e0f19957; changed from setup source
++LITERAL_OUTPUT=MODIFIED_FILE SHA256=c8a5818bbd7f2bd3c1f868f78234ca288832cfb2b1761d4b6589118af36a29b4; changed from setup source
  EXIT_STATUS=0
  STATUS=PASS
 
--COMPONENT_NODE_TARGETED
-+COMPONENT_GATE
- COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
--INPUT=actual compiled/mounted TaskCreate plus embedded ExcelMatch; delayed HTTP adapter
--LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded stale_platform_response=discarded
-+INPUT=actual compiled/mounted embedded ExcelMatch and TaskCreate with delayed HTTP adapter
-+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
- LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
- EXIT_STATUS=0
+@@ -47,7 +49,7 @@ EXIT_STATUS=0
  STATUS=PASS
 
--NODE_CONTRACT_TARGETED
-+HELPER_CONTRACT_GATE
- COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
--INPUT=canonical draft states and delayed-ACK flow
-+INPUT=canonical draft/payload helper contract
- LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS duplicate=excluded platform_product_id=123
- LITERAL_OUTPUT=EXCEL_ROW_STATES=PASS matched=true multiple=choice_required unmatched=ready invalid=blocked
- LITERAL_OUTPUT=CANONICAL_PAYLOAD=PASS source=excel targets=3 submission_id=reusable
-@@ -44,171 +46,48 @@ LITERAL_OUTPUT=TASK_CREATE_FLOW=PASS duplicate_click=one_payload delayed_ack=rep
- EXIT_STATUS=0
- STATUS=PASS
-
--PYTHON_TARGETED
--COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_contract tests.test_task_import_behavior tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock
--INPUT=canonical semantic duplicate and quota lock ordering; Oracle targeted discovery
--LITERAL_OUTPUT=Ran 10 tests in 0.002s
--LITERAL_OUTPUT=OK (skipped=3)
--EXIT_STATUS=0
--STATUS=PASS for offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process
--
  PYTHON_FULL
--COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
--INPUT=repository Python suite
--LITERAL_OUTPUT=Ran 245 tests in 0.464s
--LITERAL_OUTPUT=OK (skipped=28)
-+COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
-+LITERAL_OUTPUT=Ran 249 tests in 0.451s
-+LITERAL_OUTPUT=OK (skipped=31)
+-COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
++COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+ LITERAL_OUTPUT=Ran 249 tests in 0.451s
+ LITERAL_OUTPUT=OK (skipped=31)
  LITERAL_OUTPUT=[PASS] python-unit: exit=0
- LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
- EXIT_STATUS=0
+@@ -56,18 +58,23 @@ EXIT_STATUS=0
  STATUS=PASS
 
--WEB_FULL
--COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
--INPUT=Node 22.18 ignored runtime junction
--LITERAL_OUTPUT=✓ 1682 modules transformed.
--LITERAL_OUTPUT=✓ built in 544ms
--LITERAL_OUTPUT=[PASS] web-build: exit=0
+ ORACLE_FINAL
+-COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+-INPUT=Control-approved isolated writable Oracle at tested code commit d4281ad
++COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
++INPUT=Control-approved isolated writable Oracle; tested code d4281ad then documentation wrapper e0d2166
+ TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
+ TARGETED_LITERAL_OUTPUT=OK
+ TARGETED_EXIT_STATUS=0
+-LITERAL_OUTPUT=Ran 53 tests in 184.957s
+-LITERAL_OUTPUT=OK
+-LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
 -LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 -EXIT_STATUS=0
 -STATUS=PASS
--
--ANDROID_FULL
--COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data_web_task_import\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
--INPUT=JDK 17 and SDK platform/build-tools 34
--LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s
--LITERAL_OUTPUT=[PASS] android-jvm: exit=0
-+ORACLE_FINAL
-+COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-+INPUT=Control-approved isolated writable Oracle at tested code commit d4281ad
-+TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
-+TARGETED_LITERAL_OUTPUT=OK
-+TARGETED_EXIT_STATUS=0
-+LITERAL_OUTPUT=Ran 53 tests in 184.957s
-+LITERAL_OUTPUT=OK
-+LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
- LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
- EXIT_STATUS=0
- STATUS=PASS
--
--COMPILE_AND_RANGE_DIFF
--COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests; git diff --check
--INPUT=uncommitted second-review candidate
--LITERAL_OUTPUT=compile no output; diff no errors
--EXIT_STATUS=0
--STATUS=PASS
--
--ORACLE_REQUIRED
--COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
--INPUT=Control-approved isolated writable Oracle at post-commit fixed Head
--LITERAL_OUTPUT=local process: test_05/test_06/test_07 skipped because PHASE55_ORACLE_TEST_ENABLED/T003 environment was not injected
--EXIT_STATUS=0 for skipped targeted discovery
--STATUS=PENDING external fixed-Head required gate; no prior-head Oracle result is claimed for this code candidate
--REQUIRED_CASES=disabled-or-unaccepted platform; semantic duplicate; active-task quota failure; canonical replay; reserve/create against commit/release cross-session lock order; compatibility endpoint selected-context task:create plus task:dispatch; cleanup zero residue.
--CLEANUP_COMMAND=tests.test_phase55_oracle.Phase55OracleFinalGate._cleanup_task_import_fixture deletes Task/Item/Job/lease/checkpoint/attempt/outbox/log/quota/workspace/enterprise fixture rows then asserts SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0.
--CLEANUP_RESULT=PENDING external Oracle run; persistent_business_changes=false is required assertion.
-+SKIPPED=0
-+COVERAGE=test_07 lifecycle lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy no-reservation/no-quota no-op; test_10 DAILY_SNAPSHOT cross-midnight persisted period.
-+CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
-+PERSISTENT_BUSINESS_CHANGES=false
+-SKIPPED=0
++TESTED_CODE_LITERAL_OUTPUT=Ran 53 tests in 184.957s
++TESTED_CODE_LITERAL_OUTPUT=OK
++TESTED_CODE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
++TESTED_CODE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
++TESTED_CODE_EXIT_STATUS=0
++TESTED_CODE_STATUS=PASS
++WRAPPER_ORACLE_LITERAL_OUTPUT=Ran 53 tests in 176.794s
++WRAPPER_ORACLE_LITERAL_OUTPUT=OK
++WRAPPER_ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
++WRAPPER_ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
++WRAPPER_ORACLE_EXIT_STATUS=0
++WRAPPER_ORACLE_STATUS=PASS
+ COVERAGE=test_07 lifecycle lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy no-reservation/no-quota no-op; test_10 DAILY_SNAPSHOT cross-midnight persisted period.
+ CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
+ PERSISTENT_BUSINESS_CHANGES=false
+@@ -90,4 +97,4 @@ These entries are historical diagnostics, superseded by the tested-code Oracle P
 
- ROLLBACK
--COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt; D:\Git\bin\bash.exe docs/tasks/WEB-TASK-IMPORT-001-verification/ROLLBACK.sh D:/work/PDD_con_data_web_task_import/docs/tasks/WEB-TASK-IMPORT-001-verification/rollback_probe_second_review.txt
--INPUT=separate artifact copy
-+COMMAND=Copy-Item MODIFIED_FILE rollback probe; D:\Git\bin\bash.exe ROLLBACK.sh <probe>
-+INPUT=separate MODIFIED_FILE copy
- LITERAL_OUTPUT=ROLLBACK_RESULT=restored_setup_task
- LITERAL_OUTPUT=RESTORED_SHA256=6b335ee009447331ef48c5e814e283ca3ca99f347e00a887ac9f26af0291d2a4
- LITERAL_OUTPUT=ROLLBACK_EXIT=0
- EXIT_STATUS=0
- STATUS=PASS
--RESTORED_BEHAVIOR_STATUS=probe restored setup Task; MODIFIED_FILE remains changed.
--
--REAL_DEVICE
--RESULT=SKIPPED (not applicable; no Android behavior or real-device change)
--STATUS=SKIPPED
--
--REVIEW_FIX_STATUS=Dev implementation/test evidence complete; Independent Re-review pending external fixed-Head Oracle manifest.
--COMPATIBILITY_ROUTE_ORACLE_REPAIR
--MODIFIED_FIELD=tests/test_phase55_oracle.py::Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
--ROUTE=/api/excel/unmatched-to-task (actual FastAPI router execution via TestClient)
--FIXTURE=real Oracle Tenant A/B, workspace membership, tenant roles, global role, user, JWT
--EXPECTED=Tenant A selected task:create-only returns HTTP 403 despite global task:dispatch; Tenant B selected task:dispatch-only returns HTTP 403; promoting selected A to task:create+task:dispatch returns HTTP 200 and reaches canonical Task creation; A task count=1/B task count=0; cleanup zero residue.
--LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch tests.test_task_import_contract tests.test_web_client_contract
--LOCAL_LITERAL_OUTPUT=Ran 16 tests in 0.015s
--LOCAL_LITERAL_OUTPUT=OK (skipped=1)
--LOCAL_EXIT_STATUS=0
--LOCAL_STATUS=PASS for 15 offline tests; test_08 SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
--HISTORICAL_STATUS=pre-rerun record for 384a78c; superseded by d4281ad strict PASS below.
-+RESTORED_BEHAVIOR_STATUS=probe equals setup Task; MODIFIED_FILE remains changed.
-
--ORACLE_SEMANTIC_DUPLICATE_FIX
--FAILED_FIXED_HEAD=060c61bc98738caa8ab6e4475345c5e9ee4f9b88
--FAILED_COMMAND=Control isolated Oracle targeted test_05/test_06/test_07/test_08
--FAILED_LITERAL_OUTPUT=Ran 4 tests in 15.556s; failures=1; test_05 AssertionError at line 492: duplicate fixture returned {'task_id': 3109, 'idempotent': False, 'submission_id': 'task-import-...-duplicate'} instead of None; test_06/test_07/test_08 passed; exit=1.
--FAILED_STATUS=FAIL (test fixture used distinct canonical drug and keyword identities; not a Task service rejection failure)
--FIX=duplicate fixture now copies the first complete approval/name/spec/manufacturer target and changes only row_id/source_row_index, yielding the same normalized drug semantic key.
--CLEANUP_AUDIT=server.db.get_conn rolls back on AssertionError before its normal commit; failed test_05 did not reach its cleanup/commit call, so its Task/tenant writes were rolled back. Passing test path retains scoped cleanup zero-residue assertions.
--LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_05_canonical_task_submission_replays_without_device_or_second_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_06_canonical_submission_concurrent_replay_is_single_task tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch
--LOCAL_LITERAL_OUTPUT=Ran 11 tests in 0.002s
--LOCAL_LITERAL_OUTPUT=OK (skipped=4)
--LOCAL_EXIT_STATUS=0
--LOCAL_STATUS=PASS for seven offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
--HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
-+HISTORICAL_FAILURES
-+060c61b=FAIL semantic-duplicate fixture used distinct drug/keyword identities; repaired by duplicated normalized drug identity.
-+5f159f5=FAIL legacy release locked missing quota; repaired by absent-reservation no-op before locking.
-+1736e19=FAIL cleanup bind map included :w for SQL without :w; repaired with exact bind maps.
-+These entries are historical diagnostics, superseded by the tested-code Oracle PASS above.
-
--ORACLE_LEGACY_RELEASE_FIX
--FAILED_FIXED_HEAD=5f159f51e072492b42d300dfd6a628e9dcf59879
--FAILED_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
--FAILED_LITERAL_OUTPUT=Ran 51 tests in 188.503s; errors=2; exit=1.
--FAILED_LITERAL_OUTPUT=test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent and test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint called _aggregate_task_from_jobs -> quota.release without a reservation/quota fixture; release raised ENTERPRISE_QUOTA_NOT_CONFIGURED. test_05/test_06/test_07/test_08 passed.
--FAILED_STATUS=FAIL (release regression introduced by lifecycle lock-order change)
--FIX=release performs non-locking reservation discovery and returns False for absent/released rows before quota locking; mutable reservation then locks usage->enterprise quota->reservation and re-reads FOR UPDATE.
--REGRESSION_OFFLINE=tests.test_task_import_behavior.CanonicalImportBehaviorTests.test_legacy_release_without_reservation_or_quota_is_noop asserts False and that only reservation discovery executes.
--REGRESSION_ORACLE=test_09_legacy_release_without_reservation_or_quota_is_noop exercises actual Oracle with no enterprise/quota/reservation row; test_07 cross-session create/commit/release additionally asserts a second release returns False.
--LOCAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_09_legacy_release_without_reservation_or_quota_is_noop
--LOCAL_LITERAL_OUTPUT=Ran 10 tests in 0.003s
--LOCAL_LITERAL_OUTPUT=OK (skipped=2)
--LOCAL_EXIT_STATUS=0
--LOCAL_STATUS=PASS for eight offline tests; Oracle tests SKIPPED because PHASE55_ORACLE_TEST_ENABLED is absent in this process.
--HISTORICAL_STATUS=pre-rerun record; superseded by d4281ad strict PASS below.
--
--FINAL_SECOND_REVIEW_ORACLE_EVIDENCE
--FIXED_HEAD=f579a3eb797a62330c56613a3f31d49f31f7eb2c
--TARGETED_COMMAND=Control isolated Oracle targeted: job reconciliation test_mark_confirmed_result_success_completes_real_lifecycle_and_is_idempotent, test_nonretryable_fail_satisfies_real_next_run_at_not_null_constraint, Phase55 test_05 through test_08; then correct Phase55 test_09 alone.
--TARGETED_RESULT=all named business tests passed; the first test_09 command had one loader-name error only; corrected test_09 LITERAL_OUTPUT=Ran 1 test in 0.645s; OK.
--ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
--ORACLE_INPUT=Control-approved isolated writable Oracle
--ORACLE_LITERAL_OUTPUT=Ran 52 tests in 173.867s
--ORACLE_LITERAL_OUTPUT=OK
--ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
--ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
--ORACLE_EXIT_STATUS=0
--ORACLE_STATUS=PASS
--ORACLE_SKIPPED=0
--COVERAGE=test_05 canonical replay/conflict/semantic duplicate/disabled platform/quota failure; test_06 concurrent replay; test_07 cross-session create with commit/release lock order; test_08 actual compatibility route selected-context Tenant A/B RBAC; test_09 absent reservation/no-quota release False.
--CLEANUP_RESULT=PASS; fixture cleanup zero-residue assertions include Task/Item/Job/quota/tenant/membership; persistent_business_changes=false.
--FAILED_HISTORY=060c61b semantic fixture mismatch and 5f159f5 release lock regression are retained above as FAIL diagnostics; both resolved by f579a3e strict PASS.
--HISTORICAL_POST_DOC_STATUS=external manifest record superseded by the third-review result below.`r`nACCEPTANCE_CRITERIA=all Task acceptance boxes checked.
--
--THIRD_REVIEW_CANDIDATE
--CHANGED_FIELD=ExcelMatch invalidation/unmount abort+loading fences; quota DAILY_SNAPSHOT persisted period locking; Oracle cross-midnight concurrent release/replay test.
--COMPONENT_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-components.mjs
--COMPONENT_LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
--COMPONENT_LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
--COMPONENT_EXIT_STATUS=0
--COMPONENT_STATUS=PASS (actual compiled/mounted components, not helper-only)
--HELPER_COMMAND=D:\work\PDD_con_data_web_task_import\.tools\node-v22.18.0-win-x64\node.exe web\scripts\test-task-import-contract.mjs
--HELPER_LITERAL_OUTPUT=MANUAL_ROW_STATES=PASS; EXCEL_ROW_STATES=PASS; CANONICAL_PAYLOAD=PASS; TASK_CREATE_FLOW=PASS
--HELPER_EXIT_STATUS=0
--HELPER_STATUS=PASS
--PYTHON_TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_task_import_behavior tests.test_task_import_contract tests.test_phase55_oracle.Phase55OracleFinalGate.test_07_task_create_and_quota_lifecycle_cross_sessions_do_not_deadlock tests.test_phase55_oracle.Phase55OracleFinalGate.test_10_daily_snapshot_reservation_uses_persisted_period_across_midnight
--PYTHON_TARGETED_LITERAL_OUTPUT=Ran 10 tests in 0.002s; OK (skipped=2)
--PYTHON_TARGETED_EXIT_STATUS=0
--PYTHON_FULL_LITERAL_OUTPUT=Ran 249 tests in 0.451s; OK (skipped=31); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
--WEB_FULL_LITERAL_OUTPUT=1682 modules transformed; built in 565ms; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
--ANDROID_FULL_LITERAL_OUTPUT=BUILD SUCCESSFUL in 7s; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
--COMPILE_DIFF_LITERAL_OUTPUT=compile no output; git diff --check no errors; exit=0
--ORACLE_REQUIRED_STATUS=PASS; local test_07/test_10 were SKIPPED, then Control fixed-candidate strict passed as recorded below.
--FINAL_THIRD_REVIEW_ORACLE_EVIDENCE
--FIXED_CODE_HEAD=d4281adab920cabf0b59d02ec3442a9698e24d0a
--TARGETED_COMMAND=Control isolated Oracle targeted tests.test_phase55_oracle.Phase55OracleFinalGate.test_07, test_08, test_09, test_10
--TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
--TARGETED_LITERAL_OUTPUT=OK
--TARGETED_EXIT_STATUS=0
--TARGETED_STATUS=PASS
--ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
--ORACLE_INPUT=Control-approved isolated writable Oracle
--ORACLE_LITERAL_OUTPUT=Ran 53 tests in 185.264s
--ORACLE_LITERAL_OUTPUT=OK
--ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
--ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
--ORACLE_EXIT_STATUS=0
--ORACLE_STATUS=PASS
--ORACLE_SKIPPED=0
--COVERAGE=test_07 quota lifecycle cross-session lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy absent reservation/no-quota no-op; test_10 DAILY_SNAPSHOT persisted-period cross-midnight reserve/commit/concurrent release/replay.
--CLEANUP_RESULT=PASS; fixture cleanup zero residue; persistent_business_changes=false.
--FINAL_STATUS=PASS
--POST_DOC_EXTERNAL_MANIFEST=Control will rerun strict on this resulting docs-only Head and bind the generated external manifest hash before Independent Re-review; this provenance operation does not change FINAL_STATUS.
+ POST_COMMIT_PROVENANCE
+ STATUS=PASS_EXTERNAL_MANIFEST_REQUIRED_FOR_POST_DOC_HEAD
+-CONTROL_ACTION=bind resulting wrapper Head to EXTERNAL_MANIFEST_PATH and rerun strict for manifest provenance before Independent Re-review.
 \ No newline at end of file
-+POST_COMMIT_PROVENANCE
-+STATUS=PASS_EXTERNAL_MANIFEST_REQUIRED_FOR_POST_DOC_HEAD
-+CONTROL_ACTION=bind resulting wrapper Head to EXTERNAL_MANIFEST_PATH and rerun strict for manifest provenance before Independent Re-review.
++CONTROL_ACTION=after this closure commit, Control reruns strict and overwrites EXTERNAL_MANIFEST_PATH; manifest head_sha/git_head is compared with git rev-parse HEAD before Independent Re-review.
 \ No newline at end of file
 diff --git a/docs/tasks/WEB-TASK-IMPORT-001.md b/docs/tasks/WEB-TASK-IMPORT-001.md
-index 22e2470..a44bc09 100644
+index a44bc09..084beba 100644
 --- a/docs/tasks/WEB-TASK-IMPORT-001.md
 +++ b/docs/tasks/WEB-TASK-IMPORT-001.md
-@@ -174,11 +174,11 @@
- | Python existing client contract | `python -m unittest -v tests.test_web_client_contract` | accepted tenant-aware client stays green | `Ran 10 tests in 0.015s`; `OK`; exit 0 | PASS |
- | Python compile | `python -m compileall -q server tests` | syntax clean | no output; exit 0 | PASS |
- | Node baseline | `node --version` / dependency check | record runtime before Dev setup | `v20.11.1`; web/node_modules absent; version exit 0 | BLOCKED for project Node gate; not called PASS |
--| Node component + contract | actual compiled/mounted TaskCreate + embedded ExcelMatch, plus helper contract | mounted delayed HTTP race: 2 PASS lines; helper state/payload flow: 4 PASS lines | `EXCEL_COMPONENT_RACE=PASS`; `TASK_CREATE_COMPONENT=PASS`; 4 contract PASS lines | PASS |
--| Python API | canonical create + compatibility adapter | empty/invalid/duplicate/multiple, replay/conflict, RBAC/NOT_FOUND | targeted 17/OK; Oracle targeted 2/OK | PASS |
--| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; 572ms; exit 0 | PASS |
--| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | 244/OK (skipped=27); exit 0 | PASS |
--| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL; exit 0 | PASS |
-+| Node component + helper contract | actual compiled/mounted TaskCreate + embedded ExcelMatch; separate helper contract | component exact 2 PASS lines; helper exact 4 PASS lines | component + helper PASS; exit 0 | PASS |
-+| Python API | canonical/tenant/RBAC/quota behavior + Oracle targeted | 10 offline targeted / OK (skipped=2); Oracle targeted 4 / OK | PASS |
-+| Web full | `.\scripts\test-baseline.ps1 -Suite web -Strict` | Node 22 production build | 1682 modules; built in 565ms; exit 0 | PASS |
-+| Python full | `.\scripts\test-baseline.ps1 -Suite python -Strict` | no regression | Ran 249 tests in 0.451s; OK (skipped=31); exit 0 | PASS |
-+| Android JVM | `.\scripts\test-baseline.ps1 -Suite android -Strict` | no regression | BUILD SUCCESSFUL in 7s; exit 0 | PASS |
- | Compile/diff | `python -m compileall -q server tests`; `git diff --check` | clean | compile/diff exit 0 | PASS |
- | E2E | manual and Excel targets through review→single submit→Task Detail | one Task, correct items/config/tenant and retry behavior | Independent E2E PASS | PASS |
+@@ -311,5 +311,5 @@
+ ## Final Status Summary（2026-08-28）
 
-@@ -189,7 +189,7 @@
- - Required：**Conditional, expected Yes if Dev changes server SQL/transaction/tenant behavior**
- - Reason：本任务预期收口 `tasks.py` 与 `excel_match.py` 的 Oracle Task/TaskItem/Job 创建事务及持久幂等；一旦修改即必须在固定 Head 运行隔离 Oracle strict。
- - Local isolated environment identifier：Control-approved isolated writable Oracle
--- Fixed Head SHA：`f579a3eb797a62330c56613a3f31d49f31f7eb2c`（本轮代码候选；后续 docs evidence commit 不继承此 Oracle PASS）
-+- Tested code commit：`d4281adab920cabf0b59d02ec3442a9698e24d0a`；本次文档提交产生 wrapper Head，由提交后 stable external manifest 绑定：`C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json`
- - Canonical command：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`
- - Evidence / validator / Reviewer provenance：Control fixed-Head Oracle run
- - 若最终仅改 Web 且 server SQL 未变，必须由差异分类和 Independent Review 明确证明不适用，不能自行称 PASS。
-@@ -224,8 +224,8 @@
-
- - Original evidence：`TaskCreate.vue` 手动 POST `/api/tasks`；`ExcelMatch.vue::dispatchAndroidMatch` POST `/api/excel/unmatched-to-task`；`tasks.py::create_task` 与 `excel_match.py::unmatched_to_task` 两套 Task SQL。
- - Derived artifacts：`docs/tasks/WEB-TASK-IMPORT-001-verification/`。
--- Review findings：第二轮修复已完成；Oracle code gate PASS at `f579a3e`，本 evidence-only Head 的独立复审/外部 manifest 待 Control。
--- Commit / PR：Dev commits through `f579a3e`; Dev 不创建 PR。
-+- Review findings：第三轮代码门禁与 Oracle gate 已 PASS；最终 wrapper Head 的 external manifest 使用稳定路径绑定，随后进入 Independent Re-review。
-+- Commit / PR：tested code commit `d4281ad`；本次文档 wrapper Head 由提交后 manifest 绑定；Dev 不创建 PR。
-
- ## Dev implementation evidence（2026-08-28）
-
-@@ -259,7 +259,7 @@
-
- - Control 在 fixed Head `1736e199592d34a90ac0e8eb8f176bdcee16e2a2` 实跑 Oracle Required：49 tests 中 `test_05` 与 `test_06` 在 fixture cleanup 触发 `DPY-4008: no bind placeholder named ':w' found`，exit 1；创建语义断言未报业务失败。清理 helper 已最小修复为每条 SQL 只传入其实际 `:e` / `:w` binds，且保留逐表零残留断言。新固定 Head 必须由 Control 重跑 targeted 和 Oracle strict。
-
--### Final review-fix Oracle evidence（2026-08-28）
-+### Historical Oracle evidence（2026-08-28）
-
- - Control 在 fixed Head `91b1aae00b93eddfd0c61dfad29f3c750a2abf64` 实跑：targeted `test_05` + `test_06` 为 `Ran 2 tests in 6.265s` / `OK` / exit 0；Oracle strict 为 `Ran 49 tests in 165.693s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0。
- - `_cleanup_task_import_fixture` 在每个 fixture 完成后逐表断言 Task/Item/Job/quota/tenant 零残留；`persistent_business_changes=false`。先前 `1736e19` 的 `DPY-4008` 仅为清理 bind 修复历史，已由本次实际 gate 收口。
-@@ -277,19 +277,19 @@
- - `Phase55OracleFinalGate.test_08_excel_compatibility_route_uses_selected_context_create_and_dispatch` 建立真实 Oracle Tenant A/B、workspace membership、membership role、global role、JWT，并经实际 FastAPI `/api/excel/unmatched-to-task` 路由执行。Tenant A 仅 `task:create` 时，即使 global role 具有 `task:dispatch` 仍返回 403；Tenant B 仅 selected-context `task:dispatch` 仍返回 403；将 A membership 升为同时具备 `task:create`/`task:dispatch` 后才进入 canonical transaction。断言 A 一 Task、B 零 Task，fixture cleanup 删除 membership/Task/Item/Job/quota/tenant/role/user 并检查零残留。
- - 本机未注入 `PHASE55_ORACLE_TEST_ENABLED` / T003；该 route test 的本机结果为 `SKIPPED`，不得称 Oracle PASS。Control 必须在本轮新固定 Head 的 canonical Oracle strict 中执行 test_08。
-
--### Oracle semantic-duplicate fixture repair（2026-08-28）
-+### Historical semantic-duplicate fixture repair（2026-08-28）
-
- - Control 在 `060c61b` 真实 Oracle targeted 执行 test_05..test_08：test_05 的旧 fixture 给首行完整药品字段、第二行仅 keyword，依 canonical identity 规则分别是 `drug:` 与 `keyword:`，并非语义重复；断言失败并非服务端漏检。
- - fixture 现以不同 `row_id`/`source_row_index` 复制首行完整 normalized identity，真实覆盖同一 `drug:platform:approval:name:spec:manufacturer` 语义键的 `DUPLICATE_TARGET` 拒绝。旧失败在 `get_conn()` 异常路径自动 `rollback()`，未执行 `conn.commit()`，故不会留下 Task/tenant；正常路径仍执行 scoped `_cleanup_task_import_fixture` 零残留断言。
- - 本修复产生新 Head，Control 必须重跑固定 Head Oracle targeted/strict；旧 `060c61b` 成功的 test_06..test_08 仅历史诊断，不作为新 Head PASS。
-
--### Quota legacy-release Oracle repair（2026-08-28）
-+### Historical legacy-release Oracle repair（2026-08-28）
-
- - Control 在 `5f159f5` Oracle strict 得到 `Ran 51 tests in 188.503s`、errors=2、exit 1；`test_05`..`test_08` 均通过。两条 legacy job reconciliation 生命周期调用 `quota.release` 时没有 reservation/quota fixture，旧实现先 `lock_metric_scope` 而抛出 `ENTERPRISE_QUOTA_NOT_CONFIGURED`。
- - `release` 现先 non-locking 发现 reservation；不存在或已 released 立即返回既有 no-op `False`，不创建 usage、不读取/锁 enterprise quota。只有发现 mutable reservation 才按 usage→enterprise quota→reservation 顺序锁定并 `FOR UPDATE` 重读，再修改 usage。`
- - 增加离线 no-reservation/no-quota 回归、真实 Oracle `test_09`，并扩展跨连接 test_07 断言 release 后第二次 release 返回 False；新 Head 仍需 Control fixed-Head strict。
-
--### Final second-review Oracle evidence（2026-08-28）
-+### Historical second-review Oracle evidence（2026-08-28）
-
- - Control 在 fixed Head `f579a3eb797a62330c56613a3f31d49f31f7eb2c` 执行 targeted：两条 job reconciliation lifecycle 加 `Phase55OracleFinalGate.test_05`..`test_08` 的全部业务断言通过。初次命令误将 test_09 写为不存在的 loader name，唯一错误不代表业务失败；随后正确的 test_09 单独执行为 `Ran 1 test in 0.645s` / `OK`。
- - 同一 fixed Head canonical Oracle strict：`Ran 52 tests in 173.867s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、command exit 0、skipped=0。覆盖 canonical replay/semantic duplicate/platform/quota failure（test_05）、并发 replay（test_06）、create↔commit/release 锁序（test_07）、真实 `/api/excel/unmatched-to-task` selected-context Tenant A/B RBAC（test_08）及 legacy no-reservation/no-quota release no-op（test_09）。
-@@ -307,3 +307,9 @@
- - Control 在 fixed Head `d4281adab920cabf0b59d02ec3442a9698e24d0a` targeted 运行 `test_07`/`test_08`/`test_09`/`test_10`：`Ran 4 tests in 18.361s` / `OK` / exit 0。覆盖 canonical create↔quota lifecycle 锁序、实际 compatibility route Tenant A/B selected-context RBAC、legacy release no-op，以及 DAILY_SNAPSHOT 跨日 reserve→commit→双连接 release/replay。
- - 同一 fixed Head Oracle strict：`Ran 53 tests in 185.264s` / `OK`、`[PASS] oracle-integration: exit=0`、`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`、exit 0、skipped=0。跨日 test 证明仅 reservation 持久化旧日 usage 被扣还，今日 usage 不被创建；fixture 清理零残留且 `persistent_business_changes=false`。
- - 第三轮全部 Dev/Oracle acceptance 已 PASS；本 docs-only commit 不改变业务代码。Control 将在 resulting docs Head 重新运行 strict 并生成 external manifest 绑定其 hash，之后进行 Independent Re-review；这属于 manifest provenance，不使本任务最终状态回退为 pending。
-+
-+## Final Status Summary（2026-08-28）
-+
-+- **FINAL_STATUS：PASS**。tested code commit 为 `d4281adab920cabf0b59d02ec3442a9698e24d0a`；mounted component 实测两条 PASS，helper contract 四条 PASS，Python full 为 `Ran 249 tests in 0.451s` / `OK (skipped=31)`。
-+- Control fixed-code Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
-+- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。wrapper Head 不在文档内自引用；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 绑定 stable external manifest，再进入 Independent Re-review。
+ - **FINAL_STATUS：PASS**。tested code commit 为 `d4281adab920cabf0b59d02ec3442a9698e24d0a`；mounted component 实测两条 PASS，helper contract 四条 PASS，Python full 为 `Ran 249 tests in 0.451s` / `OK (skipped=31)`。
+-- Control fixed-code Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
+-- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。wrapper Head 不在文档内自引用；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 绑定 stable external manifest，再进入 Independent Re-review。
++- tested code `d4281ad` Oracle strict 为 `Ran 53 tests in 184.957s` / `OK` / skipped=0；evidence/docs wrapper `e0d2166bcaea3814cfe7681a98e72727484d85e2` Oracle strict 为 `Ran 53 tests in 176.794s` / `OK` / skipped=0。`SJZQ_TASK`、`SJZQ_TASK_ITEM`、`SJZQ_COLLECTION_JOB`、`SJZQ_QUOTA_USAGE`、`SJZQ_ENTERPRISE` 五表均为 0，`persistent_business_changes=false`。
++- `MODIFIED_FILE` 保持 changed；副本 rollback 恢复 setup Task 并 hash match。历史 e0 wrapper manifest SHA-256 为 `35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4`。本 closure Head 不在 tracked 内容预写自身 SHA；Control 提交后使用 `C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json` 的 `head_sha`/`git_head` 与 `git rev-parse HEAD` 对照，再进入 Independent Re-review。

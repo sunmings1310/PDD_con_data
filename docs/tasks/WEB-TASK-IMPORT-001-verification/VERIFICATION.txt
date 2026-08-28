@@ -3,8 +3,10 @@ DATE=2026-08-28
 BRANCH=codex/web-task-import-001
 BASELINE=origin/main@2200ef021ed69f29fd3796b2c7a50252fa60575b
 TESTED_CODE_COMMIT=d4281adab920cabf0b59d02ec3442a9698e24d0a
-WRAPPER_HEAD_SEMANTICS=this documentation commit creates the wrapper Head; it is not self-referenced and is bound after commit by the stable external manifest below.
+EVIDENCE_DOCS_WRAPPER_COMMIT=e0d2166bcaea3814cfe7681a98e72727484d85e2
+WRAPPER_HEAD_SEMANTICS=documentation closure Head is never prewritten into tracked content; stable external manifest head_sha/git_head is the sole authority and is checked against git rev-parse HEAD after commit.
 EXTERNAL_MANIFEST_PATH=C:\Users\Eden\AppData\Local\Temp\WEB-TASK-IMPORT-001-final-oracle-evidence.json
+HISTORICAL_E0_MANIFEST_SHA256=35bc1214f77a2f15d1dd7e5ef2ef003ce3eec4ab535fc9fd2b9e916b1ac2a3e4
 FINAL_STATUS=PASS
 
 ARTIFACTS
@@ -24,7 +26,7 @@ STATUS=PASS
 MODIFIED
 COMMAND=Copy-Item docs/tasks/WEB-TASK-IMPORT-001.md docs/tasks/WEB-TASK-IMPORT-001-verification/MODIFIED_FILE
 INPUT=final Task record for tested code d4281ad
-LITERAL_OUTPUT=MODIFIED_FILE SHA256=d24efc86042a73b38c16eb03db763729a0a42a3a6f752bd52c5e24c4e0f19957; changed from setup source
+LITERAL_OUTPUT=MODIFIED_FILE SHA256=c8a5818bbd7f2bd3c1f868f78234ca288832cfb2b1761d4b6589118af36a29b4; changed from setup source
 EXIT_STATUS=0
 STATUS=PASS
 
@@ -47,7 +49,7 @@ EXIT_STATUS=0
 STATUS=PASS
 
 PYTHON_FULL
-COMMAND=='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
 LITERAL_OUTPUT=Ran 249 tests in 0.451s
 LITERAL_OUTPUT=OK (skipped=31)
 LITERAL_OUTPUT=[PASS] python-unit: exit=0
@@ -56,18 +58,23 @@ EXIT_STATUS=0
 STATUS=PASS
 
 ORACLE_FINAL
-COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-INPUT=Control-approved isolated writable Oracle at tested code commit d4281ad
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+INPUT=Control-approved isolated writable Oracle; tested code d4281ad then documentation wrapper e0d2166
 TARGETED_LITERAL_OUTPUT=Ran 4 tests in 18.361s
 TARGETED_LITERAL_OUTPUT=OK
 TARGETED_EXIT_STATUS=0
-LITERAL_OUTPUT=Ran 53 tests in 184.957s
-LITERAL_OUTPUT=OK
-LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
-LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-EXIT_STATUS=0
-STATUS=PASS
-SKIPPED=0
+TESTED_CODE_LITERAL_OUTPUT=Ran 53 tests in 184.957s
+TESTED_CODE_LITERAL_OUTPUT=OK
+TESTED_CODE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+TESTED_CODE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+TESTED_CODE_EXIT_STATUS=0
+TESTED_CODE_STATUS=PASS
+WRAPPER_ORACLE_LITERAL_OUTPUT=Ran 53 tests in 176.794s
+WRAPPER_ORACLE_LITERAL_OUTPUT=OK
+WRAPPER_ORACLE_LITERAL_OUTPUT=[PASS] oracle-integration: exit=0
+WRAPPER_ORACLE_LITERAL_OUTPUT=SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+WRAPPER_ORACLE_EXIT_STATUS=0
+WRAPPER_ORACLE_STATUS=PASS
 COVERAGE=test_07 lifecycle lock order; test_08 actual compatibility route Tenant A/B RBAC; test_09 legacy no-reservation/no-quota no-op; test_10 DAILY_SNAPSHOT cross-midnight persisted period.
 CLEANUP_LITERAL_OUTPUT=SJZQ_TASK=0,SJZQ_TASK_ITEM=0,SJZQ_COLLECTION_JOB=0,SJZQ_QUOTA_USAGE=0,SJZQ_ENTERPRISE=0
 PERSISTENT_BUSINESS_CHANGES=false
@@ -90,4 +97,4 @@ These entries are historical diagnostics, superseded by the tested-code Oracle P
 
 POST_COMMIT_PROVENANCE
 STATUS=PASS_EXTERNAL_MANIFEST_REQUIRED_FOR_POST_DOC_HEAD
-CONTROL_ACTION=bind resulting wrapper Head to EXTERNAL_MANIFEST_PATH and rerun strict for manifest provenance before Independent Re-review.
+CONTROL_ACTION=after this closure commit, Control reruns strict and overwrites EXTERNAL_MANIFEST_PATH; manifest head_sha/git_head is compared with git rev-parse HEAD before Independent Re-review.
