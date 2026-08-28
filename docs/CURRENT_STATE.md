@@ -114,7 +114,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 `WEB-TASK-IMPORT-001` 已通过 PR [#11](https://github.com/sunmings1310/PDD_con_data/pull/11) 普通 merge 为当前 `main@40e3e958aa27b37cd0dcbf06150317789898895f`；功能 Head 为 `caf4746f808421b6b9eb5e3d427591717e463402`。最终门禁为 Independent Review `ACCEPT`、E2E `PASS`、Hosted Core CI [#33145908892](https://github.com/sunmings1310/PDD_con_data/actions/runs/33145908892) 六项检查全部 `success`，本地隔离 Oracle 53/53（skipped=0、cleanup 五表为 0、persistent business changes=false）。任务状态为 `MERGED / ACCEPTED`。
 
-`WEB-STATE-UX-001` 的前置依赖已经满足，当前仅为 `READY FOR PRODUCT OWNER START APPROVAL`；尚未进入 `IN_PROGRESS`，未创建实现分支或 worktree。
+Product Owner 已批准启动 `WEB-STATE-UX-001`。Control 已从 `main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree，当前状态为 `IN_PROGRESS`；范围仅为核心 Web 状态与反馈收口。
 
 - Generic SKU runtime：仍为 `NOT STARTED`；
 - P1 SKU/ProductAttribute Schema：仍为 `NOT STARTED`；

@@ -1,0 +1,21 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index 3b3d26c..2a1a1a5 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -117 +117 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-`WEB-STATE-UX-001` 的前置依赖已经满足，当前仅为 `READY FOR PRODUCT OWNER START APPROVAL`；尚未进入 `IN_PROGRESS`，未创建实现分支或 worktree。
++Product Owner 已批准启动 `WEB-STATE-UX-001`。Control 已从 `main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree，当前状态为 `IN_PROGRESS`；范围仅为核心 Web 状态与反馈收口。
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 269b086..609a28a 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -28 +28 @@
+-| 5 | WEB-STATE-UX-001 | READY FOR PRODUCT OWNER START APPROVAL / P2 | #4 已 merge，依赖已满足；尚未启动、未创建实现分支或 worktree |
++| 5 | WEB-STATE-UX-001 | IN_PROGRESS / P2 | Product Owner 已批准启动；从 `main@807cfb4` 建立独立 Task、分支 `codex/web-state-ux-001` 与 worktree；仅收口核心 Web 状态与反馈，不改变业务语义 |
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index b563616..64cee51 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -24 +24 @@ BL-110-WS-TENANT-BOUNDARY
+-每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为当前 `main@40e3e958`，状态为 `MERGED / ACCEPTED`。第 5 项 `WEB-STATE-UX-001` 的依赖已经满足，但仅为 `READY FOR PRODUCT OWNER START APPROVAL`，尚未启动。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
++每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为当前 `main@40e3e958`，状态为 `MERGED / ACCEPTED`。第 5 项 `WEB-STATE-UX-001` 已获 Product Owner 批准并从 `main@807cfb4` 独立启动，当前为 `IN_PROGRESS`；仅收口核心 Web 状态与反馈，不改变业务语义。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。

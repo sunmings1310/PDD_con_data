@@ -1,0 +1,57 @@
+WEB-STATE-UX-001 SETUP VERIFICATION
+DATE=2026-08-28
+BRANCH=codex/web-state-ux-001
+BASELINE=origin/main@807cfb4eff9c3830f9a7f3ad4f62f1f07d183b41
+STATUS=IN_PROGRESS
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_state_ux\docs\tasks\WEB-STATE-UX-001-verification\ROLLBACK.sh
+
+BASELINE
+COMMAND=npx -y node@22.18.0 scripts/test-task-import-components.mjs
+INPUT=Node 22.18.0; accepted TaskCreate + embedded Excel mounted components
+LITERAL_OUTPUT=EXCEL_COMPONENT_RACE=PASS mounted=embedded signal_abort=platform+unmount uploading_reset=true retry_after_switch=true stale_rows_emit_fenced=true
+LITERAL_OUTPUT=TASK_CREATE_COMPONENT=PASS mounted=TaskCreate duplicate_click=same_payload ack_loss=replay edit=new_id route_stale=no_push
+EXIT_STATUS=0
+RESULT=PASS
+
+COMMAND=npx -y node@22.18.0 scripts/test-request-generation.mjs
+INPUT=Node 22.18.0; accepted request-generation races
+LITERAL_OUTPUT=STALE_RACE=PASS winner=B stale_A_ignored=true reset=task/results/logs/selection/edit
+LITERAL_OUTPUT=REQUEUE_CONFIRM_RACE=PASS captured_task=A current_task=B stale_request_sent=false
+LITERAL_OUTPUT=TASK_TRACE_RACE=PASS stale_A_outcome=stale B_selection_attempts_events_preserved=true
+EXIT_STATUS=0
+RESULT=PASS
+
+COMMAND=npx -y node@22.18.0 node_modules/vite/bin/vite.js build
+INPUT=Node 22.18.0; dependencies installed by Node 22.18.0 npm CLI after retained Node20 optional-binding diagnostic failure
+LITERAL_OUTPUT=✓ 1682 modules transformed.
+LITERAL_OUTPUT=✓ built in 6.05s
+EXIT_STATUS=0
+RESULT=PASS
+
+SETUP_ROLLBACK
+COMMAND=bash docs/tasks/WEB-STATE-UX-001-verification/ROLLBACK.sh <isolated-probe-copy>; compare restored files with origin/main@807cfb4; remove probe
+INPUT=isolated copy outside active worktree; verified target path; setup authority docs and new Task file only
+LITERAL_OUTPUT=RESTORED_FILE=docs/CURRENT_STATE.md RESTORED_SHA256=2d79a4e8b1efdbda00289acaaa4b209e626bf015ec93d54ae81fa3e31ac4081d
+LITERAL_OUTPUT=RESTORED_FILE=docs/backlog.md RESTORED_SHA256=470686b9efe54dd92764ec2d8810b2d0cc283aa6c5a3628bbb7c4600d0de6bdc
+LITERAL_OUTPUT=RESTORED_FILE=docs/roadmap.md RESTORED_SHA256=dbbbc7358ba98c8ffbd87368fef652ce8fdac3485fe4acdf53d44c92675f7d11
+LITERAL_OUTPUT=REMOVED_NEW_FILE=docs/tasks/WEB-STATE-UX-001.md
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_task_setup_baseline
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+LITERAL_OUTPUT=MODIFIED_SHA256=9383a44f1752b1c0f40d451d62e4136792c81846dca1f376d86b79a3cb4a354c
+LITERAL_OUTPUT=BASE_TASK=ABSENT
+LITERAL_OUTPUT=MODIFIED_REMAINS_CHANGED=true
+LITERAL_OUTPUT=PROBE_EXISTS=no
+EXIT_STATUS=0
+RESULT=PASS
+
+MODIFIED=PENDING_DEV_IMPLEMENTATION
+FINAL_ROLLBACK=PENDING_FINAL_DIFF
+ORACLE_STATUS=SKIPPED_NOT_APPLICABLE_UNLESS_SERVER_SQL_TRANSACTION_DIFF_APPEARS
+REAL_DEVICE_STATUS=SKIPPED_NOT_APPLICABLE
+STOP=BEFORE_MERGE_RELEASE_NEXT_TASK
