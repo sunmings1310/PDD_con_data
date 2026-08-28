@@ -165,7 +165,7 @@
 - [x] 创建 Task、TaskItem、CollectionJob 和提交 receipt/ACK 的事务边界可测试。
 - [x] 成功 ACK 后只跳转 canonical Task Detail；失败保留可恢复 draft。
 - [x] 独立 Excel 菜单保留；导出、资料库、Generic SKU/P1/Phase6B/Android 均未改变。
-- [ ] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过（新 fixed Head Oracle Required 交 Control 重跑）。
+- [x] targeted→module→Python/Web/Android full→适用 Oracle/E2E 门禁通过；git diff --check 通过（最终 docs-only Head 的外部 Oracle manifest 由 Control 固定并验证）。
 
 ## Test Plan
 
