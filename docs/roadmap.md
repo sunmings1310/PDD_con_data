@@ -21,7 +21,7 @@ BL-110-WS-TENANT-BOUNDARY
 → WEB-STATE-UX-001
 ```
 
-每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为当前 `main@40e3e958`，状态为 `MERGED / ACCEPTED`。第 5 项 `WEB-STATE-UX-001` 已获 Product Owner 批准并从 `main@807cfb4` 独立启动，当前为 `IN_PROGRESS`；仅收口核心 Web 状态与反馈，不改变业务语义。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
+每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为 `main@40e3e958`；第 5 项 `WEB-STATE-UX-001` 已通过 PR #13 普通 merge 为当前 `main@d56787a`，状态为 `MERGED / ACCEPTED`。至此已批准的 Web 执行队列全部完成。当前等待 Product Owner 选择下一阶段；Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台等未启动路线只记录事实，不构成批准、排序或启动。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
 
 > 制定日期：2026-08-13
 > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`

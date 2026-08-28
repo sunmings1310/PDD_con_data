@@ -1,0 +1,126 @@
+WEB-STATE-UX-001-STATE-SYNC VERIFICATION
+DATE=2026-08-28
+BRANCH=codex/web-state-ux-001-state-sync
+BASELINE=origin/main@d56787a614aba8559934a085a66e12bd20c12832
+SCOPE=docs/CURRENT_STATE.md,docs/backlog.md,docs/roadmap.md,and docs/tasks/WEB-STATE-UX-001-STATE-SYNC-verification/
+
+ARTIFACTS
+MODIFIED_FILE=D:\work\PDD_con_data_web_state_ux_state_sync\docs\tasks\WEB-STATE-UX-001-STATE-SYNC-verification\MODIFIED_FILE
+DIFF_FILE=D:\work\PDD_con_data_web_state_ux_state_sync\docs\tasks\WEB-STATE-UX-001-STATE-SYNC-verification\DIFF_FILE.patch
+VERIFICATION=D:\work\PDD_con_data_web_state_ux_state_sync\docs\tasks\WEB-STATE-UX-001-STATE-SYNC-verification\VERIFICATION.txt
+ROLLBACK=D:\work\PDD_con_data_web_state_ux_state_sync\docs\tasks\WEB-STATE-UX-001-STATE-SYNC-verification\ROLLBACK.sh
+
+BASELINE
+COMMAND=git fetch origin --prune; git rev-parse origin/main; git -C D:\work\PDD_con_data_main status --short --branch
+INPUT=repository remote and clean main worktree
+LITERAL_OUTPUT=d56787a614aba8559934a085a66e12bd20c12832
+LITERAL_OUTPUT=## main...origin/main
+EXIT_STATUS=0
+RESULT=PASS
+
+ORIGINAL_HASHES
+COMMAND=git worktree add --detach D:\work\PDD_con_data_web_state_ux_state_sync_probe d56787a614aba8559934a085a66e12bd20c12832; Get-FileHash D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\CURRENT_STATE.md,D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\backlog.md,D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\roadmap.md -Algorithm SHA256
+INPUT=fixed-base detached probe worktree before changed bytes are copied
+LITERAL_OUTPUT=docs/CURRENT_STATE.md b92c1ad5afafb441689cf342bd0e0167be1c64babea8be4e92c556ab25e8069e
+LITERAL_OUTPUT=docs/backlog.md 48e65f42520c4fe308a34dac276007009fb0450ff13004fd8a83b2455a4e10b5
+LITERAL_OUTPUT=docs/roadmap.md 23c16a48c52c1941abc87190dd25a5f30e6c18c49520daa172bec51bbce244dd
+EXIT_STATUS=0
+RESULT=PASS
+
+MODIFIED
+COMMAND=sha256sum docs/CURRENT_STATE.md docs/backlog.md docs/roadmap.md
+INPUT=active state-sync worktree after authority updates
+LITERAL_OUTPUT=docs/CURRENT_STATE.md 892d33bbce7b460a9c74b36c43004ad17d61910dd44492aa0234534652507909
+LITERAL_OUTPUT=docs/backlog.md 6c71464d4cefea811497abe12cb0b9ac8ce04b005833ed0cbab5d4689e97630e
+LITERAL_OUTPUT=docs/roadmap.md bc81af6af43fba89a568ee07edcc034208c6455dd23d9d6477cfda2d4649b48f
+EXIT_STATUS=0
+RESULT=PASS
+
+ROLLBACK
+COMMAND=git worktree add --detach D:\work\PDD_con_data_web_state_ux_state_sync_probe d56787a614aba8559934a085a66e12bd20c12832; Copy-Item docs/CURRENT_STATE.md D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\CURRENT_STATE.md -Force; Copy-Item docs/backlog.md D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\backlog.md -Force; Copy-Item docs/roadmap.md D:\work\PDD_con_data_web_state_ux_state_sync_probe\docs\roadmap.md -Force; D:\Git\bin\bash.exe docs/tasks/WEB-STATE-UX-001-STATE-SYNC-verification/ROLLBACK.sh /d/work/PDD_con_data_web_state_ux_state_sync_probe; git worktree remove --force D:\work\PDD_con_data_web_state_ux_state_sync_probe
+INPUT=another detached worktree with all three files first replaced by exact changed bytes
+LITERAL_OUTPUT=BEFORE_SHA256[docs/CURRENT_STATE.md]=892d33bbce7b460a9c74b36c43004ad17d61910dd44492aa0234534652507909
+LITERAL_OUTPUT=EXPECTED_MODIFIED_SHA256[docs/CURRENT_STATE.md]=892d33bbce7b460a9c74b36c43004ad17d61910dd44492aa0234534652507909
+LITERAL_OUTPUT=BEFORE_SHA256[docs/backlog.md]=6c71464d4cefea811497abe12cb0b9ac8ce04b005833ed0cbab5d4689e97630e
+LITERAL_OUTPUT=EXPECTED_MODIFIED_SHA256[docs/backlog.md]=6c71464d4cefea811497abe12cb0b9ac8ce04b005833ed0cbab5d4689e97630e
+LITERAL_OUTPUT=BEFORE_SHA256[docs/roadmap.md]=bc81af6af43fba89a568ee07edcc034208c6455dd23d9d6477cfda2d4649b48f
+LITERAL_OUTPUT=EXPECTED_MODIFIED_SHA256[docs/roadmap.md]=bc81af6af43fba89a568ee07edcc034208c6455dd23d9d6477cfda2d4649b48f
+LITERAL_OUTPUT=RESTORED_SHA256[docs/CURRENT_STATE.md]=b92c1ad5afafb441689cf342bd0e0167be1c64babea8be4e92c556ab25e8069e
+LITERAL_OUTPUT=RESTORED_SHA256[docs/backlog.md]=48e65f42520c4fe308a34dac276007009fb0450ff13004fd8a83b2455a4e10b5
+LITERAL_OUTPUT=RESTORED_SHA256[docs/roadmap.md]=23c16a48c52c1941abc87190dd25a5f30e6c18c49520daa172bec51bbce244dd
+LITERAL_OUTPUT=ROLLBACK_MATCH=yes
+LITERAL_OUTPUT=ROLLBACK_RESULT=restored_docs_state_sync_baseline
+LITERAL_OUTPUT=ROLLBACK_EXIT=0
+LITERAL_OUTPUT=RESTORED_MATCH[docs/CURRENT_STATE.md]=True
+LITERAL_OUTPUT=RESTORED_MATCH[docs/backlog.md]=True
+LITERAL_OUTPUT=RESTORED_MATCH[docs/roadmap.md]=True
+LITERAL_OUTPUT=PROBE_EXISTS=False
+LITERAL_OUTPUT=MODIFIED_REMAINS_CHANGED=True
+EXIT_STATUS=0
+RESULT=PASS
+
+MARKDOWN_LINKS
+COMMAND=python -c "import pathlib,re,sys; files=sorted(set(list(pathlib.Path('.').glob('*.md'))+list(pathlib.Path('docs').rglob('*.md'))+list(pathlib.Path('server').glob('*.md'))+list(pathlib.Path('android_collector').glob('*.md'))+list(pathlib.Path('web').glob('*.md'))+list(pathlib.Path('.github').glob('*.md')))); failures=[]; pattern=re.compile(r'(?<!!)\[[^\]]*\]\(([^)]+)\)'); [(failures.append(f'{s}: missing link target {t}') if not ((s.parent / t.strip().split()[0].strip('<>').split('#',1)[0]).resolve().exists()) else None) for s in files for t in pattern.findall(s.read_text(encoding='utf-8')) if t.strip() and not t.strip().startswith(('http://','https://','mailto:','#')) and t.strip().split()[0].strip('<>').split('#',1)[0]]; print('\n'.join(failures) if failures else f'Validated {len(files)} Markdown files'); sys.exit(bool(failures))"
+INPUT=65 repository Markdown files
+LITERAL_OUTPUT=Validated 65 Markdown files
+EXIT_STATUS=0
+RESULT=PASS
+
+YAML
+COMMAND=python -c "import pathlib,yaml; files=list(pathlib.Path('.github/workflows').glob('*.yml')); [yaml.safe_load(p.read_text(encoding='utf-8')) for p in files]; print(f'YAML_VALIDATED={len(files)}')"
+INPUT=.github/workflows/*.yml
+LITERAL_OUTPUT=YAML_VALIDATED=1
+EXIT_STATUS=0
+RESULT=PASS
+
+GOVERNANCE
+COMMAND=python docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check resolver
+INPUT=current repository and invalid-base regression fixtures
+LITERAL_OUTPUT=RESOLVER_TESTS=PASS
+EXIT_STATUS=0
+RESULT=PASS
+
+ALLOWLIST
+COMMAND=git diff --cached --name-only; reject any path outside the three authority docs and task-specific verification directory
+INPUT=staged state-sync range
+LITERAL_OUTPUT=CHANGED_COUNT=7
+LITERAL_OUTPUT=ALLOWLIST_VIOLATIONS=0
+EXIT_STATUS=0
+RESULT=PASS
+
+SENSITIVE
+COMMAND=git diff --cached -- . ':(exclude)docs/tasks/WEB-STATE-UX-001-STATE-SYNC-verification/DIFF_FILE.patch' | Select-String credential patterns
+INPUT=staged textual diff excluding derived patch duplication
+LITERAL_OUTPUT=SENSITIVE_HITS=0
+EXIT_STATUS=0
+RESULT=PASS
+
+DIFF
+COMMAND=git diff --cached --check
+INPUT=complete staged range
+LITERAL_OUTPUT=<empty>
+EXIT_STATUS=0
+RESULT=PASS
+
+COMMAND=git apply --check --reverse --unidiff-zero docs/tasks/WEB-STATE-UX-001-STATE-SYNC-verification/DIFF_FILE.patch
+INPUT=derived zero-context diff for the three authority docs
+LITERAL_OUTPUT=<empty>
+EXIT_STATUS=0
+RESULT=PASS
+
+ORACLE
+COMMAND=not run
+INPUT=docs-only state synchronization; no Server SQL/transaction/Schema
+LITERAL_OUTPUT=SKIPPED / not applicable
+EXIT_STATUS=N/A
+RESULT=SKIPPED
+
+REAL_DEVICE
+COMMAND=not run
+INPUT=docs-only state synchronization
+LITERAL_OUTPUT=SKIPPED / not applicable
+EXIT_STATUS=N/A
+RESULT=SKIPPED
+
+FINAL_STATUS=READY_FOR_INDEPENDENT_REVIEW
+STOP=BEFORE_MERGE_RELEASE_NEXT_TASK
