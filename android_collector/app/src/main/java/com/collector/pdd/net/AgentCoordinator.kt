@@ -625,7 +625,8 @@ class AgentCoordinator(
                     "job_fail" -> {
                         val identity = activeJob ?: error("job assignment not recovered")
                         val localStatus = JSONObject(event.payloadJson).optString("local_status", "failed")
-                        api.failJob(identity, "transient", "LOCAL_TASK_FINISHED", "local_status=$localStatus")
+                        val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
+                        api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
                         dao.markAcked(event.outboxId, null, System.currentTimeMillis())
                         db.jobAssignmentDao().delete(identity.jobId, identity.attemptId)
                         if (activeJob?.attemptId == identity.attemptId) activeJob = null

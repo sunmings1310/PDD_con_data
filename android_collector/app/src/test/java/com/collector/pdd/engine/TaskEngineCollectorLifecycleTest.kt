@@ -15,6 +15,12 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class TaskEngineCollectorLifecycleTest {
     @Test
+    fun naturalTargetMissHasDedicatedTerminalStatus() {
+        assertEquals("not_matched", taskEndStatus(stopRequested = false, success = 0, failed = 0, notMatched = 1))
+        assertEquals("failed", taskEndStatus(stopRequested = false, success = 0, failed = 1, notMatched = 1))
+    }
+
+    @Test
     fun unknownPlatformFailsFastAndStillClosesLocalLifecycle() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),

@@ -24,5 +24,6 @@ class TaskStatusMappingTest {
 
     @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {
         assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))
+        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))
     }
 }

@@ -22,6 +22,7 @@ import com.collector.pdd.collector.SystemCollectorError
 import com.collector.pdd.collector.search
 import com.collector.pdd.collector.restoreSearch
 import com.collector.pdd.collector.collectDetail
+import com.collector.pdd.net.TaskStatusMapping
 import com.collector.pdd.service.CollectA11yService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -42,6 +43,13 @@ internal suspend fun collectDetailThroughRegistry(
     session: CollectorSession,
     request: DetailCollectionRequest,
 ) = CollectorRegistry.require(platformCode).collectDetail(session, request)
+
+internal fun taskEndStatus(stopRequested: Boolean, success: Int, failed: Int, notMatched: Int): String = when {
+    stopRequested -> "stopped"
+    success == 0 && failed > 0 -> "failed"
+    success == 0 && notMatched > 0 -> TaskStatusMapping.NOT_MATCHED
+    else -> "finished"
+}
 
 class TaskEngine(
     private val log: (String) -> Unit,
@@ -69,6 +77,12 @@ class TaskEngine(
         var batchCount: Int = 0,
         var consecutiveSoldOut: Int = 0,
     )
+
+    private enum class CandidateResult {
+        COLLECTED,
+        NOT_MATCHED,
+        FAILED,
+    }
 
     fun isRunning(): Boolean = job?.isActive == true
 
@@ -203,6 +217,7 @@ class TaskEngine(
         var total = 0
         var success = 0
         var fail = 0
+        var notMatched = 0
         var endStatus = "finished"
         var sessionForCleanup: CollectorSession? = null
 
@@ -257,12 +272,13 @@ class TaskEngine(
                         // 匹配任务必须从搜索结果顶部开始核对，禁止预先滚动跳过首屏商品。
                         log("【$kw】逐个核对前 $n 个，命中准字+规格后停止")
                         var found = false
+                        var candidateFailed = false
                         for (i in 0 until n) {
                             ensureActive()
                             if (stopFlag.get()) break
                             total++
                             val slot = "target_match_${i + 1}"
-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
+                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(
                                 collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = slot,
                                 openIndex = i,
@@ -270,16 +286,24 @@ class TaskEngine(
                                 config = config,
                                 runtime = accessRuntime,
                             )
-                            if (ok) {
-                                success++
-                                found = true
-                                break
+                            when (result) {
+                                CandidateResult.COLLECTED -> {
+                                    success++
+                                    found = true
+                                    break
+                                }
+                                CandidateResult.FAILED -> candidateFailed = true
+                                CandidateResult.NOT_MATCHED -> Unit
                             }
                             if (!stopFlag.get()) actions.betweenItems()
                         }
                         if (!found && !stopFlag.get()) {
-                            fail++
-                            val message = "匹配失败：前 $n 个商品未找到准字=${target.targetApproval}、规格=${target.targetSpec}"
+                            if (candidateFailed) fail++ else notMatched++
+                            val message = if (candidateFailed) {
+                                "采集失败：前 $n 个候选未能完成目标核对"
+                            } else {
+                                "未匹配：前 $n 个商品均未通过准字=${target.targetApproval}、品名=${target.targetName.ifBlank { "-" }}、规格=${target.targetSpec}、厂家=${target.targetManufacturer.ifBlank { "-" }}"
+                            }
                             log(message)
                             reportTargetResult(target, false, message)
                         } else if (found) {
@@ -297,14 +321,14 @@ class TaskEngine(
                             if (stopFlag.get()) break
                             total++
                             val slot = "default_top_${i + 1}"
-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
+                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(
                                 collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = slot,
                                 openIndex = i,
                                 config = config,
                                 runtime = accessRuntime,
                             )
-                            if (ok) success++ else fail++
+                            if (result == CandidateResult.COLLECTED) success++ else fail++
                             if (!stopFlag.get()) actions.betweenItems()
                         }
                     }
@@ -316,14 +340,14 @@ class TaskEngine(
                         try {
                             searchKeywordCounted(collector, actions, kw, sort = SearchSort.PRICE_ASC)
                             total++
-                            val ok = if (confirmed(config, kw, "price_asc_first")) true else collectOneWithPolicy(
+                            val result = if (confirmed(config, kw, "price_asc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(
                                 collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "price_asc_first",
                                 openIndex = 0,
                                 config = config,
                                 runtime = accessRuntime,
                             )
-                            if (ok) success++ else fail++
+                            if (result == CandidateResult.COLLECTED) success++ else fail++
                         } catch (e: CollectorException) {
                             if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
                             fail++
@@ -341,14 +365,14 @@ class TaskEngine(
                         try {
                             searchKeywordCounted(collector, actions, kw, sort = SearchSort.SALES_DESC)
                             total++
-                            val ok = if (confirmed(config, kw, "sales_desc_first")) true else collectOneWithPolicy(
+                            val result = if (confirmed(config, kw, "sales_desc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(
                                 collector, actions, dbTaskId = taskId, keyword = kw,
                                 pickTag = "sales_desc_first",
                                 openIndex = 0,
                                 config = config,
                                 runtime = accessRuntime,
                             )
-                            if (ok) success++ else fail++
+                            if (result == CandidateResult.COLLECTED) success++ else fail++
                         } catch (e: CollectorException) {
                             if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e
                             fail++
@@ -374,11 +398,7 @@ class TaskEngine(
                 }
             }
 
-            endStatus = when {
-                stopFlag.get() -> "stopped"
-                success == 0 && fail > 0 -> "failed"
-                else -> "finished"
-            }
+            endStatus = taskEndStatus(stopFlag.get(), success, fail, notMatched)
         } catch (e: CancellationException) {
             endStatus = "stopped"
             throw e
@@ -440,15 +460,15 @@ class TaskEngine(
         config: CollectConfig,
         runtime: AccessRuntime,
         target: CollectTarget? = null,
-    ): Boolean {
+    ): CandidateResult {
         var retries = 0
         while (!stopFlag.get()) {
             try {
-                val ok = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)
+                val result = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)
                 runtime.consecutiveSoldOut = 0
-                if (ok) consecutiveActionAnomalies = 0
+                if (result == CandidateResult.COLLECTED) consecutiveActionAnomalies = 0
                 afterItem(config, runtime)
-                return ok
+                return result
             } catch (e: CollectorException) {
                 when (CollectorErrorPolicy.action(e)) {
                     CollectorErrorAction.FAIL_FAST -> throw e
@@ -459,7 +479,7 @@ class TaskEngine(
                         stopFlag.set(true)
                         log("采集器要求停止任务 code=${e.code}: ${e.message}")
                         afterItem(config, runtime)
-                        return false
+                        return CandidateResult.FAILED
                     }
 
                     CollectorErrorAction.FAIL_ITEM -> {
@@ -482,26 +502,26 @@ class TaskEngine(
                         }
                         runCatching { restoreSearchList(collector, actions, keyword) }
                         afterItem(config, runtime)
-                        return false
+                        return CandidateResult.FAILED
                     }
 
                     CollectorErrorAction.RETRY -> {
                         runtime.consecutiveSoldOut = 0
                         recordActionAnomaly(config, dbTaskId, "access_guard", e.message.orEmpty(), e.evidence)
-                        if (stopFlag.get()) return false
+                        if (stopFlag.get()) return CandidateResult.FAILED
                         val response = config.busyResponse.lowercase()
                         log("采集器暂时失败 code=${e.code}: ${e.message}，回复策略=$response")
                         when (CollectorErrorPolicy.retryDisposition(e, response, retries, config.busyRetryCount)) {
                             CollectorRetryDisposition.STOP -> {
                                 stopFlag.set(true)
-                                return false
+                                return CandidateResult.FAILED
                             }
                             CollectorRetryDisposition.SKIP,
                             CollectorRetryDisposition.EXHAUSTED -> {
                                 log(if (response == "skip") "已按策略跳过当前商品" else "自动重试次数已用完（${config.busyRetryCount} 次）")
                                 runCatching { restoreSearchList(collector, actions, keyword) }
                                 afterItem(config, runtime)
-                                return false
+                                return CandidateResult.FAILED
                             }
                             CollectorRetryDisposition.RETRY -> Unit
                         }
@@ -516,7 +536,7 @@ class TaskEngine(
                 }
             }
         }
-        return false
+        return CandidateResult.FAILED
     }
 
     private suspend fun collectOne(
@@ -528,7 +548,7 @@ class TaskEngine(
         openIndex: Int,
         target: CollectTarget? = null,
         config: CollectConfig,
-    ): Boolean {
+    ): CandidateResult {
         return try {
             val collected = collectDetailThroughRegistry(
                 collector.platform,
@@ -543,7 +563,7 @@ class TaskEngine(
                     collected.failureMessage.orEmpty(),
                     collected.raw.evidence,
                 )
-                return false
+                return CandidateResult.FAILED
             }
             var product = requireNotNull(collected.product).copy(taskId = dbTaskId)
             val quality = requireNotNull(collected.quality)
@@ -566,7 +586,7 @@ class TaskEngine(
                             "准字命中=${match.approvalMatched} 规格命中=${match.specMatched}"
                     )
                     restoreSearchList(collector, actions, keyword)
-                    return false
+                    return CandidateResult.NOT_MATCHED
                 }
                 log("匹配命中【$pickTag】准字=${product.approvalNo} 规格=${product.spec} item=${target.remoteItemId ?: "-"}")
             }
@@ -581,7 +601,7 @@ class TaskEngine(
                 )
                 log("质量门禁拒绝【$pickTag】：page=${quality.pageStatus} missing=${quality.missingFields}")
                 restoreSearchList(collector, actions, keyword)
-                return false
+                return CandidateResult.FAILED
             }
 
             val remoteTask = config.remoteTaskId
@@ -631,13 +651,13 @@ class TaskEngine(
                     "参数=${if (collected.paramsCaptured) "已开" else "未开"}"
             )
             restoreSearchList(collector, actions, keyword)
-            true
+            CandidateResult.COLLECTED
         } catch (e: CollectorException) {
             throw e
         } catch (e: Exception) {
             log("本条失败 $pickTag err=${e.message}")
             try { restoreSearchList(collector, actions, keyword) } catch (_: Exception) {}
-            false
+            CandidateResult.FAILED
         }
     }
 

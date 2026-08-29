@@ -418,8 +418,14 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
     cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE SYSTIMESTAMP END,
       LAST_ERROR_CLASS=:class,LAST_ERROR_CODE=:code,LAST_ERROR_MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE JOB_ID=:job_id AND ACTIVE_ATTEMPT_ID=:attempt_id""", {"status":decision.target.value,"retryable":int(decision.retryable),"delay":int(decision.delay_seconds or 0),"class":category.value,"code":error_code[:128],"message":error_message[:2000],"job_id":job_id,"attempt_id":attempt_id})
     _finish_lease(cur,job,attempt,device_id=device_id,reason=f"failed:{category.value}")
+    target_not_matched = (
+        category == ErrorClass.BUSINESS_REJECTION and error_code == "TARGET_NOT_MATCHED"
+    )
     if decision.target.value in {"failed", "quarantined", "dead"} and job.get("item_id") is not None:
-        cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
+        if target_not_matched:
+            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
+        else:
+            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
     if decision.target.value in {"failed", "quarantined", "dead", "cancelled"}:
         _aggregate_task_from_jobs(cur, job["task_id"])
     _event(cur,job["task_id"],job_id,"job_failed",attempt_id=attempt_id,device_id=device_id,worker_id=worker_id,token_hash=attempt["token_hash"],trace_id=attempt["trace_id"],old=job["status"],new=decision.target.value,error_class=category.value,error_code=error_code[:128],detail={"retryable":decision.retryable,"delay_seconds":decision.delay_seconds})

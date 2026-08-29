@@ -258,6 +258,36 @@ class OracleJobServiceTest(unittest.TestCase):
         self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id":self.ids["task"]})
         self.assertEqual("succeeded", self.cur.fetchone()[0])
 
+    def test_real_target_not_matched_is_terminal_without_result_artifacts(self):
+        self._seed()
+        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")
+        assert lease is not None
+        self.assertEqual("running", svc.start(self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"], worker_id="oracle-job-test", lease_token=lease["lease_token"])["status"])
+        result = svc.fail(
+            self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"],
+            worker_id="oracle-job-test", lease_token=lease["lease_token"],
+            error_class="business_rejection", error_code="TARGET_NOT_MATCHED",
+            error_message="all inspected candidates failed target identity",
+        )
+        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)
+        self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id": self.ids["item"]})
+        item_status, message = self.cur.fetchone()
+        self.assertEqual("not_matched", item_status)
+        self.assertEqual("TARGET_NOT_MATCHED", message)
+        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})
+        self.assertEqual("failed", self.cur.fetchone()[0])
+        self.cur.execute("SELECT STATUS,RETRYABLE FROM SJZQ_COLLECTION_ATTEMPT WHERE ATTEMPT_ID=:id", {"id": lease["attempt_id"]})
+        self.assertEqual(("failed", 0), tuple(self.cur.fetchone()))
+        self.cur.execute("SELECT ACTIVE_ATTEMPT_ID FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})
+        self.assertIsNone(self.cur.fetchone()[0])
+        self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": self.ids["task"]})
+        self.assertEqual("failed", self.cur.fetchone()[0])
+        for table in ("SJZQ_PRODUCT", "SJZQ_RAW_COLLECTION", "SJZQ_PRODUCT_SNAPSHOT", "SJZQ_UPLOAD_RECEIPT"):
+            self.cur.execute(f"SELECT COUNT(*) FROM {table} WHERE TASK_ID=:id", {"id": self.ids["task"]})
+            self.assertEqual(0, int(self.cur.fetchone()[0]), table)
+        self.cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:id", {"id": lease["job_id"]})
+        self.assertEqual(1, int(self.cur.fetchone()[0]))
+
     def test_real_expired_lease_rejects_old_worker_before_checkpoint(self):
         self._seed()
         lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")

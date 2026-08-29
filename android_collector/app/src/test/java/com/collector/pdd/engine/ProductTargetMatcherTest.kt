@@ -50,6 +50,18 @@ class ProductTargetMatcherTest {
     }
 
     @Test
+    fun rejectsDifferentNameInFourFieldMode() {
+        val result = ProductTargetMatcher.match(
+            expectedApproval = "国药准字H12345678", expectedName = "目标药品",
+            expectedSpec = "10片", expectedManufacturer = "甲药厂",
+            actualApproval = "国药准字H12345678", actualName = "无关药品",
+            actualSpec = "10s", actualManufacturer = "甲药厂有限公司",
+        )
+        assertFalse(result.matched)
+        assertFalse(result.nameMatched)
+    }
+
+    @Test
     fun rejectsDifferentApproval() {
         val result = ProductTargetMatcher.match(
             expectedApproval = "国药准字Z20063606",
