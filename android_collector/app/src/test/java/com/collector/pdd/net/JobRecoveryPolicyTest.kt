@@ -41,6 +41,11 @@ class JobRecoveryPolicyTest {
         )
     }
 
+    @Test fun pendingOtaBlocksAcquireAndRecoveryWithoutCancellingExistingEngine() {
+        assertEquals(true, otaBlocksBusinessWork(true))
+        assertEquals(false, otaBlocksBusinessWork(false))
+    }
+
     @Test
     fun terminalRequiresConfirmedResultsAndRejectsPartialLoss() {
         assertEquals(JobTerminalAction.FAIL_NO_RESULT, jobTerminalAction(0, 0))

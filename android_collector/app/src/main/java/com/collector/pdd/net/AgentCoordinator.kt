@@ -231,7 +231,7 @@ class AgentCoordinator(
             val now = System.currentTimeMillis()
             val terminalExists = CollectorApp.instance.database.outboxDao()
                 .get("job-terminal-${job.jobId}-${job.attemptId}") != null
-            if (!ApkUpdater.isRemoteUpdatePending() && shouldRetryRecoveredEngine(
+            if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
                     engineRunning = engine.isRunning(),
                     terminalExists = terminalExists,
                     now = now,
@@ -283,7 +283,7 @@ class AgentCoordinator(
             // 服务端已停止请求时也可继续推，直到 Web stop；此处不强制停
         }
 
-        if (!ApkUpdater.isRemoteUpdatePending() && !engine.isRunning() && activeJob == null) {
+        if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && !engine.isRunning() && activeJob == null) {
             var jobsApiUnavailable = false
             val jobLease = try {
                 api.acquireJob(workerId)
@@ -995,6 +995,9 @@ internal fun shouldRetryRecoveredEngine(
     now: Long,
     lastAttemptAt: Long,
 ): Boolean = !engineRunning && !terminalExists && now - lastAttemptAt >= 15_000L
+
+/** System installation may be pending, but a running business engine is never cancelled. */
+internal fun otaBlocksBusinessWork(remoteOtaPending: Boolean): Boolean = remoteOtaPending
 
 /** Ordinary collection can finish without reopening PDD when every required slot is ACKed. */
 internal fun checkpointCoversCollectWork(config: CollectConfig): Boolean {
