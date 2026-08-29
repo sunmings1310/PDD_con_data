@@ -135,3 +135,12 @@
 ## Dev Stop
 
 已修复 Review 的单一 P1 制品问题，状态保持 `REVIEW`，等待重新 Independent Review；不是 ACCEPTED。不得创建 PR、merge 或 release。
+
+## OTA Review Remediation（2026-08-29，code Head `30482e04`）
+
+- 第二轮 Independent Review 为 `CHANGES REQUIRED`：修复 OTA 启动后仍领取/恢复 Job、ACK 误作安装确认、旧 heartbeat 与新 push 交错消费 pending。
+- OTA 使用既有心跳字段 generation；同 scope、同 version、同 generation 的 heartbeat 才原子消费 pending。下载 ACK 不清 pending。
+- 更新 pending 禁止新 Job acquire/recovery；既有运行 engine 不 stop；相同远程版本只启动一次。
+- 直接路径：ApkUpdater、ServerPrefs、ApiClient、AgentCoordinator、cast_state、devices、ota、schemas 及 OTA/Android 测试。
+- Targeted：Python 2 PASS；Android JobRecoveryPolicyTest 8 PASS。完整 Python/Android/Web strict 由本 wrapper 记录；Oracle final=PENDING CONTROL，不冒充 PASS。
+- Review 历史：DIFF_FILE 单行 P1 于 `213464c` 修复；`08eeac8` OTA P1/P2 于 `30482e04` 修复；等待 Independent Re-review。

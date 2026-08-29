@@ -122,13 +122,91 @@ index d316525..6996ddc 100644
 -            false
 +            CandidateResult.FAILED
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
-index 3e2affe..223cf6e 100644
+index 3e2affe..054c596 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
 +++ b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
-@@ -628 +628,2 @@ class AgentCoordinator(
+@@ -234 +234 @@ class AgentCoordinator(
+-            if (shouldRetryRecoveredEngine(
++            if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
+@@ -268,8 +268,4 @@ class AgentCoordinator(
+-            // 更新优先：先停任务再装包
+-            if (engine.isRunning()) {
+-                withContext(Dispatchers.Main) {
+-                    log("一键更新：先停止当前任务")
+-                    engine.stop()
+-                }
+-            }
+-            ApkUpdater.handleCommand(appContext, prefs, api, updateApk, log)
++            ApkUpdater.handleCommand(appContext, prefs, updateApk, log)
++            // An OTA command never cancels an already-running job, but it must not
++            // recover or acquire new business work while system installation is pending.
++            if (ApkUpdater.isRemoteUpdatePending()) return@withContext
+@@ -290 +286 @@ class AgentCoordinator(
+-        if (!engine.isRunning() && activeJob == null) {
++        if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && !engine.isRunning() && activeJob == null) {
+@@ -628 +624,2 @@ class AgentCoordinator(
 -                        api.failJob(identity, "transient", "LOCAL_TASK_FINISHED", "local_status=$localStatus")
 +                        val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
 +                        api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
+@@ -1001,0 +999,3 @@ internal fun shouldRetryRecoveredEngine(
++/** System installation may be pending, but a running business engine is never cancelled. */
++internal fun otaBlocksBusinessWork(remoteOtaPending: Boolean): Boolean = remoteOtaPending
++
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
+index d056ea2..75b1d98 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
+@@ -156,0 +157 @@ class ApiClient(private val prefs: ServerPrefs) {
++        if (prefs.otaGeneration > 0) body.put("ota_generation", prefs.otaGeneration)
+@@ -266,7 +266,0 @@ class ApiClient(private val prefs: ServerPrefs) {
+-    fun ackOta(versionName: String) {
+-        val body = JSONObject()
+-            .put("device_key", prefs.deviceKey)
+-            .put("version_name", versionName)
+-        postJson("/api/ota/ack", body)
+-    }
+-
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
+index 7154412..620294b 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
+@@ -20,0 +21 @@ object ApkUpdater {
++    @Volatile private var pendingRemoteVersion: String? = null
+@@ -22,0 +24 @@ object ApkUpdater {
++    fun isRemoteUpdatePending(): Boolean = pendingRemoteVersion != null
+@@ -27 +28,0 @@ object ApkUpdater {
+-        api: ApiClient,
+@@ -31 +32,5 @@ object ApkUpdater {
+-        startUpdate(context, prefs, api, cmd, log, source = "远程指令")
++        val version = cmd?.optString("version_name", "")?.trim().orEmpty()
++        if (version.isNotBlank() && pendingRemoteVersion == version) return
++        pendingRemoteVersion = version.ifBlank { "unknown" }
++        cmd?.optInt("generation", 0)?.takeIf { it > 0 }?.let { prefs.otaGeneration = it }
++        startUpdate(context, prefs, cmd, log, source = "远程指令")
+@@ -38 +42,0 @@ object ApkUpdater {
+-        api: ApiClient,
+@@ -42 +46 @@ object ApkUpdater {
+-        startUpdate(context, prefs, api, cmd, log, source = "手工更新")
++        startUpdate(context, prefs, cmd, log, source = "手工更新")
+@@ -48 +51,0 @@ object ApkUpdater {
+-        api: ApiClient,
+@@ -65 +67,0 @@ object ApkUpdater {
+-            runCatching { api.ackOta(ver) }
+@@ -92,3 +93,0 @@ object ApkUpdater {
+-                if (ver.isNotBlank()) {
+-                    runCatching { api.ackOta(ver) }
+-                }
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
+index 2da49bc..1075981 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
+@@ -34,0 +35,4 @@ class ServerPrefs(ctx: Context) {
++    var otaGeneration: Int
++        get() = sp.getInt(KEY_OTA_GENERATION, 0)
++        set(v) = sp.edit().putInt(KEY_OTA_GENERATION, v).apply()
++
+@@ -110,0 +115 @@ class ServerPrefs(ctx: Context) {
++        private const val KEY_OTA_GENERATION = "ota_generation"
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt b/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
 index c7ce5c9..760d9e0 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
@@ -143,44 +221,71 @@ index c7ce5c9..760d9e0 100644
 +        NOT_MATCHED -> "business_rejection" to "TARGET_NOT_MATCHED"
 +        else -> "transient" to "LOCAL_TASK_FINISHED"
 +    }
-diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
-index 2536c79..f84c59b 100644
---- a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
-+++ b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
-@@ -51,0 +52,12 @@ class ProductTargetMatcherTest {
-+    @Test
-+    fun rejectsDifferentNameInFourFieldMode() {
-+        val result = ProductTargetMatcher.match(
-+            expectedApproval = "国药准字H12345678", expectedName = "目标药品",
-+            expectedSpec = "10片", expectedManufacturer = "甲药厂",
-+            actualApproval = "国药准字H12345678", actualName = "无关药品",
-+            actualSpec = "10s", actualManufacturer = "甲药厂有限公司",
-+        )
-+        assertFalse(result.matched)
-+        assertFalse(result.nameMatched)
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
+index 3ff93fd..3dc4aae 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
+@@ -43,0 +44,5 @@ class JobRecoveryPolicyTest {
++    @Test fun pendingOtaBlocksAcquireAndRecoveryWithoutCancellingExistingEngine() {
++        assertEquals(true, otaBlocksBusinessWork(true))
++        assertEquals(false, otaBlocksBusinessWork(false))
 +    }
 +
-diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
-index 495567f..9497aa8 100644
---- a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
-+++ b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
-@@ -16,0 +17,6 @@ class TaskEngineCollectorLifecycleTest {
-+    @Test
-+    fun naturalTargetMissHasDedicatedTerminalStatus() {
-+        assertEquals("not_matched", taskEndStatus(stopRequested = false, success = 0, failed = 0, notMatched = 1))
-+        assertEquals("failed", taskEndStatus(stopRequested = false, success = 0, failed = 1, notMatched = 1))
-+    }
+diff --git a/server/cast_state.py b/server/cast_state.py
+index b932bf9..1cde6b8 100644
+--- a/server/cast_state.py
++++ b/server/cast_state.py
+@@ -5,0 +6 @@ import asyncio
++import threading
+@@ -33,0 +35,2 @@ class CastState:
++        self.apk_generation_by_scope: dict[tuple[int, int], int] = {}
++        self.apk_lock = threading.RLock()
+@@ -115,4 +118,8 @@ class CastState:
+-        self.pending_apk = dict(payload)
+-        self.apk_pending_keys = {k for k in device_keys if k}
+-        self.pending_apk_by_scope[scope] = dict(payload)
+-        self.apk_keys_by_scope[scope] = {k for k in device_keys if k}
++        with self.apk_lock:
++            generation = self.apk_generation_by_scope.get(scope, 0) + 1
++            self.apk_generation_by_scope[scope] = generation
++            payload = {**payload, "generation": generation}
++            self.pending_apk = dict(payload)
++            self.apk_pending_keys = {k for k in device_keys if k}
++            self.pending_apk_by_scope[scope] = dict(payload)
++            self.apk_keys_by_scope[scope] = {k for k in device_keys if k}
+@@ -127,3 +134,17 @@ class CastState:
+-        scopes = [scope] if scope is not None else list(self.apk_keys_by_scope)
+-        for selected in scopes:
+-            keys = self.apk_keys_by_scope.get(selected, set())
++        """Legacy delivery notification; it deliberately does not claim installation."""
++        # Android's system Package Installer completes outside the app process. A
++        # download/start acknowledgement is therefore not evidence that the APK is
++        # installed; keep the command until the new app version heartbeats.
++        return None
 +
-diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
-index 14023b2..50888ad 100644
---- a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
-+++ b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
-@@ -23,0 +24,5 @@ class TaskStatusMappingTest {
-+
-+    @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {
-+        assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))
-+        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))
-+    }
++    def confirm_apk_install(self, device_key: str, version_name: str, generation: int,
++                            scope: tuple[int, int]) -> bool:
++        """Consume a pending OTA command only after the installed app heartbeats."""
++        with self.apk_lock:
++            expected = self.pending_apk_by_scope.get(scope)
++            if (not expected or str(expected.get("version_name") or "") != version_name
++                    or int(expected.get("generation") or 0) != generation):
++                return False
++            keys = self.apk_keys_by_scope.get(scope, set())
++            if device_key not in keys:
++                return False
+@@ -130,0 +152 @@ class CastState:
++            self.apk_pending_keys.discard(device_key)
+@@ -132,5 +154,4 @@ class CastState:
+-                self.pending_apk_by_scope.pop(selected, None)
+-        self.apk_pending_keys.discard(device_key)
+-        if not self.apk_pending_keys:
+-            # 全部 ack 后仍保留 meta，便于状态页展示；清空 pending 避免新设备误触发
+-            self.pending_apk = None
++                self.pending_apk_by_scope.pop(scope, None)
++            if not self.apk_pending_keys:
++                self.pending_apk = None
++            return True
 diff --git a/server/job_service.py b/server/job_service.py
 index 32ccd84..4a60e76 100644
 --- a/server/job_service.py
@@ -195,6 +300,34 @@ index 32ccd84..4a60e76 100644
 +            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
 +        else:
 +            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
+diff --git a/server/routers/devices.py b/server/routers/devices.py
+index d767562..af162f3 100644
+--- a/server/routers/devices.py
++++ b/server/routers/devices.py
+@@ -149,0 +150,5 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
++        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
++        # System Package Installer runs outside the app process. Only the version
++        # reported by a later heartbeat confirms a completed installation.
++        if body.app_version and body.ota_generation is not None:
++            cast_state.confirm_apk_install(body.device_key, body.app_version, body.ota_generation, scope)
+@@ -152 +156,0 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
+-        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
+diff --git a/server/routers/ota.py b/server/routers/ota.py
+index 8feef67..d22f21b 100644
+--- a/server/routers/ota.py
++++ b/server/routers/ota.py
+@@ -215 +215 @@ def ack_update(body: OtaAckIn):
+-    """App 开始下载/安装后确认。"""
++    """仅确认 APK 已领取；安装完成由匹配版本心跳确认。"""
+@@ -222 +222 @@ def ack_update(body: OtaAckIn):
+-    return ApiOk(message="acked")
++    return ApiOk(message="download acknowledged; waiting for installed-version heartbeat")
+diff --git a/server/schemas.py b/server/schemas.py
+index a4f32b0..c1bd73f 100644
+--- a/server/schemas.py
++++ b/server/schemas.py
+@@ -33,0 +34 @@ class DeviceHeartbeatIn(BaseModel):
++    ota_generation: Optional[int] = None
 diff --git a/tests/test_job_service.py b/tests/test_job_service.py
 index e38ef3d..b781112 100644
 --- a/tests/test_job_service.py
@@ -247,3 +380,93 @@ index e38ef3d..b781112 100644
 +        self.cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:id", {"id": lease["job_id"]})
 +        self.assertEqual(1, int(self.cur.fetchone()[0]))
 +
+diff --git a/tests/test_ota_ack_semantics.py b/tests/test_ota_ack_semantics.py
+new file mode 100644
+index 0000000..9f8eb9e
+--- /dev/null
++++ b/tests/test_ota_ack_semantics.py
+@@ -0,0 +1,84 @@
++"""OTA acknowledgement is delivery-only; heartbeat version confirms installation."""
++
++from __future__ import annotations
++
++import unittest
++from types import SimpleNamespace
++from unittest.mock import patch
++
++from server.cast_state import CastState
++from server.routers import devices, ota
++from server.schemas import DeviceHeartbeatIn
++
++
++class _Cursor:
++    rowcount = 1
++
++    def execute(self, *_args, **_kwargs):
++        return None
++
++
++class _Conn:
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *_args):
++        return False
++
++    def cursor(self):
++        return _Cursor()
++
++
++class OtaAckSemanticsTest(unittest.TestCase):
++    def setUp(self) -> None:
++        self.state = CastState()
++        self.scope = (301, 401)
++        self.device = {
++            "device_id": 71,
++            "device_key": "device-ota-semantics",
++            "enterprise_id": self.scope[0],
++            "workspace_id": self.scope[1],
++            "current_task_id": None,
++        }
++        self.state.push_apk_update(
++            {"version_name": "1.0.82", "version_code": 82, "size": 12345},
++            [self.device["device_key"]],
++            scope=self.scope,
++        )
++
++    def test_ack_endpoint_does_not_confirm_install_and_matching_heartbeat_does(self) -> None:
++        # A start/download acknowledgement must leave the command pending: Android's
++        # system installer still requires an out-of-process user confirmation.
++        with patch.object(ota, "get_conn", return_value=_Conn()), \
++             patch.object(ota, "get_device_by_key", return_value=self.device), \
++             patch.object(ota, "cast_state", self.state):
++            response = ota.ack_update(ota.OtaAckIn(
++                device_key=self.device["device_key"], version_name="1.0.82",
++            ))
++        self.assertTrue(response.ok)
++        self.assertEqual(1, self.state.get_pending_apk(self.scope)["pending_devices"])
++
++        # Only a heartbeat emitted by the newly installed BuildConfig version may
++        # consume the OTA command.
++        request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
++        with patch.object(devices, "get_conn", return_value=_Conn()), \
++             patch.object(devices, "get_device_by_key", side_effect=[self.device, self.device]), \
++             patch.object(devices, "enrich_device", return_value={"device_id": 71}), \
++             patch.object(devices, "latest_payload", return_value={"has_apk": False}), \
++             patch.object(devices, "cast_state", self.state):
++            response = devices.heartbeat(DeviceHeartbeatIn(
++                device_key=self.device["device_key"], app_version="1.0.82", ota_generation=1,
++            ), request)
++        self.assertIsNone(response.data["commands"]["update_apk"])
++        self.assertIsNone(self.state.get_pending_apk(self.scope))
++
++    def test_stale_generation_cannot_consume_replacement_push(self) -> None:
++        self.state.push_apk_update({"version_name": "1.0.83"}, [self.device["device_key"]], self.scope)
++        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 1, self.scope))
++        self.assertEqual(2, self.state.get_pending_apk(self.scope)["generation"])
++        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 1, self.scope))
++        self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 2, self.scope))
++
++
++if __name__ == "__main__":
++    unittest.main()
