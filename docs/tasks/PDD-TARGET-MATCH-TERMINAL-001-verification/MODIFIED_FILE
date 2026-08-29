@@ -1,17 +1,21 @@
 BASE=80b3435558e67850c9cba4215ca81456721ef0db
 CODE_HEAD=30482e04dff48f78502f0a9656d1b4a6c713caee
-efc822bbd965ea68cdeef90f41e394925aff1340767e8f5653f0f25a5cd44676  android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
-75dd5696729857e2d008ab3425085996a55dd39bbea53666bb126cde6e746f82  android_collector/app/src/main/java/com/collector/pdd/engine/ProductTargetMatcher.kt
-3412b6915570b5de2c876a5a4190ad1ae4ea0340ae55eef566664d8a56baf573  android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
-13f6e76d79178d1217bb9eb5c53898271b50c03b3cc79615b0abaf34d37041b7  android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
-ebcd1b250e7ed75d7f86bd83baea1ecaf590703aae064c5bc2ec0e6b956b0205  android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
-4ae19a04091b3b80d5dddc3820ff9b62d057ad3c7c1fffaaf4ec3103ac0bacf8  android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
-fa9e1730af0b15d4dd5eccaf22a22f927c4137f437903e0b21b4d5ee40233fdf  android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
-1d31125b2bc364adc0e38836a62af57503227f63fb5978ba55692772e510d6a9  android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
-e0bfa875cbf286c2dba37d1ebb706cad30258d68625135977c1c6b7e88ad9608  server/cast_state.py
-e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa  server/job_service.py
-6d1dbd1dec54e55638f0575d44d5b4da41e4f5555556c298227c44db7cf55d52  server/routers/devices.py
-1ec7cc9b6c436d35b82988423e19f55c3068d053ce43968ddb6d4e4ef19e891e  server/routers/ota.py
-19f316bd46ddaaf22f71eb51c7420d2593a447b866197402fcf559e27dfe9ee9  server/schemas.py
-495b142c3ba80a50b28467fcbfe81adbf3140c351c47bd92b755ef57143f7a98  tests/test_job_service.py
-2bc5acfec611023e2681f7e66c79a34243339413d036b506ccee8086e635fa03  tests/test_ota_ack_semantics.py
+PATH_COUNT=18
+android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
+android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
+android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
+android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
+android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
+android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
+android_collector/app/src/main/java/com/collector/pdd/ui/MainActivity.kt
+android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
+android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
+android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
+android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
+server/cast_state.py
+server/job_service.py
+server/routers/devices.py
+server/routers/ota.py
+server/schemas.py
+tests/test_job_service.py
+tests/test_ota_ack_semantics.py

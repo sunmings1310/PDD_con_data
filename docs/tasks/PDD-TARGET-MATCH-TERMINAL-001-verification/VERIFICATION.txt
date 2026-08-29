@@ -1,9 +1,9 @@
 TASK=PDD-TARGET-MATCH-TERMINAL-001
 BASE=80b3435558e67850c9cba4215ca81456721ef0db
 CODE_HEAD=30482e04dff48f78502f0a9656d1b4a6c713caee
-PATCH_SHA256=d3495114d8e9a32d6833e25d97b06dd92987c21f99f19aab76448edf77014a07
-PATCH_VALIDATE=git apply --check --unidiff-zero --whitespace=nowarn DIFF_FILE.patch
-TARGETED_PYTHON=Ran 2 tests; OK; exit 0
-TARGETED_ANDROID=JobRecoveryPolicyTest tests=8 failures=0 errors=0
-ORACLE_FINAL=PENDING CONTROL
-REVIEW=DIFF single-line P1 fixed 213464c; OTA P1/P2 fixed 30482e04; re-review pending
+PATH_COUNT=18
+PATCH_SHA256=2972251f76d1aaabddb7d0da6a26e90a4cb6f7ec0afcc6f7ddc0201c4bb80544
+PATCH_HEADERS=18
+PATCH_COMMAND=git apply --check --unidiff-zero --whitespace=nowarn DIFF_FILE.patch
+ROLLBACK_COMMAND=ROLLBACK.sh reverses code patch then restores docs/backlog/task/verification from BASE and cleans generated verification files
+PROBE=NOT_EXECUTED_BY_DEV; CONTROL MUST RUN

@@ -144,3 +144,5 @@
 - 直接路径：ApkUpdater、ServerPrefs、ApiClient、AgentCoordinator、cast_state、devices、ota、schemas 及 OTA/Android 测试。
 - Targeted：Python 2 PASS；Android JobRecoveryPolicyTest 8 PASS。完整 Python/Android/Web strict 由本 wrapper 记录；Oracle final=PENDING CONTROL，不冒充 PASS。
 - Review 历史：DIFF_FILE 单行 P1 于 `213464c` 修复；`08eeac8` OTA P1/P2 于 `30482e04` 修复；等待 Independent Re-review。
+
+- Artifact boundary：DIFF_FILE 仅覆盖 base→CODE_HEAD 的 18 个非 docs 直接业务/测试路径；wrapper 文档由 ROLLBACK.sh 使用 base checkout 恢复，避免补丁自引用。

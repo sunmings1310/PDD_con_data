@@ -221,6 +221,40 @@ index c7ce5c9..760d9e0 100644
 +        NOT_MATCHED -> "business_rejection" to "TARGET_NOT_MATCHED"
 +        else -> "transient" to "LOCAL_TASK_FINISHED"
 +    }
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/ui/MainActivity.kt b/android_collector/app/src/main/java/com/collector/pdd/ui/MainActivity.kt
+index 4a7b10a..5f1f03c 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/ui/MainActivity.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/ui/MainActivity.kt
+@@ -225 +224,0 @@ class MainActivity : AppCompatActivity() {
+-            ApiClient(prefs),
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
+index 2536c79..f84c59b 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
+@@ -51,0 +52,12 @@ class ProductTargetMatcherTest {
++    @Test
++    fun rejectsDifferentNameInFourFieldMode() {
++        val result = ProductTargetMatcher.match(
++            expectedApproval = "国药准字H12345678", expectedName = "目标药品",
++            expectedSpec = "10片", expectedManufacturer = "甲药厂",
++            actualApproval = "国药准字H12345678", actualName = "无关药品",
++            actualSpec = "10s", actualManufacturer = "甲药厂有限公司",
++        )
++        assertFalse(result.matched)
++        assertFalse(result.nameMatched)
++    }
++
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
+index 495567f..9497aa8 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
+@@ -16,0 +17,6 @@ class TaskEngineCollectorLifecycleTest {
++    @Test
++    fun naturalTargetMissHasDedicatedTerminalStatus() {
++        assertEquals("not_matched", taskEndStatus(stopRequested = false, success = 0, failed = 0, notMatched = 1))
++        assertEquals("failed", taskEndStatus(stopRequested = false, success = 0, failed = 1, notMatched = 1))
++    }
++
 diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
 index 3ff93fd..3dc4aae 100644
 --- a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
@@ -231,6 +265,16 @@ index 3ff93fd..3dc4aae 100644
 +        assertEquals(false, otaBlocksBusinessWork(false))
 +    }
 +
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
+index 14023b2..50888ad 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
+@@ -23,0 +24,5 @@ class TaskStatusMappingTest {
++
++    @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {
++        assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))
++        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))
++    }
 diff --git a/server/cast_state.py b/server/cast_state.py
 index b932bf9..1cde6b8 100644
 --- a/server/cast_state.py
