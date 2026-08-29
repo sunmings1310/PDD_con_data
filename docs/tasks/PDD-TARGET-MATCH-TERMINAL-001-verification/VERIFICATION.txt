@@ -1,53 +1,98 @@
 TASK=PDD-TARGET-MATCH-TERMINAL-001
-STATUS=SETUP_BASELINE_PASS
+STATUS=TEST_BLOCKED_BEFORE_INDEPENDENT_REVIEW
 BASE=80b3435558e67850c9cba4215ca81456721ef0db
+FIXED_IMPLEMENTATION_HEAD=20a6ae005ad60549a51578cb0559904cf7017138
 BRANCH=codex/pdd-target-match-terminal-001
 WORKTREE=D:\work\PDD_con_data_pdd_target_match_terminal
 
 [ORIGINAL]
-COMMAND=git show 80b3435558e67850c9cba4215ca81456721ef0db:docs/backlog.md
-INPUT=Accepted main backlog bytes
-ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
+PATH=server/job_service.py
+COMMAND=git show 80b3435558e67850c9cba4215ca81456721ef0db:server/job_service.py
+INPUT=Accepted main server/job_service.py bytes
+ORIGINAL_SHA256=200c9f5e548d972392bd31c288d2c43740283bf07cd5d2c83d9a765a9e99c37d
 RESULT=PASS
 EXIT=0
 
 [MODIFIED_FILE]
 PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/MODIFIED_FILE
-INPUT=setup-state docs/backlog.md copy
-MODIFIED_FILE_SHA256=916400c48b32f7afb8673af6a8c337a7fac8ddb34fa2f420ef1292011282fd5a
+COMMAND=Copy-Item server/job_service.py docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/MODIFIED_FILE -Force
+INPUT=Fixed implementation server/job_service.py
+MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa
 MODIFIED_REMAINS_CHANGED=True
 RESULT=PASS
 EXIT=0
 
-[BASELINE_ANDROID]
-COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_HOME=$env:ANDROID_SDK_ROOT; .\gradlew.bat testDebugUnitTest --tests com.collector.pdd.engine.ProductTargetMatcherTest --tests com.collector.pdd.net.TaskStatusMappingTest --no-daemon
-WORKDIR=D:\work\PDD_con_data_pdd_target_match_terminal\android_collector
-LITERAL_OUTPUT=BUILD SUCCESSFUL in 2m 10s; 30 actionable tasks: 30 executed
+[DIFF_FILE]
+PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/DIFF_FILE.patch
+COMMAND=git diff --binary 80b3435558e67850c9cba4215ca81456721ef0db 20a6ae005ad60549a51578cb0559904cf7017138 -- [8 direct Android/Server/test paths]
+INPUT=Base-to-fixed implementation path set
+DIFF_FILE_SHA256=920289c5db51606a987a3b2885d866d974d51278e3027c536a4173060f8b63fc
 RESULT=PASS
 EXIT=0
 
+[FAILURE_REPRODUCTION]
+COMMAND_1=$env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_HOME=$env:ANDROID_SDK_ROOT; .\gradlew.bat testDebugUnitTest --tests com.collector.pdd.net.TaskStatusMappingTest --no-daemon --console=plain
+WORKDIR=D:\work\PDD_con_data_pdd_target_match_terminal\android_collector
+INPUT=pre-fix TaskStatusMappingTest.mapsNaturalTargetMissToDedicatedTerminalStatus
+LITERAL_OUTPUT_1=com.collector.pdd.net.TaskStatusMappingTest > mapsNaturalTargetMissToDedicatedTerminalStatus FAILED; java.lang.IllegalArgumentException at TaskStatusMappingTest.kt:26; 4 tests completed, 1 failed; BUILD FAILED in 20s
+EXIT_1=1
+COMMAND_2=$env:PYTHONPATH='.'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_job_service.JobServiceTest.test_target_not_matched_closes_item_without_retry_or_product_result -v
+WORKDIR_2=D:\work\PDD_con_data_pdd_target_match_terminal
+INPUT_2=pre-fix business_rejection/TARGET_NOT_MATCHED
+LITERAL_OUTPUT_2=FAIL; AssertionError: "SET STATUS='not_matched'" not found in "UPDATE SJZQ_TASK_ITEM SET STATUS='failed'..."; Ran 1 test in 0.002s; FAILED (failures=1)
+EXIT_2=1
+RESULT=PASS (failure reproduced before implementation)
+
+[MODIFIED_TARGETED]
+COMMAND=$env:PYTHONPATH='.'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_job_service.JobServiceTest tests.test_job_state tests.test_task_state -v
+INPUT=Fixed implementation; target no-match mapping, job terminal classification, task aggregation
+LITERAL_OUTPUT=Ran 24 tests in 0.013s; OK
+EXIT=0
+RESULT=PASS
+
 [BASELINE_PYTHON]
 COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
-WORKDIR=D:\work\PDD_con_data_pdd_target_match_terminal
-LITERAL_OUTPUT=Ran 249 tests in 1.120s; OK (skipped=31); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
-RESULT=PASS
+INPUT=Python 3.10.6; fixed implementation Head 20a6ae005ad60549a51578cb0559904cf7017138; Oracle flags absent
+LITERAL_OUTPUT=Ran 251 tests in 0.981s; OK (skipped=32); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
 EXIT=0
+RESULT=PASS
+
+[BASELINE_ANDROID]
+COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_HOME=$env:ANDROID_SDK_ROOT; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite android -Strict
+INPUT=JDK 17.0.20+8; SDK Android 34; fixed implementation Head 20a6ae005ad60549a51578cb0559904cf7017138
+LITERAL_OUTPUT=BUILD SUCCESSFUL in 31s; 30 actionable tasks: 7 executed, 23 up-to-date; [PASS] android-jvm: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+EXIT=0
+RESULT=PASS
+
+[WEB]
+COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
+INPUT=required bundled Node 22.18.x/npm 10.x absent; task has no Web source change and existing TaskDetail renders not_matched/message
+LITERAL_OUTPUT=[BLOCKED] web-build: bundled Node 22.18.x/npm 10.x is absent; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+EXIT=2
+RESULT=BLOCKED
+
+[ORACLE_REQUIRED]
+COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+INPUT=required isolated Oracle flags and variables absent from this process; no secrets printed
+LITERAL_OUTPUT=[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+EXIT=2
+RESULT=BLOCKED
 
 [ROLLBACK_SCRIPT_RUNTIME]
 COMMAND=where.exe bash
 LITERAL_OUTPUT=INFO: Could not find files for the given pattern(s).
 EXIT=1
-COMMAND_2=wsl.exe --status
-LITERAL_OUTPUT_2=Windows Subsystem for Linux is not installed (localized console output)
-EXIT_2=50
 RESULT=BLOCKED_BY_MISSING_SHELL_INTERPRETER
 
-[ROLLBACK_EQUIVALENT_PROBE]
-COMMAND=PowerShell equivalent of ROLLBACK.sh on an isolated copied probe: restore docs/backlog.md from BASE; remove Task and verification paths from probe; compare SHA-256
-PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-probe-89fb733885af44af887f12250871edbd
-LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; ROLLBACK_MATCH=True; TASK_PRESENT=False; VERIFICATION_PRESENT=False; MODIFIED_REMAINS_CHANGED=True
-RESULT=PASS
+[ROLLBACK_EQUIVALENT]
+ROLLBACK_PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/ROLLBACK.sh
+ROLLBACK_SHA256=5235b227c7dd138d8bc6a336a0d304af1b8a684522b432debb52d2c10ff2ab17
+COMMAND=PowerShell/Python byte-equivalent rollback on a fresh git clone: restore 9 direct paths from BASE, remove Task and verification paths, then git diff --quiet BASE -- [same 9 paths]
+INPUT=copy of fixed implementation plus current Task/backlog/four artifacts
+PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-probe-991123d476054caeb931c444c1213d9e
+LITERAL_OUTPUT=RESTORED_SHA256=200c9f5e548d972392bd31c288d2c43740283bf07cd5d2c83d9a765a9e99c37d; ROLLBACK_DIFF_EXIT=0; TASK_PRESENT=False; VERIFICATION_PRESENT=False; MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa; MODIFIED_REMAINS_CHANGED=True
 EXIT=0
+RESULT=PASS
 
 [NEXT]
-Single Dev Agent writes failing reproduction tests first, then minimal implementation. Independent Review remains mandatory.
+Required Oracle and Web gates are BLOCKED. Do not enter Independent Review until the required environments are restored and the canonical commands pass.

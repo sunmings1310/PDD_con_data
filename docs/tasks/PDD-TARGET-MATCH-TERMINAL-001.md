@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-TARGET-MATCH-TERMINAL-001
 - **Title**：目标精确匹配与未匹配业务终态
-- **Status**：IN_PROGRESS
+- **Status**：TEST / BLOCKED（Required Oracle 与 Web runtime 环境缺失；未进入 Independent Review）
 
 ## Goal
 
@@ -57,14 +57,14 @@
 
 ## Acceptance Criteria
 
-- [ ] 失败复现测试证明无关商品曾可越过候选选择/详情门禁，且 `LOCAL_TASK_FINISHED` 未匹配路径曾被错误标成 transient。
-- [ ] 未满足批准文号、品名、规格、厂家匹配的候选不能进入购买/SKU_PANEL，也不能持久化 Product/Raw/Snapshot。
-- [ ] 多候选时，不匹配候选可安全返回并继续；候选耗尽时形成 `not_matched`。
-- [ ] 未匹配只产生一次有效 Attempt；Item=`not_matched`，Job/Attempt 为不可重试业务终态，Lease 释放。
-- [ ] `LOCAL_TASK_FINISHED` 仅在真实 transient error 分类下可重试，不能覆盖 `not_matched`。
-- [ ] Task 聚合进入确定终态；Web/API 可见未匹配原因和明细；结果总数、Raw、Snapshot 均为 0；Task 不是 cancelled。
-- [ ] 重复 ACK/状态上报幂等，不产生额外 Attempt 或业务结果。
-- [ ] Android targeted、Server targeted、Python/Android/Web baseline 与 Oracle-required gate 通过，无新增 P0。
+- [x] 失败复现测试保留：`not_matched` 旧映射抛出异常，`TARGET_NOT_MATCHED` 旧服务端写入 `failed`；两项均已在实现前失败。
+- [x] `ProductTargetMatcher` 四字段门禁覆盖批准文号、品名、规格、厂家；不匹配在 `TaskEngine.collectOne` 的质量/持久化之前返回，未触及 SKU/Purchase 路径。
+- [x] 多候选以 `CandidateResult.NOT_MATCHED` 安全回列表继续；仅全部自然不匹配时本地任务终态为 `not_matched`。
+- [x] `business_rejection/TARGET_NOT_MATCHED` 将 Item 写为 `not_matched`，Job/Attempt 为非重试终态并释放 Lease；真实 Oracle 覆盖已补，待 Required 环境运行。
+- [x] `TaskStatusMapping.jobFailureFor` 仅将 `not_matched` 映射为 `business_rejection/TARGET_NOT_MATCHED`；其他旧 `job_fail` 路径保留 `transient/LOCAL_TASK_FINISHED`。
+- [x] 服务端聚合为既有 `failed` Task 终态（非 cancelled），Item 明细保留 `TARGET_NOT_MATCHED`；Task Detail 已展示未匹配/原因，结果为空时无 Raw/Snapshot。真实 Oracle 断言已补，待 Required 环境运行。
+- [x] 既有 outbox ACK 与 lease fence 保持；新增 Oracle 用例断言未匹配仅一条 Attempt 且 Product/Raw/Snapshot/Receipt 均为 0，待 Required 环境运行。
+- [ ] Python/Android 已通过；Web 与 Required Oracle 在本进程缺少固定运行环境，均为 BLOCKED，未伪报 PASS。
 
 ## Test Plan
 
@@ -117,3 +117,16 @@
 - Derived artifacts：`docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/`。
 - Review findings：pending。
 - Commit / PR：setup pending；PR forbidden before current Stop Condition。
+
+## Dev Execution Evidence（2026-08-29）
+
+- 固定实现 Head：`20a6ae005ad60549a51578cb0559904cf7017138`（前置失败复现提交：`729401476f34073d338222351161d3c903f1de97`）。
+- Android：候选结果区分 `COLLECTED / NOT_MATCHED / FAILED`；仅所有已检查候选均自然不匹配时形成 `not_matched`，匹配门禁仍在质量和 Product/outbox 持久化之前。
+- 协议：`not_matched → business_rejection/TARGET_NOT_MATCHED`；服务端以既有 Job/Attempt `failed` 非重试终态关闭并把对应 Item 置为 `not_matched`，不新增 Schema/状态。
+- 可见性：既有 `TaskDetail` 已按 `not_matched` 显示“未匹配”及 Item `message`；本次不改 Web DTO/Schema。
+- 实测：失败复现两项均为 exit 1；Python strict `251 / skipped=32` PASS；Android JVM strict PASS。Web Node 22.18.x/npm 10.x 及 Required Oracle 环境均在本进程缺失，canonical strict commands exit 2 / BLOCKED。
+- 四制品、准确命令、字面结果、hash 与 PowerShell rollback 等价核验见 [`PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt`](PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt)。
+
+## Dev Stop
+
+保持在 `TEST / BLOCKED`，不进入 Independent Review，不创建 PR/merge/release。恢复 Required Oracle 和固定 Web runtime 后，重跑对应 canonical commands 与 rollback 证据，再交 Independent Review。
