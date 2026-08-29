@@ -323,6 +323,11 @@ class OracleJobServiceTest(unittest.TestCase):
                  error_code="TARGET_NOT_MATCHED", error_message="candidate rejected")
         self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id":self.ids["item"]})
         status, message = self.cur.fetchone(); self.assertEqual("not_matched", status); self.assertIn("candidate_rejected#1", message)
+        self.cur.execute("UPDATE SJZQ_RAW_COLLECTION SET COLLECTED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(29,'DAY') WHERE RAW_ID=:id", {"id":first["raw_id"]})
+        with patch.object(observations, "adjust_used"):
+            self.assertEqual([], observations.cleanup_expired(self.cur, limit=10))
+        self.cur.execute("SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION WHERE RAW_ID=:id", {"id":first["raw_id"]})
+        self.assertEqual(1, int(self.cur.fetchone()[0]))
         self.cur.execute("UPDATE SJZQ_RAW_COLLECTION SET COLLECTED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(31,'DAY') WHERE RAW_ID=:id", {"id":first["raw_id"]})
         with patch.object(observations, "adjust_used"):
             self.assertEqual([], observations.cleanup_expired(self.cur, limit=10))
