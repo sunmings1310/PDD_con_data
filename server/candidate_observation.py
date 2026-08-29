@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import PurePosixPath
 from typing import Any
+import oracledb
 
 from server.db import next_id
 from server.job_service import JobProtocolError, require_active_lease
@@ -116,17 +117,33 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
         amount=max(1, payload_size), resource_type=SOURCE_TYPE, resource_key=body.idempotency_key,
     )
     raw_id = next_id(cur, "SJZQ_SEQ_RAW_COLLECTION")
-    cur.execute(
-        """INSERT INTO SJZQ_RAW_COLLECTION
+    try:
+        cur.execute(
+            """INSERT INTO SJZQ_RAW_COLLECTION
              (RAW_ID,REQUEST_KEY,TASK_ID,JOB_ID,ATTEMPT_ID,DEVICE_ID,SOURCE_TYPE,
               PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
              VALUES (:raw_id,:request_key,:task_id,:job_id,:attempt_id,:device_id,:source_type,
                      :payload_sha,:raw_json,SYSTIMESTAMP,:enterprise_id,:workspace_id)""",
-        {"raw_id": raw_id, "request_key": body.idempotency_key, "task_id": body.task_id,
-         "job_id": body.job_id, "attempt_id": body.attempt_id, "device_id": device["device_id"],
-         "source_type": SOURCE_TYPE, "payload_sha": payload_sha, "raw_json": payload,
-         "enterprise_id": enterprise_id, "workspace_id": workspace_id},
-    )
+            {"raw_id": raw_id, "request_key": body.idempotency_key, "task_id": body.task_id,
+             "job_id": body.job_id, "attempt_id": body.attempt_id, "device_id": device["device_id"],
+             "source_type": SOURCE_TYPE, "payload_sha": payload_sha, "raw_json": payload,
+             "enterprise_id": enterprise_id, "workspace_id": workspace_id},
+        )
+    except oracledb.IntegrityError:
+        # A concurrent replay can pass the initial lookup before the first
+        # transaction commits.  Resolve the unique request key as the same ACK,
+        # never as a second business write.
+        cur.execute(
+            """SELECT RAW_ID,PAYLOAD_SHA256,DEVICE_ID,ENTERPRISE_ID,WORKSPACE_ID
+                 FROM SJZQ_RAW_COLLECTION WHERE REQUEST_KEY=:key""",
+            {"key": body.idempotency_key},
+        )
+        raced = cur.fetchone()
+        if raced and (str(raced[1]), int(raced[2]), int(raced[3]), int(raced[4])) == (
+            payload_sha, int(device["device_id"]), enterprise_id, workspace_id
+        ):
+            return {"raw_id": int(raced[0]), "persisted": True, "acknowledged": True, "idempotent": True}
+        raise CandidateObservationError("IDEMPOTENCY_CONFLICT", "candidate observation replay conflicts")
     if reservation.status != "committed":
         commit(cur, reservation.reservation_id)
     summary = "no_candidate" if not body.candidate_present else f"candidate_rejected#{body.candidate_ordinal}"
