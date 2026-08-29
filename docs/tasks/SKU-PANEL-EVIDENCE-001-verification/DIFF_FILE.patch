@@ -2,19 +2,13 @@ diff --git a/docs/backlog.md b/docs/backlog.md
 index 6c3fbcd..6283308 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
-@@ -37,6 +37,12 @@
- 
- `WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
- 
+@@ -39,0 +40,6 @@
 +## Current approved evidence task（2026-08-29）
 +
 +| Task | 状态 | 范围 | 下一步 |
 +|---|---|---|---|
 +| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE | 在 `main@80b3435` 上对 1 个已确认多规格商品完成一次人工进入 SKU_PANEL 的只读、脱敏证据链；不实现 Generic SKU runtime/Schema/P1/Phase 6B | 完成 E2E 采样并由 Independent Reviewer 判断证据是否足以进入独立契约冻结 Task；本任务不启动第 2 步 |
 +
- ## Accepted Business Baseline（2026-08-24 merged）
- 
- - [x] Phase 6A Collector Contract/PddAdapter 保持 Accepted。
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001.md b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
 new file mode 100644
 index 0000000..7d58cb5
