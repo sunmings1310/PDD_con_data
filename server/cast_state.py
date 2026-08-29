@@ -86,16 +86,17 @@ class CastState:
         return bool(self.abort_flags.pop(did, False))
 
     def device_commands(self, device_key: str) -> dict[str, Any]:
-        cmds: dict[str, Any] = {
-            "cast_request": self.cast_requested_for_key(device_key),
-            "abort_task": self.pop_abort_for_key(device_key),
-            "update_apk": None,
-        }
-        for scope, payload in self.pending_apk_by_scope.items():
-            if device_key in self.apk_keys_by_scope.get(scope, set()):
-                cmds["update_apk"] = dict(payload)
-                break
-        return cmds
+        with self.apk_lock:
+            cmds: dict[str, Any] = {
+                "cast_request": self.cast_requested_for_key(device_key),
+                "abort_task": self.pop_abort_for_key(device_key),
+                "update_apk": None,
+            }
+            for scope, payload in tuple(self.pending_apk_by_scope.items()):
+                if device_key in self.apk_keys_by_scope.get(scope, set()):
+                    cmds["update_apk"] = dict(payload)
+                    break
+            return cmds
 
     def set_apk_meta(self, version_name: str, version_code: int, size: str | int) -> None:
         self.apk_meta = {
@@ -105,13 +106,11 @@ class CastState:
         }
 
     def get_pending_apk(self, scope: tuple[int, int] = (1, 1)) -> dict[str, Any] | None:
-        pending = self.pending_apk_by_scope.get(scope)
-        if not pending:
-            return None
-        return {
-            **pending,
-            "pending_devices": len(self.apk_keys_by_scope.get(scope, set())),
-        }
+        with self.apk_lock:
+            pending = self.pending_apk_by_scope.get(scope)
+            if not pending:
+                return None
+            return {**pending, "pending_devices": len(self.apk_keys_by_scope.get(scope, set()))}
 
     def push_apk_update(self, payload: dict[str, Any], device_keys: list[str],
                         scope: tuple[int, int] = (1, 1)) -> None:

@@ -247,7 +247,6 @@ class AgentCoordinator(
                 startEngineForJob(job)
             }
         }
-        
         // 心跳附带服务端最新包版本，驱动主界面更新条
         VersionStatus.applyServer(data?.optJSONObject("latest_apk"), ApiClient.APP_VERSION)
         val cmds = data?.optJSONObject("commands")
