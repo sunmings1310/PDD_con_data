@@ -1,7 +1,8 @@
 TASK=PDD-TARGET-MATCH-TERMINAL-001
-STATUS=TEST_BLOCKED_BEFORE_INDEPENDENT_REVIEW
+STATUS=REVIEW_READY_NOT_ACCEPTED
 BASE=80b3435558e67850c9cba4215ca81456721ef0db
 FIXED_IMPLEMENTATION_HEAD=20a6ae005ad60549a51578cb0559904cf7017138
+CONTROL_GATE_HEAD=1522497f77774bb8250ee8e92c98c3c7ec10c7ff
 BRANCH=codex/pdd-target-match-terminal-001
 WORKTREE=D:\work\PDD_con_data_pdd_target_match_terminal
 
@@ -12,6 +13,11 @@ INPUT=Accepted main server/job_service.py bytes
 ORIGINAL_SHA256=200c9f5e548d972392bd31c288d2c43740283bf07cd5d2c83d9a765a9e99c37d
 RESULT=PASS
 EXIT=0
+
+[ARTIFACT_HASHES]
+MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa
+DIFF_FILE_SHA256=920289c5db51606a987a3b2885d866d974d51278e3027c536a4173060f8b63fc
+ROLLBACK_SHA256=5235b227c7dd138d8bc6a336a0d304af1b8a684522b432debb52d2c10ff2ab17
 
 [MODIFIED_FILE]
 PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/MODIFIED_FILE
@@ -66,33 +72,40 @@ RESULT=PASS
 
 [WEB]
 COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite web -Strict
-INPUT=required bundled Node 22.18.x/npm 10.x absent; task has no Web source change and existing TaskDetail renders not_matched/message
-LITERAL_OUTPUT=[BLOCKED] web-build: bundled Node 22.18.x/npm 10.x is absent; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
-EXIT=2
-RESULT=BLOCKED
+INPUT=Control gate Head 1522497; accepted Node v22.18.0/npm 10.9.3; web/node_modules
+LITERAL_OUTPUT=✓ built in 8.40s; [PASS] web-build: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+LITERAL_OUTPUT_SHA256=aa280d69b77ab3b06888facbe8d0f5e3403e3f0e0fc738bc0020648c8b598ceb
+EXIT=0
+RESULT=PASS
 
 [ORACLE_REQUIRED]
 COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-INPUT=required isolated Oracle flags and variables absent from this process; no secrets printed
-LITERAL_OUTPUT=[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
-EXIT=2
-RESULT=BLOCKED
+INPUT=Control gate Head 1522497; approved isolated Oracle; required Phase 1-6A flags and ORACLE_* process variables; no secrets printed
+LITERAL_OUTPUT=Ran 55 tests in 341.773s; OK; [PASS] oracle-integration: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+LITERAL_OUTPUT_SHA256=4ddcaab305acf195bb013f6a80e34f5b00179941f42db06db7da9ddc45fc47b9
+EXIT=0
+RESULT=PASS
+
+[HISTORICAL_ORACLE_CONFIG_FAILURE]
+COMMAND=first Control Oracle attempt before the canonical PASS
+INPUT=only T003_* variables were set; server.db still read default local ORACLE_* configuration
+RESULT=FAIL_HISTORICAL; no secrets recorded
 
 [ROLLBACK_SCRIPT_RUNTIME]
 COMMAND=where.exe bash
 LITERAL_OUTPUT=INFO: Could not find files for the given pattern(s).
 EXIT=1
-RESULT=BLOCKED_BY_MISSING_SHELL_INTERPRETER
+RESULT=HISTORICAL_MISSING_SHELL_INTERPRETER
 
 [ROLLBACK_EQUIVALENT]
 ROLLBACK_PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/ROLLBACK.sh
 ROLLBACK_SHA256=5235b227c7dd138d8bc6a336a0d304af1b8a684522b432debb52d2c10ff2ab17
 COMMAND=PowerShell/Python byte-equivalent rollback on a fresh git clone: restore 9 direct paths from BASE, remove Task and verification paths, then git diff --quiet BASE -- [same 9 paths]
 INPUT=copy of fixed implementation plus current Task/backlog/four artifacts
-PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-probe-991123d476054caeb931c444c1213d9e
+PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-final-rollback-8e721ee434ff4e8584570c84e184e929
 LITERAL_OUTPUT=RESTORED_SHA256=200c9f5e548d972392bd31c288d2c43740283bf07cd5d2c83d9a765a9e99c37d; ROLLBACK_DIFF_EXIT=0; TASK_PRESENT=False; VERIFICATION_PRESENT=False; MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa; MODIFIED_REMAINS_CHANGED=True
 EXIT=0
 RESULT=PASS
 
 [NEXT]
-Required Oracle and Web gates are BLOCKED. Do not enter Independent Review until the required environments are restored and the canonical commands pass.
+All Dev gates pass. Enter Independent Review at the fixed code Head 20a6ae0 with Control gate provenance 1522497; this status is not ACCEPTED.
