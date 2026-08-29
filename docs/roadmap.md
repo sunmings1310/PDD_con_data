@@ -1,6 +1,6 @@
 # 稳定数据采集系统升级路线图
 
-> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-28）**
+> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-29）**
 > 本文是未来阶段的权威入口，但路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前产品、实现和开放缺口分别见 [`../PRODUCT.md`](../PRODUCT.md)、[`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
 
 ## 当前未来阶段边界
@@ -21,7 +21,7 @@ BL-110-WS-TENANT-BOUNDARY
 → WEB-STATE-UX-001
 ```
 
-每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为 `main@40e3e958`；第 5 项 `WEB-STATE-UX-001` 已通过 PR #13 普通 merge 为当前 `main@d56787a`，状态为 `MERGED / ACCEPTED`。至此已批准的 Web 执行队列全部完成。当前等待 Product Owner 选择下一阶段；Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台等未启动路线只记录事实，不构成批准、排序或启动。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
+每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为 `main@40e3e958`；第 5 项 `WEB-STATE-UX-001` 已通过 PR #13 普通 merge 为 `main@d56787a`，状态为 `MERGED / ACCEPTED`。后续获批的 `WEB-NAV-EXCEL-CONSOLIDATION-001` 已通过 PR #15 普通 merge 为当前 `main@d91b638`，将 Excel 导入统一到 TaskCreate，并将 Excel 查库/导出归入商品资料库上下文；未改变 canonical Task、Server、Schema 或 Android。当前等待 Product Owner 选择下一阶段；Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台等未启动路线只记录事实，不构成批准、排序或启动。`WEB-TASK-IMPORT-001` 的 draft→人工保存→资料库语义保持不变；其独立 Excel 菜单边界已由 PR #15 的 Accepted 结果取代。状态以 [backlog.md](backlog.md) 为准。
 
 > 制定日期：2026-08-13
 > 依据：`docs/gap-analysis.md`、`docs/CURRENT_STATE.md`、`docs/architecture.md`、`docs/issues.md`

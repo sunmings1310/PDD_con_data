@@ -1,0 +1,38 @@
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+index 8680e3d..6894dbb 100644
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -4 +4 @@
+-> 更新日期：2026-08-28
++> 更新日期：2026-08-29
+@@ -12,2 +12,2 @@
+-| 当前主线基线 | `d56787a614aba8559934a085a66e12bd20c12832` |
+-| 当前 Accepted 主线 | `d56787a614aba8559934a085a66e12bd20c12832`，包含 PR [#13](https://github.com/sunmings1310/PDD_con_data/pull/13) |
++| 当前主线基线 | `d91b6389bae80067352b2bb4bc5848ca3132f37a` |
++| 当前 Accepted 主线 | `d91b6389bae80067352b2bb4bc5848ca3132f37a`，包含 PR [#15](https://github.com/sunmings1310/PDD_con_data/pull/15) |
+@@ -20 +20 @@
+-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge 为 `main@09e717c`；PR #7 与 #8 已完成 Web 结果可见性及状态收口。PR #9 已普通 merge 为 `main@a02c8a8`，`WEB-CLIENT-CONTRACT-001` 正式进入 Accepted 主线。PR #11 已普通 merge 为 `main@40e3e95`，`WEB-TASK-IMPORT-001` 正式进入 Accepted 主线。PR #13 已普通 merge 为当前 `main@d56787a`，`WEB-STATE-UX-001` 正式进入 Accepted 主线。
++PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge 为 `main@09e717c`；PR #7 与 #8 已完成 Web 结果可见性及状态收口。PR #9 已普通 merge 为 `main@a02c8a8`，`WEB-CLIENT-CONTRACT-001` 正式进入 Accepted 主线。PR #11 已普通 merge 为 `main@40e3e95`，`WEB-TASK-IMPORT-001` 正式进入 Accepted 主线。PR #13 已普通 merge 为 `main@d56787a`，`WEB-STATE-UX-001` 正式进入 Accepted 主线。PR #15 已普通 merge 为当前 `main@d91b638`，`WEB-NAV-EXCEL-CONSOLIDATION-001` 正式进入 Accepted 主线。
+@@ -121 +121 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
+-`WEB-NAV-EXCEL-CONSOLIDATION-001` 是当前未合并的 Web-only `ACCEPTED / PR CANDIDATE`：导航移除独立 Excel 一级入口，兼容 `/excel` 重定向到 canonical TaskCreate，资料库承载 Excel 查库/导出，未修改 Server/Schema/canonical Task/Android。功能 Head `cc9190e030421659ab76a6d8c974f4302daf6667`；Review evidence Head `03839ad09adb885008e453391275f7191f7134d1` Independent Review `ACCEPT`，无 P0/P1/P2。Node mounted/router、既有 Node contracts、Python offline full（257 / skipped=39）和 Web build 已通过；Oracle/真机均 `SKIPPED / not applicable`。下一门禁为 Draft PR/Hosted CI，禁止 merge 或 release。
++`WEB-NAV-EXCEL-CONSOLIDATION-001` 已通过 PR [#15](https://github.com/sunmings1310/PDD_con_data/pull/15) 普通 merge 为当前 `main@d91b6389bae80067352b2bb4bc5848ca3132f37a`；功能/PR Head 为 `5379dd6ca0f5261dfeb51331eee3e1cfe90d2b5c`。任务将 Excel 导入收敛到 canonical TaskCreate，并将批量查库/导出归入商品资料库上下文；未修改 Server/Schema/canonical Task/Android。最终门禁为 Independent Review `ACCEPT`、Core CI [#33177430170](https://github.com/sunmings1310/PDD_con_data/actions/runs/33177430170) `completed / success`；Node mounted/router 与既有 contracts、Python offline full（257 / skipped=39）和 Web build 已通过，Oracle/真机均为 Web-only `SKIPPED / not applicable`。任务状态为 `MERGED / ACCEPTED`。
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 863bc10..6c3fbcd 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -3 +3 @@
+-> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-28）**
++> **Status: CURRENT TASK STATUS AUTHORITY（2026-08-29）**
+@@ -36 +36 @@
+-| WEB-NAV-EXCEL-CONSOLIDATION-001 | ACCEPTED / PR CANDIDATE | 收敛 Excel 导航与任务下发入口；保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Review `ACCEPT`，无 P0/P1/P2；Control 创建 Draft PR并跟踪 Hosted CI，STOP before merge |
++| WEB-NAV-EXCEL-CONSOLIDATION-001 | MERGED / ACCEPTED | PR #15 已普通 merge 为 `main@d91b638`；功能/PR Head `5379dd6`。收敛 Excel 导航与任务下发入口，保留资料库 Excel 查库/导出；不改 Server/Schema/canonical Task | Review `ACCEPT`；Core CI #33177430170 `completed / success`；Oracle/真机为 Web-only `SKIPPED / not applicable` |
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index 9043fe6..8d97c57 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -3 +3 @@
+-> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-28）**
++> **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-29）**
+@@ -24 +24 @@ BL-110-WS-TENANT-BOUNDARY
+-每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为 `main@40e3e958`；第 5 项 `WEB-STATE-UX-001` 已通过 PR #13 普通 merge 为当前 `main@d56787a`，状态为 `MERGED / ACCEPTED`。至此已批准的 Web 执行队列全部完成。当前等待 Product Owner 选择下一阶段；Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台等未启动路线只记录事实，不构成批准、排序或启动。`WEB-TASK-IMPORT-001` 的既定非目标继续有效：导出仍分别归 Task Detail、Product Library、Quality/Quarantine；不改变 draft→人工保存→资料库语义，不授权删除独立 Excel 菜单，也不进入 Generic SKU、Schema/P1 数据模型或 Phase 6B。状态以 [backlog.md](backlog.md) 为准。
++每项必须从前项 merge 后的 `main` 建立独立分支。第 1 项已通过 PR #5 普通 merge 为 `main@09e717c`；第 2 项 `WEB-RESULT-VISIBILITY-001` 已通过 PR #7 普通 merge；第 3 项 `WEB-CLIENT-CONTRACT-001` 已通过 PR #9 普通 merge 为 `main@a02c8a8`；第 4 项 `WEB-TASK-IMPORT-001` 已通过 PR #11 普通 merge 为 `main@40e3e958`；第 5 项 `WEB-STATE-UX-001` 已通过 PR #13 普通 merge 为 `main@d56787a`，状态为 `MERGED / ACCEPTED`。后续获批的 `WEB-NAV-EXCEL-CONSOLIDATION-001` 已通过 PR #15 普通 merge 为当前 `main@d91b638`，将 Excel 导入统一到 TaskCreate，并将 Excel 查库/导出归入商品资料库上下文；未改变 canonical Task、Server、Schema 或 Android。当前等待 Product Owner 选择下一阶段；Generic SKU runtime、正式 P1 SKU/ProductAttribute Schema、Phase 6B 与第二平台等未启动路线只记录事实，不构成批准、排序或启动。`WEB-TASK-IMPORT-001` 的 draft→人工保存→资料库语义保持不变；其独立 Excel 菜单边界已由 PR #15 的 Accepted 结果取代。状态以 [backlog.md](backlog.md) 为准。
