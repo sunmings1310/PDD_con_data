@@ -1,0 +1,125 @@
+# SKU-PANEL-EVIDENCE-001：SKU_PANEL 最小真实证据采样
+
+- **Task ID**：SKU-PANEL-EVIDENCE-001
+- **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
+- **Status**：IN_PROGRESS
+- **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
+- **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
+
+## Goal
+
+在不恢复未 Accepted 自动化、不写业务数据的前提下，对 1 个已确认多规格商品完成“详情页 → 人工点击购买入口 → SKU_PANEL → 返回详情”的一次最小、低频、可审计证据链，为后续独立 Generic SKU 契约冻结判断提供真实依据。
+
+## Context
+
+- Accepted main 只保留 `SKU_PANEL` Raw 类型与 replay 兼容能力；默认 PDD 采集路径不点击购买入口、不主动打开面板、不遍历组合。
+- 历史 `SKU-EVIDENCE-001` 的 7 个样本最多确认二维；disabled、SKU media、direct platform SKU ID 均为 `NOT_OBSERVED`，且 `available=false` 不能直接解释为无效组合。
+- 历史 `SKU-EVIDENCE-VALIDATION-001` 因 ADB 设备数为 0 而停在 Human Gate；本 Task 从新的 Accepted main 独立建立，不复用旧分支实现。
+
+## Scope
+
+### Allowed
+
+1. 使用已批准真实账号、已授权真机和人工监督；秘密只保留在既有受控会话中。
+2. 可逆启动/核验本地 `127.0.0.1:8080` 服务，不修改或提交配置。
+3. 只选择 1 个已确认多规格测试商品；最多进入 SKU_PANEL 1 次。
+4. 人工点击购买/拼单入口；Agent 只读观察截图、UI hierarchy、必要本地日志/网络节奏。
+5. 记录进入条件、维度、选项文本、价格变化、控件/无障碍结构、返回路径、异常和时间线。
+6. Original evidence 保存在隔离目录；仓库只保存脱敏 manifest、报告与 hash。
+
+### Forbidden
+
+- 确认订单、提交订单、支付、加入购物车；
+- 批量/高频遍历组合、持续采集或第二次面板进入；
+- 回显或提交账号、Token、手机号、收货信息、真实设备 ID、未脱敏截图/网络包；
+- 修改业务代码、Schema/migration、Generic SKU runtime、P1 或 Phase 6B；
+- 从标题、商品参数、主商品价格或未确认状态推导 SKU；
+- 创建功能 PR、merge、release 或启动第 2 步。
+
+## Non-goals
+
+- 不冻结 Generic SKU 契约；
+- 不提出或实施正式 SKU/ProductAttribute Schema；
+- 不验证订单、库存或支付流程；
+- 不替代历史 Raw→Replay→DTO 回归。
+
+## Dependencies
+
+- `main@80b3435558e67850c9cba4215ca81456721ef0db`；
+- 本地 8080 可达或可逆恢复；
+- 单一已批准 ADB 真机、现有受控 PDD 登录会话与人工监督；
+- 一个可明确识别且页面确有多规格的测试商品。
+
+## Affected Modules
+
+- 只读：Android/PDD 运行态、UI hierarchy、本地服务健康状态；
+- 文档：本 Task、`docs/backlog.md`、Task 专属脱敏 evidence/verification；
+- 业务代码、数据库和生产配置：无修改。
+
+## ADR
+
+无。本 Task 只补证据；第 2 步是否建立/冻结契约由独立 Review 结论与 Product Owner 后续批准决定。
+
+## Acceptance Criteria
+
+- [ ] 服务 `127.0.0.1:8080` 状态有字面证据；
+- [ ] ADB 只发现一个 approved device，真实 serial 仅记录 hash/alias；
+- [ ] PDD 包、屏幕与既有受控会话满足采样前提；
+- [ ] 单商品、单次面板进入与退出完成；
+- [ ] 进入条件、维度、选项、价格变化、控件/无障碍结构、返回路径与异常均按事实记录；
+- [ ] 未观察字段使用 `NOT_OBSERVED`，不推断 platform SKU ID/库存/无效组合；
+- [ ] `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`；
+- [ ] Original 与 derived 分离，派生证据通过敏感扫描与 hash 校验；
+- [ ] 独立 Reviewer 给出证据是否足以进入第 2 步的结论。
+
+## Test Plan
+
+| Layer | Command / action | Expected | Status |
+|---|---|---|---|
+| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200，或可复现 BLOCKED | PENDING |
+| Device | approved `adb devices -l`、screen/package只读检查 | exactly one approved device | PENDING |
+| Evidence | screenshot/UI hierarchy/hash/manifest + redaction scan | one bounded evidence chain | PENDING |
+| Guard | timeline and return-path review | no order/cart/payment action | PENDING |
+| Docs | links, diff, sensitive scan, rollback probe | PASS | PENDING |
+
+## Oracle Gate
+
+- Required：No。
+- Reason：只读设备采样和文档证据，不修改 Server SQL/transaction/Schema，不调用业务写 API。
+- Status：`SKIPPED / not applicable`；不得称为 PASS。
+
+## Real-device Gate
+
+- Required：Yes。
+- Device/scenario：单一 approved device；现有受控登录会话；单商品、单次人工进入 SKU_PANEL 并退出。
+- Stop on：设备/服务不可恢复、登录失效、验证码/风控、页面跳转订单确认、需要新密码/OTP、出现敏感信息无法安全脱敏。
+
+## Rollback
+
+- Code rollback：无业务代码修改；文档可通过 Task 专属 `ROLLBACK.sh` 在副本恢复。
+- Configuration rollback：停止 Task 启动的本地服务进程；不写配置文件。
+- Data recovery：无预期业务写入；若发现平台状态变化立即停止并记录。
+- Irreversible items：无。
+
+## Human Decision Points
+
+- 用户已批准本 Task 的真实账号、真机与人工监督范围。
+- 新账号/密码/OTP/验证码、越过订单边界、产品语义改变、Schema/runtime、merge/release 均需再次批准。
+
+## Stop Condition
+
+- 完成一次最小证据链并取得独立 Review；或
+- 服务/设备/会话/页面条件阻塞；或
+- 页面即将进入确认订单、出现风控/验证或无法可靠脱敏。
+
+到达 Stop Condition 后不启动第 2 步，不创建功能 PR，不 merge/release。
+
+## Evidence
+
+- Original evidence：仓库外隔离目录，路径与 hash 记录在脱敏 manifest；
+- Derived artifacts：`docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/`；
+- Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
+- Review findings：PENDING。
+
+ARTIFACT_STATE=MODIFIED_COPY
+
