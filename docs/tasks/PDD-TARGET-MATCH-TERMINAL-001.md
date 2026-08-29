@@ -146,3 +146,6 @@
 - Review 历史：DIFF_FILE 单行 P1 于 `213464c` 修复；`08eeac8` OTA P1/P2 于 `30482e04` 修复；等待 Independent Re-review。
 
 - Artifact boundary：DIFF_FILE 仅覆盖 base→CODE_HEAD 的 18 个非 docs 直接业务/测试路径；wrapper 文档由 ROLLBACK.sh 使用 base checkout 恢复，避免补丁自引用。
+
+- Control final evidence：Android full canonical PASS（BUILD SUCCESSFUL in 32s；strict summary PASS）；独立 c95e7a2 probe rollback PASS（reverse apply/check=0，Task/verification removed，MODIFIED remains changed）。Oracle stable external manifest 由 Control 在 F4 生成；manifest git_head 为权威，避免文档自引用。
+
