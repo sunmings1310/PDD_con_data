@@ -1,54 +1,85 @@
 {
   "task_id": "SKU-PANEL-EVIDENCE-001",
   "baseline": "80b3435558e67850c9cba4215ca81456721ef0db",
-  "captured_at": "2026-08-29T11:43:30.2230684+08:00",
-  "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED",
+  "captured_at": "2026-08-29T12:29:10+08:00",
+  "status": "PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE",
   "service": {
-    "host": "127.0.0.1",
+    "host": "0.0.0.0",
     "port": 8080,
     "listen": true,
     "health_http": 200,
     "health_ok": true,
-    "pid": 17756,
-    "stop_script": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\runtime\\server-8080\\stop_server.ps1"
+    "pid": 30336,
+    "configuration_persisted": false
   },
   "device": {
-    "approved_adb": "D:\\work\\pda-picking\\tools\\android-sdk\\platform-tools\\adb.exe",
-    "device_count": 0,
-    "serial_stored": false,
-    "screen_status": "NOT_EXECUTED_NO_DEVICE",
-    "pdd_package_status": "NOT_EXECUTED_NO_DEVICE",
-    "session_status": "NOT_EXECUTED_NO_DEVICE"
+    "connection": "approved_link_app",
+    "alias": "device-e4a6069f4f",
+    "real_identifier_stored": false,
+    "status": "online",
+    "current_task": false,
+    "active_job": false,
+    "active_attempt": false,
+    "cast_status": "PASS"
   },
+  "canonical_tasks": [
+    {"task_id": 3528, "job_id": 1511, "attempt_ids": [1313, 1314], "excel_row": 2, "status": "cancelled", "decision": "NOT_APPLICABLE_UNSAFE_CONSULTATION_AND_SPEC_MISMATCH"},
+    {"task_id": 3529, "job_id": 1512, "attempt_ids": [1315], "excel_row": 3, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH"},
+    {"task_id": 3530, "job_id": 1513, "attempt_ids": [1316], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
+    {"task_id": 3531, "job_id": 1514, "attempt_ids": [1317], "excel_row": 5, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
+    {"task_id": 3532, "job_id": 1515, "attempt_ids": [1318], "excel_row": 6, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
+    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"}
+  ],
   "sample": {
-    "count": 0,
+    "confirmed_multi_sku_count": 0,
     "sku_panel_entry_count": 0,
     "dimensions": "NOT_OBSERVED",
     "options": "NOT_OBSERVED",
-    "price_change": "NOT_OBSERVED",
+    "combination_price": "NOT_OBSERVED",
+    "availability": "NOT_OBSERVED",
     "platform_sku_id": "NOT_OBSERVED",
     "ui_hierarchy": "NOT_OBSERVED",
-    "return_path": "NOT_EXECUTED"
+    "return_path": "NOT_EXECUTED_NO_PANEL"
+  },
+  "terminal": {
+    "tasks_cancelled": 6,
+    "jobs_cancelled": 6,
+    "leases_active": 0,
+    "result_receipts": 0,
+    "products": 0,
+    "raw_collections": 0,
+    "snapshots": 0,
+    "audit_rows_retained": true
   },
   "guards": {
     "cart_action": false,
     "order_confirmation_clicked": false,
     "order_submitted": false,
     "payment_started": false,
-    "api_business_write_attempted": false,
-    "persistent_business_changes": false,
-    "persistent_business_changes_scope": "observed local-service and device-precheck actions only"
+    "product_business_result_written": false,
+    "persistent_business_changes_claim": "Task/Attempt audit rows retained; Product/Raw/Snapshot/order/cart/payment changes were not observed"
   },
   "original_evidence": [
     {
-      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\service-precheck.txt",
-      "sha256": "8f264389353b4015f9c346ab0b6efa514e556a455a1d7a04cce38facb6803c7f"
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\task-3528-row1-detail-before.jpg",
+      "sha256": "c30855daf21421f31feaebc62a645f4330a7a10eb35c57c8937c462b609e275c",
+      "contains_sensitive_raw": true,
+      "repository_copy": false
     },
     {
-      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\adb-precheck.txt",
-      "sha256": "a74eeb9281dee18b78b7a2dc2826ae0d7fd9dc16ec2c83ce465bd9184466e003"
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\frame-001.jpg",
+      "sha256": "d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf",
+      "contains_sensitive_raw": true,
+      "repository_copy": false
+    },
+    {
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\runtime-final.txt",
+      "sha256": "3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5",
+      "contains_sensitive_raw": false,
+      "repository_copy": false
     }
   ],
   "repository_contains_original_raw": false,
-  "sensitive_values_redacted": true
+  "sensitive_values_redacted": true,
+  "step_2_allowed": false
 }

@@ -1,5 +1,5 @@
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 6c3fbcd..257035f 100644
+index 6c3fbcd..e8a6145 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -39,0 +40,6 @@
@@ -7,25 +7,193 @@ index 6c3fbcd..257035f 100644
 +
 +| Task | 状态 | 范围 | 下一步 |
 +|---|---|---|---|
-+| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PRECHECK_COMPLETE / HUMAN_GATE | 本地服务已恢复；ADB 重启后仍为 `DEVICE_COUNT=0`，尚未打开商品或 SKU_PANEL；不实现 Generic SKU runtime/Schema/P1/Phase 6B | 等待 Product Owner 连接并授权已批准真机后续接一次最小 E2E 采样；本任务不启动第 2 步 |
++| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 联机工具已在线，canonical Task→Job→Attempt 自动导航已真实执行；Excel 5 行候选均未形成“输入身份匹配且已确认多规格”的安全样本，`SKU_PANEL` 进入次数仍为 0；所有采样 Task 已取消、Lease 已释放，未写 Product/Raw/Snapshot | 等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品；不启动第 2 步 |
 +
+diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md
+new file mode 100644
+index 0000000..c6513cb
+--- /dev/null
++++ b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md
+@@ -0,0 +1,71 @@
++# SKU-PANEL-EVIDENCE-001 E2E Precheck
++
++- **Captured at**：2026-08-29 11:42–11:43 +08:00
++- **Baseline**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
++- **Result**：`HUMAN_GATE / BLOCKED — APPROVED_DEVICE_NOT_CONNECTED`
++
++## Service
++
++```text
++COMMAND=<REDACTED_ENV> D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m server.main
++INPUT=working directory D:\work\PDD_con_data_main; APP_ENV=test; HOST=127.0.0.1; PORT=8080; Oracle/JWT loaded from the existing approved local environment without printing values
++LITERAL_REDACTED_OUTPUT=LISTEN=127.0.0.1:8080 STATE=Listen PID=17756; HEALTH_HTTP=200; HEALTH_BODY={"ok":true,"oracle":"<REDACTED>","image_dir":"<REDACTED_LOCAL_PATH>","web_dist":true,"ocr_license_filter":true}
++EXIT=0
++RESULT=PASS
++```
++
++The runtime was started without changing a repository configuration file. The validated stop command is:
++
++```text
++powershell -NoProfile -File C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\server-8080\stop_server.ps1
++```
++
++The stop script parsed with `STOP_SCRIPT_PARSE_ERRORS=0`. It was not run against the main service because the service must remain available at the Human Gate.
++
++## Device
++
++```text
++COMMAND=D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe kill-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe start-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe devices -l
++INPUT=approved adb binary; expected exactly one previously approved physical device
++LITERAL_REDACTED_OUTPUT=* daemon not running; starting now at tcp:5037 | * daemon started successfully | List of devices attached | DEVICE_COUNT=0
++EXIT=2 (gate command deliberately returns 2 when device count is not exactly one)
++RESULT=BLOCKED
++```
++
++Because no device was visible, the following checks were not executed:
++
++- screen/unlock state：`NOT_EXECUTED_NO_DEVICE`
++- PDD package：`NOT_EXECUTED_NO_DEVICE`
++- controlled login session：`NOT_EXECUTED_NO_DEVICE`
++- confirmed multi-SKU sample selection：`NOT_EXECUTED_NO_DEVICE`
++- SKU panel entry/exit：`NOT_EXECUTED_NO_DEVICE`
++
++No real device serial was stored or printed. A serial hash/alias will only be created after exactly one approved device is visible.
++
++## Sampling and guards
++
++```text
++sample_count=0
++sku_panel_entry_count=0
++cart_action=false
++order_confirmation_clicked=false
++order_submitted=false
++payment_started=false
++api_business_write_attempted=false
++persistent_business_changes=false (within the observed local-service/device-precheck scope)
++```
++
++No product page, SKU option, price, combination, platform SKU ID, UI hierarchy, screenshot, network capture, or account datum was observed. Those fields are `NOT_OBSERVED`, not inferred.
++
++## Original / derived separation
++
++Original runtime evidence remains outside the repository at:
++
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\service-precheck.txt`
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\adb-precheck.txt`
++
++This repository file is a redacted derived report. Hashes and paths are recorded in `manifest.json`.
++
++## Resume condition
++
++Connect the already-approved device by USB, keep the existing ADB authorization, and unlock the screen. Do not click the purchase/group-buy entry before E2E resumes. The next check is a single `adb devices -l`; sampling remains limited to one confirmed multi-SKU product and one panel entry.
+diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
+new file mode 100644
+index 0000000..78c1a22
+--- /dev/null
++++ b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
+@@ -0,0 +1,85 @@
++{
++  "task_id": "SKU-PANEL-EVIDENCE-001",
++  "baseline": "80b3435558e67850c9cba4215ca81456721ef0db",
++  "captured_at": "2026-08-29T12:29:10+08:00",
++  "status": "PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE",
++  "service": {
++    "host": "0.0.0.0",
++    "port": 8080,
++    "listen": true,
++    "health_http": 200,
++    "health_ok": true,
++    "pid": 30336,
++    "configuration_persisted": false
++  },
++  "device": {
++    "connection": "approved_link_app",
++    "alias": "device-e4a6069f4f",
++    "real_identifier_stored": false,
++    "status": "online",
++    "current_task": false,
++    "active_job": false,
++    "active_attempt": false,
++    "cast_status": "PASS"
++  },
++  "canonical_tasks": [
++    {"task_id": 3528, "job_id": 1511, "attempt_ids": [1313, 1314], "excel_row": 2, "status": "cancelled", "decision": "NOT_APPLICABLE_UNSAFE_CONSULTATION_AND_SPEC_MISMATCH"},
++    {"task_id": 3529, "job_id": 1512, "attempt_ids": [1315], "excel_row": 3, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH"},
++    {"task_id": 3530, "job_id": 1513, "attempt_ids": [1316], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
++    {"task_id": 3531, "job_id": 1514, "attempt_ids": [1317], "excel_row": 5, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
++    {"task_id": 3532, "job_id": 1515, "attempt_ids": [1318], "excel_row": 6, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
++    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"}
++  ],
++  "sample": {
++    "confirmed_multi_sku_count": 0,
++    "sku_panel_entry_count": 0,
++    "dimensions": "NOT_OBSERVED",
++    "options": "NOT_OBSERVED",
++    "combination_price": "NOT_OBSERVED",
++    "availability": "NOT_OBSERVED",
++    "platform_sku_id": "NOT_OBSERVED",
++    "ui_hierarchy": "NOT_OBSERVED",
++    "return_path": "NOT_EXECUTED_NO_PANEL"
++  },
++  "terminal": {
++    "tasks_cancelled": 6,
++    "jobs_cancelled": 6,
++    "leases_active": 0,
++    "result_receipts": 0,
++    "products": 0,
++    "raw_collections": 0,
++    "snapshots": 0,
++    "audit_rows_retained": true
++  },
++  "guards": {
++    "cart_action": false,
++    "order_confirmation_clicked": false,
++    "order_submitted": false,
++    "payment_started": false,
++    "product_business_result_written": false,
++    "persistent_business_changes_claim": "Task/Attempt audit rows retained; Product/Raw/Snapshot/order/cart/payment changes were not observed"
++  },
++  "original_evidence": [
++    {
++      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\task-3528-row1-detail-before.jpg",
++      "sha256": "c30855daf21421f31feaebc62a645f4330a7a10eb35c57c8937c462b609e275c",
++      "contains_sensitive_raw": true,
++      "repository_copy": false
++    },
++    {
++      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\frame-001.jpg",
++      "sha256": "d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf",
++      "contains_sensitive_raw": true,
++      "repository_copy": false
++    },
++    {
++      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\runtime-final.txt",
++      "sha256": "3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5",
++      "contains_sensitive_raw": false,
++      "repository_copy": false
++    }
++  ],
++  "repository_contains_original_raw": false,
++  "sensitive_values_redacted": true,
++  "step_2_allowed": false
++}
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001.md b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
 new file mode 100644
-index 0000000..839780c
+index 0000000..f1edc57
 --- /dev/null
 +++ b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,136 @@
 +# SKU-PANEL-EVIDENCE-001：SKU_PANEL 最小真实证据采样
 +
 +- **Task ID**：SKU-PANEL-EVIDENCE-001
 +- **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-+- **Status**：PRECHECK_COMPLETE / HUMAN_GATE — WAITING_FOR_APPROVED_DEVICE_CONNECTION
++- **Status**：PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
 +- **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 +- **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 +
 +## Goal
 +
-+在不恢复未 Accepted 自动化、不写业务数据的前提下，对 1 个已确认多规格商品完成“详情页 → 人工点击购买入口 → SKU_PANEL → 返回详情”的一次最小、低频、可审计证据链，为后续独立 Generic SKU 契约冻结判断提供真实依据。
++在不恢复未 Accepted 自动化、不生成商品/订单业务结果的前提下，对 1 个已确认多规格商品完成“详情页 → 人工点击购买入口 → SKU_PANEL → 返回详情”的一次最小、低频、可审计证据链，为后续独立 Generic SKU 契约冻结判断提供真实依据。
 +
 +## Context
 +
@@ -38,7 +206,7 @@ index 0000000..839780c
 +### Allowed
 +
 +1. 使用已批准真实账号、已授权真机和人工监督；秘密只保留在既有受控会话中。
-+2. 可逆启动/核验本地 `127.0.0.1:8080` 服务，不修改或提交配置。
++2. 可逆启动/核验本地 `8080` 服务；可通过当前进程环境切换监听地址，但不修改或提交配置。
 +3. 只选择 1 个已确认多规格测试商品；最多进入 SKU_PANEL 1 次。
 +4. 人工点击购买/拼单入口；Agent 只读观察截图、UI hierarchy、必要本地日志/网络节奏。
 +5. 记录进入条件、维度、选项文本、价格变化、控件/无障碍结构、返回路径、异常和时间线。
@@ -64,7 +232,7 @@ index 0000000..839780c
 +
 +- `main@80b3435558e67850c9cba4215ca81456721ef0db`；
 +- 本地 8080 可达或可逆恢复；
-+- 单一已批准 ADB 真机、现有受控 PDD 登录会话与人工监督；
++- 单一已批准联机工具设备、现有受控 PDD 登录会话与人工监督；
 +- 一个可明确识别且页面确有多规格的测试商品。
 +
 +## Affected Modules
@@ -80,29 +248,29 @@ index 0000000..839780c
 +## Acceptance Criteria
 +
 +- [x] 服务 `127.0.0.1:8080` 状态有字面证据；
-+- [ ] ADB 只发现一个 approved device，真实 serial 仅记录 hash/alias；
-+- [ ] PDD 包、屏幕与既有受控会话满足采样前提；
++- [x] 联机工具只发现一个 approved device，真实标识仅记录 hash/alias；
++- [x] PDD、投屏与既有受控会话满足候选识别前提；
 +- [ ] 单商品、单次面板进入与退出完成；
 +- [ ] 进入条件、维度、选项、价格变化、控件/无障碍结构、返回路径与异常均按事实记录；
-+- [ ] 未观察字段使用 `NOT_OBSERVED`，不推断 platform SKU ID/库存/无效组合；
-+- [ ] `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`；
-+- [ ] Original 与 derived 分离，派生证据通过敏感扫描与 hash 校验；
++- [x] 未观察字段使用 `NOT_OBSERVED`，不推断 platform SKU ID/库存/无效组合；
++- [x] `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`；
++- [x] Original 与 derived 分离，派生证据通过敏感扫描与 hash 校验；
 +- [ ] 独立 Reviewer 给出证据是否足以进入第 2 步的结论。
 +
 +## Test Plan
 +
 +| Layer | Command / action | Expected | Status |
 +|---|---|---|---|
-+| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：PID `17756`，HTTP `200`，脱敏 body `ok=true` |
-+| Device | approved `adb devices -l`、screen/package只读检查 | exactly one approved device | BLOCKED：`DEVICE_COUNT=0` after adb restart |
-+| Evidence | screenshot/UI hierarchy/hash/manifest + redaction scan | one bounded evidence chain | BLOCKED：无设备，未进入页面；precheck manifest 已生成 |
-+| Guard | timeline and return-path review | no order/cart/payment action | PASS（已观测 precheck 范围）：所有 guard 为 `false`，panel entry `0` |
-+| Docs | links, diff, sensitive scan, rollback probe | PASS | PASS：68 Markdown links、manifest/hash/sensitive/diff 通过；rollback probe 见 Verification |
++| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：当前进程绑定 `0.0.0.0:8080`，HTTP `200`，脱敏 body `ok=true` |
++| Device | 联机工具 register/heartbeat/acquire + 投屏 | exactly one approved device | PASS：单一脱敏 alias 在线，Task/Job/Attempt 可领取且投屏可达 |
++| Evidence | canonical Task + cast/hash/manifest | one confirmed multi-SKU evidence chain | BLOCKED：5 行候选均无法同时满足输入身份匹配与已确认多规格；panel entry `0` |
++| Guard | terminal state + persistence/count review | no order/cart/payment/product result | PASS：采样 Task 全部 `cancelled`、Lease `released`，Product/Raw/Snapshot 均为 0 |
++| Docs | links, diff, sensitive scan, rollback probe | PASS | 见 Verification |
 +
 +## Oracle Gate
 +
 +- Required：No。
-+- Reason：只读设备采样和文档证据，不修改 Server SQL/transaction/Schema，不调用业务写 API。
++- Reason：不修改 Server SQL/transaction/Schema；canonical Task 创建/审核/取消只用于受控测试任务状态，不构成 Schema/Oracle 验收。
 +- Status：`SKIPPED / not applicable`；不得称为 PASS。
 +
 +## Real-device Gate
@@ -115,7 +283,7 @@ index 0000000..839780c
 +
 +- Code rollback：无业务代码修改；文档可通过 Task 专属 `ROLLBACK.sh` 在副本恢复。
 +- Configuration rollback：停止 Task 启动的本地服务进程；不写配置文件。
-+- Data recovery：无预期业务写入；若发现平台状态变化立即停止并记录。
++- Data recovery：采样 Task 已通过权威 cancel 终止，Task/Attempt 审计行按设计保留；Product/Raw/Snapshot/receipt 为 0。若发现平台状态变化立即停止并记录。
 +- Irreversible items：无。
 +
 +## Human Decision Points
@@ -131,6 +299,16 @@ index 0000000..839780c
 +
 +到达 Stop Condition 后不启动第 2 步，不创建功能 PR，不 merge/release。
 +
++## E2E Sampling Result
++
++- 本地服务以当前进程环境从 loopback 调整为 `0.0.0.0:8080`，未写配置；本机 health 与手机联机 register/heartbeat 均成功。
++- 已批准设备以脱敏 alias `device-e4a6069f4f` 在线；canonical 创建、审核、领取、Attempt 与 Lease 链路真实执行。
++- Excel 5 行按顺序用于候选识别。首行打开的商品为请求规格不一致的 `3g*2丸/盒`，且唯一入口为 `去复诊开药`；为避免进入问诊/订单边界，未点击。其余候选出现明显搜索漂移或规格/品牌不一致；最后一帧的两组圆形缩略图是拼单买家头像，不是 SKU 选项，均不能作为真实 SKU 证据。
++- 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
++- `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
++- Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
++- 完整脱敏矩阵与字面终态见 [`SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md`](SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md)。
++
 +## Evidence
 +
 +- Original evidence：仓库外隔离目录，路径与 hash 记录在脱敏 manifest；
@@ -138,6 +316,6 @@ index 0000000..839780c
 +- Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
 +- Precheck：[`SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md`](SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md)；
 +- Manifest：[`SKU-PANEL-EVIDENCE-001-evidence/manifest.json`](SKU-PANEL-EVIDENCE-001-evidence/manifest.json)；
-+- Review findings：`NOT_READY`，因为真实 SKU_PANEL evidence chain 尚未产生；连接 approved device 后恢复 E2E。
++- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，但没有真实 SKU_PANEL evidence chain；第 2 步不得启动。
 +
-+当前停止点：预检与脱敏证据已完成；等待 Product Owner 连接并授权已批准真机后续接。本轮不继续等待设备，不启动第 2 步。
++当前停止点：设备与服务已恢复、候选识别完成并安全停止；等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品。本轮不启动第 2 步。

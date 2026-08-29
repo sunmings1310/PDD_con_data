@@ -2,13 +2,13 @@
 
 - **Task ID**：SKU-PANEL-EVIDENCE-001
 - **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-- **Status**：PRECHECK_COMPLETE / HUMAN_GATE — WAITING_FOR_APPROVED_DEVICE_CONNECTION
+- **Status**：PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
 - **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 - **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 
 ## Goal
 
-在不恢复未 Accepted 自动化、不写业务数据的前提下，对 1 个已确认多规格商品完成“详情页 → 人工点击购买入口 → SKU_PANEL → 返回详情”的一次最小、低频、可审计证据链，为后续独立 Generic SKU 契约冻结判断提供真实依据。
+在不恢复未 Accepted 自动化、不生成商品/订单业务结果的前提下，对 1 个已确认多规格商品完成“详情页 → 人工点击购买入口 → SKU_PANEL → 返回详情”的一次最小、低频、可审计证据链，为后续独立 Generic SKU 契约冻结判断提供真实依据。
 
 ## Context
 
@@ -21,7 +21,7 @@
 ### Allowed
 
 1. 使用已批准真实账号、已授权真机和人工监督；秘密只保留在既有受控会话中。
-2. 可逆启动/核验本地 `127.0.0.1:8080` 服务，不修改或提交配置。
+2. 可逆启动/核验本地 `8080` 服务；可通过当前进程环境切换监听地址，但不修改或提交配置。
 3. 只选择 1 个已确认多规格测试商品；最多进入 SKU_PANEL 1 次。
 4. 人工点击购买/拼单入口；Agent 只读观察截图、UI hierarchy、必要本地日志/网络节奏。
 5. 记录进入条件、维度、选项文本、价格变化、控件/无障碍结构、返回路径、异常和时间线。
@@ -47,7 +47,7 @@
 
 - `main@80b3435558e67850c9cba4215ca81456721ef0db`；
 - 本地 8080 可达或可逆恢复；
-- 单一已批准 ADB 真机、现有受控 PDD 登录会话与人工监督；
+- 单一已批准联机工具设备、现有受控 PDD 登录会话与人工监督；
 - 一个可明确识别且页面确有多规格的测试商品。
 
 ## Affected Modules
@@ -63,29 +63,29 @@
 ## Acceptance Criteria
 
 - [x] 服务 `127.0.0.1:8080` 状态有字面证据；
-- [ ] ADB 只发现一个 approved device，真实 serial 仅记录 hash/alias；
-- [ ] PDD 包、屏幕与既有受控会话满足采样前提；
+- [x] 联机工具只发现一个 approved device，真实标识仅记录 hash/alias；
+- [x] PDD、投屏与既有受控会话满足候选识别前提；
 - [ ] 单商品、单次面板进入与退出完成；
 - [ ] 进入条件、维度、选项、价格变化、控件/无障碍结构、返回路径与异常均按事实记录；
-- [ ] 未观察字段使用 `NOT_OBSERVED`，不推断 platform SKU ID/库存/无效组合；
-- [ ] `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`；
-- [ ] Original 与 derived 分离，派生证据通过敏感扫描与 hash 校验；
+- [x] 未观察字段使用 `NOT_OBSERVED`，不推断 platform SKU ID/库存/无效组合；
+- [x] `order_confirmation_clicked=false`、`order_submitted=false`、`payment_started=false`；
+- [x] Original 与 derived 分离，派生证据通过敏感扫描与 hash 校验；
 - [ ] 独立 Reviewer 给出证据是否足以进入第 2 步的结论。
 
 ## Test Plan
 
 | Layer | Command / action | Expected | Status |
 |---|---|---|---|
-| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：PID `17756`，HTTP `200`，脱敏 body `ok=true` |
-| Device | approved `adb devices -l`、screen/package只读检查 | exactly one approved device | BLOCKED：`DEVICE_COUNT=0` after adb restart |
-| Evidence | screenshot/UI hierarchy/hash/manifest + redaction scan | one bounded evidence chain | BLOCKED：无设备，未进入页面；precheck manifest 已生成 |
-| Guard | timeline and return-path review | no order/cart/payment action | PASS（已观测 precheck 范围）：所有 guard 为 `false`，panel entry `0` |
-| Docs | links, diff, sensitive scan, rollback probe | PASS | PASS：68 Markdown links、manifest/hash/sensitive/diff 通过；rollback probe 见 Verification |
+| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：当前进程绑定 `0.0.0.0:8080`，HTTP `200`，脱敏 body `ok=true` |
+| Device | 联机工具 register/heartbeat/acquire + 投屏 | exactly one approved device | PASS：单一脱敏 alias 在线，Task/Job/Attempt 可领取且投屏可达 |
+| Evidence | canonical Task + cast/hash/manifest | one confirmed multi-SKU evidence chain | BLOCKED：5 行候选均无法同时满足输入身份匹配与已确认多规格；panel entry `0` |
+| Guard | terminal state + persistence/count review | no order/cart/payment/product result | PASS：采样 Task 全部 `cancelled`、Lease `released`，Product/Raw/Snapshot 均为 0 |
+| Docs | links, diff, sensitive scan, rollback probe | PASS | 见 Verification |
 
 ## Oracle Gate
 
 - Required：No。
-- Reason：只读设备采样和文档证据，不修改 Server SQL/transaction/Schema，不调用业务写 API。
+- Reason：不修改 Server SQL/transaction/Schema；canonical Task 创建/审核/取消只用于受控测试任务状态，不构成 Schema/Oracle 验收。
 - Status：`SKIPPED / not applicable`；不得称为 PASS。
 
 ## Real-device Gate
@@ -98,7 +98,7 @@
 
 - Code rollback：无业务代码修改；文档可通过 Task 专属 `ROLLBACK.sh` 在副本恢复。
 - Configuration rollback：停止 Task 启动的本地服务进程；不写配置文件。
-- Data recovery：无预期业务写入；若发现平台状态变化立即停止并记录。
+- Data recovery：采样 Task 已通过权威 cancel 终止，Task/Attempt 审计行按设计保留；Product/Raw/Snapshot/receipt 为 0。若发现平台状态变化立即停止并记录。
 - Irreversible items：无。
 
 ## Human Decision Points
@@ -114,6 +114,16 @@
 
 到达 Stop Condition 后不启动第 2 步，不创建功能 PR，不 merge/release。
 
+## E2E Sampling Result
+
+- 本地服务以当前进程环境从 loopback 调整为 `0.0.0.0:8080`，未写配置；本机 health 与手机联机 register/heartbeat 均成功。
+- 已批准设备以脱敏 alias `device-e4a6069f4f` 在线；canonical 创建、审核、领取、Attempt 与 Lease 链路真实执行。
+- Excel 5 行按顺序用于候选识别。首行打开的商品为请求规格不一致的 `3g*2丸/盒`，且唯一入口为 `去复诊开药`；为避免进入问诊/订单边界，未点击。其余候选出现明显搜索漂移或规格/品牌不一致；最后一帧的两组圆形缩略图是拼单买家头像，不是 SKU 选项，均不能作为真实 SKU 证据。
+- 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
+- `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
+- Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
+- 完整脱敏矩阵与字面终态见 [`SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md`](SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md)。
+
 ## Evidence
 
 - Original evidence：仓库外隔离目录，路径与 hash 记录在脱敏 manifest；
@@ -121,6 +131,6 @@
 - Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
 - Precheck：[`SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md`](SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md)；
 - Manifest：[`SKU-PANEL-EVIDENCE-001-evidence/manifest.json`](SKU-PANEL-EVIDENCE-001-evidence/manifest.json)；
-- Review findings：`NOT_READY`，因为真实 SKU_PANEL evidence chain 尚未产生；连接 approved device 后恢复 E2E。
+- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，但没有真实 SKU_PANEL evidence chain；第 2 步不得启动。
 
-当前停止点：预检与脱敏证据已完成；等待 Product Owner 连接并授权已批准真机后续接。本轮不继续等待设备，不启动第 2 步。
+当前停止点：设备与服务已恢复、候选识别完成并安全停止；等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品。本轮不启动第 2 步。

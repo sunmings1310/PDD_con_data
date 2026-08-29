@@ -1,81 +1,109 @@
 TASK_ID=SKU-PANEL-EVIDENCE-001
 BASE_SHA=80b3435558e67850c9cba4215ca81456721ef0db
 SETUP_HEAD=ad56f4ff4711ad07e0262027cdf06d5c3fbc5df5
-FINAL_STATUS=PRECHECK_COMPLETE / HUMAN_GATE — WAITING_FOR_APPROVED_DEVICE_CONNECTION
-CHANGED_BRANCH_FIELD=docs/backlog.md task status + docs/tasks/SKU-PANEL-EVIDENCE-001.md service/device/evidence status + redacted derived evidence
+RESUME_HEAD=d9269df5a697dc8caf29392c23dc11fb5a01fe55
+FINAL_STATUS=PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
+CHANGED_BRANCH_FIELD=docs/backlog.md task status + docs/tasks/SKU-PANEL-EVIDENCE-001.md E2E result + redacted device evidence/manifest
 ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
 
-BASELINE_COMMAND=git -C D:\work\PDD_con_data_main rev-parse HEAD; git -C D:\work\PDD_con_data_main status --short --branch
-BASELINE_INPUT=D:\work\PDD_con_data_main
-BASELINE_LITERAL_OUTPUT=80b3435558e67850c9cba4215ca81456721ef0db; ## main...origin/main
+BASELINE_COMMAND=git status --short --branch; git rev-parse HEAD
+BASELINE_INPUT=D:\work\PDD_con_data_sku_panel_evidence
+BASELINE_LITERAL_OUTPUT=## codex/sku-panel-evidence-001...origin/codex/sku-panel-evidence-001; d9269df5a697dc8caf29392c23dc11fb5a01fe55
 BASELINE_EXIT=0
 BASELINE_RESULT=PASS
 
-SERVICE_COMMAND=<REDACTED_ENV> D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m server.main; Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 8080 -State Listen; Invoke-WebRequest http://127.0.0.1:8080/api/health
-SERVICE_INPUT=working directory D:\work\PDD_con_data_main; APP_ENV=test; HOST=127.0.0.1; PORT=8080; existing approved local Oracle/JWT values not printed
-SERVICE_LITERAL_REDACTED_OUTPUT=LISTEN=127.0.0.1:8080 STATE=Listen PID=17756; HEALTH_HTTP=200; HEALTH_BODY={"ok":true,"oracle":"<REDACTED>","image_dir":"<REDACTED_LOCAL_PATH>","web_dist":true,"ocr_license_filter":true}
+SERVICE_COMMAND=Get-NetTCPConnection -LocalPort 8080 -State Listen; Invoke-RestMethod http://127.0.0.1:8080/api/health
+SERVICE_INPUT=current process-only APP_ENV=test/HOST=0.0.0.0/PORT=8080; approved local Oracle/JWT values not printed or persisted
+SERVICE_LITERAL_REDACTED_OUTPUT=LISTEN=0.0.0.0:8080 PID=30336 HEALTH_HTTP=200 HEALTH_OK=True
 SERVICE_EXIT=0
 SERVICE_RESULT=PASS
-SERVICE_STOP_COMMAND=powershell -NoProfile -File C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\server-8080\stop_server.ps1
-SERVICE_STOP_SCRIPT_LITERAL=STOP_SCRIPT_PARSE_ERRORS=0; MAIN_SERVER_REMAINS=True; MAIN_LISTEN=True
-SERVICE_STOP_SCRIPT_EXIT=0
-SERVICE_STOP_SCRIPT_RESULT=PASS_NOT_EXECUTED_AGAINST_MAIN
 
-DEVICE_COMMAND=D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe kill-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe start-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe devices -l
-DEVICE_INPUT=approved adb binary; expected exactly one approved physical device
-DEVICE_LITERAL_REDACTED_OUTPUT=* daemon not running; starting now at tcp:5037 | * daemon started successfully | List of devices attached | DEVICE_COUNT=0
-DEVICE_EXIT=2
-DEVICE_RESULT=BLOCKED
-SCREEN_RESULT=NOT_EXECUTED_NO_DEVICE
-PDD_PACKAGE_RESULT=NOT_EXECUTED_NO_DEVICE
-CONTROLLED_SESSION_RESULT=NOT_EXECUTED_NO_DEVICE
+DEVICE_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\inspect_devices.py
+DEVICE_INPUT=read-only Oracle inspection of fresh non-revoked device registration; real key is hashed to alias
+DEVICE_LITERAL_REDACTED_OUTPUT=DEVICE_ROWS=20; device-e4a6069f4f platform=pinduoduo app=1.0.81 status=online heartbeat_age_sec=3 assigned_task=False active_job=False active_attempt=False revoked=False
+DEVICE_EXIT=0
+DEVICE_RESULT=PASS
+
+CANONICAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\create_canonical_sample_task.py
+CANONICAL_INPUT=Excel row 2 exact four-field target; canonical POST /api/tasks then POST /api/tasks/{task_id}/review; approved device alias only
+CANONICAL_LITERAL_REDACTED_OUTPUT=CREATE_HTTP=200 OK=True TASK_ID=3528 IDEMPOTENT=False SUBMISSION_ID=sku-panel-evidence-001-row1-v1 DEVICE_ALIAS=device-e4a6069f4f; REVIEW_HTTP=200 OK=True DECISION=approved TASK_ID=3528
+CANONICAL_EXIT=0
+CANONICAL_RESULT=PASS
+
+CAST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\capture_cast_once.py
+CAST_INPUT=approved cast viewer context; binary frame retained only outside repository
+CAST_LITERAL_REDACTED_OUTPUT=CAST_START_HTTP=200 OK=True; DEVICE_ALIAS=device-e4a6069f4f; VIEWER_HELLO publishing=True; FRAME_SAVED=<EXTERNAL_ORIGINAL> SIZE=69445 SHA256=d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf; VIEWER_HELLO_SEEN=True
+CAST_EXIT=0
+CAST_RESULT=PASS
+
+CANDIDATE_RESULT=BLOCKED
+CANDIDATE_LITERAL_RESULT=Excel rows 2-6 and one exact row-4 retry produced no candidate that both matched input identity and showed confirmed multi-SKU controls. Row-4 retry's two round thumbnails were group-buy buyer avatars, not SKU options. No purchase/group-buy/consultation control was clicked.
 SKU_PANEL_ENTRY_COUNT=0
+DIMENSIONS=NOT_OBSERVED
+OPTIONS=NOT_OBSERVED
+COMBINATION_PRICE=NOT_OBSERVED
+PLATFORM_SKU_ID=NOT_OBSERVED
+UI_HIERARCHY=NOT_OBSERVED
+RETURN_PATH=NOT_EXECUTED_NO_PANEL
 
-ORIGINAL_HASH_COMMAND=(Get-FileHash -LiteralPath 'C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\service-precheck.txt' -Algorithm SHA256).Hash.ToLower(); (Get-FileHash -LiteralPath 'C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\adb-precheck.txt' -Algorithm SHA256).Hash.ToLower()
-ORIGINAL_HASH_INPUT=C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\service-precheck.txt; C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\adb-precheck.txt
-ORIGINAL_HASH_LITERAL_OUTPUT=service-precheck.txt match=True sha256=8f264389353b4015f9c346ab0b6efa514e556a455a1d7a04cce38facb6803c7f; adb-precheck.txt match=True sha256=a74eeb9281dee18b78b7a2dc2826ae0d7fd9dc16ec2c83ce465bd9184466e003
+CANCEL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\cancel_task_3533.py
+CANCEL_INPUT=authoritative POST /api/tasks/3533/cancel under the same tenant/workspace; preceding candidate tasks were cancelled identically
+CANCEL_LITERAL_OUTPUT=CANCEL_HTTP=200 OK=True STATUS=cancelled IDEMPOTENT=False
+CANCEL_EXIT=0
+CANCEL_RESULT=PASS
+
+TERMINAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\inspect_sampling_terminal.py
+TERMINAL_INPUT=Task 3528-3533, Job/Attempt/Lease and Product/Raw/Snapshot counts in the approved isolated Oracle test environment
+TERMINAL_LITERAL_OUTPUT=TASK_3528 cancelled; JOB_1511 cancelled; ATTEMPT_1313 failed/LOCAL_TASK_FINISHED released; ATTEMPT_1314 cancelled/TASK_CANCELLED released; TASK_3529-3533 cancelled; JOB_1512-1516 cancelled; ATTEMPT_1315-1319 cancelled/TASK_CANCELLED released; each task item_products=0,products=0,raw=0,snapshots=0; DEVICE=('online',False,False,False,2)
+TERMINAL_EXIT=0
+TERMINAL_RESULT=PASS
+
+ORIGINAL_HASH_COMMAND=Get-FileHash <three external original paths> -Algorithm SHA256
+ORIGINAL_HASH_INPUT=C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\cast\task-3528-row1-detail-before.jpg; ...\cast\frame-001.jpg; ...\runtime-final.txt
+ORIGINAL_HASH_LITERAL_OUTPUT=task-3528-row1-detail-before.jpg match=True sha256=c30855daf21421f31feaebc62a645f4330a7a10eb35c57c8937c462b609e275c; frame-001.jpg match=True sha256=d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf; runtime-final.txt match=True sha256=3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5
 ORIGINAL_HASH_EXIT=0
 ORIGINAL_HASH_RESULT=PASS
 
-MANIFEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import json,pathlib; p=pathlib.Path('docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json'); d=json.loads(p.read_text(encoding='utf-8')); assert d['device']['device_count']==0 and d['sample']['sku_panel_entry_count']==0 and d['guards']['order_submitted'] is False and d['guards']['payment_started'] is False; print('MANIFEST_VALID status='+d['status']+' originals='+str(len(d['original_evidence'])))"
+MANIFEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import json,pathlib; d=json.loads(pathlib.Path('docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json').read_text(encoding='utf-8')); assert d['status']=='PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE' and d['sample']['sku_panel_entry_count']==0 and d['terminal']['tasks_cancelled']==6 and d['terminal']['leases_active']==0 and d['terminal']['products']==d['terminal']['raw_collections']==d['terminal']['snapshots']==0 and d['step_2_allowed'] is False; print('MANIFEST_VALID status='+d['status']+' tasks='+str(len(d['canonical_tasks']))+' panel_entries=0 step_2_allowed=false')"
 MANIFEST_INPUT=docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
-MANIFEST_LITERAL_OUTPUT=MANIFEST_VALID status=HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED originals=2
+MANIFEST_LITERAL_OUTPUT=MANIFEST_VALID status=PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE tasks=6 panel_entries=0 step_2_allowed=false
 MANIFEST_EXIT=0
 MANIFEST_RESULT=PASS
 
 MARKDOWN_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
-MARKDOWN_INPUT=repository Markdown set after adding PRECHECK.md
-MARKDOWN_LITERAL_OUTPUT=Validated 68 Markdown files
+MARKDOWN_INPUT=repository Markdown set including DEVICE-SAMPLING.md
+MARKDOWN_LITERAL_OUTPUT=Validated 69 Markdown files
 MARKDOWN_EXIT=0
 MARKDOWN_RESULT=PASS
 
 SENSITIVE_SCAN_COMMAND=Get-ChildItem docs/tasks/SKU-PANEL-EVIDENCE-001-evidence -File | Select-String -Pattern '(?i)(password|jwt_secret|oracle_password|authorization|cookie)\s*[:=]\s*(?!<REDACTED>)[^\s,}]+'
-SENSITIVE_SCAN_INPUT=PRECHECK.md; manifest.json
-SENSITIVE_SCAN_LITERAL_OUTPUT=no credential assignment, token, cookie, phone, address, or real device serial found
+SENSITIVE_SCAN_INPUT=PRECHECK.md; DEVICE-SAMPLING.md; manifest.json
+SENSITIVE_SCAN_LITERAL_OUTPUT=SENSITIVE_SCAN_HITS=0
 SENSITIVE_SCAN_EXIT=0
 SENSITIVE_SCAN_RESULT=PASS
 
 DIFF_CHECK_COMMAND=git diff --check
 DIFF_CHECK_INPUT=current worktree
-DIFF_CHECK_LITERAL_OUTPUT=
+DIFF_CHECK_LITERAL_OUTPUT=no whitespace errors; only line-ending advisory warnings
 DIFF_CHECK_EXIT=0
 DIFF_CHECK_RESULT=PASS
 
-ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh /d/work/SKU-PANEL-EVIDENCE-001-rollback-probe-6481c527971b4228a125f5dc272ccc4b
-ROLLBACK_INPUT=independent changed probe copy
-ROLLBACK_LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; EXPECTED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; TASK_PRESENT=no; EVIDENCE_PRESENT=no; ROLLBACK_MATCH=yes; MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh /d/work/SKU-PANEL-EVIDENCE-001-rollback-probe-41cb5707ea4b4b399f2aee53505462c3
+ROLLBACK_INPUT=independent changed probe copy at D:\work\SKU-PANEL-EVIDENCE-001-rollback-probe-41cb5707ea4b4b399f2aee53505462c3
+ROLLBACK_LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; EXPECTED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; TASK_PRESENT=no; EVIDENCE_PRESENT=no; ROLLBACK_MATCH=yes; ROLLBACK_EXIT=0 TASK_PRESENT=False EVIDENCE_PRESENT=False MODIFIED_REMAINS_CHANGED=True
 ROLLBACK_EXIT=0
 ROLLBACK_RESULT=PASS
 
-MODIFIED_FILE_SHA256=07b1b4b7523d3274d1d81c5f14ba1dbc081647c6339477b9d1871ac6dfc4b3cd
-DIFF_FILE_SHA256=9bff73a038ad952697f4dadccf6274ac026d23693544e3590a4c5efa33847b98
-REPORT_SHA256=edb950c01063d98d0dbe66b216f04abd7ad0899a2738edcf0b2eb2a450b83858
-MANIFEST_SHA256=b394a3ce9d40614b5fe6bce3b592f802def3bc503056b7d8b3ada86e0f47f84e
+TASK_SHA256=0927dfdc2008572edcc1c52c3d74129514eed74da9dea408786cacb7da5bd46e
+REPORT_SHA256=0a9b6c80c481d1e43d1121a045c873afce6c4a1c83fb991aa840fa067ee46580
+MANIFEST_SHA256=a8a62c7a87b287d2f3f0f0f47bdf263af93b2213223cf992f0599c608245d500
+MODIFIED_FILE_SHA256=a547bb963a08aa3eb1327630e2a95adcc6476c36eecf1a76efb43a9bca8e65fd
+DIFF_FILE_SHA256=63eb129cda0d804105a423b51a6ff110d9cdde57f8ab73708381963483d84d43
 ROLLBACK_SH_SHA256=d9927a398689fdc2dc499f77e7378a2551d9b4008466eaf6629f38baa404d681
 MODIFIED_REMAINS_CHANGED=true
 
-GUARDS=cart_action=false; order_confirmation_clicked=false; order_submitted=false; payment_started=false; api_business_write_attempted=false
-PERSISTENT_BUSINESS_CHANGES=false (within observed local-service/device-precheck scope)
-ORACLE_GATE=SKIPPED / not applicable
-INDEPENDENT_REVIEW=NOT_READY — no real SKU_PANEL evidence chain exists while DEVICE_COUNT=0
-RESUME_ACTION=connect the already-approved device by USB, keep existing ADB authorization, unlock screen, and do not click purchase entry until E2E resumes
+GUARDS=cart_action=false; order_confirmation_clicked=false; order_submitted=false; payment_started=false
+PERSISTENCE=Task/Attempt audit rows retained by design; Product/Raw/Snapshot/result receipt counts are zero
+ORACLE_GATE=SKIPPED / not applicable for schema/transaction acceptance; isolated Oracle was used only for canonical task state and cleanup observation
+INDEPENDENT_REVIEW=HANDOFF_REQUIRED — evidence is PARTIAL/BLOCKED and cannot authorize Step 2
+STOP=before Step 2, PR, merge, release

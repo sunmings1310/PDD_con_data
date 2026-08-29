@@ -41,7 +41,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PRECHECK_COMPLETE / HUMAN_GATE | 本地服务已恢复；ADB 重启后仍为 `DEVICE_COUNT=0`，尚未打开商品或 SKU_PANEL；不实现 Generic SKU runtime/Schema/P1/Phase 6B | 等待 Product Owner 连接并授权已批准真机后续接一次最小 E2E 采样；本任务不启动第 2 步 |
+| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 联机工具已在线，canonical Task→Job→Attempt 自动导航已真实执行；Excel 5 行候选均未形成“输入身份匹配且已确认多规格”的安全样本，`SKU_PANEL` 进入次数仍为 0；所有采样 Task 已取消、Lease 已释放，未写 Product/Raw/Snapshot | 等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品；不启动第 2 步 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 
