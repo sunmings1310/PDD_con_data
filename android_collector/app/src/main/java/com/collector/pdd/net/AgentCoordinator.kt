@@ -598,6 +598,9 @@ class AgentCoordinator(
                         if (attemptEvents.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
                             error("job checkpoint acknowledgement pending")
                         }
+                        if (attemptEvents.any { it.eventType == "candidate_observation" && it.state !in setOf("acked", "rejected") }) {
+                            error("candidate observation acknowledgement pending")
+                        }
                         val rejected = products.filter { it.state == "rejected" }
                         val receipts = products.filter { it.state == "acked" }
                         when (jobTerminalAction(receipts.size, rejected.size)) {
@@ -637,7 +640,7 @@ class AgentCoordinator(
                     "job_fail" -> {
                         val identity = activeJob ?: error("job assignment not recovered")
                         val pendingEvidence = dao.listForAttempt(identity.jobId, identity.attemptId)
-                            .any { it.eventType == "candidate_observation" && it.state != "acked" }
+                            .any { it.eventType == "candidate_observation" && it.state !in setOf("acked", "rejected") }
                         if (pendingEvidence) error("candidate observation acknowledgement pending")
                         val localStatus = JSONObject(event.payloadJson).optString("local_status", "failed")
                         val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)

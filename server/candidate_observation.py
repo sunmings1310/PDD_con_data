@@ -146,22 +146,27 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
 def cleanup_expired(cur: Any, *, limit: int = 100) -> list[str]:
     """Delete only candidate Raw older than 30 days; TaskItem summaries remain."""
     cur.execute(
-        """SELECT RAW_ID,ENTERPRISE_ID,WORKSPACE_ID,REQUEST_KEY,RAW_SIZE,SCREENSHOT_REF
-             FROM (SELECT RAW_ID,ENTERPRISE_ID,WORKSPACE_ID,REQUEST_KEY,
-                          DBMS_LOB.GETLENGTH(RAW_JSON) RAW_SIZE,
-                          JSON_VALUE(RAW_JSON,'$.screenshot_ref' RETURNING VARCHAR2(512)) SCREENSHOT_REF
-                     FROM SJZQ_RAW_COLLECTION
-                    WHERE SOURCE_TYPE=:source_type
-                      AND COLLECTED_AT < SYSTIMESTAMP-NUMTODSINTERVAL(:days,'DAY')
-                    ORDER BY RAW_ID)
-            WHERE ROWNUM<=:limit FOR UPDATE SKIP LOCKED""",
+        """SELECT RAW_ID,ENTERPRISE_ID,WORKSPACE_ID,REQUEST_KEY,
+                  DBMS_LOB.GETLENGTH(RAW_JSON) RAW_SIZE,
+                  JSON_VALUE(RAW_JSON,'$.screenshot_ref' RETURNING VARCHAR2(512)) SCREENSHOT_REF
+             FROM SJZQ_RAW_COLLECTION
+            WHERE SOURCE_TYPE=:source_type
+              AND COLLECTED_AT < SYSTIMESTAMP-NUMTODSINTERVAL(:days,'DAY')
+              AND ROWNUM<=:limit
+            FOR UPDATE SKIP LOCKED""",
         {"source_type": SOURCE_TYPE, "days": RETENTION_DAYS, "limit": max(1, min(limit, 500))},
     )
     rows = list(cur.fetchall())
     screenshot_refs: list[str] = []
     for raw_id, enterprise_id, workspace_id, request_key, size, screenshot_ref in rows:
-        cur.execute("DELETE FROM SJZQ_RAW_COLLECTION WHERE RAW_ID=:raw_id AND SOURCE_TYPE=:source_type",
-                    {"raw_id": raw_id, "source_type": SOURCE_TYPE})
+        cur.execute(
+            """DELETE FROM SJZQ_RAW_COLLECTION
+                 WHERE RAW_ID=:raw_id AND SOURCE_TYPE=:source_type
+                   AND COLLECTED_AT < SYSTIMESTAMP-NUMTODSINTERVAL(:days,'DAY')""",
+            {"raw_id": raw_id, "source_type": SOURCE_TYPE, "days": RETENTION_DAYS},
+        )
+        if cur.rowcount != 1:
+            continue
         adjust_used(
             cur, enterprise_id=int(enterprise_id), workspace_id=int(workspace_id), metric=STORAGE_BYTES,
             amount_delta=-max(1, int(size or 0)), event_key=f"candidate-expire:{raw_id}",

@@ -30,7 +30,7 @@ def body(**overrides):
 
 
 class Cursor:
-    def __init__(self, fetches): self.fetches=list(fetches); self.sql=[]
+    def __init__(self, fetches): self.fetches=list(fetches); self.sql=[]; self.rowcount=1
     def execute(self, sql, params=None): self.sql.append((" ".join(sql.split()), params or {}))
     def fetchone(self): return self.fetches.pop(0)
     def fetchall(self): return self.fetches.pop(0)
@@ -79,7 +79,9 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual(["candidate-observations/a.png"], refs)
         sql="\n".join(x[0] for x in cur.sql)
         self.assertIn("SOURCE_TYPE=:source_type", sql)
-        self.assertIn("ROWNUM<=:limit FOR UPDATE SKIP LOCKED", sql)
+        self.assertIn("ROWNUM<=:limit", sql)
+        self.assertIn("FOR UPDATE SKIP LOCKED", sql)
+        self.assertIn("COLLECTED_AT < SYSTIMESTAMP", sql)
         self.assertIn("DELETE FROM SJZQ_RAW_COLLECTION", sql)
         self.assertNotIn("DELETE FROM SJZQ_TASK_ITEM", sql)
         adjust.assert_called_once()
