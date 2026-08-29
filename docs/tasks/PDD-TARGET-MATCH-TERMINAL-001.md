@@ -129,8 +129,9 @@
 - 可见性：既有 `TaskDetail` 已按 `not_matched` 显示“未匹配”及 Item `message`；本次不改 Web DTO/Schema。
 - 实测：失败复现两项均为 exit 1；Python strict `251 / skipped=32` PASS；Android JVM strict PASS；Control 在 gate Head `1522497` 使用已验收 Node `v22.18.0` / npm `10.9.3` 与 `web/node_modules` 执行 Web canonical command PASS（`✓ built in 8.40s`）；同一批准隔离 Oracle canonical command PASS（55 tests，341.773s），包含 real `TARGET_NOT_MATCHED` 用例。
 - Historical：首次 Oracle 尝试只设置 `T003_*`，而 `server.db` 仍读取默认本地 `ORACLE_*` 配置导致失败；随后在同一已批准隔离环境补齐进程变量后以 canonical command PASS。未记录或回显秘密。
+- Independent Review 历史：固定 wrapper `660aca2` 收到 `CHANGES_REQUIRED` 的唯一 P1——`DIFF_FILE.patch` 被 PowerShell 写成单行，`git apply --check` 不能执行。已从 Base→`20a6ae0` 的 8 个直接 Android/Server/test 路径以保留换行方式重新生成 zero-context 完整补丁；base probe 的 `git apply --check --unidiff-zero --whitespace=nowarn` exit 0。
 - 四制品、准确命令、字面结果、hash 与 PowerShell rollback 等价核验见 [`PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt`](PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt)。
 
 ## Dev Stop
 
-Dev gates 已完成，状态为 `REVIEW`，等待 Independent Review；不是 ACCEPTED。不得创建 PR、merge 或 release。
+已修复 Review 的单一 P1 制品问题，状态保持 `REVIEW`，等待重新 Independent Review；不是 ACCEPTED。不得创建 PR、merge 或 release。

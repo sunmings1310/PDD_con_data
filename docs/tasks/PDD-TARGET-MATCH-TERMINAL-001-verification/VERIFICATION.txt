@@ -16,7 +16,7 @@ EXIT=0
 
 [ARTIFACT_HASHES]
 MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa
-DIFF_FILE_SHA256=920289c5db51606a987a3b2885d866d974d51278e3027c536a4173060f8b63fc
+DIFF_FILE_SHA256=8e7f26e749aec77b106f8e51af92e75981e104033640fbf1463dca30de91ff47
 ROLLBACK_SHA256=5235b227c7dd138d8bc6a336a0d304af1b8a684522b432debb52d2c10ff2ab17
 
 [MODIFIED_FILE]
@@ -32,9 +32,19 @@ EXIT=0
 PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/DIFF_FILE.patch
 COMMAND=git diff --binary 80b3435558e67850c9cba4215ca81456721ef0db 20a6ae005ad60549a51578cb0559904cf7017138 -- [8 direct Android/Server/test paths]
 INPUT=Base-to-fixed implementation path set
-DIFF_FILE_SHA256=920289c5db51606a987a3b2885d866d974d51278e3027c536a4173060f8b63fc
+DIFF_FILE_SHA256=8e7f26e749aec77b106f8e51af92e75981e104033640fbf1463dca30de91ff47
 RESULT=PASS
 EXIT=0
+
+[DIFF_FILE_EXECUTABLE_VALIDATION]
+COMMAND=git apply --check --unidiff-zero --whitespace=nowarn DIFF_FILE.patch
+INPUT=base probe checked out at 80b3435558e67850c9cba4215ca81456721ef0db; complete 8-path zero-context patch from tested code Head 20a6ae0
+PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-patch-u0-0c0e8d19575d4be5b98d74262ea0432a
+LITERAL_OUTPUT=STDOUT=<empty>; STDERR=<empty>; EXIT=0
+PATCH_BYTES=15613
+PATCH_LF=249
+PATCH_CR=0
+RESULT=PASS
 
 [FAILURE_REPRODUCTION]
 COMMAND_1=$env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; $env:ANDROID_HOME=$env:ANDROID_SDK_ROOT; .\gradlew.bat testDebugUnitTest --tests com.collector.pdd.net.TaskStatusMappingTest --no-daemon --console=plain
@@ -91,6 +101,11 @@ COMMAND=first Control Oracle attempt before the canonical PASS
 INPUT=only T003_* variables were set; server.db still read default local ORACLE_* configuration
 RESULT=FAIL_HISTORICAL; no secrets recorded
 
+[REVIEW_HISTORY]
+REVIEW_HEAD=660aca244ef4620c2251dc856d971c879cc86b8b
+FINDING=CHANGES_REQUIRED P1: prior DIFF_FILE.patch was a 26280-byte single line (LF=0, CR=0); git apply --check exited 128 with "No valid patches in input".
+REMEDIATION=Regenerated the complete patch with cmd.exe byte-preserving redirection, then passed base-probe git apply --check.
+
 [ROLLBACK_SCRIPT_RUNTIME]
 COMMAND=where.exe bash
 LITERAL_OUTPUT=INFO: Could not find files for the given pattern(s).
@@ -102,7 +117,7 @@ ROLLBACK_PATH=docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/ROLLBACK.sh
 ROLLBACK_SHA256=5235b227c7dd138d8bc6a336a0d304af1b8a684522b432debb52d2c10ff2ab17
 COMMAND=PowerShell/Python byte-equivalent rollback on a fresh git clone: restore 9 direct paths from BASE, remove Task and verification paths, then git diff --quiet BASE -- [same 9 paths]
 INPUT=copy of fixed implementation plus current Task/backlog/four artifacts
-PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-final-rollback-8e721ee434ff4e8584570c84e184e929
+PROBE=C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001-f2-final-rollback-89f3d4595b604f329e213a4220a9b352
 LITERAL_OUTPUT=RESTORED_SHA256=200c9f5e548d972392bd31c288d2c43740283bf07cd5d2c83d9a765a9e99c37d; ROLLBACK_DIFF_EXIT=0; TASK_PRESENT=False; VERIFICATION_PRESENT=False; MODIFIED_FILE_SHA256=e9729eb6d91bb628d608c187d8c0040aa752b829446eeea2c7ba41d2509068fa; MODIFIED_REMAINS_CHANGED=True
 EXIT=0
 RESULT=PASS

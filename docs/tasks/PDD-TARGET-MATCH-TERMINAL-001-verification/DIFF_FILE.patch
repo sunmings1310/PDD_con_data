@@ -1,1 +1,249 @@
-diff --git a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.ktindex d316525..6996ddc 100644--- a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt+++ b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt@@ -22,6 +22,7 @@ import com.collector.pdd.collector.SystemCollectorError import com.collector.pdd.collector.search import com.collector.pdd.collector.restoreSearch import com.collector.pdd.collector.collectDetail+import com.collector.pdd.net.TaskStatusMapping import com.collector.pdd.service.CollectA11yService import kotlinx.coroutines.CancellationException import kotlinx.coroutines.Job@@ -43,6 +44,13 @@ internal suspend fun collectDetailThroughRegistry(     request: DetailCollectionRequest, ) = CollectorRegistry.require(platformCode).collectDetail(session, request) +internal fun taskEndStatus(stopRequested: Boolean, success: Int, failed: Int, notMatched: Int): String = when {+    stopRequested -> "stopped"+    success == 0 && failed > 0 -> "failed"+    success == 0 && notMatched > 0 -> TaskStatusMapping.NOT_MATCHED+    else -> "finished"+}+ class TaskEngine(     private val log: (String) -> Unit,     private val onProductCollected: (suspend (localTaskId: Long, outboxId: String, product: ProductEntity, remoteItemId: Long?) -> Unit)? = null,@@ -70,6 +78,12 @@ class TaskEngine(         var consecutiveSoldOut: Int = 0,     ) +    private enum class CandidateResult {+        COLLECTED,+        NOT_MATCHED,+        FAILED,+    }+     fun isRunning(): Boolean = job?.isActive == true      private suspend fun searchKeywordCounted(@@ -203,6 +217,7 @@ class TaskEngine(         var total = 0         var success = 0         var fail = 0+        var notMatched = 0         var endStatus = "finished"         var sessionForCleanup: CollectorSession? = null @@ -257,12 +272,13 @@ class TaskEngine(                         // 匹配任务必须从搜索结果顶部开始核对，禁止预先滚动跳过首屏商品。                         log("【$kw】逐个核对前 $n 个，命中准字+规格后停止")                         var found = false+                        var candidateFailed = false                         for (i in 0 until n) {                             ensureActive()                             if (stopFlag.get()) break                             total++                             val slot = "target_match_${i + 1}"-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(+                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(                                 collector, actions, dbTaskId = taskId, keyword = kw,                                 pickTag = slot,                                 openIndex = i,@@ -270,16 +286,24 @@ class TaskEngine(                                 config = config,                                 runtime = accessRuntime,                             )-                            if (ok) {-                                success++-                                found = true-                                break+                            when (result) {+                                CandidateResult.COLLECTED -> {+                                    success+++                                    found = true+                                    break+                                }+                                CandidateResult.FAILED -> candidateFailed = true+                                CandidateResult.NOT_MATCHED -> Unit                             }                             if (!stopFlag.get()) actions.betweenItems()                         }                         if (!found && !stopFlag.get()) {-                            fail++-                            val message = "匹配失败：前 $n 个商品未找到准字=${target.targetApproval}、规格=${target.targetSpec}"+                            if (candidateFailed) fail++ else notMatched+++                            val message = if (candidateFailed) {+                                "采集失败：前 $n 个候选未能完成目标核对"+                            } else {+                                "未匹配：前 $n 个商品均未通过准字=${target.targetApproval}、品名=${target.targetName.ifBlank { "-" }}、规格=${target.targetSpec}、厂家=${target.targetManufacturer.ifBlank { "-" }}"+                            }                             log(message)                             reportTargetResult(target, false, message)                         } else if (found) {@@ -297,14 +321,14 @@ class TaskEngine(                             if (stopFlag.get()) break                             total++                             val slot = "default_top_${i + 1}"-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(+                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(                                 collector, actions, dbTaskId = taskId, keyword = kw,                                 pickTag = slot,                                 openIndex = i,                                 config = config,                                 runtime = accessRuntime,                             )-                            if (ok) success++ else fail+++                            if (result == CandidateResult.COLLECTED) success++ else fail++                             if (!stopFlag.get()) actions.betweenItems()                         }                     }@@ -316,14 +340,14 @@ class TaskEngine(                         try {                             searchKeywordCounted(collector, actions, kw, sort = SearchSort.PRICE_ASC)                             total++-                            val ok = if (confirmed(config, kw, "price_asc_first")) true else collectOneWithPolicy(+                            val result = if (confirmed(config, kw, "price_asc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(                                 collector, actions, dbTaskId = taskId, keyword = kw,                                 pickTag = "price_asc_first",                                 openIndex = 0,                                 config = config,                                 runtime = accessRuntime,                             )-                            if (ok) success++ else fail+++                            if (result == CandidateResult.COLLECTED) success++ else fail++                         } catch (e: CollectorException) {                             if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e                             fail++@@ -341,14 +365,14 @@ class TaskEngine(                         try {                             searchKeywordCounted(collector, actions, kw, sort = SearchSort.SALES_DESC)                             total++-                            val ok = if (confirmed(config, kw, "sales_desc_first")) true else collectOneWithPolicy(+                            val result = if (confirmed(config, kw, "sales_desc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(                                 collector, actions, dbTaskId = taskId, keyword = kw,                                 pickTag = "sales_desc_first",                                 openIndex = 0,                                 config = config,                                 runtime = accessRuntime,                             )-                            if (ok) success++ else fail+++                            if (result == CandidateResult.COLLECTED) success++ else fail++                         } catch (e: CollectorException) {                             if (CollectorErrorPolicy.action(e) == CollectorErrorAction.FAIL_FAST) throw e                             fail++@@ -374,11 +398,7 @@ class TaskEngine(                 }             } -            endStatus = when {-                stopFlag.get() -> "stopped"-                success == 0 && fail > 0 -> "failed"-                else -> "finished"-            }+            endStatus = taskEndStatus(stopFlag.get(), success, fail, notMatched)         } catch (e: CancellationException) {             endStatus = "stopped"             throw e@@ -440,15 +460,15 @@ class TaskEngine(         config: CollectConfig,         runtime: AccessRuntime,         target: CollectTarget? = null,-    ): Boolean {+    ): CandidateResult {         var retries = 0         while (!stopFlag.get()) {             try {-                val ok = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)+                val result = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)                 runtime.consecutiveSoldOut = 0-                if (ok) consecutiveActionAnomalies = 0+                if (result == CandidateResult.COLLECTED) consecutiveActionAnomalies = 0                 afterItem(config, runtime)-                return ok+                return result             } catch (e: CollectorException) {                 when (CollectorErrorPolicy.action(e)) {                     CollectorErrorAction.FAIL_FAST -> throw e@@ -459,7 +479,7 @@ class TaskEngine(                         stopFlag.set(true)                         log("采集器要求停止任务 code=${e.code}: ${e.message}")                         afterItem(config, runtime)-                        return false+                        return CandidateResult.FAILED                     }                      CollectorErrorAction.FAIL_ITEM -> {@@ -482,26 +502,26 @@ class TaskEngine(                         }                         runCatching { restoreSearchList(collector, actions, keyword) }                         afterItem(config, runtime)-                        return false+                        return CandidateResult.FAILED                     }                      CollectorErrorAction.RETRY -> {                         runtime.consecutiveSoldOut = 0                         recordActionAnomaly(config, dbTaskId, "access_guard", e.message.orEmpty(), e.evidence)-                        if (stopFlag.get()) return false+                        if (stopFlag.get()) return CandidateResult.FAILED                         val response = config.busyResponse.lowercase()                         log("采集器暂时失败 code=${e.code}: ${e.message}，回复策略=$response")                         when (CollectorErrorPolicy.retryDisposition(e, response, retries, config.busyRetryCount)) {                             CollectorRetryDisposition.STOP -> {                                 stopFlag.set(true)-                                return false+                                return CandidateResult.FAILED                             }                             CollectorRetryDisposition.SKIP,                             CollectorRetryDisposition.EXHAUSTED -> {                                 log(if (response == "skip") "已按策略跳过当前商品" else "自动重试次数已用完（${config.busyRetryCount} 次）")                                 runCatching { restoreSearchList(collector, actions, keyword) }                                 afterItem(config, runtime)-                                return false+                                return CandidateResult.FAILED                             }                             CollectorRetryDisposition.RETRY -> Unit                         }@@ -516,7 +536,7 @@ class TaskEngine(                 }             }         }-        return false+        return CandidateResult.FAILED     }      private suspend fun collectOne(@@ -528,7 +548,7 @@ class TaskEngine(         openIndex: Int,         target: CollectTarget? = null,         config: CollectConfig,-    ): Boolean {+    ): CandidateResult {         return try {             val collected = collectDetailThroughRegistry(                 collector.platform,@@ -543,7 +563,7 @@ class TaskEngine(                     collected.failureMessage.orEmpty(),                     collected.raw.evidence,                 )-                return false+                return CandidateResult.FAILED             }             var product = requireNotNull(collected.product).copy(taskId = dbTaskId)             val quality = requireNotNull(collected.quality)@@ -566,7 +586,7 @@ class TaskEngine(                             "准字命中=${match.approvalMatched} 规格命中=${match.specMatched}"                     )                     restoreSearchList(collector, actions, keyword)-                    return false+                    return CandidateResult.NOT_MATCHED                 }                 log("匹配命中【$pickTag】准字=${product.approvalNo} 规格=${product.spec} item=${target.remoteItemId ?: "-"}")             }@@ -581,7 +601,7 @@ class TaskEngine(                 )                 log("质量门禁拒绝【$pickTag】：page=${quality.pageStatus} missing=${quality.missingFields}")                 restoreSearchList(collector, actions, keyword)-                return false+                return CandidateResult.FAILED             }              val remoteTask = config.remoteTaskId@@ -631,13 +651,13 @@ class TaskEngine(                     "参数=${if (collected.paramsCaptured) "已开" else "未开"}"             )             restoreSearchList(collector, actions, keyword)-            true+            CandidateResult.COLLECTED         } catch (e: CollectorException) {             throw e         } catch (e: Exception) {             log("本条失败 $pickTag err=${e.message}")             try { restoreSearchList(collector, actions, keyword) } catch (_: Exception) {}-            false+            CandidateResult.FAILED         }     } diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.ktindex 3e2affe..223cf6e 100644--- a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt+++ b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt@@ -625,7 +625,8 @@ class AgentCoordinator(                     "job_fail" -> {                         val identity = activeJob ?: error("job assignment not recovered")                         val localStatus = JSONObject(event.payloadJson).optString("local_status", "failed")-                        api.failJob(identity, "transient", "LOCAL_TASK_FINISHED", "local_status=$localStatus")+                        val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)+                        api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")                         dao.markAcked(event.outboxId, null, System.currentTimeMillis())                         db.jobAssignmentDao().delete(identity.jobId, identity.attemptId)                         if (activeJob?.attemptId == identity.attemptId) activeJob = nulldiff --git a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt b/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.ktindex c7ce5c9..760d9e0 100644--- a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt+++ b/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt@@ -5,13 +5,20 @@ object TaskStatusMapping {     const val COMPLETE = "complete"     const val FAILED = "failed"     const val CANCELLED = "cancelled"+    const val NOT_MATCHED = "not_matched"      fun completionFor(localStatus: String): String = when (localStatus) {         "finished" -> COMPLETE         "failed" -> FAILED         "stopped" -> CANCELLED+        NOT_MATCHED -> NOT_MATCHED         else -> throw IllegalArgumentException("unknown Android task status: $localStatus")     }      fun itemResult(matched: Boolean): String = if (matched) "succeeded" else "not_matched"++    fun jobFailureFor(localStatus: String): Pair<String, String> = when (completionFor(localStatus)) {+        NOT_MATCHED -> "business_rejection" to "TARGET_NOT_MATCHED"+        else -> "transient" to "LOCAL_TASK_FINISHED"+    } }diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.ktindex 2536c79..f84c59b 100644--- a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt+++ b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt@@ -49,6 +49,18 @@ class ProductTargetMatcherTest {         assertFalse(result.manufacturerMatched)     } +    @Test+    fun rejectsDifferentNameInFourFieldMode() {+        val result = ProductTargetMatcher.match(+            expectedApproval = "国药准字H12345678", expectedName = "目标药品",+            expectedSpec = "10片", expectedManufacturer = "甲药厂",+            actualApproval = "国药准字H12345678", actualName = "无关药品",+            actualSpec = "10s", actualManufacturer = "甲药厂有限公司",+        )+        assertFalse(result.matched)+        assertFalse(result.nameMatched)+    }+     @Test     fun rejectsDifferentApproval() {         val result = ProductTargetMatcher.match(diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.ktindex 495567f..9497aa8 100644--- a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt+++ b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt@@ -14,6 +14,12 @@ import org.robolectric.RobolectricTestRunner  @RunWith(RobolectricTestRunner::class) class TaskEngineCollectorLifecycleTest {+    @Test+    fun naturalTargetMissHasDedicatedTerminalStatus() {+        assertEquals("not_matched", taskEndStatus(stopRequested = false, success = 0, failed = 0, notMatched = 1))+        assertEquals("failed", taskEndStatus(stopRequested = false, success = 0, failed = 1, notMatched = 1))+    }+     @Test     fun unknownPlatformFailsFastAndStillClosesLocalLifecycle() = runBlocking {         val db = Room.inMemoryDatabaseBuilder(diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.ktindex 14023b2..50888ad 100644--- a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt+++ b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt@@ -21,4 +21,9 @@ class TaskStatusMappingTest {         assertEquals("succeeded", TaskStatusMapping.itemResult(true))         assertEquals("not_matched", TaskStatusMapping.itemResult(false))     }++    @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {+        assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))+        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))+    } }diff --git a/server/job_service.py b/server/job_service.pyindex 32ccd84..4a60e76 100644--- a/server/job_service.py+++ b/server/job_service.py@@ -418,8 +418,14 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s     cur.execute("""UPDATE SJZQ_COLLECTION_JOB SET STATUS=:status,NEXT_RUN_AT=CASE WHEN :retryable=1 THEN SYSTIMESTAMP+NUMTODSINTERVAL(:delay,'SECOND') ELSE SYSTIMESTAMP END,       LAST_ERROR_CLASS=:class,LAST_ERROR_CODE=:code,LAST_ERROR_MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE JOB_ID=:job_id AND ACTIVE_ATTEMPT_ID=:attempt_id""", {"status":decision.target.value,"retryable":int(decision.retryable),"delay":int(decision.delay_seconds or 0),"class":category.value,"code":error_code[:128],"message":error_message[:2000],"job_id":job_id,"attempt_id":attempt_id})     _finish_lease(cur,job,attempt,device_id=device_id,reason=f"failed:{category.value}")+    target_not_matched = (+        category == ErrorClass.BUSINESS_REJECTION and error_code == "TARGET_NOT_MATCHED"+    )     if decision.target.value in {"failed", "quarantined", "dead"} and job.get("item_id") is not None:-        cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})+        if target_not_matched:+            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})+        else:+            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})     if decision.target.value in {"failed", "quarantined", "dead", "cancelled"}:         _aggregate_task_from_jobs(cur, job["task_id"])     _event(cur,job["task_id"],job_id,"job_failed",attempt_id=attempt_id,device_id=device_id,worker_id=worker_id,token_hash=attempt["token_hash"],trace_id=attempt["trace_id"],old=job["status"],new=decision.target.value,error_class=category.value,error_code=error_code[:128],detail={"retryable":decision.retryable,"delay_seconds":decision.delay_seconds})diff --git a/tests/test_job_service.py b/tests/test_job_service.pyindex e38ef3d..b781112 100644--- a/tests/test_job_service.py+++ b/tests/test_job_service.py@@ -157,6 +157,22 @@ class JobServiceTest(unittest.TestCase):             permanent = svc.fail(FakeCursor(), device_id=7, job_id=21, attempt_id=31, worker_id="worker-a", lease_token="x" * 43, error_class="permanent", error_code="BAD_REQUEST")         self.assertEqual(permanent["status"], "failed") +    def test_target_not_matched_closes_item_without_retry_or_product_result(self):+        running_job = dict(self.job, status="running", item_id=91)+        running_attempt = dict(self.attempt, status="running")+        cur = FakeCursor()+        with patch.object(svc, "_context", return_value=(running_job, running_attempt)), patch.object(svc, "_aggregate_task_from_jobs", return_value=None), patch.object(svc, "next_id", return_value=50):+            result = svc.fail(+                cur, device_id=7, job_id=21, attempt_id=31, worker_id="worker-a",+                lease_token="x" * 43, error_class="business_rejection",+                error_code="TARGET_NOT_MATCHED", error_message="all candidates rejected by target identity",+            )+        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)+        item_updates = [sql for sql, _ in cur.calls if "UPDATE SJZQ_TASK_ITEM" in sql]+        self.assertEqual(1, len(item_updates))+        self.assertIn("SET STATUS='not_matched'", item_updates[0])+        self.assertFalse(any("SJZQ_PRODUCT" in sql or "SJZQ_UPLOAD_RECEIPT" in sql for sql, _ in cur.calls))+     def test_protocol_models_require_lease_identity(self):         self.assertEqual(JobAcquireIn(device_key="device-key", worker_id="w").lease_seconds, 120)         with self.assertRaises(Exception):@@ -242,6 +258,36 @@ class OracleJobServiceTest(unittest.TestCase):         self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id":self.ids["task"]})         self.assertEqual("succeeded", self.cur.fetchone()[0]) +    def test_real_target_not_matched_is_terminal_without_result_artifacts(self):+        self._seed()+        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")+        assert lease is not None+        self.assertEqual("running", svc.start(self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"], worker_id="oracle-job-test", lease_token=lease["lease_token"])["status"])+        result = svc.fail(+            self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"],+            worker_id="oracle-job-test", lease_token=lease["lease_token"],+            error_class="business_rejection", error_code="TARGET_NOT_MATCHED",+            error_message="all inspected candidates failed target identity",+        )+        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)+        self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id": self.ids["item"]})+        item_status, message = self.cur.fetchone()+        self.assertEqual("not_matched", item_status)+        self.assertEqual("TARGET_NOT_MATCHED", message)+        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})+        self.assertEqual("failed", self.cur.fetchone()[0])+        self.cur.execute("SELECT STATUS,RETRYABLE FROM SJZQ_COLLECTION_ATTEMPT WHERE ATTEMPT_ID=:id", {"id": lease["attempt_id"]})+        self.assertEqual(("failed", 0), tuple(self.cur.fetchone()))+        self.cur.execute("SELECT ACTIVE_ATTEMPT_ID FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})+        self.assertIsNone(self.cur.fetchone()[0])+        self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": self.ids["task"]})+        self.assertEqual("failed", self.cur.fetchone()[0])+        for table in ("SJZQ_PRODUCT", "SJZQ_RAW_COLLECTION", "SJZQ_PRODUCT_SNAPSHOT", "SJZQ_UPLOAD_RECEIPT"):+            self.cur.execute(f"SELECT COUNT(*) FROM {table} WHERE TASK_ID=:id", {"id": self.ids["task"]})+            self.assertEqual(0, int(self.cur.fetchone()[0]), table)+        self.cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:id", {"id": lease["job_id"]})+        self.assertEqual(1, int(self.cur.fetchone()[0]))+     def test_real_expired_lease_rejects_old_worker_before_checkpoint(self):         self._seed()         lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
+index d316525..6996ddc 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
+@@ -24,0 +25 @@ import com.collector.pdd.collector.collectDetail
++import com.collector.pdd.net.TaskStatusMapping
+@@ -45,0 +47,7 @@ internal suspend fun collectDetailThroughRegistry(
++internal fun taskEndStatus(stopRequested: Boolean, success: Int, failed: Int, notMatched: Int): String = when {
++    stopRequested -> "stopped"
++    success == 0 && failed > 0 -> "failed"
++    success == 0 && notMatched > 0 -> TaskStatusMapping.NOT_MATCHED
++    else -> "finished"
++}
++
+@@ -72,0 +81,6 @@ class TaskEngine(
++    private enum class CandidateResult {
++        COLLECTED,
++        NOT_MATCHED,
++        FAILED,
++    }
++
+@@ -205,0 +220 @@ class TaskEngine(
++        var notMatched = 0
+@@ -259,0 +275 @@ class TaskEngine(
++                        var candidateFailed = false
+@@ -265 +281 @@ class TaskEngine(
+-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
++                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(
+@@ -273,4 +289,8 @@ class TaskEngine(
+-                            if (ok) {
+-                                success++
+-                                found = true
+-                                break
++                            when (result) {
++                                CandidateResult.COLLECTED -> {
++                                    success++
++                                    found = true
++                                    break
++                                }
++                                CandidateResult.FAILED -> candidateFailed = true
++                                CandidateResult.NOT_MATCHED -> Unit
+@@ -281,2 +301,6 @@ class TaskEngine(
+-                            fail++
+-                            val message = "匹配失败：前 $n 个商品未找到准字=${target.targetApproval}、规格=${target.targetSpec}"
++                            if (candidateFailed) fail++ else notMatched++
++                            val message = if (candidateFailed) {
++                                "采集失败：前 $n 个候选未能完成目标核对"
++                            } else {
++                                "未匹配：前 $n 个商品均未通过准字=${target.targetApproval}、品名=${target.targetName.ifBlank { "-" }}、规格=${target.targetSpec}、厂家=${target.targetManufacturer.ifBlank { "-" }}"
++                            }
+@@ -300 +324 @@ class TaskEngine(
+-                            val ok = if (confirmed(config, kw, slot)) true else collectOneWithPolicy(
++                            val result = if (confirmed(config, kw, slot)) CandidateResult.COLLECTED else collectOneWithPolicy(
+@@ -307 +331 @@ class TaskEngine(
+-                            if (ok) success++ else fail++
++                            if (result == CandidateResult.COLLECTED) success++ else fail++
+@@ -319 +343 @@ class TaskEngine(
+-                            val ok = if (confirmed(config, kw, "price_asc_first")) true else collectOneWithPolicy(
++                            val result = if (confirmed(config, kw, "price_asc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(
+@@ -326 +350 @@ class TaskEngine(
+-                            if (ok) success++ else fail++
++                            if (result == CandidateResult.COLLECTED) success++ else fail++
+@@ -344 +368 @@ class TaskEngine(
+-                            val ok = if (confirmed(config, kw, "sales_desc_first")) true else collectOneWithPolicy(
++                            val result = if (confirmed(config, kw, "sales_desc_first")) CandidateResult.COLLECTED else collectOneWithPolicy(
+@@ -351 +375 @@ class TaskEngine(
+-                            if (ok) success++ else fail++
++                            if (result == CandidateResult.COLLECTED) success++ else fail++
+@@ -377,5 +401 @@ class TaskEngine(
+-            endStatus = when {
+-                stopFlag.get() -> "stopped"
+-                success == 0 && fail > 0 -> "failed"
+-                else -> "finished"
+-            }
++            endStatus = taskEndStatus(stopFlag.get(), success, fail, notMatched)
+@@ -443 +463 @@ class TaskEngine(
+-    ): Boolean {
++    ): CandidateResult {
+@@ -447 +467 @@ class TaskEngine(
+-                val ok = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)
++                val result = collectOne(collector, actions, dbTaskId, keyword, pickTag, openIndex, target, config)
+@@ -449 +469 @@ class TaskEngine(
+-                if (ok) consecutiveActionAnomalies = 0
++                if (result == CandidateResult.COLLECTED) consecutiveActionAnomalies = 0
+@@ -451 +471 @@ class TaskEngine(
+-                return ok
++                return result
+@@ -462 +482 @@ class TaskEngine(
+-                        return false
++                        return CandidateResult.FAILED
+@@ -485 +505 @@ class TaskEngine(
+-                        return false
++                        return CandidateResult.FAILED
+@@ -491 +511 @@ class TaskEngine(
+-                        if (stopFlag.get()) return false
++                        if (stopFlag.get()) return CandidateResult.FAILED
+@@ -497 +517 @@ class TaskEngine(
+-                                return false
++                                return CandidateResult.FAILED
+@@ -504 +524 @@ class TaskEngine(
+-                                return false
++                                return CandidateResult.FAILED
+@@ -519 +539 @@ class TaskEngine(
+-        return false
++        return CandidateResult.FAILED
+@@ -531 +551 @@ class TaskEngine(
+-    ): Boolean {
++    ): CandidateResult {
+@@ -546 +566 @@ class TaskEngine(
+-                return false
++                return CandidateResult.FAILED
+@@ -569 +589 @@ class TaskEngine(
+-                    return false
++                    return CandidateResult.NOT_MATCHED
+@@ -584 +604 @@ class TaskEngine(
+-                return false
++                return CandidateResult.FAILED
+@@ -634 +654 @@ class TaskEngine(
+-            true
++            CandidateResult.COLLECTED
+@@ -640 +660 @@ class TaskEngine(
+-            false
++            CandidateResult.FAILED
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
+index 3e2affe..223cf6e 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
+@@ -628 +628,2 @@ class AgentCoordinator(
+-                        api.failJob(identity, "transient", "LOCAL_TASK_FINISHED", "local_status=$localStatus")
++                        val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
++                        api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
+diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt b/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
+index c7ce5c9..760d9e0 100644
+--- a/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
++++ b/android_collector/app/src/main/java/com/collector/pdd/net/TaskStatusMapping.kt
+@@ -7,0 +8 @@ object TaskStatusMapping {
++    const val NOT_MATCHED = "not_matched"
+@@ -12,0 +14 @@ object TaskStatusMapping {
++        NOT_MATCHED -> NOT_MATCHED
+@@ -16,0 +19,5 @@ object TaskStatusMapping {
++
++    fun jobFailureFor(localStatus: String): Pair<String, String> = when (completionFor(localStatus)) {
++        NOT_MATCHED -> "business_rejection" to "TARGET_NOT_MATCHED"
++        else -> "transient" to "LOCAL_TASK_FINISHED"
++    }
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
+index 2536c79..f84c59b 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/engine/ProductTargetMatcherTest.kt
+@@ -51,0 +52,12 @@ class ProductTargetMatcherTest {
++    @Test
++    fun rejectsDifferentNameInFourFieldMode() {
++        val result = ProductTargetMatcher.match(
++            expectedApproval = "国药准字H12345678", expectedName = "目标药品",
++            expectedSpec = "10片", expectedManufacturer = "甲药厂",
++            actualApproval = "国药准字H12345678", actualName = "无关药品",
++            actualSpec = "10s", actualManufacturer = "甲药厂有限公司",
++        )
++        assertFalse(result.matched)
++        assertFalse(result.nameMatched)
++    }
++
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
+index 495567f..9497aa8 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/engine/TaskEngineCollectorLifecycleTest.kt
+@@ -16,0 +17,6 @@ class TaskEngineCollectorLifecycleTest {
++    @Test
++    fun naturalTargetMissHasDedicatedTerminalStatus() {
++        assertEquals("not_matched", taskEndStatus(stopRequested = false, success = 0, failed = 0, notMatched = 1))
++        assertEquals("failed", taskEndStatus(stopRequested = false, success = 0, failed = 1, notMatched = 1))
++    }
++
+diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
+index 14023b2..50888ad 100644
+--- a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
++++ b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
+@@ -23,0 +24,5 @@ class TaskStatusMappingTest {
++
++    @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {
++        assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))
++        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))
++    }
+diff --git a/server/job_service.py b/server/job_service.py
+index 32ccd84..4a60e76 100644
+--- a/server/job_service.py
++++ b/server/job_service.py
+@@ -420,0 +421,3 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
++    target_not_matched = (
++        category == ErrorClass.BUSINESS_REJECTION and error_code == "TARGET_NOT_MATCHED"
++    )
+@@ -422 +425,4 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
+-        cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
++        if target_not_matched:
++            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
++        else:
++            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
+diff --git a/tests/test_job_service.py b/tests/test_job_service.py
+index e38ef3d..b781112 100644
+--- a/tests/test_job_service.py
++++ b/tests/test_job_service.py
+@@ -159,0 +160,16 @@ class JobServiceTest(unittest.TestCase):
++    def test_target_not_matched_closes_item_without_retry_or_product_result(self):
++        running_job = dict(self.job, status="running", item_id=91)
++        running_attempt = dict(self.attempt, status="running")
++        cur = FakeCursor()
++        with patch.object(svc, "_context", return_value=(running_job, running_attempt)), patch.object(svc, "_aggregate_task_from_jobs", return_value=None), patch.object(svc, "next_id", return_value=50):
++            result = svc.fail(
++                cur, device_id=7, job_id=21, attempt_id=31, worker_id="worker-a",
++                lease_token="x" * 43, error_class="business_rejection",
++                error_code="TARGET_NOT_MATCHED", error_message="all candidates rejected by target identity",
++            )
++        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)
++        item_updates = [sql for sql, _ in cur.calls if "UPDATE SJZQ_TASK_ITEM" in sql]
++        self.assertEqual(1, len(item_updates))
++        self.assertIn("SET STATUS='not_matched'", item_updates[0])
++        self.assertFalse(any("SJZQ_PRODUCT" in sql or "SJZQ_UPLOAD_RECEIPT" in sql for sql, _ in cur.calls))
++
+@@ -244,0 +261,30 @@ class OracleJobServiceTest(unittest.TestCase):
++    def test_real_target_not_matched_is_terminal_without_result_artifacts(self):
++        self._seed()
++        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")
++        assert lease is not None
++        self.assertEqual("running", svc.start(self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"], worker_id="oracle-job-test", lease_token=lease["lease_token"])["status"])
++        result = svc.fail(
++            self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"],
++            worker_id="oracle-job-test", lease_token=lease["lease_token"],
++            error_class="business_rejection", error_code="TARGET_NOT_MATCHED",
++            error_message="all inspected candidates failed target identity",
++        )
++        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)
++        self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id": self.ids["item"]})
++        item_status, message = self.cur.fetchone()
++        self.assertEqual("not_matched", item_status)
++        self.assertEqual("TARGET_NOT_MATCHED", message)
++        self.cur.execute("SELECT STATUS FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})
++        self.assertEqual("failed", self.cur.fetchone()[0])
++        self.cur.execute("SELECT STATUS,RETRYABLE FROM SJZQ_COLLECTION_ATTEMPT WHERE ATTEMPT_ID=:id", {"id": lease["attempt_id"]})
++        self.assertEqual(("failed", 0), tuple(self.cur.fetchone()))
++        self.cur.execute("SELECT ACTIVE_ATTEMPT_ID FROM SJZQ_COLLECTION_JOB WHERE JOB_ID=:id", {"id": lease["job_id"]})
++        self.assertIsNone(self.cur.fetchone()[0])
++        self.cur.execute("SELECT STATUS FROM SJZQ_TASK WHERE TASK_ID=:id", {"id": self.ids["task"]})
++        self.assertEqual("failed", self.cur.fetchone()[0])
++        for table in ("SJZQ_PRODUCT", "SJZQ_RAW_COLLECTION", "SJZQ_PRODUCT_SNAPSHOT", "SJZQ_UPLOAD_RECEIPT"):
++            self.cur.execute(f"SELECT COUNT(*) FROM {table} WHERE TASK_ID=:id", {"id": self.ids["task"]})
++            self.assertEqual(0, int(self.cur.fetchone()[0]), table)
++        self.cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:id", {"id": lease["job_id"]})
++        self.assertEqual(1, int(self.cur.fetchone()[0]))
++
