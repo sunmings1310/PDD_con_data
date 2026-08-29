@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-TARGET-MATCH-TERMINAL-001
 - **Title**：目标精确匹配与未匹配业务终态
-- **Status**：REVIEW（Dev gates complete；等待 Independent Review，不是 ACCEPTED）
+- **Status**：ACCEPTED（核心 P0/P1；正向匹配 E2E=`PARTIAL / BLOCKED_BY_FIXTURE`）
 
 ## Goal
 
@@ -88,13 +88,13 @@
 - Evidence generated：2026-08-29；isolated cleanup=0、persistent business changes=false。
 - Four artifacts / rollback：四制品及 PowerShell 等价 rollback 已复核，`MODIFIED_FILE` 保持 changed。
 - Hosted evidence validator：交 Independent Review 后按流程核验。
-- Independent Reviewer provenance check：尚未开始；本 Task 当前仅为 REVIEW-ready，非 ACCEPTED。
+- Independent Reviewer provenance check：`b5edf6e` 代码复核 `ACCEPT`；真机 manifest 终审 `ACCEPT`（核心 P0/P1）。
 
 ## Real-device Gate
 
-- Required：Yes，最终业务路径需要真机确认；但实现 Review `ACCEPT` 前不执行。
+- Required：Yes；已在 Review `ACCEPT` 后执行。
 - Device/scenario：同一受控商品任务，验证错品不进入 SKU_PANEL、未匹配只终结一次并在 Web 显示。
-- Command or steps / result：等待 Independent Review `ACCEPT` 后向 Product Owner 单独申请复验批准。
+- Command or steps / result：同一 fixed Head 服务/APK 下执行 3 个独立 canonical Task；三轮均为单 Attempt `business_rejection/TARGET_NOT_MATCHED`、Item=`not_matched`、Lease=0、Product/Raw/Snapshot/Receipt=0，无重试或错误商品持久化。正向匹配因现有 Accepted 数据 `MATCH_CANDIDATES=0` 未执行，明确为 `PARTIAL / BLOCKED_BY_FIXTURE`，未冒充 PASS。
 
 ## Rollback
 
@@ -118,7 +118,7 @@
 
 - Original evidence：`SKU-PANEL-EVIDENCE-001@902f471e9e5d781e3a5d708705a7faa713732a69`。
 - Derived artifacts：`docs/tasks/PDD-TARGET-MATCH-TERMINAL-001-verification/`。
-- Review findings：尚未开始 Independent Review。
+- Review findings：代码终审与真机 E2E 终审均 `ACCEPT`；正向匹配 fixture 缺失属于覆盖限制，不是代码 finding。
 - Commits：失败复现 `7294014`；固定实现 `20a6ae0`；Control gate Head `1522497`。PR 仍禁止。
 
 ## Dev Execution Evidence（2026-08-29）
@@ -132,9 +132,9 @@
 - Independent Review 历史：固定 wrapper `660aca2` 收到 `CHANGES_REQUIRED` 的唯一 P1——`DIFF_FILE.patch` 被 PowerShell 写成单行，`git apply --check` 不能执行。已从 Base→`20a6ae0` 的 8 个直接 Android/Server/test 路径以保留换行方式重新生成 zero-context 完整补丁；base probe 的 `git apply --check --unidiff-zero --whitespace=nowarn` exit 0。
 - 四制品、准确命令、字面结果、hash 与 PowerShell rollback 等价核验见 [`PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt`](PDD-TARGET-MATCH-TERMINAL-001-verification/VERIFICATION.txt)。
 
-## Dev Stop
+## Historical Dev Stop
 
-已修复 Review 的单一 P1 制品问题，状态保持 `REVIEW`，等待重新 Independent Review；不是 ACCEPTED。不得创建 PR、merge 或 release。
+当时已修复 Review 的单一 P1 制品问题并停在 `REVIEW`；该状态已由下方 Final Accepted Evidence supersede。仍未创建 PR、merge 或 release。
 
 ## OTA Review Remediation（2026-08-29，code Head `30482e04`）
 
@@ -148,3 +148,14 @@
 - Artifact boundary：DIFF_FILE 仅覆盖 base→CODE_HEAD 的 18 个非 docs 直接业务/测试路径；wrapper 文档由 ROLLBACK.sh 使用 base checkout 恢复，避免补丁自引用。
 
 - Control final evidence：Android full canonical PASS（BUILD SUCCESSFUL in 32s；strict summary PASS）；独立 c95e7a2 probe rollback PASS（reverse apply/check=0，Task/verification removed，MODIFIED remains changed）。Oracle stable external manifest 由 Control 在 F4 生成；manifest git_head 为权威，避免文档自引用。
+
+## Final Accepted Evidence（2026-08-29）
+
+- Fixed code Head：`b5edf6eceaa69c00614bb190640855c7f7018ba2`；Independent Review：`ACCEPT`。
+- Full regression：Python `255` tests、`skipped=32`、exit 0；Android JVM `BUILD SUCCESSFUL`、exit 0；Web production build `✓ built in 1.01s`、exit 0；`git diff --check` exit 0。
+- OTA/runtime：服务从 fixed worktree 启动，监听 `0.0.0.0:8080`，`/api/health=200`；同 Head APK `1.0.83/code83` 经 heartbeat 确认安装。APK SHA-256：`11633052dd792fd92f4510f59a51094fd623465975166cfac030233728345cec`。
+- 真机 E2E：3 个独立 canonical Task 连续通过；每轮 Task=`failed(0/1)`、Job/Attempt=`failed business_rejection/TARGET_NOT_MATCHED`、Item=`not_matched`、Attempt count=1、active lease=0、Product/Raw/Snapshot/Receipt=0。设备最终 online/idle，无活动任务；未进入 SKU、购物车、订单或支付。
+- 脱敏外部 manifest：`C:\Users\Eden\AppData\Local\Temp\PDD-TARGET-MATCH-TERMINAL-001\e2e\final-manifest.json`；SHA-256 `d3094168599939d54c33cbf56a47fe28a8cbe865ea33fe8163cc08b7ae2a3eda`。
+- E2E Independent Review：`ACCEPT`（核心 P0/P1）。正向匹配路径因现有 Accepted 数据 `MATCH_CANDIDATES=0` 未执行，状态为 `PARTIAL / BLOCKED_BY_FIXTURE`，不构成代码 finding，且未被表述为 PASS。
+- Oracle：Job/Attempt/Item 事务语义在 tested code Head `20a6ae0` 上严格门禁 55/55 PASS、cleanup=0；后续 `b5edf6e` 只收口 OTA bootstrap/in-memory command fencing，不改 Oracle SQL/Schema/transaction，最终真机三轮同时核验真实终态与零业务污染。
+- Scope：未启动 Generic SKU、Schema/P1、Phase 6B、PR、merge 或 release。

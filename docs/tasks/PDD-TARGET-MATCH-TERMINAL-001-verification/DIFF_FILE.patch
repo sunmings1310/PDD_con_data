@@ -122,13 +122,47 @@ index d316525..6996ddc 100644
 -            false
 +            CandidateResult.FAILED
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
-index 3e2affe..054c596 100644
+index 3e2affe..89435b8 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
 +++ b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
-@@ -234 +234 @@ class AgentCoordinator(
+@@ -42 +42,4 @@ class AgentCoordinator(
+-    @Volatile private var awaitingJobRecovery = false
++    // Recovery is deliberately deferred until the first successful heartbeat has
++    // exposed any OTA command. Starting the engine before that observation can
++    // run stale code while a system-package installation is pending.
++    @Volatile private var awaitingJobRecovery = true
+@@ -136,4 +138,0 @@ class AgentCoordinator(
+-            if (!durableRecoveryDone) {
+-                withContext(Dispatchers.IO) { recoverDurableState() }
+-                durableRecoveryDone = true
+-            }
+@@ -201,3 +200,9 @@ class AgentCoordinator(
+-        if (awaitingJobRecovery && activeJob == null) {
+-            // Keep the old lease as the only candidate while the server truth is
+-            // temporarily unavailable; never acquire a replacement job.
++        val data = hb.optJSONObject("data")
++        val earlyUpdateApk = data?.optJSONObject("commands")?.optJSONObject("update_apk")
++        if (earlyUpdateApk != null) ApkUpdater.handleCommand(appContext, prefs, earlyUpdateApk, log)
++        val mayContinue = runPreBusinessGate(
++            activeJobPresent = activeJob != null,
++            durableRecoveryDone = durableRecoveryDone,
++            awaitingJobRecovery = awaitingJobRecovery,
++            remoteOtaPending = ApkUpdater.isRemoteUpdatePending(),
++        ) {
+@@ -205,0 +211 @@ class AgentCoordinator(
++                durableRecoveryDone = !awaitingJobRecovery
+@@ -206,0 +213 @@ class AgentCoordinator(
++                awaitingJobRecovery = true
+@@ -209 +215,0 @@ class AgentCoordinator(
+-            return@withContext
+@@ -210,0 +217 @@ class AgentCoordinator(
++        if (!mayContinue) return@withContext
+@@ -234 +241 @@ class AgentCoordinator(
 -            if (shouldRetryRecoveredEngine(
-+            if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
-@@ -268,8 +268,4 @@ class AgentCoordinator(
++            if (!otaCommandBlocksRecovery(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
+@@ -246 +252,0 @@ class AgentCoordinator(
+-        val data = hb.optJSONObject("data")
+@@ -268,8 +274,3 @@ class AgentCoordinator(
 -            // 更新优先：先停任务再装包
 -            if (engine.isRunning()) {
 -                withContext(Dispatchers.Main) {
@@ -137,20 +171,42 @@ index 3e2affe..054c596 100644
 -                }
 -            }
 -            ApkUpdater.handleCommand(appContext, prefs, api, updateApk, log)
-+            ApkUpdater.handleCommand(appContext, prefs, updateApk, log)
 +            // An OTA command never cancels an already-running job, but it must not
 +            // recover or acquire new business work while system installation is pending.
 +            if (ApkUpdater.isRemoteUpdatePending()) return@withContext
-@@ -290 +286 @@ class AgentCoordinator(
+@@ -290 +291 @@ class AgentCoordinator(
 -        if (!engine.isRunning() && activeJob == null) {
 +        if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && !engine.isRunning() && activeJob == null) {
-@@ -628 +624,2 @@ class AgentCoordinator(
+@@ -628 +629,2 @@ class AgentCoordinator(
 -                        api.failJob(identity, "transient", "LOCAL_TASK_FINISHED", "local_status=$localStatus")
 +                        val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
 +                        api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
-@@ -1001,0 +999,3 @@ internal fun shouldRetryRecoveredEngine(
+@@ -1001,0 +1004,26 @@ internal fun shouldRetryRecoveredEngine(
 +/** System installation may be pending, but a running business engine is never cancelled. */
 +internal fun otaBlocksBusinessWork(remoteOtaPending: Boolean): Boolean = remoteOtaPending
++
++/** Tick observes OTA commands before durable recovery or engine restart. */
++internal fun otaCommandBlocksRecovery(remoteOtaPending: Boolean): Boolean = remoteOtaPending
++
++/**
++ * Runs the exact pre-business gate used by [AgentCoordinator.tick].  Recovery is
++ * invoked only after the heartbeat OTA command has been handled.  Returning
++ * false means this tick must not reach engine restart or job acquisition.
++ */
++internal suspend fun runPreBusinessGate(
++    activeJobPresent: Boolean,
++    durableRecoveryDone: Boolean,
++    awaitingJobRecovery: Boolean,
++    remoteOtaPending: Boolean,
++    recover: suspend () -> Unit,
++): Boolean {
++    if (!activeJobPresent && remoteOtaPending) return false
++    if (!activeJobPresent && (!durableRecoveryDone || awaitingJobRecovery)) {
++        recover()
++        return false
++    }
++    return true
++}
 +
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ApiClient.kt
 index d056ea2..75b1d98 100644
@@ -167,35 +223,80 @@ index d056ea2..75b1d98 100644
 -    }
 -
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
-index 7154412..620294b 100644
+index 7154412..7190d54 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
 +++ b/android_collector/app/src/main/java/com/collector/pdd/net/ApkUpdater.kt
 @@ -20,0 +21 @@ object ApkUpdater {
-+    @Volatile private var pendingRemoteVersion: String? = null
-@@ -22,0 +24 @@ object ApkUpdater {
-+    fun isRemoteUpdatePending(): Boolean = pendingRemoteVersion != null
-@@ -27 +28,0 @@ object ApkUpdater {
++    private val remoteState = RemoteOtaState()
+@@ -22,0 +24,9 @@ object ApkUpdater {
++    fun isRemoteUpdatePending(): Boolean = remoteState.isPending()
++
++    private fun key(cmd: JSONObject?): String = "${cmd?.optString("version_name", "")?.trim()}#${cmd?.optInt("generation", 0) ?: 0}"
++
++    fun observeCommand(prefs: ServerPrefs, cmd: JSONObject?) {
++        val generation = cmd?.optInt("generation", 0) ?: 0
++        if (generation > 0) prefs.otaGeneration = generation
++        remoteState.observeInstalled(ApiClient.APP_VERSION, cmd?.optString("version_name", "")?.trim())
++    }
+@@ -27 +36,0 @@ object ApkUpdater {
 -        api: ApiClient,
-@@ -31 +32,5 @@ object ApkUpdater {
+@@ -31 +40,4 @@ object ApkUpdater {
 -        startUpdate(context, prefs, api, cmd, log, source = "远程指令")
-+        val version = cmd?.optString("version_name", "")?.trim().orEmpty()
-+        if (version.isNotBlank() && pendingRemoteVersion == version) return
-+        pendingRemoteVersion = version.ifBlank { "unknown" }
-+        cmd?.optInt("generation", 0)?.takeIf { it > 0 }?.let { prefs.otaGeneration = it }
++        observeCommand(prefs, cmd)
++        val commandKey = key(cmd)
++        if (!remoteState.tryStart(commandKey, busy)) return
 +        startUpdate(context, prefs, cmd, log, source = "远程指令")
-@@ -38 +42,0 @@ object ApkUpdater {
+@@ -38 +49,0 @@ object ApkUpdater {
 -        api: ApiClient,
-@@ -42 +46 @@ object ApkUpdater {
+@@ -42 +53 @@ object ApkUpdater {
 -        startUpdate(context, prefs, api, cmd, log, source = "手工更新")
 +        startUpdate(context, prefs, cmd, log, source = "手工更新")
-@@ -48 +51,0 @@ object ApkUpdater {
+@@ -48 +58,0 @@ object ApkUpdater {
 -        api: ApiClient,
-@@ -65 +67,0 @@ object ApkUpdater {
+@@ -53,0 +64 @@ object ApkUpdater {
++            if (source == "远程指令") remoteState.failed(key(cmd))
+@@ -58,0 +70 @@ object ApkUpdater {
++            if (source == "远程指令") remoteState.failed(key(cmd))
+@@ -63,0 +76 @@ object ApkUpdater {
++            if (source == "远程指令") remoteState.installed(key(cmd))
+@@ -65 +77,0 @@ object ApkUpdater {
 -            runCatching { api.ackOta(ver) }
-@@ -92,3 +93,0 @@ object ApkUpdater {
+@@ -92,3 +103,0 @@ object ApkUpdater {
 -                if (ver.isNotBlank()) {
 -                    runCatching { api.ackOta(ver) }
 -                }
+@@ -96,0 +106 @@ object ApkUpdater {
++                if (source == "远程指令") remoteState.failed(key(cmd))
+@@ -154,0 +165,29 @@ object ApkUpdater {
++
++/** In-process OTA state; server heartbeat remains the durable source of truth. */
++internal class RemoteOtaState {
++    @Volatile private var pendingKey: String? = null
++
++    fun isPending(): Boolean = pendingKey != null
++
++    @Synchronized
++    fun tryStart(commandKey: String, updaterBusy: Boolean): Boolean {
++        if (updaterBusy || pendingKey == commandKey) return false
++        pendingKey = commandKey
++        return true
++    }
++
++    @Synchronized
++    fun failed(commandKey: String) {
++        if (pendingKey == commandKey) pendingKey = null
++    }
++
++    @Synchronized
++    fun installed(commandKey: String) {
++        if (pendingKey == commandKey) pendingKey = null
++    }
++
++    @Synchronized
++    fun observeInstalled(currentVersion: String, commandedVersion: String?) {
++        if (!commandedVersion.isNullOrBlank() && commandedVersion == currentVersion) pendingKey = null
++    }
++}
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt b/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
 index 2da49bc..1075981 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/net/ServerPrefs.kt
@@ -256,13 +357,83 @@ index 495567f..9497aa8 100644
 +    }
 +
 diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
-index 3ff93fd..3dc4aae 100644
+index 3ff93fd..1a4ecfc 100644
 --- a/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
 +++ b/android_collector/app/src/test/java/com/collector/pdd/net/JobRecoveryPolicyTest.kt
-@@ -43,0 +44,5 @@ class JobRecoveryPolicyTest {
+@@ -9,0 +10 @@ import org.junit.Test
++import kotlinx.coroutines.runBlocking
+@@ -43,0 +45,73 @@ class JobRecoveryPolicyTest {
 +    @Test fun pendingOtaBlocksAcquireAndRecoveryWithoutCancellingExistingEngine() {
 +        assertEquals(true, otaBlocksBusinessWork(true))
 +        assertEquals(false, otaBlocksBusinessWork(false))
++        assertEquals(true, otaCommandBlocksRecovery(true))
++        assertEquals(false, otaCommandBlocksRecovery(false))
++    }
++
++    @Test
++    fun firstHeartbeatOtaGateBlocksActualRecoveryCallback() = runBlocking {
++        var recoveryCalls = 0
++        val mayContinue = runPreBusinessGate(
++            activeJobPresent = false,
++            durableRecoveryDone = false,
++            awaitingJobRecovery = true,
++            remoteOtaPending = true,
++        ) { recoveryCalls += 1 }
++
++        assertEquals(false, mayContinue)
++        assertEquals(0, recoveryCalls)
++    }
++
++    @Test
++    fun firstHeartbeatWithoutOtaRunsRecoveryThenStopsBeforeAcquire() = runBlocking {
++        val events = mutableListOf<String>()
++        val mayContinue = runPreBusinessGate(
++            activeJobPresent = false,
++            durableRecoveryDone = false,
++            awaitingJobRecovery = true,
++            remoteOtaPending = false,
++        ) { events += "recover" }
++
++        if (mayContinue) events += "acquire"
++        assertEquals(listOf("recover"), events)
++        assertEquals(false, mayContinue)
++    }
++
++    @Test
++    fun runningLeaseContinuesHeartbeatWhileOtaBlocksNewWork() = runBlocking {
++        var recoveryCalls = 0
++        val mayContinue = runPreBusinessGate(
++            activeJobPresent = true,
++            durableRecoveryDone = true,
++            awaitingJobRecovery = false,
++            remoteOtaPending = true,
++        ) { recoveryCalls += 1 }
++
++        assertEquals(true, mayContinue)
++        assertEquals(0, recoveryCalls)
++        assertEquals(true, otaBlocksBusinessWork(true))
++    }
++
++    @Test
++    fun otaFailureReleasesSameCommandForRetryAndInstalledVersionClearsPending() {
++        val state = RemoteOtaState()
++        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
++        assertEquals(false, state.tryStart("1.0.82#4", updaterBusy = false))
++        state.failed("1.0.82#4")
++        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
++        state.observeInstalled(currentVersion = "1.0.82", commandedVersion = "1.0.82")
++        assertEquals(false, state.isPending())
++    }
++
++    @Test
++    fun sameVersionReplacementGenerationIsASeparateCommand() {
++        val state = RemoteOtaState()
++        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
++        assertEquals(true, state.tryStart("1.0.82#5", updaterBusy = false))
++        state.failed("1.0.82#4")
++        assertEquals(true, state.isPending())
++        state.failed("1.0.82#5")
++        assertEquals(false, state.isPending())
 +    }
 +
 diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/TaskStatusMappingTest.kt
@@ -276,7 +447,7 @@ index 14023b2..50888ad 100644
 +        assertEquals("business_rejection" to "TARGET_NOT_MATCHED", TaskStatusMapping.jobFailureFor("not_matched"))
 +    }
 diff --git a/server/cast_state.py b/server/cast_state.py
-index b932bf9..1cde6b8 100644
+index b932bf9..88f1b94 100644
 --- a/server/cast_state.py
 +++ b/server/cast_state.py
 @@ -5,0 +6 @@ import asyncio
@@ -284,6 +455,53 @@ index b932bf9..1cde6b8 100644
 @@ -33,0 +35,2 @@ class CastState:
 +        self.apk_generation_by_scope: dict[tuple[int, int], int] = {}
 +        self.apk_lock = threading.RLock()
+@@ -86,10 +89,11 @@ class CastState:
+-        cmds: dict[str, Any] = {
+-            "cast_request": self.cast_requested_for_key(device_key),
+-            "abort_task": self.pop_abort_for_key(device_key),
+-            "update_apk": None,
+-        }
+-        for scope, payload in self.pending_apk_by_scope.items():
+-            if device_key in self.apk_keys_by_scope.get(scope, set()):
+-                cmds["update_apk"] = dict(payload)
+-                break
+-        return cmds
++        with self.apk_lock:
++            cmds: dict[str, Any] = {
++                "cast_request": self.cast_requested_for_key(device_key),
++                "abort_task": self.pop_abort_for_key(device_key),
++                "update_apk": None,
++            }
++            for scope, payload in tuple(self.pending_apk_by_scope.items()):
++                if device_key in self.apk_keys_by_scope.get(scope, set()):
++                    cmds["update_apk"] = dict(payload)
++                    break
++            return cmds
+@@ -98,5 +102,6 @@ class CastState:
+-        self.apk_meta = {
+-            "version_name": version_name,
+-            "version_code": int(version_code or 0),
+-            "size": int(size or 0),
+-        }
++        with self.apk_lock:
++            self.apk_meta = {
++                "version_name": version_name,
++                "version_code": int(version_code or 0),
++                "size": int(size or 0),
++            }
+@@ -105,7 +110,5 @@ class CastState:
+-        pending = self.pending_apk_by_scope.get(scope)
+-        if not pending:
+-            return None
+-        return {
+-            **pending,
+-            "pending_devices": len(self.apk_keys_by_scope.get(scope, set())),
+-        }
++        with self.apk_lock:
++            pending = self.pending_apk_by_scope.get(scope)
++            if not pending:
++                return None
++            return {**pending, "pending_devices": len(self.apk_keys_by_scope.get(scope, set()))}
 @@ -115,4 +118,8 @@ class CastState:
 -        self.pending_apk = dict(payload)
 -        self.apk_pending_keys = {k for k in device_keys if k}
@@ -357,7 +575,7 @@ index d767562..af162f3 100644
 @@ -152 +156,0 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
 -        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
 diff --git a/server/routers/ota.py b/server/routers/ota.py
-index 8feef67..d22f21b 100644
+index 8feef67..3dfdda5 100644
 --- a/server/routers/ota.py
 +++ b/server/routers/ota.py
 @@ -215 +215 @@ def ack_update(body: OtaAckIn):
@@ -365,7 +583,7 @@ index 8feef67..d22f21b 100644
 +    """仅确认 APK 已领取；安装完成由匹配版本心跳确认。"""
 @@ -222 +222 @@ def ack_update(body: OtaAckIn):
 -    return ApiOk(message="acked")
-+    return ApiOk(message="download acknowledged; waiting for installed-version heartbeat")
++    return ApiOk(message="install confirmation requires matching version/generation heartbeat")
 diff --git a/server/schemas.py b/server/schemas.py
 index a4f32b0..c1bd73f 100644
 --- a/server/schemas.py
@@ -426,15 +644,16 @@ index e38ef3d..b781112 100644
 +
 diff --git a/tests/test_ota_ack_semantics.py b/tests/test_ota_ack_semantics.py
 new file mode 100644
-index 0000000..9f8eb9e
+index 0000000..a1d68bb
 --- /dev/null
 +++ b/tests/test_ota_ack_semantics.py
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,125 @@
 +"""OTA acknowledgement is delivery-only; heartbeat version confirms installation."""
 +
 +from __future__ import annotations
 +
 +import unittest
++import threading
 +from types import SimpleNamespace
 +from unittest.mock import patch
 +
@@ -488,6 +707,7 @@ index 0000000..9f8eb9e
 +                device_key=self.device["device_key"], version_name="1.0.82",
 +            ))
 +        self.assertTrue(response.ok)
++        self.assertEqual("install confirmation requires matching version/generation heartbeat", response.message)
 +        self.assertEqual(1, self.state.get_pending_apk(self.scope)["pending_devices"])
 +
 +        # Only a heartbeat emitted by the newly installed BuildConfig version may
@@ -510,6 +730,45 @@ index 0000000..9f8eb9e
 +        self.assertEqual(2, self.state.get_pending_apk(self.scope)["generation"])
 +        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 1, self.scope))
 +        self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 2, self.scope))
++
++    def test_same_version_new_generation_and_multiple_devices_are_isolated(self) -> None:
++        second = "device-ota-semantics-2"
++        self.state.push_apk_update(
++            {"version_name": "1.0.82"},
++            [self.device["device_key"], second],
++            self.scope,
++        )
++        pending = self.state.get_pending_apk(self.scope)
++        self.assertEqual(2, pending["generation"])
++        self.assertEqual(2, pending["pending_devices"])
++        self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 2, self.scope))
++        self.assertEqual(1, self.state.get_pending_apk(self.scope)["pending_devices"])
++        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 2, self.scope))
++        self.assertTrue(self.state.confirm_apk_install(second, "1.0.82", 2, self.scope))
++        self.assertIsNone(self.state.get_pending_apk(self.scope))
++
++    def test_concurrent_replacement_push_cannot_be_consumed_by_old_confirmation(self) -> None:
++        barrier = threading.Barrier(2)
++        results: list[bool] = []
++
++        def confirm_old() -> None:
++            barrier.wait()
++            results.append(self.state.confirm_apk_install(
++                self.device["device_key"], "1.0.82", 1, self.scope,
++            ))
++
++        thread = threading.Thread(target=confirm_old)
++        thread.start()
++        barrier.wait()
++        self.state.push_apk_update(
++            {"version_name": "1.0.83"}, [self.device["device_key"]], self.scope,
++        )
++        thread.join(timeout=2)
++        self.assertFalse(thread.is_alive())
++        pending = self.state.get_pending_apk(self.scope)
++        self.assertEqual("1.0.83", pending["version_name"])
++        self.assertEqual(2, pending["generation"])
++        self.assertIn(results, ([True], [False]))
 +
 +
 +if __name__ == "__main__":

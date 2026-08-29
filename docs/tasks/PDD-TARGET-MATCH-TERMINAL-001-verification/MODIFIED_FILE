@@ -1,5 +1,5 @@
 BASE=80b3435558e67850c9cba4215ca81456721ef0db
-CODE_HEAD=30482e04dff48f78502f0a9656d1b4a6c713caee
+CODE_HEAD=b5edf6eceaa69c00614bb190640855c7f7018ba2
 PATH_COUNT=18
 android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
 android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
