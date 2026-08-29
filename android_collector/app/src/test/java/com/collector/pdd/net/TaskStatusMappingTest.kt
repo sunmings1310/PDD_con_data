@@ -21,4 +21,8 @@ class TaskStatusMappingTest {
         assertEquals("succeeded", TaskStatusMapping.itemResult(true))
         assertEquals("not_matched", TaskStatusMapping.itemResult(false))
     }
+
+    @Test fun mapsNaturalTargetMissToDedicatedTerminalStatus() {
+        assertEquals("not_matched", TaskStatusMapping.completionFor("not_matched"))
+    }
 }

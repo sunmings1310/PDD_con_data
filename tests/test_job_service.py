@@ -157,6 +157,22 @@ class JobServiceTest(unittest.TestCase):
             permanent = svc.fail(FakeCursor(), device_id=7, job_id=21, attempt_id=31, worker_id="worker-a", lease_token="x" * 43, error_class="permanent", error_code="BAD_REQUEST")
         self.assertEqual(permanent["status"], "failed")
 
+    def test_target_not_matched_closes_item_without_retry_or_product_result(self):
+        running_job = dict(self.job, status="running", item_id=91)
+        running_attempt = dict(self.attempt, status="running")
+        cur = FakeCursor()
+        with patch.object(svc, "_context", return_value=(running_job, running_attempt)), patch.object(svc, "_aggregate_task_from_jobs", return_value=None), patch.object(svc, "next_id", return_value=50):
+            result = svc.fail(
+                cur, device_id=7, job_id=21, attempt_id=31, worker_id="worker-a",
+                lease_token="x" * 43, error_class="business_rejection",
+                error_code="TARGET_NOT_MATCHED", error_message="all candidates rejected by target identity",
+            )
+        self.assertEqual({"status": "failed", "retryable": False, "delay_seconds": None}, result)
+        item_updates = [sql for sql, _ in cur.calls if "UPDATE SJZQ_TASK_ITEM" in sql]
+        self.assertEqual(1, len(item_updates))
+        self.assertIn("SET STATUS='not_matched'", item_updates[0])
+        self.assertFalse(any("SJZQ_PRODUCT" in sql or "SJZQ_UPLOAD_RECEIPT" in sql for sql, _ in cur.calls))
+
     def test_protocol_models_require_lease_identity(self):
         self.assertEqual(JobAcquireIn(device_key="device-key", worker_id="w").lease_seconds, 120)
         with self.assertRaises(Exception):
