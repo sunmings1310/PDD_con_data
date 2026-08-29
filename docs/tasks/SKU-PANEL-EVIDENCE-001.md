@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-PANEL-EVIDENCE-001
 - **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-- **Status**：PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT
+- **Status**：REVIEW — PARTIAL / BLOCKED EVIDENCE COMPLETE
 - **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 - **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 
@@ -79,7 +79,7 @@
 | Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：当前进程绑定 `0.0.0.0:8080`，HTTP `200`，脱敏 body `ok=true` |
 | Device | 联机工具 register/heartbeat/acquire + 投屏 | exactly one approved device | PASS：单一脱敏 alias 在线，Task/Job/Attempt 可领取且投屏可达 |
 | Evidence | canonical Task + cast/hash/manifest | one confirmed multi-SKU evidence chain | BLOCKED：5 行候选均无法同时满足输入身份匹配与已确认多规格；panel entry `0` |
-| Guard | terminal state + persistence/count review | no order/cart/payment/product result | PASS：采样 Task 全部 `cancelled`、Lease `released`，Product/Raw/Snapshot 均为 0 |
+| Guard | terminal state + persistence/count review | no order/cart/payment/product result | PASS：候选 Task `3528`～`3533` 为 `cancelled`；唯一最终 Task `3534` 自然 `failed`；全部 Lease `released`，Product/Raw/Snapshot 均为 0 |
 | Docs | links, diff, sensitive scan, rollback probe | PASS | 见 Verification |
 
 ## Oracle Gate
@@ -98,7 +98,7 @@
 
 - Code rollback：无业务代码修改；文档可通过 Task 专属 `ROLLBACK.sh` 在副本恢复。
 - Configuration rollback：停止 Task 启动的本地服务进程；不写配置文件。
-- Data recovery：采样 Task 已通过权威 cancel 终止，Task/Attempt 审计行按设计保留；Product/Raw/Snapshot/receipt 为 0。若发现平台状态变化立即停止并记录。
+- Data recovery：候选 Task `3528`～`3533` 已通过权威 cancel 终止；唯一最终 Task `3534` 经 5 次错误 transient retry 后自然 `failed`。Task/Attempt 审计行按设计保留；Product/Raw/Snapshot/receipt 为 0。若发现平台状态变化立即停止并记录。
 - Irreversible items：无。
 
 ## Human Decision Points
@@ -125,7 +125,7 @@
 - Product Owner 批准后只创建了一个最终 canonical Task `3534`，固定使用 Excel 工作表第 4 行。Accepted 代码自动导航到 `HURMEVKOR` 烟酰胺面膜，明显不匹配“京润珍珠/医用重组III型人源化胶原蛋白敷贴/5片装”；点击前帧已保存，未点击 `去拼单`。
 - 同一 Item 生命周期自然运行至 terminal：Job `1517` 共 5 次 Attempt（`1320`～`1324`），每次均 `transient/LOCAL_TASK_FINISHED`，Lease 均 released；最终 Task/Item/Job 全部 `failed`。没有 Result/Raw/Snapshot/Receipt/Quality/Quarantine。
 - `/api/tasks/3534` 返回 `failed` Item 与 `LOCAL_TASK_FINISHED` 说明，`/api/management/tasks/3534/results` 返回 `TOTAL=0`；Web Task Detail 对该状态显示“采集失败/匹配失败”和“本次采集结果（0）”。这证明结果可见性正确，但服务端没有产生应有的 `not_matched` 语义。
-- 当前证据冻结两个独立开发 Task 候选：搜索结果在身份确认前不得作为目标进入详情/后续交互；无合格目标时必须以非重试 `not_matched` 业务终态结束，不能映射为 transient 并重复启动 5 次。本 Task 不实施修复。
+- 当前证据冻结一个跨层独立开发 Task 候选 [`PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md`](SKU-PANEL-EVIDENCE-001-evidence/PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md)，包含“详情页身份门禁”和“非重试 `not_matched` 终态”两个验收分支。本 Task 不实施修复。
 - 完整脱敏矩阵与字面终态见 [`SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md`](SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md)。
 
 ## Evidence

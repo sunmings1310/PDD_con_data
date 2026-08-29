@@ -2,7 +2,7 @@
 
 ## Outcome
 
-- **Captured at**：2026-08-29 12:13–12:29 +08:00
+- **Captured at**：2026-08-29 12:13–13:01 +08:00
 - **Result**：`PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT`
 - **Panel entry count**：`0`
 - **Reason**：联机与 canonical Task 链路可用，但 Excel 5 行没有产生同时满足“输入身份匹配”和“页面已确认多规格”的安全候选。
@@ -31,7 +31,7 @@ ASSIGNED_TASK=False ACTIVE_JOB=False ACTIVE_ATTEMPT=False
 | 6 | 3532 | 返回其他药品详情 | `NOT_APPLICABLE`：与 `复方罗布麻片 100s` 不一致 | 未点击；取消 Task |
 | 4 exact retry | 3533 | 胶原蛋白敷料详情，但品牌/规格与输入不一致；底部两组圆形缩略图是“这些人已拼”的买家头像和拼单行，不是 SKU 选项 | `NOT_APPLICABLE`：身份不可靠；未确认多规格 | 未点击；取消 Task |
 
-首行点击前 Original 帧已保存并记录 hash。最后一次搜索漂移帧也已保存；中间帧只用于当场 Stop/Continue 判断，未作为可复验 Original 留存。
+首行点击前 Original 帧与唯一最终 Task `3534` 的错误目标点击前帧均已保存并记录 hash。Task `3533` 及其他中间候选帧只用于当场 Stop/Continue 判断，未作为可复验 Original 留存；不得声称其帧已进入 manifest。
 
 ## Canonical state and cleanup
 
@@ -114,7 +114,9 @@ RESULTS_HTTP=200 OK=True TOTAL=0 ITEMS=0
 
 ## Independent development Task candidates
 
-1. **PDD-TARGET-IDENTITY-GATE-001（P0/P1）**：搜索结果进入详情或任何购买面板交互前，以服务端目标四字段和当前允许的匹配策略验证候选身份；不匹配结果不得成为 Product/Raw/Snapshot，不得进入 SKU_PANEL。验收需覆盖错误首条结果、相似标题、品牌/规格不一致和无候选。
-2. **ANDROID-NOT-MATCHED-TERMINAL-001（P1）**：本地流程结束且不存在合格目标时，Item 返回可解释 `not_matched`，Job 使用非重试业务终态；`LOCAL_TASK_FINISHED/local_status=failed` 不得统一映射 transient。验收需证明单次执行、无 retry storm、Task 聚合正确、Web 显示未匹配原因。
+冻结为一个跨 Android/Server/Web 的独立开发 Task 候选：[`PDD-TARGET-MATCH-TERMINAL-001`](PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md)。它包含两个 Acceptance 分支：
 
-两项属于同一条身份与失败语义链，可作为一个独立开发 Task 的两个 Acceptance 分支；本证据 Task 不实施代码修改。
+1. **两阶段身份门禁（P0/P1）**：搜索卡片先用当前可见身份信息过滤；进入只读详情后解析完整四字段，并在任何购买/SKU/持久化动作前执行 `ProductTargetMatcher`。不匹配结果不得成为 Product/Raw/Snapshot，也不得进入 SKU_PANEL。
+2. **`not_matched` 非重试终态（P1）**：本地流程结束且不存在合格目标时，Item 返回可解释 `not_matched`，Job 使用非重试业务终态；`LOCAL_TASK_FINISHED/local_status=failed` 不得统一映射 transient。验收必须证明单次 Attempt、无 retry storm、Task 聚合正确、原因经 API/Web 可见、Result/Raw/Snapshot=0、Lease released。
+
+本证据 Task 只冻结候选范围与验收，不实施代码修改。

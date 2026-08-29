@@ -91,14 +91,13 @@
   ],
   "defect_candidates": [
     {
-      "id": "PDD-TARGET-IDENTITY-GATE-001",
+      "id": "PDD-TARGET-MATCH-TERMINAL-001",
       "priority": "P0/P1",
-      "scope": "reject search-result identity mismatch before detail/purchase/SKU interaction"
-    },
-    {
-      "id": "ANDROID-NOT-MATCHED-TERMINAL-001",
-      "priority": "P1",
-      "scope": "map no eligible target to explainable non-retry not_matched terminal instead of transient LOCAL_TASK_FINISHED"
+      "scope": "two-stage target identity gate plus explainable non-retry not_matched terminal",
+      "acceptance_branches": [
+        "search-card visible identity filter, then ProductTargetMatcher on full detail fields before purchase/SKU/persistence",
+        "single attempt; item not_matched; non-retry business terminal; API/Web reason visible; Result/Raw/Snapshot zero; lease released"
+      ]
     }
   ],
   "repository_contains_original_raw": false,
