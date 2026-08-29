@@ -119,7 +119,7 @@
 - 本地服务以当前进程环境从 loopback 调整为 `0.0.0.0:8080`，未写配置；本机 health 与手机联机 register/heartbeat 均成功。
 - 已批准设备以脱敏 alias `device-e4a6069f4f` 在线；canonical 创建、审核、领取、Attempt 与 Lease 链路真实执行。
 - Excel 5 行按顺序用于候选识别。首行打开的商品为请求规格不一致的 `3g*2丸/盒`，且唯一入口为 `去复诊开药`；为避免进入问诊/订单边界，未点击。其余候选出现明显搜索漂移或规格/品牌不一致；最后一帧的两组圆形缩略图是拼单买家头像，不是 SKU 选项，均不能作为真实 SKU 证据。
-- 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
+- 只保留了首行 Task `3528` 点击前帧与唯一最终 Task `3534` 的错误目标点击前帧作为 Original；Task `3533` 及其他中间候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
 - `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
 - Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
 - Product Owner 批准后只创建了一个最终 canonical Task `3534`，固定使用 Excel 工作表第 4 行。Accepted 代码自动导航到 `HURMEVKOR` 烟酰胺面膜，明显不匹配“京润珍珠/医用重组III型人源化胶原蛋白敷贴/5片装”；点击前帧已保存，未点击 `去拼单`。

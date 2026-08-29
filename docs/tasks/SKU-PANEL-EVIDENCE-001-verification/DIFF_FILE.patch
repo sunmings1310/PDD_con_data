@@ -137,6 +137,56 @@ index 0000000..3e2d2f8
 +2. **`not_matched` 非重试终态（P1）**：本地流程结束且不存在合格目标时，Item 返回可解释 `not_matched`，Job 使用非重试业务终态；`LOCAL_TASK_FINISHED/local_status=failed` 不得统一映射 transient。验收必须证明单次 Attempt、无 retry storm、Task 聚合正确、原因经 API/Web 可见、Result/Raw/Snapshot=0、Lease released。
 +
 +本证据 Task 只冻结候选范围与验收，不实施代码修改。
+diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md
+new file mode 100644
+index 0000000..73a8f56
+--- /dev/null
++++ b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PDD-TARGET-MATCH-TERMINAL-001-PROPOSAL.md
+@@ -0,0 +1,44 @@
++# PDD-TARGET-MATCH-TERMINAL-001 Proposal
++
++> 状态：`PROPOSED / WAITING FOR PRODUCT OWNER APPROVAL`
++> 来源：`SKU-PANEL-EVIDENCE-001`；本文件只冻结候选范围与验收，不授权开发。
++
++## Goal
++
++修复同一条 PDD 搜索身份与失败终态链：不相关搜索结果不得成为目标商品；无合格目标必须以可解释、非重试的 `not_matched` 终态结束。
++
++## Scope
++
++### Acceptance branch A：两阶段目标身份门禁（P0/P1）
++
++1. 搜索卡片阶段使用当前可见的标题、店铺、规格摘要或平台标识做初筛；不得要求卡片具备详情页才可取得的完整四字段。
++2. 允许只读进入候选详情以取得完整目标字段。
++3. 在任何购买/SKU 交互、Product/Raw/Snapshot 持久化或成功 ACK 前，由 `ProductTargetMatcher` 对任务目标与详情事实执行权威匹配。
++4. 明显不相关首条结果、相似标题、品牌不一致、规格不一致和无候选均不得进入 SKU_PANEL 或业务持久化。
++
++### Acceptance branch B：`not_matched` 非重试业务终态（P1）
++
++1. 无合格目标时只产生一次 Attempt。
++2. Item 进入 `not_matched`，包含稳定、可解释的原因码。
++3. Job 进入非重试业务终态；不得映射为 `transient/LOCAL_TASK_FINISHED`。
++4. Task 聚合正确，不发生 retry storm 或错误 Complete。
++5. API/Web 显示“未匹配”原因与本次结果 `0`。
++6. Result、Product、Raw、Snapshot 均为 `0`，Lease 释放，设备恢复 idle。
++
++## Required tests
++
++- Android：错误首条搜索结果、相似标题、品牌/规格不一致、无候选、单 Attempt 与 `not_matched` 上传。
++- Server：`not_matched` 状态转换、非重试分类、Task 聚合、幂等重复上报、Lease 释放。
++- Web/API：未匹配原因、失败/结果零的准确展示。
++- Oracle：真实 transaction/tenant 场景下的 Item/Job/Attempt/Task 终态与零业务结果门禁。
++- E2E：一个错误候选产生一次 `not_matched`；修复后再用一个预先确认的多规格商品重跑 `SKU-PANEL-EVIDENCE-001`。
++
++## Non-goals
++
++- 不实现 Generic SKU runtime、SKU Schema/migration、P1 或 Phase 6B；
++- 不改变 Product identity、Snapshot 或 Task Complete 产品语义；
++- 不通过前端防抖或人工取消掩盖服务端/Android 终态缺陷。
++
++## Stop Condition
++
++等待 Product Owner 单独批准开发 Task。未批准前不建实现分支、不修改业务代码、不创建功能 PR。
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md
 new file mode 100644
 index 0000000..c6513cb
@@ -328,7 +378,7 @@ index 0000000..2928d48
 +}
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001.md b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
 new file mode 100644
-index 0000000..e23e2c0
+index 0000000..038443c
 --- /dev/null
 +++ b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
 @@ -0,0 +1,140 @@
@@ -453,7 +503,7 @@ index 0000000..e23e2c0
 +- 本地服务以当前进程环境从 loopback 调整为 `0.0.0.0:8080`，未写配置；本机 health 与手机联机 register/heartbeat 均成功。
 +- 已批准设备以脱敏 alias `device-e4a6069f4f` 在线；canonical 创建、审核、领取、Attempt 与 Lease 链路真实执行。
 +- Excel 5 行按顺序用于候选识别。首行打开的商品为请求规格不一致的 `3g*2丸/盒`，且唯一入口为 `去复诊开药`；为避免进入问诊/订单边界，未点击。其余候选出现明显搜索漂移或规格/品牌不一致；最后一帧的两组圆形缩略图是拼单买家头像，不是 SKU 选项，均不能作为真实 SKU 证据。
-+- 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
++- 只保留了首行 Task `3528` 点击前帧与唯一最终 Task `3534` 的错误目标点击前帧作为 Original；Task `3533` 及其他中间候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
 +- `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
 +- Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
 +- Product Owner 批准后只创建了一个最终 canonical Task `3534`，固定使用 Excel 工作表第 4 行。Accepted 代码自动导航到 `HURMEVKOR` 烟酰胺面膜，明显不匹配“京润珍珠/医用重组III型人源化胶原蛋白敷贴/5片装”；点击前帧已保存，未点击 `去拼单`。
