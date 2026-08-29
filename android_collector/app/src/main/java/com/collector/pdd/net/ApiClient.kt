@@ -263,13 +263,6 @@ class ApiClient(private val prefs: ServerPrefs) {
         return data.optString("status").also { check(it.isNotBlank()) { "finish acknowledgement has no status" } }
     }
 
-    fun ackOta(versionName: String) {
-        val body = JSONObject()
-            .put("device_key", prefs.deviceKey)
-            .put("version_name", versionName)
-        postJson("/api/ota/ack", body)
-    }
-
     /** 查询服务端最新 APK（无需登录） */
     fun fetchLatestOta(): JSONObject {
         return getJson("/api/ota/latest?device_key=${enc(prefs.deviceKey)}")

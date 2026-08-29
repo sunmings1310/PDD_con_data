@@ -272,7 +272,7 @@ class AgentCoordinator(
                     engine.stop()
                 }
             }
-            ApkUpdater.handleCommand(appContext, prefs, api, updateApk, log)
+            ApkUpdater.handleCommand(appContext, prefs, updateApk, log)
         }
         if (castReq && !ScreenCastService.isRunning) {
             withContext(Dispatchers.Main) {

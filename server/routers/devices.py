@@ -147,9 +147,13 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         # App 端指令：投屏请求 / 远程终止
         if data.get("device_id") is not None:
             cast_state.ensure_room(int(data["device_id"]), body.device_key)
+        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
+        # System Package Installer runs outside the app process. Only the version
+        # reported by a later heartbeat confirms a completed installation.
+        if body.app_version:
+            cast_state.confirm_apk_install(body.device_key, body.app_version, scope)
         data["commands"] = cast_state.device_commands(body.device_key)
         # 供 App 比对版本：不一致时主界面显示「更新」按钮
-        scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
         latest = latest_payload(scope)
         if latest.get("has_apk"):
             apk_path = "apk/latest.apk" if scope == (1, 1) else f"apk/{scope[0]}/{scope[1]}/latest.apk"

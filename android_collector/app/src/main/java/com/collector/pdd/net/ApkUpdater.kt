@@ -24,28 +24,25 @@ object ApkUpdater {
     fun handleCommand(
         context: Context,
         prefs: ServerPrefs,
-        api: ApiClient,
         cmd: JSONObject?,
         log: (String) -> Unit,
     ) {
-        startUpdate(context, prefs, api, cmd, log, source = "远程指令")
+        startUpdate(context, prefs, cmd, log, source = "远程指令")
     }
 
     /** 主界面手工点「更新」 */
     fun startManualUpdate(
         context: Context,
         prefs: ServerPrefs,
-        api: ApiClient,
         cmd: JSONObject?,
         log: (String) -> Unit,
     ) {
-        startUpdate(context, prefs, api, cmd, log, source = "手工更新")
+        startUpdate(context, prefs, cmd, log, source = "手工更新")
     }
 
     private fun startUpdate(
         context: Context,
         prefs: ServerPrefs,
-        api: ApiClient,
         cmd: JSONObject?,
         log: (String) -> Unit,
         source: String,
@@ -62,7 +59,6 @@ object ApkUpdater {
         val ver = cmd.optString("version_name", "").trim()
         if (ver.isNotBlank() && ver == ApiClient.APP_VERSION) {
             log("已是目标版本 $ver，跳过更新")
-            runCatching { api.ackOta(ver) }
             return
         }
         if (busy) {
@@ -89,9 +85,6 @@ object ApkUpdater {
                 log("APK 已下载 ${apk.length()} bytes，目标 v${ver.ifBlank { "?" }}，准备安装…")
                 ensureInstallPermission(context, log)
                 launchInstaller(context, apk)
-                if (ver.isNotBlank()) {
-                    runCatching { api.ackOta(ver) }
-                }
                 log("已拉起安装界面，请在系统弹窗中确认安装")
             } catch (e: Exception) {
                 log("更新失败: ${e.message}")

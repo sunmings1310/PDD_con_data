@@ -222,7 +222,6 @@ class MainActivity : AppCompatActivity() {
         ApkUpdater.startManualUpdate(
             this,
             prefs,
-            ApiClient(prefs),
             payload,
         ) { msg -> appendLog(msg) }
     }

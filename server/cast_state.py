@@ -124,16 +124,29 @@ class CastState:
 
     def ack_apk_update(self, device_key: str, version_name: str = "",
                        scope: tuple[int, int] | None = None) -> None:
-        scopes = [scope] if scope is not None else list(self.apk_keys_by_scope)
-        for selected in scopes:
-            keys = self.apk_keys_by_scope.get(selected, set())
-            keys.discard(device_key)
-            if not keys:
-                self.pending_apk_by_scope.pop(selected, None)
+        """Record delivery acknowledgement without treating it as installation success."""
+        # Android's system Package Installer completes outside the app process. A
+        # download/start acknowledgement is therefore not evidence that the APK is
+        # installed; keep the command until the new app version heartbeats.
+        return None
+
+    def confirm_apk_install(self, device_key: str, version_name: str,
+                            scope: tuple[int, int]) -> bool:
+        """Consume a pending OTA command only after the installed app heartbeats."""
+        expected = self.pending_apk_by_scope.get(scope)
+        if not expected or str(expected.get("version_name") or "") != version_name:
+            return False
+        keys = self.apk_keys_by_scope.get(scope, set())
+        if device_key not in keys:
+            return False
+        keys.discard(device_key)
         self.apk_pending_keys.discard(device_key)
+        if not keys:
+            self.pending_apk_by_scope.pop(scope, None)
         if not self.apk_pending_keys:
-            # 全部 ack 后仍保留 meta，便于状态页展示；清空 pending 避免新设备误触发
+            # 全部安装确认后仍保留 meta，便于状态页展示；清空 pending 避免新设备误触发
             self.pending_apk = None
+        return True
 
 
 cast_state = CastState()

@@ -212,11 +212,11 @@ def push_update(
 
 @router.post("/ack")
 def ack_update(body: OtaAckIn):
-    """App 开始下载/安装后确认。"""
+    """仅确认 APK 已领取；安装完成由匹配版本心跳确认。"""
     with get_conn() as conn:
         device = get_device_by_key(conn.cursor(), body.device_key)
         if not device:
             return ApiOk(ok=False, message="device not registered", data={"error_code": "DEVICE_REVOKED_OR_UNKNOWN"})
     cast_state.ack_apk_update(body.device_key, body.version_name,
                               (int(device["enterprise_id"]), int(device["workspace_id"])))
-    return ApiOk(message="acked")
+    return ApiOk(message="download acknowledged; waiting for installed-version heartbeat")
