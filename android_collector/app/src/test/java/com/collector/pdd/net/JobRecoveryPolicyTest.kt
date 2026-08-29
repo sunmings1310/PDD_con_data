@@ -44,6 +44,8 @@ class JobRecoveryPolicyTest {
     @Test fun pendingOtaBlocksAcquireAndRecoveryWithoutCancellingExistingEngine() {
         assertEquals(true, otaBlocksBusinessWork(true))
         assertEquals(false, otaBlocksBusinessWork(false))
+        assertEquals(true, otaCommandBlocksRecovery(true))
+        assertEquals(false, otaCommandBlocksRecovery(false))
     }
 
     @Test

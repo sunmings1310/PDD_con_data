@@ -204,7 +204,7 @@ class AgentCoordinator(
         if (awaitingJobRecovery && activeJob == null) {
             // Keep the old lease as the only candidate while the server truth is
             // temporarily unavailable; never acquire a replacement job.
-            if (ApkUpdater.isRemoteUpdatePending()) return@withContext
+            if (otaCommandBlocksRecovery(ApkUpdater.isRemoteUpdatePending())) return@withContext
             try {
                 recoverDurableState()
             } catch (e: Exception) {
@@ -235,7 +235,7 @@ class AgentCoordinator(
             val now = System.currentTimeMillis()
             val terminalExists = CollectorApp.instance.database.outboxDao()
                 .get("job-terminal-${job.jobId}-${job.attemptId}") != null
-            if (!otaBlocksBusinessWork(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
+            if (!otaCommandBlocksRecovery(ApkUpdater.isRemoteUpdatePending()) && shouldRetryRecoveredEngine(
                     engineRunning = engine.isRunning(),
                     terminalExists = terminalExists,
                     now = now,
@@ -1001,6 +1001,9 @@ internal fun shouldRetryRecoveredEngine(
 
 /** System installation may be pending, but a running business engine is never cancelled. */
 internal fun otaBlocksBusinessWork(remoteOtaPending: Boolean): Boolean = remoteOtaPending
+
+/** Tick observes OTA commands before durable recovery or engine restart. */
+internal fun otaCommandBlocksRecovery(remoteOtaPending: Boolean): Boolean = remoteOtaPending
 
 /** Ordinary collection can finish without reopening PDD when every required slot is ACKed. */
 internal fun checkpointCoversCollectWork(config: CollectConfig): Boolean {
