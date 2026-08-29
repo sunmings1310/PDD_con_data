@@ -113,6 +113,18 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
     )
     if int(job["task_id"]) != int(body.task_id) or int(job.get("item_id") or 0) != int(body.task_item_id):
         raise JobProtocolError("JOB_ITEM_MISMATCH", "Job does not own candidate observation TaskItem")
+    # Serialize the cross-attempt/cross-job per-Item cap on the authoritative
+    # TaskItem row.  A plain COUNT followed by INSERT would race at the limit.
+    cur.execute(
+        """SELECT ITEM_ID FROM SJZQ_TASK_ITEM
+             WHERE ITEM_ID=:item_id AND TASK_ID=:task_id
+               AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+             FOR UPDATE""",
+        {"item_id": body.task_item_id, "task_id": body.task_id,
+         "enterprise_id": enterprise_id, "workspace_id": workspace_id},
+    )
+    if not cur.fetchone():
+        raise JobProtocolError("JOB_ITEM_MISMATCH", "TaskItem tenant ownership mismatch")
     cur.execute(
         """SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION
              WHERE TASK_ID=:task_id AND SOURCE_TYPE=:source_type

@@ -55,7 +55,7 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual(expected_ref, json.loads(canonical_payload(body(screenshot_ref=expected_ref))[0])["screenshot_ref"])
 
     def test_persist_is_lease_fenced_raw_only_and_idempotent(self):
-        cur=Cursor([None, (0,)])
+        cur=Cursor([None, (11,), (0,)])
         job={"task_id":10,"item_id":11}
         reservation=SimpleNamespace(status="pending", reservation_id=91)
         device={"device_id":4,"enterprise_id":2,"workspace_id":3}
@@ -67,6 +67,8 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual(77, result["raw_id"]); self.assertTrue(result["acknowledged"])
         sql="\n".join(x[0] for x in cur.sql)
         self.assertIn("INSERT INTO SJZQ_RAW_COLLECTION", sql)
+        self.assertIn("SELECT ITEM_ID FROM SJZQ_TASK_ITEM", sql)
+        self.assertIn("FOR UPDATE", sql)
         self.assertIn("JSON_VALUE(RAW_JSON,'$.task_item_id' RETURNING NUMBER)=:item_id", sql)
         count_sql = next(statement for statement, _ in cur.sql if "SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION" in statement)
         self.assertNotIn("ATTEMPT_ID", count_sql); self.assertNotIn("JOB_ID", count_sql)
