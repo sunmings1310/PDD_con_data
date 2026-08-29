@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -335,6 +336,157 @@ class OracleJobServiceTest(unittest.TestCase):
         self.assertEqual(0, int(self.cur.fetchone()[0]))
         self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id":self.ids["item"]})
         self.assertEqual("not_matched", self.cur.fetchone()[0])
+
+    def test_real_candidate_observation_concurrency_tenant_and_limit_fences(self):
+        from server import candidate_observation as observations
+        import oracledb
+
+        self._seed()
+        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-candidate-race")
+        assert lease is not None
+        svc.start(
+            self.cur, device_id=self.ids["device"], job_id=lease["job_id"],
+            attempt_id=lease["attempt_id"], worker_id="oracle-candidate-race",
+            lease_token=lease["lease_token"],
+        )
+        self.cur.execute(
+            "SELECT USED_VALUE,RESERVED_VALUE FROM SJZQ_QUOTA_USAGE "
+            "WHERE ENTERPRISE_ID=1 AND METRIC_CODE='storage_bytes' AND PERIOD_KEY='lifetime'"
+        )
+        quota_before = tuple(int(value or 0) for value in self.cur.fetchone())
+        self.conn.commit()
+
+        prefix = "candidate-race-" + self.tag
+        device = {"device_id": self.ids["device"], "enterprise_id": 1, "workspace_id": 1}
+
+        def make_body(suffix: str):
+            return SimpleNamespace(
+                idempotency_key=f"{prefix}-{suffix}", task_id=self.ids["task"],
+                task_item_id=self.ids["item"], job_id=lease["job_id"],
+                attempt_id=lease["attempt_id"], worker_id="oracle-candidate-race",
+                lease_token=lease["lease_token"], trace_id=self.tag,
+                platform_code="pinduoduo", candidate_present=True, matched=False,
+                reason_code="candidate_rejected", candidate_ordinal=1,
+                expected_fields={"title": "expected"}, observed_fields={"title": suffix},
+                field_differences={"title": "mismatch"}, source_summary=[],
+                collected_at_epoch_ms=1_700_000_000_000, collector_version="oracle-race",
+                parser_version="oracle-race", screenshot_ref=None,
+            )
+
+        def write(suffix: str):
+            conn = oracledb.connect(
+                dsn=os.environ["T003_ORACLE_DSN"], user=os.environ["T003_ORACLE_USER"],
+                password=os.environ["T003_ORACLE_PASSWORD"],
+            )
+            try:
+                result = observations.persist(conn.cursor(), body=make_body(suffix), device=device)
+                conn.commit()
+                return result
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            same = list(pool.map(write, ["same", "same"]))
+        self.assertEqual(1, sum(not row["idempotent"] for row in same))
+        self.assertEqual(1, sum(row["idempotent"] for row in same))
+        self.assertEqual(same[0]["raw_id"], same[1]["raw_id"])
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            boundary = list(pool.map(write, ["b", "c", "d"]))
+        self.assertEqual(2, sum(row["persisted"] for row in boundary))
+        self.assertEqual(1, sum(row.get("truncated", False) for row in boundary))
+        self.cur.execute(
+            "SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION WHERE TASK_ID=:task AND SOURCE_TYPE=:source",
+            {"task": self.ids["task"], "source": observations.SOURCE_TYPE},
+        )
+        self.assertEqual(3, int(self.cur.fetchone()[0]))
+
+        with self.assertRaisesRegex(svc.JobProtocolError, "JOB_ITEM_MISMATCH"):
+            observations.persist(
+                self.cur, body=make_body("wrong-tenant"),
+                device={**device, "workspace_id": 999999},
+            )
+
+        self.cur.execute(
+            "UPDATE SJZQ_RAW_COLLECTION SET COLLECTED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(31,'DAY') "
+            "WHERE TASK_ID=:task AND SOURCE_TYPE=:source",
+            {"task": self.ids["task"], "source": observations.SOURCE_TYPE},
+        )
+        observations.cleanup_expired(self.cur, limit=10)
+        self.cur.execute(
+            "SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION WHERE TASK_ID=:task AND SOURCE_TYPE=:source",
+            {"task": self.ids["task"], "source": observations.SOURCE_TYPE},
+        )
+        self.assertEqual(0, int(self.cur.fetchone()[0]))
+        self.cur.execute(
+            "SELECT USED_VALUE,RESERVED_VALUE FROM SJZQ_QUOTA_USAGE "
+            "WHERE ENTERPRISE_ID=1 AND METRIC_CODE='storage_bytes' AND PERIOD_KEY='lifetime'"
+        )
+        self.assertEqual(quota_before, tuple(int(value or 0) for value in self.cur.fetchone()))
+        self.cur.execute(
+            "DELETE FROM SJZQ_QUOTA_LEDGER WHERE RESOURCE_TYPE=:source AND RESOURCE_KEY LIKE :prefix",
+            {"source": observations.SOURCE_TYPE, "prefix": prefix + "%"},
+        )
+        self.cur.execute(
+            "DELETE FROM SJZQ_QUOTA_RESERVATION WHERE RESOURCE_TYPE=:source AND RESOURCE_KEY LIKE :prefix",
+            {"source": observations.SOURCE_TYPE, "prefix": prefix + "%"},
+        )
+        self.conn.commit()
+
+    def test_real_no_candidate_discards_forged_candidate_fields_and_screenshot(self):
+        from server import candidate_observation as observations
+        import hashlib
+        import json
+
+        self._seed()
+        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-no-candidate")
+        assert lease is not None
+        svc.start(
+            self.cur, device_id=self.ids["device"], job_id=lease["job_id"],
+            attempt_id=lease["attempt_id"], worker_id="oracle-no-candidate",
+            lease_token=lease["lease_token"],
+        )
+        key = "candidate-empty-" + self.tag
+        screenshot = "candidate-observations/" + hashlib.sha256(key.encode()).hexdigest() + ".jpg"
+        body = SimpleNamespace(
+            idempotency_key=key, task_id=self.ids["task"], task_item_id=self.ids["item"],
+            job_id=lease["job_id"], attempt_id=lease["attempt_id"],
+            worker_id="oracle-no-candidate", lease_token=lease["lease_token"],
+            trace_id=self.tag, platform_code="pinduoduo", candidate_present=False,
+            matched=False, reason_code="no_candidate", candidate_ordinal=3,
+            expected_fields={"title": "expected"}, observed_fields={"title": "forged"},
+            field_differences={"title": "mismatch"}, source_summary=[],
+            collected_at_epoch_ms=1_700_000_000_000, collector_version="oracle-empty",
+            parser_version="oracle-empty", screenshot_ref=screenshot,
+        )
+        result = observations.persist(
+            self.cur, body=body,
+            device={"device_id": self.ids["device"], "enterprise_id": 1, "workspace_id": 1},
+        )
+        self.cur.execute("SELECT RAW_JSON FROM SJZQ_RAW_COLLECTION WHERE RAW_ID=:id", {"id": result["raw_id"]})
+        raw_value = self.cur.fetchone()[0]
+        payload = json.loads(raw_value.read() if hasattr(raw_value, "read") else str(raw_value))
+        self.assertEqual(0, payload["candidate_ordinal"])
+        self.assertEqual({}, payload["observed_fields"])
+        self.assertEqual({}, payload["field_differences"])
+        self.assertIsNone(payload["screenshot_ref"])
+        self.cur.execute(
+            "UPDATE SJZQ_RAW_COLLECTION SET COLLECTED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(31,'DAY') WHERE RAW_ID=:id",
+            {"id": result["raw_id"]},
+        )
+        observations.cleanup_expired(self.cur, limit=10)
+        self.cur.execute(
+            "DELETE FROM SJZQ_QUOTA_LEDGER WHERE RESOURCE_TYPE=:source AND RESOURCE_KEY=:key",
+            {"source": observations.SOURCE_TYPE, "key": key},
+        )
+        self.cur.execute(
+            "DELETE FROM SJZQ_QUOTA_RESERVATION WHERE RESOURCE_TYPE=:source AND RESOURCE_KEY=:key",
+            {"source": observations.SOURCE_TYPE, "key": key},
+        )
+        self.conn.commit()
 
     def test_real_expired_lease_rejects_old_worker_before_checkpoint(self):
         self._seed()

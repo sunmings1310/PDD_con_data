@@ -120,6 +120,9 @@ class ApiClientReliabilityTest {
         assertEquals(12L, sent.getLong("job_id")); assertEquals(13L, sent.getLong("attempt_id"))
         server.enqueue(json(body = """{"ok":true,"data":{"acknowledged":true,"persisted":true}}"""))
         assertThrows(IllegalStateException::class.java) { client.uploadCandidateObservationEvent(event) }
+
+        server.enqueue(json(body = """{"ok":true,"data":{"acknowledged":true,"persisted":false,"truncated":true,"raw_id":77,"truncation_reason":"item_observation_limit"}}"""))
+        assertEquals(77L, client.uploadCandidateObservationEvent(event))
     }
 
     @Test fun qualityAndIdempotencyConflictsArePermanentFailures() {

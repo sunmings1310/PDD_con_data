@@ -42,7 +42,9 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
         raise CandidateObservationError("OBSERVATION_REASON_CONFLICT", "no_candidate cannot contain a candidate")
     if body.reason_code == "candidate_rejected" and not body.candidate_present:
         raise CandidateObservationError("OBSERVATION_REASON_CONFLICT", "candidate_rejected requires a candidate")
-    if body.screenshot_ref:
+    no_candidate = body.reason_code == "no_candidate"
+    screenshot_ref = None if no_candidate else body.screenshot_ref
+    if screenshot_ref:
         path = PurePosixPath(str(body.screenshot_ref))
         expected_ref = "candidate-observations/" + hashlib.sha256(
             str(body.idempotency_key).encode("utf-8")
@@ -55,10 +57,11 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
         "job_id": int(body.job_id), "attempt_id": int(body.attempt_id),
         "trace_id": body.trace_id, "platform_code": body.platform_code,
         "candidate_present": bool(body.candidate_present), "matched": False,
-        "reason_code": body.reason_code, "candidate_ordinal": int(body.candidate_ordinal),
+        "reason_code": body.reason_code,
+        "candidate_ordinal": 0 if no_candidate else int(body.candidate_ordinal),
         "expected_fields": _bounded_fields(body.expected_fields),
-        "observed_fields": _bounded_fields(body.observed_fields),
-        "field_differences": {
+        "observed_fields": {} if no_candidate else _bounded_fields(body.observed_fields),
+        "field_differences": {} if no_candidate else {
             key: str(value)[:128] for key, value in sorted(body.field_differences.items()) if key in _FIELDS
         },
         "source_summary": [
@@ -69,7 +72,7 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
         "collected_at_epoch_ms": int(body.collected_at_epoch_ms),
         "collector_version": body.collector_version,
         "parser_version": body.parser_version,
-        "screenshot_ref": body.screenshot_ref,
+        "screenshot_ref": screenshot_ref,
         "retention_days": RETENTION_DAYS,
         "retention_until": (
             datetime.fromtimestamp(body.collected_at_epoch_ms / 1000, tz=timezone.utc)
@@ -126,15 +129,36 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
     if not cur.fetchone():
         raise JobProtocolError("JOB_ITEM_MISMATCH", "TaskItem tenant ownership mismatch")
     cur.execute(
-        """SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION
+        """SELECT COUNT(*),MAX(RAW_ID) FROM SJZQ_RAW_COLLECTION
              WHERE TASK_ID=:task_id AND SOURCE_TYPE=:source_type
                AND JSON_VALUE(RAW_JSON,'$.task_item_id' RETURNING NUMBER)=:item_id
                AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id""",
         {"task_id": body.task_id, "item_id": body.task_item_id, "source_type": SOURCE_TYPE,
          "enterprise_id": enterprise_id, "workspace_id": workspace_id},
     )
-    if int(cur.fetchone()[0] or 0) >= MAX_PER_JOB:
-        raise CandidateObservationError("OBSERVATION_LIMIT_REACHED", "candidate observation limit reached")
+    count, latest_raw_id = cur.fetchone()
+    count = int(count or 0)
+    if count >= MAX_PER_JOB:
+        # The limit is an accepted, durable truncation outcome rather than a
+        # protocol rejection.  ACK it so Android can finish the not-matched
+        # Job, while retaining the truncation reason on the TaskItem.
+        summary = f"candidate_observation_truncated(limit={MAX_PER_JOB})"
+        cur.execute(
+            """UPDATE SJZQ_TASK_ITEM SET MESSAGE=SUBSTR(
+                   CASE WHEN INSTR(NVL(MESSAGE,''),:summary)>0 THEN MESSAGE
+                        WHEN MESSAGE IS NULL THEN :summary ELSE MESSAGE||'; '||:summary END,1,1000),
+                   UPDATE_TIME=SYSTIMESTAMP
+                 WHERE ITEM_ID=:item_id AND TASK_ID=:task_id
+                   AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
+                   AND STATUS IN ('pending','running')""",
+            {"summary": summary, "item_id": body.task_item_id, "task_id": body.task_id,
+             "enterprise_id": enterprise_id, "workspace_id": workspace_id},
+        )
+        return {
+            "raw_id": int(latest_raw_id), "persisted": False, "acknowledged": True,
+            "idempotent": False, "truncated": True, "observation_count": count,
+            "truncation_reason": "item_observation_limit",
+        }
     reservation = reserve(
         cur, enterprise_id=enterprise_id, workspace_id=workspace_id, metric=STORAGE_BYTES,
         amount=max(1, payload_size), resource_type=SOURCE_TYPE, resource_key=body.idempotency_key,

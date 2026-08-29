@@ -266,7 +266,9 @@ class ApiClient(private val prefs: ServerPrefs) {
         event.workerId?.let { payload.put("worker_id", it) }
         event.traceId?.let { payload.put("trace_id", it) }
         val data = requireAck(postJsonChecked("/api/candidate-observations", payload), "candidate observation")
-        check(data.optBoolean("persisted", false)) { "candidate observation acknowledgement is not persisted" }
+        check(data.optBoolean("persisted", false) || data.optBoolean("truncated", false)) {
+            "candidate observation acknowledgement is neither persisted nor truncated"
+        }
         val rawId = data.optLong("raw_id", 0L)
         check(rawId > 0L) { "candidate observation acknowledgement has no raw_id" }
         return rawId

@@ -49,13 +49,22 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual(size, payload["payload_size_bytes"])
         with self.assertRaises(CandidateObservationError):
             canonical_payload(body(reason_code="no_candidate", candidate_present=True))
+        empty=json.loads(canonical_payload(body(
+            reason_code="no_candidate", candidate_present=False, candidate_ordinal=3,
+            observed_fields={"title":"forged"}, field_differences={"title":"mismatch"},
+            screenshot_ref="candidate-observations/" + hashlib.sha256(body().idempotency_key.encode()).hexdigest() + ".jpg",
+        ))[0])
+        self.assertEqual(0, empty["candidate_ordinal"])
+        self.assertEqual({}, empty["observed_fields"])
+        self.assertEqual({}, empty["field_differences"])
+        self.assertIsNone(empty["screenshot_ref"])
         with self.assertRaises(CandidateObservationError):
             canonical_payload(body(screenshot_ref="../secret.png"))
         expected_ref = "candidate-observations/" + hashlib.sha256(body().idempotency_key.encode()).hexdigest() + ".jpg"
         self.assertEqual(expected_ref, json.loads(canonical_payload(body(screenshot_ref=expected_ref))[0])["screenshot_ref"])
 
     def test_persist_is_lease_fenced_raw_only_and_idempotent(self):
-        cur=Cursor([None, (11,), (0,)])
+        cur=Cursor([None, (11,), (0,None)])
         job={"task_id":10,"item_id":11}
         reservation=SimpleNamespace(status="pending", reservation_id=91)
         device={"device_id":4,"enterprise_id":2,"workspace_id":3}
@@ -70,7 +79,7 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertIn("SELECT ITEM_ID FROM SJZQ_TASK_ITEM", sql)
         self.assertIn("FOR UPDATE", sql)
         self.assertIn("JSON_VALUE(RAW_JSON,'$.task_item_id' RETURNING NUMBER)=:item_id", sql)
-        count_sql = next(statement for statement, _ in cur.sql if "SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION" in statement)
+        count_sql = next(statement for statement, _ in cur.sql if "SELECT COUNT(*),MAX(RAW_ID) FROM SJZQ_RAW_COLLECTION" in statement)
         self.assertNotIn("ATTEMPT_ID", count_sql); self.assertNotIn("JOB_ID", count_sql)
         self.assertIn("UPDATE SJZQ_TASK_ITEM", sql)
         self.assertNotIn("PRODUCT_SNAPSHOT", sql); self.assertNotIn("QUALITY_RESULT", sql)
@@ -80,6 +89,23 @@ class CandidateObservationTest(unittest.TestCase):
         replay=Cursor([(77, sha, 4, 2, 3)])
         result=persist(replay, body=body(), device=device)
         self.assertTrue(result["idempotent"]); self.assertEqual(1, len(replay.sql))
+
+    def test_item_limit_is_acknowledged_as_truncation_and_never_inserts(self):
+        cur=Cursor([None, (11,), (3,77)])
+        job={"task_id":10,"item_id":11}
+        device={"device_id":4,"enterprise_id":2,"workspace_id":3}
+        with patch("server.candidate_observation.require_active_lease", return_value=(job,{})), \
+             patch("server.candidate_observation.reserve") as reserve_mock:
+            result=persist(cur, body=body(candidate_ordinal=3), device=device)
+        self.assertTrue(result["acknowledged"])
+        self.assertTrue(result["truncated"])
+        self.assertFalse(result["persisted"])
+        self.assertEqual(77, result["raw_id"])
+        self.assertEqual("item_observation_limit", result["truncation_reason"])
+        sql="\n".join(x[0] for x in cur.sql)
+        self.assertIn("candidate_observation_truncated", str(cur.sql[-1][1]["summary"]))
+        self.assertNotIn("INSERT INTO SJZQ_RAW_COLLECTION", sql)
+        reserve_mock.assert_not_called()
 
     def test_cleanup_only_candidate_raw_and_preserves_item_summary(self):
         cur=Cursor([[(77,2,3,"key",512,"candidate-observations/a.png")]])
