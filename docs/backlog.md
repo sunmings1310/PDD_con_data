@@ -40,6 +40,7 @@
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
 | PDD-TARGET-MATCH-TERMINAL-001 | ACCEPTED（核心 P0/P1） | `b5edf6e`：目标未匹配终态与 OTA generation/heartbeat fence；代码与真机 E2E Independent Review 均 `ACCEPT`；连续 3 轮 `not_matched` 单 Attempt、无重试/污染 | 正向匹配 E2E=`PARTIAL / BLOCKED_BY_FIXTURE`（现有 Accepted 数据 `MATCH_CANDIDATES=0`）；不进入 Generic SKU、Schema/P1 或 Phase 6B |
+| PDD-COLLECTION-OBSERVABILITY-001 | READY / DECISION REQUIRED | 未匹配候选作为独立 `candidate_observation` Raw 事实在 Task Detail 展示；不创建 Product/Snapshot/Quality/Quarantine 或成功统计 | 复用现有 `SJZQ_RAW_COLLECTION`，当前建议无需 migration；等待 Product Owner 确认建议 30 天保留/到期删除策略 |
 
 `WEB-TASK-IMPORT-001` 固定范围：Excel 模板下载、上传解析、字段校验、去重、已有商品匹配、未匹配/选中项转采集目标进入“创建/下发任务”分步流程；手动输入和 Excel 导入共用平台、设备、账号、采集配置、审核与下发契约。Excel 导出不进入创建页：任务结果导出归 Task Detail，商品导出归 Product Library，质量/异常导出归 Quality/Quarantine。独立 Excel 菜单仅在合并稳定并有证据后另行决定降级为导入记录或重定向，本任务队列不授权直接删除。draft→人工保存→资料库语义保持不变；Generic SKU/Schema/P1 数据模型/Phase 6B 均不在队列授权范围。
 

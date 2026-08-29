@@ -1,0 +1,41 @@
+TASK=PDD-COLLECTION-OBSERVABILITY-001
+BASE=e15f50f93ee91d613011eed36324c14753ef4025
+BRANCH=codex/pdd-collection-observability-001
+STATE=READY / DECISION REQUIRED (retention policy)
+CHANGED_FIELDS=Task definition and backlog state only; no business code or schema
+
+ARTIFACT_MODIFIED_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\MODIFIED_FILE
+ARTIFACT_DIFF_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
+ARTIFACT_VERIFICATION=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\VERIFICATION.txt
+ARTIFACT_ROLLBACK=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\ROLLBACK.sh
+
+BASELINE_COMMAND=git show e15f50f93ee91d613011eed36324c14753ef4025:docs/backlog.md; git cat-file -e e15f50f93ee91d613011eed36324c14753ef4025:docs/tasks/PDD-COLLECTION-OBSERVABILITY-001.md
+BASELINE_INPUT=accepted predecessor wrapper e15f50f93ee91d613011eed36324c14753ef4025
+BASELINE_LITERAL_RESULT=backlog exists; Task path absent (git cat-file exit 128)
+BASELINE_EXIT_STATUS=0 for backlog; 128 for expected-absent Task
+BASELINE_STATUS=PASS
+
+MODIFIED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown; same validator --check yaml; git diff --check; allowlist and sensitive diff scan
+MODIFIED_INPUT=68 Markdown files; 1 YAML file; 5 Task/backlog/artifact paths
+MODIFIED_LITERAL_RESULT=Validated 68 Markdown files; YAML_FILES=1; YAML_PARSE=PASS; ALLOWLIST_CHANGED=5; ALLOWLIST_BAD=0; SENSITIVE_MATCHES=0
+MODIFIED_EXIT_STATUS=0
+MODIFIED_STATUS=PASS
+
+PATCH_COMMAND=git apply --check --unidiff-zero --whitespace=nowarn docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/DIFF_FILE.patch
+PATCH_INPUT=base e15f50f93ee91d613011eed36324c14753ef4025; Task/backlog 2-path patch
+PATCH_LITERAL_RESULT=no output
+PATCH_EXIT_STATUS=0
+PATCH_STATUS=PASS
+PATCH_SHA256=82228a6ff7902fa1a421dfa5e1b4636f987fa53b45affe7011530d0da1916bdb
+PATCH_HEADERS=2
+
+ROLLBACK_COMMAND=bash docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/ROLLBACK.sh
+ROLLBACK_INPUT=another committed probe copy containing the modified Task/backlog and four artifacts
+ROLLBACK_LITERAL_RESULT=PATCH_CHECK_EXIT=0; PATCH_APPLY_EXIT=0; RESTORED_DIFF_VS_BASE_EXIT=0; TASK_PRESENT=False; VERIFICATION_PRESENT=False; SOURCE_MODIFIED_SHA256=fe1fda1318764260d0e90501c3832c0be2bc2bbc6321eb53b70e234558b4dda5; MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe matches BASE; Task and verification artifacts absent; source MODIFIED_FILE remains changed
+
+MODIFIED_SHA256=fe1fda1318764260d0e90501c3832c0be2bc2bbc6321eb53b70e234558b4dda5
+ROLLBACK_SHA256=23512cf9e550a7cae1eadcf1391951008e3fcc9c7344f6fbe58e6ca46355fd14
+MODIFIED_REMAINS_CHANGED=True
