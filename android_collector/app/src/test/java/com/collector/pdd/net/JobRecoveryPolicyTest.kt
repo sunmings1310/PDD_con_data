@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class JobRecoveryPolicyTest {
     @Test
@@ -46,6 +47,72 @@ class JobRecoveryPolicyTest {
         assertEquals(false, otaBlocksBusinessWork(false))
         assertEquals(true, otaCommandBlocksRecovery(true))
         assertEquals(false, otaCommandBlocksRecovery(false))
+    }
+
+    @Test
+    fun firstHeartbeatOtaGateBlocksActualRecoveryCallback() = runBlocking {
+        var recoveryCalls = 0
+        val mayContinue = runPreBusinessGate(
+            activeJobPresent = false,
+            durableRecoveryDone = false,
+            awaitingJobRecovery = true,
+            remoteOtaPending = true,
+        ) { recoveryCalls += 1 }
+
+        assertEquals(false, mayContinue)
+        assertEquals(0, recoveryCalls)
+    }
+
+    @Test
+    fun firstHeartbeatWithoutOtaRunsRecoveryThenStopsBeforeAcquire() = runBlocking {
+        val events = mutableListOf<String>()
+        val mayContinue = runPreBusinessGate(
+            activeJobPresent = false,
+            durableRecoveryDone = false,
+            awaitingJobRecovery = true,
+            remoteOtaPending = false,
+        ) { events += "recover" }
+
+        if (mayContinue) events += "acquire"
+        assertEquals(listOf("recover"), events)
+        assertEquals(false, mayContinue)
+    }
+
+    @Test
+    fun runningLeaseContinuesHeartbeatWhileOtaBlocksNewWork() = runBlocking {
+        var recoveryCalls = 0
+        val mayContinue = runPreBusinessGate(
+            activeJobPresent = true,
+            durableRecoveryDone = true,
+            awaitingJobRecovery = false,
+            remoteOtaPending = true,
+        ) { recoveryCalls += 1 }
+
+        assertEquals(true, mayContinue)
+        assertEquals(0, recoveryCalls)
+        assertEquals(true, otaBlocksBusinessWork(true))
+    }
+
+    @Test
+    fun otaFailureReleasesSameCommandForRetryAndInstalledVersionClearsPending() {
+        val state = RemoteOtaState()
+        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
+        assertEquals(false, state.tryStart("1.0.82#4", updaterBusy = false))
+        state.failed("1.0.82#4")
+        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
+        state.observeInstalled(currentVersion = "1.0.82", commandedVersion = "1.0.82")
+        assertEquals(false, state.isPending())
+    }
+
+    @Test
+    fun sameVersionReplacementGenerationIsASeparateCommand() {
+        val state = RemoteOtaState()
+        assertEquals(true, state.tryStart("1.0.82#4", updaterBusy = false))
+        assertEquals(true, state.tryStart("1.0.82#5", updaterBusy = false))
+        state.failed("1.0.82#4")
+        assertEquals(true, state.isPending())
+        state.failed("1.0.82#5")
+        assertEquals(false, state.isPending())
     }
 
     @Test

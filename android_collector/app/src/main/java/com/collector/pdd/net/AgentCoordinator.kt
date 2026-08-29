@@ -39,7 +39,10 @@ class AgentCoordinator(
     private val workerId = prefs.workerId
     private var loopJob: Job? = null
     private var durableRecoveryDone = false
-    @Volatile private var awaitingJobRecovery = false
+    // Recovery is deliberately deferred until the first successful heartbeat has
+    // exposed any OTA command. Starting the engine before that observation can
+    // run stale code while a system-package installation is pending.
+    @Volatile private var awaitingJobRecovery = true
     @Volatile private var activeJob: JobLeaseIdentity? = null
     @Volatile private var pauseRequested = false
     private var lastEngineRecoveryAttemptAt = 0L
@@ -133,10 +136,6 @@ class AgentCoordinator(
         if (!prefs.enabled) return
         loopJob = scope.launch {
             log("联机模式已开启 ${prefs.baseUrl()}")
-            if (!durableRecoveryDone) {
-                withContext(Dispatchers.IO) { recoverDurableState() }
-                durableRecoveryDone = true
-            }
             var lastOkLogAt = 0L
             while (isActive) {
                 if (!prefs.enabled || prefs.host.isBlank()) {
@@ -200,18 +199,22 @@ class AgentCoordinator(
         ConnectionStatus.mark(true, "已连接服务 ${prefs.baseUrl()}")
         val data = hb.optJSONObject("data")
         val earlyUpdateApk = data?.optJSONObject("commands")?.optJSONObject("update_apk")
-        if (earlyUpdateApk != null) ApkUpdater.observeCommand(prefs, earlyUpdateApk)
-        if (awaitingJobRecovery && activeJob == null) {
-            // Keep the old lease as the only candidate while the server truth is
-            // temporarily unavailable; never acquire a replacement job.
-            if (otaCommandBlocksRecovery(ApkUpdater.isRemoteUpdatePending())) return@withContext
+        if (earlyUpdateApk != null) ApkUpdater.handleCommand(appContext, prefs, earlyUpdateApk, log)
+        val mayContinue = runPreBusinessGate(
+            activeJobPresent = activeJob != null,
+            durableRecoveryDone = durableRecoveryDone,
+            awaitingJobRecovery = awaitingJobRecovery,
+            remoteOtaPending = ApkUpdater.isRemoteUpdatePending(),
+        ) {
             try {
                 recoverDurableState()
+                durableRecoveryDone = !awaitingJobRecovery
             } catch (e: Exception) {
+                awaitingJobRecovery = true
                 log("Job recovery 重试失败: ${e.message}")
             }
-            return@withContext
         }
+        if (!mayContinue) return@withContext
         val job = activeJob
         if (job != null) {
             try {
@@ -268,7 +271,6 @@ class AgentCoordinator(
             }
         }
         if (updateApk != null) {
-            ApkUpdater.handleCommand(appContext, prefs, updateApk, log)
             // An OTA command never cancels an already-running job, but it must not
             // recover or acquire new business work while system installation is pending.
             if (ApkUpdater.isRemoteUpdatePending()) return@withContext
@@ -1004,6 +1006,26 @@ internal fun otaBlocksBusinessWork(remoteOtaPending: Boolean): Boolean = remoteO
 
 /** Tick observes OTA commands before durable recovery or engine restart. */
 internal fun otaCommandBlocksRecovery(remoteOtaPending: Boolean): Boolean = remoteOtaPending
+
+/**
+ * Runs the exact pre-business gate used by [AgentCoordinator.tick].  Recovery is
+ * invoked only after the heartbeat OTA command has been handled.  Returning
+ * false means this tick must not reach engine restart or job acquisition.
+ */
+internal suspend fun runPreBusinessGate(
+    activeJobPresent: Boolean,
+    durableRecoveryDone: Boolean,
+    awaitingJobRecovery: Boolean,
+    remoteOtaPending: Boolean,
+    recover: suspend () -> Unit,
+): Boolean {
+    if (!activeJobPresent && remoteOtaPending) return false
+    if (!activeJobPresent && (!durableRecoveryDone || awaitingJobRecovery)) {
+        recover()
+        return false
+    }
+    return true
+}
 
 /** Ordinary collection can finish without reopening PDD when every required slot is ACKed. */
 internal fun checkpointCoversCollectWork(config: CollectConfig): Boolean {

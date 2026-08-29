@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import threading
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -56,6 +57,7 @@ class OtaAckSemanticsTest(unittest.TestCase):
                 device_key=self.device["device_key"], version_name="1.0.82",
             ))
         self.assertTrue(response.ok)
+        self.assertEqual("install confirmation requires matching version/generation heartbeat", response.message)
         self.assertEqual(1, self.state.get_pending_apk(self.scope)["pending_devices"])
 
         # Only a heartbeat emitted by the newly installed BuildConfig version may
@@ -78,6 +80,45 @@ class OtaAckSemanticsTest(unittest.TestCase):
         self.assertEqual(2, self.state.get_pending_apk(self.scope)["generation"])
         self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 1, self.scope))
         self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 2, self.scope))
+
+    def test_same_version_new_generation_and_multiple_devices_are_isolated(self) -> None:
+        second = "device-ota-semantics-2"
+        self.state.push_apk_update(
+            {"version_name": "1.0.82"},
+            [self.device["device_key"], second],
+            self.scope,
+        )
+        pending = self.state.get_pending_apk(self.scope)
+        self.assertEqual(2, pending["generation"])
+        self.assertEqual(2, pending["pending_devices"])
+        self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 2, self.scope))
+        self.assertEqual(1, self.state.get_pending_apk(self.scope)["pending_devices"])
+        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 2, self.scope))
+        self.assertTrue(self.state.confirm_apk_install(second, "1.0.82", 2, self.scope))
+        self.assertIsNone(self.state.get_pending_apk(self.scope))
+
+    def test_concurrent_replacement_push_cannot_be_consumed_by_old_confirmation(self) -> None:
+        barrier = threading.Barrier(2)
+        results: list[bool] = []
+
+        def confirm_old() -> None:
+            barrier.wait()
+            results.append(self.state.confirm_apk_install(
+                self.device["device_key"], "1.0.82", 1, self.scope,
+            ))
+
+        thread = threading.Thread(target=confirm_old)
+        thread.start()
+        barrier.wait()
+        self.state.push_apk_update(
+            {"version_name": "1.0.83"}, [self.device["device_key"]], self.scope,
+        )
+        thread.join(timeout=2)
+        self.assertFalse(thread.is_alive())
+        pending = self.state.get_pending_apk(self.scope)
+        self.assertEqual("1.0.83", pending["version_name"])
+        self.assertEqual(2, pending["generation"])
+        self.assertIn(results, ([True], [False]))
 
 
 if __name__ == "__main__":

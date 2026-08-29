@@ -18,17 +18,17 @@ import java.net.URL
 object ApkUpdater {
     @Volatile
     private var busy = false
-    @Volatile private var pendingRemote: String? = null
+    private val remoteState = RemoteOtaState()
 
     fun isBusy(): Boolean = busy
-    fun isRemoteUpdatePending(): Boolean = pendingRemote != null
+    fun isRemoteUpdatePending(): Boolean = remoteState.isPending()
 
     private fun key(cmd: JSONObject?): String = "${cmd?.optString("version_name", "")?.trim()}#${cmd?.optInt("generation", 0) ?: 0}"
 
     fun observeCommand(prefs: ServerPrefs, cmd: JSONObject?) {
         val generation = cmd?.optInt("generation", 0) ?: 0
         if (generation > 0) prefs.otaGeneration = generation
-        if (cmd?.optString("version_name", "")?.trim() == ApiClient.APP_VERSION) pendingRemote = null
+        remoteState.observeInstalled(ApiClient.APP_VERSION, cmd?.optString("version_name", "")?.trim())
     }
 
     fun handleCommand(
@@ -39,8 +39,7 @@ object ApkUpdater {
     ) {
         observeCommand(prefs, cmd)
         val commandKey = key(cmd)
-        if (pendingRemote == commandKey || busy) return
-        pendingRemote = commandKey
+        if (!remoteState.tryStart(commandKey, busy)) return
         startUpdate(context, prefs, cmd, log, source = "远程指令")
     }
 
@@ -62,19 +61,19 @@ object ApkUpdater {
         source: String,
     ) {
         if (cmd == null) {
-            if (source == "远程指令") pendingRemote = null
+            if (source == "远程指令") remoteState.failed(key(cmd))
             log("$source：无有效更新包信息")
             return
         }
         val urlPath = cmd.optString("apk_url", "").trim()
         if (urlPath.isBlank()) {
-            if (source == "远程指令") pendingRemote = null
+            if (source == "远程指令") remoteState.failed(key(cmd))
             log("$source：缺少 apk_url")
             return
         }
         val ver = cmd.optString("version_name", "").trim()
         if (ver.isNotBlank() && ver == ApiClient.APP_VERSION) {
-            if (source == "远程指令") pendingRemote = null
+            if (source == "远程指令") remoteState.installed(key(cmd))
             log("已是目标版本 $ver，跳过更新")
             return
         }
@@ -104,7 +103,7 @@ object ApkUpdater {
                 launchInstaller(context, apk)
                 log("已拉起安装界面，请在系统弹窗中确认安装")
             } catch (e: Exception) {
-                if (source == "远程指令") pendingRemote = null
+                if (source == "远程指令") remoteState.failed(key(cmd))
                 log("更新失败: ${e.message}")
             } finally {
                 busy = false
@@ -161,5 +160,34 @@ object ApkUpdater {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(intent)
+    }
+}
+
+/** In-process OTA state; server heartbeat remains the durable source of truth. */
+internal class RemoteOtaState {
+    @Volatile private var pendingKey: String? = null
+
+    fun isPending(): Boolean = pendingKey != null
+
+    @Synchronized
+    fun tryStart(commandKey: String, updaterBusy: Boolean): Boolean {
+        if (updaterBusy || pendingKey == commandKey) return false
+        pendingKey = commandKey
+        return true
+    }
+
+    @Synchronized
+    fun failed(commandKey: String) {
+        if (pendingKey == commandKey) pendingKey = null
+    }
+
+    @Synchronized
+    fun installed(commandKey: String) {
+        if (pendingKey == commandKey) pendingKey = null
+    }
+
+    @Synchronized
+    fun observeInstalled(currentVersion: String, commandedVersion: String?) {
+        if (!commandedVersion.isNullOrBlank() && commandedVersion == currentVersion) pendingKey = null
     }
 }

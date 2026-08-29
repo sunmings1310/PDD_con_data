@@ -219,4 +219,4 @@ def ack_update(body: OtaAckIn):
             return ApiOk(ok=False, message="device not registered", data={"error_code": "DEVICE_REVOKED_OR_UNKNOWN"})
     cast_state.ack_apk_update(body.device_key, body.version_name,
                               (int(device["enterprise_id"]), int(device["workspace_id"])))
-    return ApiOk(message="download acknowledged; waiting for installed-version heartbeat")
+    return ApiOk(message="install confirmation requires matching version/generation heartbeat")

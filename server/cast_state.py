@@ -99,11 +99,12 @@ class CastState:
             return cmds
 
     def set_apk_meta(self, version_name: str, version_code: int, size: str | int) -> None:
-        self.apk_meta = {
-            "version_name": version_name,
-            "version_code": int(version_code or 0),
-            "size": int(size or 0),
-        }
+        with self.apk_lock:
+            self.apk_meta = {
+                "version_name": version_name,
+                "version_code": int(version_code or 0),
+                "size": int(size or 0),
+            }
 
     def get_pending_apk(self, scope: tuple[int, int] = (1, 1)) -> dict[str, Any] | None:
         with self.apk_lock:
