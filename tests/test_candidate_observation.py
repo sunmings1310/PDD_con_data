@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -49,6 +50,8 @@ class CandidateObservationTest(unittest.TestCase):
             canonical_payload(body(reason_code="no_candidate", candidate_present=True))
         with self.assertRaises(CandidateObservationError):
             canonical_payload(body(screenshot_ref="../secret.png"))
+        expected_ref = "candidate-observations/" + hashlib.sha256(body().idempotency_key.encode()).hexdigest() + ".jpg"
+        self.assertEqual(expected_ref, json.loads(canonical_payload(body(screenshot_ref=expected_ref))[0])["screenshot_ref"])
 
     def test_persist_is_lease_fenced_raw_only_and_idempotent(self):
         cur=Cursor([None, (0,)])

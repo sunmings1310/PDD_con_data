@@ -44,7 +44,10 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
         raise CandidateObservationError("OBSERVATION_REASON_CONFLICT", "candidate_rejected requires a candidate")
     if body.screenshot_ref:
         path = PurePosixPath(str(body.screenshot_ref))
-        if path.is_absolute() or ".." in path.parts or not str(path).startswith("candidate-observations/"):
+        expected_ref = "candidate-observations/" + hashlib.sha256(
+            str(body.idempotency_key).encode("utf-8")
+        ).hexdigest() + ".jpg"
+        if path.is_absolute() or ".." in path.parts or str(path) != expected_ref:
             raise CandidateObservationError("INVALID_SCREENSHOT_REF", "screenshot_ref must be server-managed")
     public = {
         "contract_version": "candidate-observation-1",
