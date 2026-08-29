@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,6 +32,8 @@ class CastState:
         self.apk_pending_keys: set[str] = set()
         self.pending_apk_by_scope: dict[tuple[int, int], dict[str, Any]] = {}
         self.apk_keys_by_scope: dict[tuple[int, int], set[str]] = {}
+        self.apk_generation_by_scope: dict[tuple[int, int], int] = {}
+        self.apk_lock = threading.RLock()
 
     def ensure_room(self, device_id: int, device_key: str) -> DeviceCastRoom:
         room = self.rooms_by_id.get(device_id)
@@ -112,10 +115,14 @@ class CastState:
 
     def push_apk_update(self, payload: dict[str, Any], device_keys: list[str],
                         scope: tuple[int, int] = (1, 1)) -> None:
-        self.pending_apk = dict(payload)
-        self.apk_pending_keys = {k for k in device_keys if k}
-        self.pending_apk_by_scope[scope] = dict(payload)
-        self.apk_keys_by_scope[scope] = {k for k in device_keys if k}
+        with self.apk_lock:
+            generation = self.apk_generation_by_scope.get(scope, 0) + 1
+            self.apk_generation_by_scope[scope] = generation
+            payload = {**payload, "generation": generation}
+            self.pending_apk = dict(payload)
+            self.apk_pending_keys = {k for k in device_keys if k}
+            self.pending_apk_by_scope[scope] = dict(payload)
+            self.apk_keys_by_scope[scope] = {k for k in device_keys if k}
         self.set_apk_meta(
             str(payload.get("version_name") or ""),
             int(payload.get("version_code") or 0),
@@ -124,29 +131,30 @@ class CastState:
 
     def ack_apk_update(self, device_key: str, version_name: str = "",
                        scope: tuple[int, int] | None = None) -> None:
-        """Record delivery acknowledgement without treating it as installation success."""
+        """Legacy delivery notification; it deliberately does not claim installation."""
         # Android's system Package Installer completes outside the app process. A
         # download/start acknowledgement is therefore not evidence that the APK is
         # installed; keep the command until the new app version heartbeats.
         return None
 
-    def confirm_apk_install(self, device_key: str, version_name: str,
+    def confirm_apk_install(self, device_key: str, version_name: str, generation: int,
                             scope: tuple[int, int]) -> bool:
         """Consume a pending OTA command only after the installed app heartbeats."""
-        expected = self.pending_apk_by_scope.get(scope)
-        if not expected or str(expected.get("version_name") or "") != version_name:
-            return False
-        keys = self.apk_keys_by_scope.get(scope, set())
-        if device_key not in keys:
-            return False
-        keys.discard(device_key)
-        self.apk_pending_keys.discard(device_key)
-        if not keys:
-            self.pending_apk_by_scope.pop(scope, None)
-        if not self.apk_pending_keys:
-            # 全部安装确认后仍保留 meta，便于状态页展示；清空 pending 避免新设备误触发
-            self.pending_apk = None
-        return True
+        with self.apk_lock:
+            expected = self.pending_apk_by_scope.get(scope)
+            if (not expected or str(expected.get("version_name") or "") != version_name
+                    or int(expected.get("generation") or 0) != generation):
+                return False
+            keys = self.apk_keys_by_scope.get(scope, set())
+            if device_key not in keys:
+                return False
+            keys.discard(device_key)
+            self.apk_pending_keys.discard(device_key)
+            if not keys:
+                self.pending_apk_by_scope.pop(scope, None)
+            if not self.apk_pending_keys:
+                self.pending_apk = None
+            return True
 
 
 cast_state = CastState()

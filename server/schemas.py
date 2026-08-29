@@ -31,6 +31,7 @@ class DeviceHeartbeatIn(BaseModel):
     device_key: str
     status: str = "online"
     app_version: Optional[str] = None
+    ota_generation: Optional[int] = None
     current_task_id: Optional[int] = None
 
 

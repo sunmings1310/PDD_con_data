@@ -150,8 +150,8 @@ def heartbeat(body: DeviceHeartbeatIn, request: Request):
         scope = (int(device.get("enterprise_id") or 1), int(device.get("workspace_id") or 1))
         # System Package Installer runs outside the app process. Only the version
         # reported by a later heartbeat confirms a completed installation.
-        if body.app_version:
-            cast_state.confirm_apk_install(body.device_key, body.app_version, scope)
+        if body.app_version and body.ota_generation is not None:
+            cast_state.confirm_apk_install(body.device_key, body.app_version, body.ota_generation, scope)
         data["commands"] = cast_state.device_commands(body.device_key)
         # 供 App 比对版本：不一致时主界面显示「更新」按钮
         latest = latest_payload(scope)

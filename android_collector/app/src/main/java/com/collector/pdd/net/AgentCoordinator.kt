@@ -231,7 +231,7 @@ class AgentCoordinator(
             val now = System.currentTimeMillis()
             val terminalExists = CollectorApp.instance.database.outboxDao()
                 .get("job-terminal-${job.jobId}-${job.attemptId}") != null
-            if (shouldRetryRecoveredEngine(
+            if (!ApkUpdater.isRemoteUpdatePending() && shouldRetryRecoveredEngine(
                     engineRunning = engine.isRunning(),
                     terminalExists = terminalExists,
                     now = now,
@@ -265,14 +265,10 @@ class AgentCoordinator(
             }
         }
         if (updateApk != null) {
-            // 更新优先：先停任务再装包
-            if (engine.isRunning()) {
-                withContext(Dispatchers.Main) {
-                    log("一键更新：先停止当前任务")
-                    engine.stop()
-                }
-            }
             ApkUpdater.handleCommand(appContext, prefs, updateApk, log)
+            // An OTA command never cancels an already-running job, but it must not
+            // recover or acquire new business work while system installation is pending.
+            if (ApkUpdater.isRemoteUpdatePending()) return@withContext
         }
         if (castReq && !ScreenCastService.isRunning) {
             withContext(Dispatchers.Main) {
@@ -287,7 +283,7 @@ class AgentCoordinator(
             // 服务端已停止请求时也可继续推，直到 Web stop；此处不强制停
         }
 
-        if (!engine.isRunning() && activeJob == null) {
+        if (!ApkUpdater.isRemoteUpdatePending() && !engine.isRunning() && activeJob == null) {
             var jobsApiUnavailable = false
             val jobLease = try {
                 api.acquireJob(workerId)

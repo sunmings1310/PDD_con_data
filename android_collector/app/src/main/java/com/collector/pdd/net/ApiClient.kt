@@ -154,6 +154,7 @@ class ApiClient(private val prefs: ServerPrefs) {
             .put("device_key", prefs.deviceKey)
             .put("status", status)
             .put("app_version", APP_VERSION)
+        if (prefs.otaGeneration > 0) body.put("ota_generation", prefs.otaGeneration)
         if (currentTaskId != null) body.put("current_task_id", currentTaskId)
         return postJson("/api/devices/heartbeat", body)
     }

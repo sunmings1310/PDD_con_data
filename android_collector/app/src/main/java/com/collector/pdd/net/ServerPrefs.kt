@@ -32,6 +32,10 @@ class ServerPrefs(ctx: Context) {
         get() = sp.getString(KEY_ENROLLMENT_TOKEN, "")?.trim().orEmpty()
         set(v) = sp.edit().putString(KEY_ENROLLMENT_TOKEN, v.trim()).apply()
 
+    var otaGeneration: Int
+        get() = sp.getInt(KEY_OTA_GENERATION, 0)
+        set(v) = sp.edit().putInt(KEY_OTA_GENERATION, v).apply()
+
     val deviceKey: String
         get() {
             val existed = sp.getString(KEY_DEVICE, null)
@@ -108,5 +112,6 @@ class ServerPrefs(ctx: Context) {
         private const val KEY_DEVICE = "device_key"
         private const val KEY_WORKER = "worker_id"
         private const val KEY_PENDING_TASK = "pending_remote_task_json"
+        private const val KEY_OTA_GENERATION = "ota_generation"
     }
 }

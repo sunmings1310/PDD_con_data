@@ -18,8 +18,10 @@ import java.net.URL
 object ApkUpdater {
     @Volatile
     private var busy = false
+    @Volatile private var pendingRemoteVersion: String? = null
 
     fun isBusy(): Boolean = busy
+    fun isRemoteUpdatePending(): Boolean = pendingRemoteVersion != null
 
     fun handleCommand(
         context: Context,
@@ -27,6 +29,10 @@ object ApkUpdater {
         cmd: JSONObject?,
         log: (String) -> Unit,
     ) {
+        val version = cmd?.optString("version_name", "")?.trim().orEmpty()
+        if (version.isNotBlank() && pendingRemoteVersion == version) return
+        pendingRemoteVersion = version.ifBlank { "unknown" }
+        cmd?.optInt("generation", 0)?.takeIf { it > 0 }?.let { prefs.otaGeneration = it }
         startUpdate(context, prefs, cmd, log, source = "远程指令")
     }
 

@@ -67,10 +67,17 @@ class OtaAckSemanticsTest(unittest.TestCase):
              patch.object(devices, "latest_payload", return_value={"has_apk": False}), \
              patch.object(devices, "cast_state", self.state):
             response = devices.heartbeat(DeviceHeartbeatIn(
-                device_key=self.device["device_key"], app_version="1.0.82",
+                device_key=self.device["device_key"], app_version="1.0.82", ota_generation=1,
             ), request)
         self.assertIsNone(response.data["commands"]["update_apk"])
         self.assertIsNone(self.state.get_pending_apk(self.scope))
+
+    def test_stale_generation_cannot_consume_replacement_push(self) -> None:
+        self.state.push_apk_update({"version_name": "1.0.83"}, [self.device["device_key"]], self.scope)
+        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.82", 1, self.scope))
+        self.assertEqual(2, self.state.get_pending_apk(self.scope)["generation"])
+        self.assertFalse(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 1, self.scope))
+        self.assertTrue(self.state.confirm_apk_install(self.device["device_key"], "1.0.83", 2, self.scope))
 
 
 if __name__ == "__main__":
