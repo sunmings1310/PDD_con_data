@@ -242,6 +242,10 @@ const oldResultsRefresh = detailPage.proxy.$.setupState.loadResults(); const old
 const currentResultsRefresh = detailPage.proxy.$.setupState.loadResults(); const currentResultsRequest = stateRequests.shift()
 await settle(oldResultsRequest, { items: [{ product_id: 99 }], total: 1 }); await settle(currentResultsRequest, { items: [{ product_id: 1 }], total: 1 }); await Promise.all([oldResultsRefresh, currentResultsRefresh])
 assert.equal(detailPage.proxy.$.setupState.taskResults[0].product_id, 1)
+const candidateRefresh = detailPage.proxy.$.setupState.loadResults(); const candidateRequest = stateRequests.shift()
+await settle(candidateRequest, { items: [{ result_kind: 'candidate_observation', failure_reason: 'candidate_rejected', product_id: null, library: { status: 'unavailable', can_save: false } }], total: 1 }); await candidateRefresh
+assert.equal(detailPage.proxy.$.setupState.resultLabel(detailPage.proxy.$.setupState.taskResults[0]), '候选未匹配')
+assert.equal(detailPage.proxy.$.setupState.canSelectResult(detailPage.proxy.$.setupState.taskResults[0]), false)
 const routeOld = detailPage.proxy.$.setupState.loadTask(); const routeOldRequest = stateRequests.shift()
 globalThis.__componentRoute.params.id = '2'; globalThis.__componentRoute.fullPath = '/tasks/2'; await nextTick()
 const routeTaskRequest = stateRequests.shift(); const routeResultsRequest = stateRequests.shift()
@@ -249,5 +253,5 @@ await settle(routeOldRequest, { task_id: 1, status: 'succeeded', items: [] }); a
 assert.equal(detailPage.proxy.$.setupState.task.task_id, 2)
 globalThis.__componentStore.workspaceId = 'workspace-b'; await nextTick()
 const contextTaskRequest = stateRequests.shift(); const contextResultsRequest = stateRequests.shift(); await settle(contextTaskRequest, { task_id: 2, status: 'pending', items: [] }); await settle(contextResultsRequest, { items: [], total: 0 })
-console.log('TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate')
+console.log('TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate candidate_observation=warning_not_saveable')
 detailPage.app.unmount()

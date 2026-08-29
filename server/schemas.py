@@ -183,6 +183,33 @@ class ProductUploadIn(BaseModel):
     raw_capture: Optional[dict[str, Any]] = None
 
 
+class CandidateObservationIn(BaseModel):
+    """Raw-only evidence for a candidate that must not become a Product fact."""
+
+    device_key: str = Field(..., min_length=4, max_length=64)
+    idempotency_key: str = Field(..., min_length=8, max_length=128)
+    task_id: int = Field(..., gt=0)
+    task_item_id: int = Field(..., gt=0)
+    job_id: int = Field(..., gt=0)
+    attempt_id: int = Field(..., gt=0)
+    worker_id: str = Field(..., min_length=1, max_length=128)
+    lease_token: str = Field(..., min_length=32, max_length=256)
+    trace_id: Optional[str] = Field(default=None, max_length=128)
+    platform_code: str = Field(default="pinduoduo", min_length=1, max_length=32)
+    candidate_present: bool
+    matched: Literal[False] = False
+    reason_code: Literal["candidate_rejected", "no_candidate"]
+    candidate_ordinal: int = Field(default=0, ge=0, le=3)
+    expected_fields: dict[str, Any] = Field(default_factory=dict)
+    observed_fields: dict[str, Any] = Field(default_factory=dict)
+    field_differences: dict[str, Any] = Field(default_factory=dict)
+    source_summary: list[dict[str, Any]] = Field(default_factory=list, max_length=12)
+    collected_at_epoch_ms: int = Field(..., gt=0)
+    collector_version: str = Field(default="unknown", max_length=64)
+    parser_version: str = Field(default="unknown", max_length=64)
+    screenshot_ref: Optional[str] = Field(default=None, max_length=512)
+
+
 class ProductOut(BaseModel):
     product_id: int
     task_id: Optional[int] = None
@@ -342,7 +369,7 @@ class TaskResultLibraryDTO(BaseModel):
 
 
 class TaskResultDTO(BaseModel):
-    result_kind: Literal["snapshot", "quarantine", "legacy_product"]
+    result_kind: Literal["snapshot", "quarantine", "legacy_product", "candidate_observation"]
     result_id: int
     task_id: int
     job_id: Optional[int] = None

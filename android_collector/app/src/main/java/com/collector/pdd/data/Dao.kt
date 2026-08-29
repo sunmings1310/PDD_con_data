@@ -59,7 +59,8 @@ interface OutboxDao {
 
     @Query(
         "SELECT * FROM upload_outbox WHERE state IN ('pending','retry') " +
-            "AND nextAttemptAt <= :now ORDER BY createdAt ASC LIMIT :limit"
+            "AND nextAttemptAt <= :now ORDER BY createdAt ASC, " +
+            "CASE WHEN eventType='candidate_observation' THEN 0 WHEN eventType IN ('job_fail','job_complete') THEN 2 ELSE 1 END ASC LIMIT :limit"
     )
     suspend fun ready(now: Long, limit: Int = 50): List<OutboxEntity>
 

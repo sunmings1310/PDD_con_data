@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("APP_ENV", "test")
@@ -214,6 +215,7 @@ class OracleJobServiceTest(unittest.TestCase):
             "DELETE FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID IN (SELECT JOB_ID FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:task_id)",
             "DELETE FROM SJZQ_COLLECTION_JOB WHERE TASK_ID=:task_id",
             "DELETE FROM SJZQ_UPLOAD_RECEIPT WHERE TASK_ID=:task_id",
+            "DELETE FROM SJZQ_RAW_COLLECTION WHERE TASK_ID=:task_id",
             "DELETE FROM SJZQ_PRODUCT WHERE TASK_ID=:task_id",
             "DELETE FROM SJZQ_TASK_ITEM WHERE TASK_ID=:task_id",
             "DELETE FROM SJZQ_TASK WHERE TASK_ID=:task_id",
@@ -287,6 +289,47 @@ class OracleJobServiceTest(unittest.TestCase):
             self.assertEqual(0, int(self.cur.fetchone()[0]), table)
         self.cur.execute("SELECT COUNT(*) FROM SJZQ_COLLECTION_ATTEMPT WHERE JOB_ID=:id", {"id": lease["job_id"]})
         self.assertEqual(1, int(self.cur.fetchone()[0]))
+
+    def test_real_candidate_observation_is_raw_only_idempotent_and_expires(self):
+        from server import candidate_observation as observations
+        self._seed()
+        lease = svc.acquire(self.cur, device_id=self.ids["device"], worker_id="oracle-job-test")
+        assert lease is not None
+        svc.start(self.cur, device_id=self.ids["device"], job_id=lease["job_id"],
+                  attempt_id=lease["attempt_id"], worker_id="oracle-job-test", lease_token=lease["lease_token"])
+        body = SimpleNamespace(
+            idempotency_key="candidate-" + self.tag, task_id=self.ids["task"], task_item_id=self.ids["item"],
+            job_id=lease["job_id"], attempt_id=lease["attempt_id"], worker_id="oracle-job-test",
+            lease_token=lease["lease_token"], trace_id=self.tag, platform_code="pinduoduo",
+            candidate_present=True, matched=False, reason_code="candidate_rejected", candidate_ordinal=1,
+            expected_fields={"title":"expected"}, observed_fields={"title":"rejected"},
+            field_differences={"title":"mismatch"}, source_summary=[{"type":"detail_response","source_identifier":"detail"}],
+            collected_at_epoch_ms=1700000000000, collector_version="oracle-test", parser_version="oracle-test",
+            screenshot_ref=None,
+        )
+        reservation = SimpleNamespace(status="committed", reservation_id=1)
+        device = {"device_id":self.ids["device"], "enterprise_id":1, "workspace_id":1}
+        with patch.object(observations, "reserve", return_value=reservation):
+            first = observations.persist(self.cur, body=body, device=device)
+            replay = observations.persist(self.cur, body=body, device=device)
+        self.assertEqual(first["raw_id"], replay["raw_id"]); self.assertTrue(replay["idempotent"])
+        for table, expected in (("SJZQ_RAW_COLLECTION",1),("SJZQ_PRODUCT",0),("SJZQ_PRODUCT_SNAPSHOT",0)):
+            self.cur.execute(f"SELECT COUNT(*) FROM {table} WHERE TASK_ID=:id", {"id":self.ids["task"]})
+            self.assertEqual(expected, int(self.cur.fetchone()[0]), table)
+        self.cur.execute("SELECT COUNT(*) FROM SJZQ_QUALITY_RESULT q JOIN SJZQ_RAW_COLLECTION r ON r.RAW_ID=q.RAW_ID WHERE r.TASK_ID=:id", {"id":self.ids["task"]})
+        self.assertEqual(0, int(self.cur.fetchone()[0]), "SJZQ_QUALITY_RESULT")
+        svc.fail(self.cur, device_id=self.ids["device"], job_id=lease["job_id"], attempt_id=lease["attempt_id"],
+                 worker_id="oracle-job-test", lease_token=lease["lease_token"], error_class="business_rejection",
+                 error_code="TARGET_NOT_MATCHED", error_message="candidate rejected")
+        self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id":self.ids["item"]})
+        status, message = self.cur.fetchone(); self.assertEqual("not_matched", status); self.assertIn("candidate_rejected#1", message)
+        self.cur.execute("UPDATE SJZQ_RAW_COLLECTION SET COLLECTED_AT=SYSTIMESTAMP-NUMTODSINTERVAL(31,'DAY') WHERE RAW_ID=:id", {"id":first["raw_id"]})
+        with patch.object(observations, "adjust_used"):
+            self.assertEqual([], observations.cleanup_expired(self.cur, limit=10))
+        self.cur.execute("SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION WHERE RAW_ID=:id", {"id":first["raw_id"]})
+        self.assertEqual(0, int(self.cur.fetchone()[0]))
+        self.cur.execute("SELECT STATUS,MESSAGE FROM SJZQ_TASK_ITEM WHERE ITEM_ID=:id", {"id":self.ids["item"]})
+        self.assertEqual("not_matched", self.cur.fetchone()[0])
 
     def test_real_expired_lease_rejects_old_worker_before_checkpoint(self):
         self._seed()

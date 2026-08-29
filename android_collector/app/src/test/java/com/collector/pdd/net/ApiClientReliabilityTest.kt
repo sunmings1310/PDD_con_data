@@ -105,6 +105,23 @@ class ApiClientReliabilityTest {
         assertEquals(first.getString("idempotency_key"), second.getString("idempotency_key"))
     }
 
+    @Test fun candidateObservationRequiresRawAcknowledgementAndLeaseIdentity() {
+        val event = OutboxEntity(
+            outboxId = "candidate-12-13-1", eventType = "candidate_observation", remoteTaskId = 10,
+            taskItemId = 11, jobId = 12, attemptId = 13, workerId = "worker",
+            leaseToken = "x".repeat(32), payloadJson = """{"candidate_present":true,"matched":false,"reason_code":"candidate_rejected","candidate_ordinal":1,"expected_fields":{},"observed_fields":{},"field_differences":{},"source_summary":[],"collected_at_epoch_ms":1700000000000,"collector_version":"test","parser_version":"test"}""",
+        )
+        server.enqueue(json(body = """{"ok":true,"data":{"acknowledged":true,"persisted":true,"raw_id":77}}"""))
+        assertEquals(77L, client.uploadCandidateObservationEvent(event))
+        val request = server.takeRequest()
+        assertEquals("/api/candidate-observations", request.path)
+        val sent = JSONObject(request.body.readUtf8())
+        assertEquals(event.outboxId, sent.getString("idempotency_key"))
+        assertEquals(12L, sent.getLong("job_id")); assertEquals(13L, sent.getLong("attempt_id"))
+        server.enqueue(json(body = """{"ok":true,"data":{"acknowledged":true,"persisted":true}}"""))
+        assertThrows(IllegalStateException::class.java) { client.uploadCandidateObservationEvent(event) }
+    }
+
     @Test fun qualityAndIdempotencyConflictsArePermanentFailures() {
         for (code in listOf("QUALITY_REJECTED", "IDEMPOTENCY_CONFLICT", "TASK_NOT_RUNNING")) {
             server.enqueue(json(body = """{"ok":false,"message":"rejected","data":{"error_code":"$code"}}"""))

@@ -295,6 +295,7 @@ def _resource_ref(value: Any, reason: str) -> dict[str, Any]:
 def _result_resources(row: dict[str, Any], result_kind: str) -> dict[str, dict[str, Any]]:
     is_legacy = result_kind == "legacy_product"
     is_quarantine = result_kind == "quarantine" or row.get("quarantine_id") is not None
+    is_candidate = result_kind == "candidate_observation"
     missing_strict = "not_captured_by_strict_protocol" if is_legacy else "not_recorded"
     return {
         "snapshot": _resource_ref(
@@ -307,7 +308,9 @@ def _result_resources(row: dict[str, Any], result_kind: str) -> dict[str, dict[s
         ),
         "product": _resource_ref(
             row.get("product_id"),
-            "no_normal_product_for_quarantine" if is_quarantine else "library_product_unavailable",
+            "candidate_observation_never_creates_product" if is_candidate else (
+                "no_normal_product_for_quarantine" if is_quarantine else "library_product_unavailable"
+            ),
         ),
         "raw": _resource_ref(row.get("raw_id"), missing_strict),
         "quality": _resource_ref(row.get("quality_result_id"), missing_strict),
@@ -326,7 +329,7 @@ def _shape_task_result(row: dict[str, Any]) -> dict[str, Any]:
     product_id = int(row["product_id"]) if row.get("product_id") is not None else None
     row["result_kind"] = kind
     row["result_id"] = int(
-        row.get("snapshot_id") or row.get("quarantine_id") or row.get("product_id")
+        row.get("snapshot_id") or row.get("quarantine_id") or row.get("product_id") or row.get("raw_id")
     )
     row["resources"] = _result_resources(row, kind)
     row["library"] = {
@@ -334,8 +337,10 @@ def _shape_task_result(row: dict[str, Any]) -> dict[str, Any]:
         "product_id": product_id,
         "is_saved": library_status == "saved",
         "can_save": library_status == "draft" and product_id is not None,
-        "reason": "normal_product_not_created" if kind == "quarantine" else (
+        "reason": "candidate_observation_never_enters_library" if kind == "candidate_observation" else (
+            "normal_product_not_created" if kind == "quarantine" else (
             "library_product_unavailable" if product_id is None else None
+            )
         ),
     }
     row["library_status"] = library_status
@@ -362,6 +367,10 @@ def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | No
     )
     tenant_product = (
         " AND p.ENTERPRISE_ID=:enterprise_id AND p.WORKSPACE_ID=:workspace_id"
+        if tenant is not None else ""
+    )
+    tenant_raw = (
+        " AND r.ENTERPRISE_ID=:enterprise_id AND r.WORKSPACE_ID=:workspace_id"
         if tenant is not None else ""
     )
     joined_tenant_product = (
@@ -402,6 +411,22 @@ def task_results(cur: Any, task_id: int, page: int, limit: int, tenant: Any | No
                CAST(NULL AS VARCHAR2(256)) MANUFACTURER,q.FAILURE_REASON,q.COLLECTED_AT
           FROM SJZQ_DATA_QUARANTINE q
          WHERE q.TASK_ID=:task_id{tenant_quarantine}
+        UNION ALL
+        SELECT 'candidate_observation' RESULT_KIND,r.TASK_ID,r.JOB_ID,r.ATTEMPT_ID,
+               CAST(NULL AS NUMBER) SNAPSHOT_ID,CAST(NULL AS NUMBER) MASTER_PRODUCT_ID,
+               CAST(NULL AS NUMBER) ENTERPRISE_PRODUCT_ID,CAST(NULL AS NUMBER) PRODUCT_ID,
+               CAST(NULL AS NUMBER) QUARANTINE_ID,r.RAW_ID,CAST(NULL AS NUMBER) QUALITY_RESULT_ID,
+               'unavailable' LIBRARY_STATUS,'not_applicable' QUALITY_STATUS,
+               JSON_VALUE(r.RAW_JSON,'$.observed_fields.title' RETURNING VARCHAR2(512)) PLATFORM_TITLE,
+               CAST(NULL AS VARCHAR2(512)) CANONICAL_NAME,
+               JSON_VALUE(r.RAW_JSON,'$.observed_fields.spec' RETURNING VARCHAR2(512)) PRODUCT_ATTRIBUTE_SPEC,
+               CAST(NULL AS VARCHAR2(128)) BRAND,
+               JSON_VALUE(r.RAW_JSON,'$.observed_fields.approval' RETURNING VARCHAR2(128)) APPROVAL_NUMBER,
+               JSON_VALUE(r.RAW_JSON,'$.observed_fields.manufacturer' RETURNING VARCHAR2(256)) MANUFACTURER,
+               JSON_VALUE(r.RAW_JSON,'$.reason_code' RETURNING VARCHAR2(2000)) FAILURE_REASON,
+               r.COLLECTED_AT
+          FROM SJZQ_RAW_COLLECTION r
+         WHERE r.TASK_ID=:task_id AND r.SOURCE_TYPE='candidate_observation'{tenant_raw}
         UNION ALL
         SELECT 'legacy_product' RESULT_KIND,p.TASK_ID,CAST(NULL AS NUMBER) JOB_ID,
                CAST(NULL AS NUMBER) ATTEMPT_ID,CAST(NULL AS NUMBER) SNAPSHOT_ID,

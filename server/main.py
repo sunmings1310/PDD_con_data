@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from server.config import IMAGE_DIR, settings
 from server.db import close_pool, init_pool
-from server.routers import accounts, auth, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users, jobs, management, enterprises
+from server.routers import accounts, auth, candidate_observations, cast, dashboard, devices, excel_match, ota, platforms, products, reports, tasks, users, jobs, management, enterprises
 from server.ws_hub import hub as realtime_hub, router as ws_router
 from server.media_access import verify_media_signature
 
@@ -25,9 +25,17 @@ WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
 def _reconcile_once() -> None:
     from server.db import get_conn
     from server.job_reconciliation import reconcile_oracle
+    from server.candidate_observation import cleanup_expired
 
+    screenshot_refs: list[str] = []
     with get_conn() as conn:
         reconcile_oracle(conn.cursor(), limit=100)
+        screenshot_refs = cleanup_expired(conn.cursor(), limit=100)
+    root = IMAGE_DIR.resolve()
+    for rel in screenshot_refs:
+        candidate = (root / rel).resolve()
+        if root in candidate.parents and candidate.is_file() and rel.startswith("candidate-observations/"):
+            candidate.unlink()
 
 
 async def _reconciliation_loop() -> None:
@@ -79,6 +87,7 @@ app.include_router(tasks.router)
 app.include_router(jobs.router)
 app.include_router(management.router)
 app.include_router(products.router)
+app.include_router(candidate_observations.router)
 app.include_router(excel_match.router)
 app.include_router(accounts.router)
 app.include_router(reports.router)

@@ -64,6 +64,12 @@ class AgentCoordinator(
                 log("商品已持久化待确认 item=${product.itemId} outbox=$outboxId")
             }
         },
+        onCandidateObserved = { outboxId ->
+            withContext(Dispatchers.IO) {
+                flushOutbox(outboxId)
+                log("候选观察已持久化待确认 outbox=$outboxId")
+            }
+        },
         onKeywordSearched = { kw ->
             val rid = remoteTaskId
             if (rid != null) {
@@ -562,6 +568,11 @@ class AgentCoordinator(
                             flushOutbox(enqueueJobCheckpoint(identity, "running"))
                         }
                     }
+                    "candidate_observation" -> {
+                        val rawId = api.uploadCandidateObservationEvent(event)
+                        dao.markAcked(event.outboxId, rawId, System.currentTimeMillis())
+                        log("服务端已确认候选观察 raw_id=$rawId")
+                    }
                     "finish" -> {
                         if (dao.unackedProducts(event.remoteTaskId).isNotEmpty()) {
                             error("product acknowledgements pending")
@@ -625,6 +636,9 @@ class AgentCoordinator(
                     }
                     "job_fail" -> {
                         val identity = activeJob ?: error("job assignment not recovered")
+                        val pendingEvidence = dao.listForAttempt(identity.jobId, identity.attemptId)
+                            .any { it.eventType == "candidate_observation" && it.state != "acked" }
+                        if (pendingEvidence) error("candidate observation acknowledgement pending")
                         val localStatus = JSONObject(event.payloadJson).optString("local_status", "failed")
                         val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
                         api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
@@ -637,7 +651,7 @@ class AgentCoordinator(
                     else -> error("unknown outbox event ${event.eventType}")
                 }
             } catch (e: PermanentUploadException) {
-                if (event.eventType == "product") {
+                if (event.eventType in setOf("product", "candidate_observation")) {
                     dao.markRejected(event.outboxId, e.message.orEmpty().take(500))
                     CollectorApp.instance.database.taskDao().markRemoteFailed(event.remoteTaskId)
                     log("上报永久拒绝，任务将以失败结束 outbox=${event.outboxId}: ${e.message}")

@@ -252,6 +252,26 @@ class ApiClient(private val prefs: ServerPrefs) {
         return productId
     }
 
+    /** Candidate mismatch evidence is Raw-only and never advances product success. */
+    fun uploadCandidateObservationEvent(event: OutboxEntity): Long {
+        require(event.eventType == "candidate_observation")
+        val payload = JSONObject(event.payloadJson)
+            .put("device_key", prefs.deviceKey)
+            .put("task_id", event.remoteTaskId)
+            .put("idempotency_key", event.outboxId)
+        event.taskItemId?.let { payload.put("task_item_id", it) }
+        event.jobId?.let { payload.put("job_id", it) }
+        event.attemptId?.let { payload.put("attempt_id", it) }
+        event.leaseToken?.let { payload.put("lease_token", it) }
+        event.workerId?.let { payload.put("worker_id", it) }
+        event.traceId?.let { payload.put("trace_id", it) }
+        val data = requireAck(postJsonChecked("/api/candidate-observations", payload), "candidate observation")
+        check(data.optBoolean("persisted", false)) { "candidate observation acknowledgement is not persisted" }
+        val rawId = data.optLong("raw_id", 0L)
+        check(rawId > 0L) { "candidate observation acknowledgement has no raw_id" }
+        return rawId
+    }
+
     /** Finish is accepted only after the server confirms its receipt and final state. */
     fun finishEvent(event: OutboxEntity, forcedStatus: String? = null): String {
         require(event.eventType == "finish")

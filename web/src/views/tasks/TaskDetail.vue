@@ -53,7 +53,7 @@
         <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
         <el-button v-if="canManageResults" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button>
       </div>
-      <el-alert title="本次采集事实与商品资料库分开读取；draft/待保存和 Quarantine 不会因尚未入库而消失。人工保存只改变资料库状态，不改变 Snapshot、Raw 或 Quality。" type="info" show-icon :closable="false" />
+      <el-alert title="本次采集事实与商品资料库分开读取；draft/待保存和 Quarantine 不会因尚未入库而消失。未匹配候选观察只用于审计，不是采集成功，也不能保存到资料库。" type="info" show-icon :closable="false" />
       <el-alert v-if="resultsError" :title="resultsError" type="error" show-icon :closable="false">
         <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
       </el-alert>
@@ -232,8 +232,8 @@ function requestError(e, fallback) {
   }
   return e.response?.data?.detail || e.message || fallback
 }
-function resultLabel(row) { return { snapshot: '已确认 Snapshot', quarantine: 'Quarantine', legacy_product: '兼容采集结果' }[row.result_kind] || row.result_kind || '-' }
-function resultType(row) { return row.result_kind === 'snapshot' ? 'success' : row.result_kind === 'quarantine' ? 'danger' : 'info' }
+function resultLabel(row) { return { snapshot: '已确认 Snapshot', quarantine: 'Quarantine', legacy_product: '兼容采集结果', candidate_observation: row.failure_reason === 'no_candidate' ? '未发现候选' : '候选未匹配' }[row.result_kind] || row.result_kind || '-' }
+function resultType(row) { return row.result_kind === 'snapshot' ? 'success' : row.result_kind === 'quarantine' ? 'danger' : row.result_kind === 'candidate_observation' ? 'warning' : 'info' }
 function libraryLabel(row) { return { saved: '已保存资料库', draft: 'draft / 待保存', unavailable: 'unavailable' }[row.library?.status || row.library_status] || 'unavailable' }
 function libraryType(row) { return row.library?.status === 'saved' ? 'success' : row.library?.status === 'draft' ? 'warning' : 'info' }
 function canSelectResult(row) { return canManageResults.value && Boolean(row.library?.can_save && row.product_id) }

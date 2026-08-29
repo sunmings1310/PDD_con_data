@@ -423,7 +423,13 @@ def fail(cur: Any, *, device_id: int, job_id: int, attempt_id: int, worker_id: s
     )
     if decision.target.value in {"failed", "quarantined", "dead"} and job.get("item_id") is not None:
         if target_not_matched:
-            cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
+            cur.execute(
+                """UPDATE SJZQ_TASK_ITEM SET STATUS='not_matched',
+                          MESSAGE=SUBSTR(CASE WHEN MESSAGE IS NULL THEN :message
+                            ELSE :message||'; '||MESSAGE END,1,1000),UPDATE_TIME=SYSTIMESTAMP
+                     WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')""",
+                {"message": error_code[:1000], "item_id": job["item_id"]},
+            )
         else:
             cur.execute("UPDATE SJZQ_TASK_ITEM SET STATUS='failed',MESSAGE=:message,UPDATE_TIME=SYSTIMESTAMP WHERE ITEM_ID=:item_id AND STATUS IN ('pending','running')", {"message":error_code[:1000],"item_id":job["item_id"]})
     if decision.target.value in {"failed", "quarantined", "dead", "cancelled"}:

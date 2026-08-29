@@ -1,6 +1,7 @@
 package com.collector.pdd.engine
 
 import com.collector.pdd.CollectorApp
+import com.collector.pdd.BuildConfig
 import com.collector.pdd.data.CollectConfig
 import com.collector.pdd.data.CollectTarget
 import com.collector.pdd.data.AppDatabase
@@ -18,6 +19,8 @@ import com.collector.pdd.collector.CollectorRetryDisposition
 import com.collector.pdd.collector.DetailCollectionRequest
 import com.collector.pdd.collector.SearchRequest
 import com.collector.pdd.collector.SearchSort
+import com.collector.pdd.collector.SearchResult
+import com.collector.pdd.collector.RawSource
 import com.collector.pdd.collector.SystemCollectorError
 import com.collector.pdd.collector.search
 import com.collector.pdd.collector.restoreSearch
@@ -33,6 +36,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
@@ -59,6 +64,8 @@ class TaskEngine(
     private val onKeywordSearched: (suspend (keyword: String) -> Unit)? = null,
     /** Excel 逐行目标完成后回传匹配成功/失败，驱动 Web 明细实时状态。 */
     private val onTargetFinished: (suspend (target: CollectTarget, matched: Boolean, message: String) -> Unit)? = null,
+    /** Raw-only unmatched evidence was durably queued; callback may flush it. */
+    private val onCandidateObserved: (suspend (outboxId: String) -> Unit)? = null,
     /** 连续动作异常时保存现场并上报服务端。 */
     private val onActionAnomaly: (suspend (localTaskId: Long, actionName: String, message: String, pageText: String, consecutiveCount: Int) -> Unit)? = null,
     private val databaseProvider: () -> AppDatabase = { CollectorApp.instance.database },
@@ -92,12 +99,56 @@ class TaskEngine(
         keyword: String,
         sort: SearchSort = SearchSort.DEFAULT,
         prefetchPages: Int = 0,
-    ) {
-        collector.search(actions, SearchRequest(keyword, sort = sort, prefetchPages = prefetchPages))
+    ): SearchResult {
+        val result = collector.search(actions, SearchRequest(keyword, sort = sort, prefetchPages = prefetchPages))
         try {
             onKeywordSearched?.invoke(keyword)
         } catch (_: Exception) {
         }
+        return result
+    }
+
+    private suspend fun queueCandidateObservation(
+        config: CollectConfig, target: CollectTarget, ordinal: Int,
+        candidatePresent: Boolean, product: ProductEntity? = null, sources: List<RawSource> = emptyList(),
+    ) {
+        if (ordinal !in 0..3) return
+        val taskId = config.remoteTaskId ?: return
+        val itemId = target.remoteItemId ?: return
+        val jobId = config.remoteJobId ?: return
+        val attemptId = config.attemptId ?: return
+        val leaseToken = config.leaseToken ?: return
+        val workerId = config.workerId ?: return
+        val id = "candidate-$jobId-$attemptId-$itemId-$ordinal"
+        val expected = JSONObject().put("title", target.targetName).put("spec", target.targetSpec)
+            .put("approval", target.targetApproval).put("manufacturer", target.targetManufacturer)
+        val observed = JSONObject()
+        if (product != null) observed.put("title", product.productName.ifBlank { product.sellName })
+            .put("spec", product.spec).put("approval", product.approvalNo)
+            .put("manufacturer", product.manufacturer).put("item_id", product.itemId)
+            .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", product.shopName)
+        val differences = JSONObject()
+        for (key in listOf("title", "spec", "approval", "manufacturer")) {
+            if (expected.optString(key) != observed.optString(key)) differences.put(key, "mismatch")
+        }
+        val payload = JSONObject().put("platform_code", config.platformCode)
+            .put("candidate_present", candidatePresent).put("matched", false)
+            .put("reason_code", if (candidatePresent) "candidate_rejected" else "no_candidate")
+            .put("candidate_ordinal", ordinal).put("expected_fields", expected)
+            .put("observed_fields", observed).put("field_differences", differences)
+            .put("source_summary", JSONArray().also { array -> sources.take(12).forEach { source ->
+                array.put(JSONObject().put("type", source.type).put("source_identifier", source.sourceIdentifier))
+            } }).put("collected_at_epoch_ms", System.currentTimeMillis())
+            .put("collector_version", BuildConfig.VERSION_NAME)
+            .put("parser_version", product?.parserVersion ?: "not_attempted")
+        val dao = CollectorApp.instance.database.outboxDao()
+        if (dao.get(id) == null) dao.insert(OutboxEntity(
+            outboxId=id, eventType="candidate_observation", remoteTaskId=taskId,
+            taskItemId=itemId, payloadJson=payload.toString(), jobId=jobId, attemptId=attemptId,
+            leaseToken=leaseToken, workerId=workerId, traceId=config.traceId,
+            checkpointVersion=config.checkpointVersion,
+        ))
+        try { onCandidateObserved?.invoke(id) } catch (e: Exception) { log("候选观察已进入待上报队列 outbox=$id err=${e.message}") }
     }
 
     private suspend fun reportTargetResult(target: CollectTarget, matched: Boolean, message: String) {
@@ -246,7 +297,7 @@ class TaskEngine(
                         }
                 )
                 try {
-                    searchKeywordCounted(
+                    val searchResult = searchKeywordCounted(
                         collector,
                         actions,
                         kw,
@@ -269,6 +320,15 @@ class TaskEngine(
 
                     val n = config.maxDetailPerKeyword.coerceAtLeast(1)
                     if (target.requiresMatch) {
+                        if (searchResult.candidates.isEmpty()) {
+                            total++
+                            queueCandidateObservation(config, target, 0, false)
+                            notMatched++
+                            val message = "未匹配：搜索结果没有候选商品"
+                            log(message)
+                            reportTargetResult(target, false, message)
+                            continue
+                        }
                         // 匹配任务必须从搜索结果顶部开始核对，禁止预先滚动跳过首屏商品。
                         log("【$kw】逐个核对前 $n 个，命中准字+规格后停止")
                         var found = false
@@ -580,6 +640,7 @@ class TaskEngine(
                     actualManufacturer = product.manufacturer,
                 )
                 if (!match.matched) {
+                    queueCandidateObservation(config, target, openIndex + 1, true, product, collected.raw.sources)
                     log(
                         "匹配跳过【$pickTag】准字=${match.actualApproval.ifBlank { "-" }}/${match.expectedApproval} " +
                             "规格=${match.actualSpec.ifBlank { "-" }}/${match.expectedSpec} " +
