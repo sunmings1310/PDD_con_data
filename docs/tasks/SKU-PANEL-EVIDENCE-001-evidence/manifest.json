@@ -1,8 +1,8 @@
 {
   "task_id": "SKU-PANEL-EVIDENCE-001",
   "baseline": "80b3435558e67850c9cba4215ca81456721ef0db",
-  "captured_at": "2026-08-29T12:29:10+08:00",
-  "status": "PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE",
+  "captured_at": "2026-08-29T13:01:30+08:00",
+  "status": "PARTIAL_BLOCKED_TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT",
   "service": {
     "host": "0.0.0.0",
     "port": 8080,
@@ -28,7 +28,8 @@
     {"task_id": 3530, "job_id": 1513, "attempt_ids": [1316], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
     {"task_id": 3531, "job_id": 1514, "attempt_ids": [1317], "excel_row": 5, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
     {"task_id": 3532, "job_id": 1515, "attempt_ids": [1318], "excel_row": 6, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
-    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"}
+    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"},
+    {"task_id": 3534, "job_id": 1517, "attempt_ids": [1320, 1321, 1322, 1323, 1324], "excel_row": 4, "status": "failed", "decision": "TARGET_IDENTITY_MISMATCH_NOT_CLICKED", "error": "transient/LOCAL_TASK_FINISHED", "expected_business_terminal": "not_matched/non_retry"}
   ],
   "sample": {
     "confirmed_multi_sku_count": 0,
@@ -44,6 +45,9 @@
   "terminal": {
     "tasks_cancelled": 6,
     "jobs_cancelled": 6,
+    "tasks_failed": 1,
+    "jobs_failed": 1,
+    "final_task_attempts": 5,
     "leases_active": 0,
     "result_receipts": 0,
     "products": 0,
@@ -67,16 +71,34 @@
       "repository_copy": false
     },
     {
-      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\frame-001.jpg",
-      "sha256": "d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf",
-      "contains_sensitive_raw": true,
-      "repository_copy": false
-    },
-    {
       "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\runtime-final.txt",
       "sha256": "3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5",
       "contains_sensitive_raw": false,
       "repository_copy": false
+    },
+    {
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\task-3534-row4-before.jpg",
+      "sha256": "38bfef0a75089e92fb7989dcd8c02b0352d8cb5ff0faada9c823d11942f14cfe",
+      "contains_sensitive_raw": true,
+      "repository_copy": false
+    },
+    {
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\task-3534-terminal.txt",
+      "sha256": "54c06fbffbe5a0368670244730e1ab0f687ff7748c8181416c0e20afc6131c42",
+      "contains_sensitive_raw": false,
+      "repository_copy": false
+    }
+  ],
+  "defect_candidates": [
+    {
+      "id": "PDD-TARGET-IDENTITY-GATE-001",
+      "priority": "P0/P1",
+      "scope": "reject search-result identity mismatch before detail/purchase/SKU interaction"
+    },
+    {
+      "id": "ANDROID-NOT-MATCHED-TERMINAL-001",
+      "priority": "P1",
+      "scope": "map no eligible target to explainable non-retry not_matched terminal instead of transient LOCAL_TASK_FINISHED"
     }
   ],
   "repository_contains_original_raw": false,

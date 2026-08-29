@@ -2,7 +2,8 @@ TASK_ID=SKU-PANEL-EVIDENCE-001
 BASE_SHA=80b3435558e67850c9cba4215ca81456721ef0db
 SETUP_HEAD=ad56f4ff4711ad07e0262027cdf06d5c3fbc5df5
 RESUME_HEAD=d9269df5a697dc8caf29392c23dc11fb5a01fe55
-FINAL_STATUS=PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
+PRIOR_FIXED_HEAD=9fb181b0711dc477969ba0dc395db7bce073de6d
+FINAL_STATUS=PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT
 CHANGED_BRANCH_FIELD=docs/backlog.md task status + docs/tasks/SKU-PANEL-EVIDENCE-001.md E2E result + redacted device evidence/manifest
 ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
 
@@ -58,15 +59,51 @@ TERMINAL_LITERAL_OUTPUT=TASK_3528 cancelled; JOB_1511 cancelled; ATTEMPT_1313 fa
 TERMINAL_EXIT=0
 TERMINAL_RESULT=PASS
 
-ORIGINAL_HASH_COMMAND=Get-FileHash <three external original paths> -Algorithm SHA256
-ORIGINAL_HASH_INPUT=C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\cast\task-3528-row1-detail-before.jpg; ...\cast\frame-001.jpg; ...\runtime-final.txt
-ORIGINAL_HASH_LITERAL_OUTPUT=task-3528-row1-detail-before.jpg match=True sha256=c30855daf21421f31feaebc62a645f4330a7a10eb35c57c8937c462b609e275c; frame-001.jpg match=True sha256=d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf; runtime-final.txt match=True sha256=3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5
+FINAL_CANONICAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\create_final_row4_task.py
+FINAL_CANONICAL_INPUT=one and only final canonical Task for Excel worksheet row 4; no candidate Task creation/cancellation after this point
+FINAL_CANONICAL_LITERAL_REDACTED_OUTPUT=CREATE_HTTP=200 OK=True TASK_ID=3534 IDEMPOTENT=False SUBMISSION_ID=sku-panel-evidence-001-row4-final-v1 DEVICE_ALIAS=device-e4a6069f4f; REVIEW_HTTP=200 OK=True DECISION=approved TASK_ID=3534
+FINAL_CANONICAL_EXIT=0
+FINAL_CANONICAL_RESULT=PASS
+
+FINAL_BEFORE_CLICK_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\capture_cast_once.py
+FINAL_BEFORE_CLICK_INPUT=Task 3534 active cast; retained external frame before any purchase/group-buy action
+FINAL_BEFORE_CLICK_LITERAL_REDACTED_OUTPUT=CAST_START_HTTP=200 OK=True; DEVICE_ALIAS=device-e4a6069f4f; ASSIGNED_TASK=True ACTIVE_JOB=True ACTIVE_ATTEMPT=True; FRAME_SAVED=<EXTERNAL_ORIGINAL> SIZE=45333 SHA256=38bfef0a75089e92fb7989dcd8c02b0352d8cb5ff0faada9c823d11942f14cfe
+FINAL_BEFORE_CLICK_EXIT=0
+FINAL_BEFORE_CLICK_RESULT=BLOCKED_TARGET_IDENTITY_MISMATCH; HURMEVKOR nicotinamide face mask was not the approved collagen dressing target; no click executed
+
+FINAL_TERMINAL_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\monitor_task_3534.py
+FINAL_TERMINAL_INPUT=read-only Task 3534/Item 3811/Job 1517/Attempt 1320-1324/Lease/result persistence inspection after natural max-attempt terminal
+FINAL_TERMINAL_LITERAL_OUTPUT=TASK failed success=0 fail=1; ITEM failed product_id=None message=LOCAL_TASK_FINISHED; JOB failed attempt_count=5 active_attempt=None error=transient/LOCAL_TASK_FINISHED local_status=failed; ATTEMPT 1320-1324 failed and leases released; PRODUCT=0 RAW=0 SNAPSHOT=0 RECEIPT=0 QUALITY=0 QUARANTINE=0; DEVICE online/idle
+FINAL_TERMINAL_EXIT=0
+FINAL_TERMINAL_RESULT=PASS
+
+WEB_API_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\inspect_task_api_3534.py
+WEB_API_INPUT=authorized read-only GET /api/tasks/3534 and GET /api/management/tasks/3534/results?page=1&limit=50
+WEB_API_LITERAL_OUTPUT=DETAIL_HTTP=200 OK=True TASK_STATUS=failed SUCCESS=0 FAIL=1 ITEMS=1; ITEM row=0 status=failed product_id=None message=LOCAL_TASK_FINISHED approval_present=True spec_present=True; RESULTS_HTTP=200 OK=True TOTAL=0 ITEMS=0
+WEB_API_EXIT=0
+WEB_API_RESULT=PASS
+
+WEB_CONTRACT_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_web_result_visibility
+WEB_CONTRACT_INPUT=current Accepted TaskDetail/result visibility contract
+WEB_CONTRACT_LITERAL_OUTPUT=Ran 4 tests in 0.006s; OK
+WEB_CONTRACT_EXIT=0
+WEB_CONTRACT_RESULT=PASS
+
+WEB_COMPONENT_COMMAND=C:\Users\Eden\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\web-component-test\scripts\test-task-import-components.mjs
+WEB_COMPONENT_INPUT=external test copy of current web/src with TaskDetail.vue SHA256 87f124cb0a06654708ee9d7491a0233046f97aacb47b29bae00e6a24f6f4bad5 matching repository source; existing node_modules linked only in external temp
+WEB_COMPONENT_LITERAL_OUTPUT=TASK_DETAIL_SOURCE_HASH_MATCH=True SHA256=87f124cb0a06654708ee9d7491a0233046f97aacb47b29bae00e6a24f6f4bad5; EXCEL_COMPONENT_RACE=PASS; TASK_CREATE_COMPONENT=PASS; TASK_LIST_COMPONENT=PASS; PRODUCT_COMPONENT=PASS; QUALITY_COMPONENT=PASS; QUARANTINE_COMPONENT=PASS; TASK_DETAIL_COMPONENT=PASS mounted=TaskDetail duplicate_refresh task_results_stale tenant_workspace_route_invalidate
+WEB_COMPONENT_EXIT=0
+WEB_COMPONENT_RESULT=PASS
+
+ORIGINAL_HASH_COMMAND=Get-FileHash <four external original paths> -Algorithm SHA256
+ORIGINAL_HASH_INPUT=C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\cast\task-3528-row1-detail-before.jpg; ...\runtime-final.txt; ...\cast\task-3534-row4-before.jpg; ...\task-3534-terminal.txt
+ORIGINAL_HASH_LITERAL_OUTPUT=task-3528-row1-detail-before.jpg sha256=c30855daf21421f31feaebc62a645f4330a7a10eb35c57c8937c462b609e275c; runtime-final.txt sha256=3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5; task-3534-row4-before.jpg sha256=38bfef0a75089e92fb7989dcd8c02b0352d8cb5ff0faada9c823d11942f14cfe; task-3534-terminal.txt sha256=54c06fbffbe5a0368670244730e1ab0f687ff7748c8181416c0e20afc6131c42
 ORIGINAL_HASH_EXIT=0
 ORIGINAL_HASH_RESULT=PASS
 
-MANIFEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import json,pathlib; d=json.loads(pathlib.Path('docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json').read_text(encoding='utf-8')); assert d['status']=='PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE' and d['sample']['sku_panel_entry_count']==0 and d['terminal']['tasks_cancelled']==6 and d['terminal']['leases_active']==0 and d['terminal']['products']==d['terminal']['raw_collections']==d['terminal']['snapshots']==0 and d['step_2_allowed'] is False; print('MANIFEST_VALID status='+d['status']+' tasks='+str(len(d['canonical_tasks']))+' panel_entries=0 step_2_allowed=false')"
+MANIFEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import json,pathlib; d=json.loads(pathlib.Path('docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json').read_text(encoding='utf-8')); assert d['status']=='PARTIAL_BLOCKED_TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT' and len(d['canonical_tasks'])==7 and d['sample']['sku_panel_entry_count']==0 and d['terminal']['tasks_failed']==1 and d['terminal']['final_task_attempts']==5 and d['terminal']['leases_active']==0 and d['terminal']['products']==d['terminal']['raw_collections']==d['terminal']['snapshots']==0 and d['step_2_allowed'] is False; print('MANIFEST_VALID status='+d['status']+' tasks=7 final_attempts=5 panel_entries=0 step_2_allowed=false')"
 MANIFEST_INPUT=docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
-MANIFEST_LITERAL_OUTPUT=MANIFEST_VALID status=PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE tasks=6 panel_entries=0 step_2_allowed=false
+MANIFEST_LITERAL_OUTPUT=MANIFEST_VALID status=PARTIAL_BLOCKED_TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT tasks=7 final_attempts=5 panel_entries=0 step_2_allowed=false
 MANIFEST_EXIT=0
 MANIFEST_RESULT=PASS
 
@@ -88,22 +125,22 @@ DIFF_CHECK_LITERAL_OUTPUT=no whitespace errors; only line-ending advisory warnin
 DIFF_CHECK_EXIT=0
 DIFF_CHECK_RESULT=PASS
 
-ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh /d/work/SKU-PANEL-EVIDENCE-001-rollback-probe-41cb5707ea4b4b399f2aee53505462c3
-ROLLBACK_INPUT=independent changed probe copy at D:\work\SKU-PANEL-EVIDENCE-001-rollback-probe-41cb5707ea4b4b399f2aee53505462c3
+ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh /d/work/SKU-PANEL-EVIDENCE-001-rollback-probe-dd8f029965ad4e8d955057ae170d3442
+ROLLBACK_INPUT=independent changed probe copy at D:\work\SKU-PANEL-EVIDENCE-001-rollback-probe-dd8f029965ad4e8d955057ae170d3442
 ROLLBACK_LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; EXPECTED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; TASK_PRESENT=no; EVIDENCE_PRESENT=no; ROLLBACK_MATCH=yes; ROLLBACK_EXIT=0 TASK_PRESENT=False EVIDENCE_PRESENT=False MODIFIED_REMAINS_CHANGED=True
 ROLLBACK_EXIT=0
 ROLLBACK_RESULT=PASS
 
-TASK_SHA256=0927dfdc2008572edcc1c52c3d74129514eed74da9dea408786cacb7da5bd46e
-REPORT_SHA256=0a9b6c80c481d1e43d1121a045c873afce6c4a1c83fb991aa840fa067ee46580
-MANIFEST_SHA256=a8a62c7a87b287d2f3f0f0f47bdf263af93b2213223cf992f0599c608245d500
-MODIFIED_FILE_SHA256=a547bb963a08aa3eb1327630e2a95adcc6476c36eecf1a76efb43a9bca8e65fd
-DIFF_FILE_SHA256=63eb129cda0d804105a423b51a6ff110d9cdde57f8ab73708381963483d84d43
+TASK_SHA256=8eeff69c5c40aa6ed4214f223b1d3d5f18ac6654e49e54f89bc5a36d2733cf78
+REPORT_SHA256=e88f614c4435bcbbd4905e0cc88607f76e43a78754ba3d0f57552c29d63285b5
+MANIFEST_SHA256=90bde32de86c38f37a7d8082f601fc3f15bc8fb38b379447a402218e276e039f
+MODIFIED_FILE_SHA256=f5b9467b3f1cdbb96ebe2e06cc5180fc8691046cc8db9d271d7c1f214b406308
+DIFF_FILE_SHA256=37e1ef6e1ce9ad0cac06e286b8df319d678cda86f8966fb0d0f3a84d9352a8e4
 ROLLBACK_SH_SHA256=d9927a398689fdc2dc499f77e7378a2551d9b4008466eaf6629f38baa404d681
 MODIFIED_REMAINS_CHANGED=true
 
 GUARDS=cart_action=false; order_confirmation_clicked=false; order_submitted=false; payment_started=false
-PERSISTENCE=Task/Attempt audit rows retained by design; Product/Raw/Snapshot/result receipt counts are zero
+PERSISTENCE=Task/Attempt audit rows retained by design; final Task 3534 failed after five attempts; Product/Raw/Snapshot/result receipt/Quality/Quarantine counts are zero
 ORACLE_GATE=SKIPPED / not applicable for schema/transaction acceptance; isolated Oracle was used only for canonical task state and cleanup observation
 INDEPENDENT_REVIEW=HANDOFF_REQUIRED — evidence is PARTIAL/BLOCKED and cannot authorize Step 2
 STOP=before Step 2, PR, merge, release

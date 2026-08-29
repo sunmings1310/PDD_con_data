@@ -41,7 +41,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 联机工具已在线，canonical Task→Job→Attempt 自动导航已真实执行；Excel 5 行候选均未形成“输入身份匹配且已确认多规格”的安全样本，`SKU_PANEL` 进入次数仍为 0；所有采样 Task 已取消、Lease 已释放，未写 Product/Raw/Snapshot | 等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品；不启动第 2 步 |
+| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 最终唯一 Task `3534` 自动导航到身份不匹配商品，未点击 SKU 入口；5 次 Attempt 均被误分类为 `transient/LOCAL_TASK_FINISHED` 后最终失败。Task Detail 可显示失败明细且本次结果为 0；Product/Raw/Snapshot/Receipt/Quality/Quarantine 均为 0 | 先独立修复搜索结果身份门禁与 `not_matched` 非重试终态语义；不启动 Generic SKU 第 2 步 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 

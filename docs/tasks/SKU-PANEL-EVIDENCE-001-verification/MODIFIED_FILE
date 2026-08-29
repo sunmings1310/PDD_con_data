@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-PANEL-EVIDENCE-001
 - **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-- **Status**：PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
+- **Status**：PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT
 - **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 - **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 
@@ -122,6 +122,10 @@
 - 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
 - `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
 - Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
+- Product Owner 批准后只创建了一个最终 canonical Task `3534`，固定使用 Excel 工作表第 4 行。Accepted 代码自动导航到 `HURMEVKOR` 烟酰胺面膜，明显不匹配“京润珍珠/医用重组III型人源化胶原蛋白敷贴/5片装”；点击前帧已保存，未点击 `去拼单`。
+- 同一 Item 生命周期自然运行至 terminal：Job `1517` 共 5 次 Attempt（`1320`～`1324`），每次均 `transient/LOCAL_TASK_FINISHED`，Lease 均 released；最终 Task/Item/Job 全部 `failed`。没有 Result/Raw/Snapshot/Receipt/Quality/Quarantine。
+- `/api/tasks/3534` 返回 `failed` Item 与 `LOCAL_TASK_FINISHED` 说明，`/api/management/tasks/3534/results` 返回 `TOTAL=0`；Web Task Detail 对该状态显示“采集失败/匹配失败”和“本次采集结果（0）”。这证明结果可见性正确，但服务端没有产生应有的 `not_matched` 语义。
+- 当前证据冻结两个独立开发 Task 候选：搜索结果在身份确认前不得作为目标进入详情/后续交互；无合格目标时必须以非重试 `not_matched` 业务终态结束，不能映射为 transient 并重复启动 5 次。本 Task 不实施修复。
 - 完整脱敏矩阵与字面终态见 [`SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md`](SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md)。
 
 ## Evidence
@@ -131,8 +135,8 @@
 - Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
 - Precheck：[`SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md`](SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md)；
 - Manifest：[`SKU-PANEL-EVIDENCE-001-evidence/manifest.json`](SKU-PANEL-EVIDENCE-001-evidence/manifest.json)；
-- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，但没有真实 SKU_PANEL evidence chain；第 2 步不得启动。
+- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，且已复现目标身份门禁/重试分类缺陷；没有真实 SKU_PANEL evidence chain，第 2 步不得启动。
 
-当前停止点：设备与服务已恢复、候选识别完成并安全停止；等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品。本轮不启动第 2 步。
+当前停止点：Task `3534` 已自然失败并释放全部 Lease。应先建立独立开发 Task 修复目标身份门禁与 `not_matched` 终态，再重新选择真实多规格样本；本轮不启动第 2 步。
 
 ARTIFACT_STATE=MODIFIED_COPY

@@ -1,5 +1,5 @@
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 6c3fbcd..e8a6145 100644
+index 6c3fbcd..0ec81b7 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -39,0 +40,6 @@
@@ -7,8 +7,134 @@ index 6c3fbcd..e8a6145 100644
 +
 +| Task | 状态 | 范围 | 下一步 |
 +|---|---|---|---|
-+| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 联机工具已在线，canonical Task→Job→Attempt 自动导航已真实执行；Excel 5 行候选均未形成“输入身份匹配且已确认多规格”的安全样本，`SKU_PANEL` 进入次数仍为 0；所有采样 Task 已取消、Lease 已释放，未写 Product/Raw/Snapshot | 等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品；不启动第 2 步 |
++| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PARTIAL / BLOCKED | 最终唯一 Task `3534` 自动导航到身份不匹配商品，未点击 SKU 入口；5 次 Attempt 均被误分类为 `transient/LOCAL_TASK_FINISHED` 后最终失败。Task Detail 可显示失败明细且本次结果为 0；Product/Raw/Snapshot/Receipt/Quality/Quarantine 均为 0 | 先独立修复搜索结果身份门禁与 `not_matched` 非重试终态语义；不启动 Generic SKU 第 2 步 |
 +
+diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md
+new file mode 100644
+index 0000000..44b3142
+--- /dev/null
++++ b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md
+@@ -0,0 +1,120 @@
++# SKU-PANEL-EVIDENCE-001 Device Sampling
++
++## Outcome
++
++- **Captured at**：2026-08-29 12:13–12:29 +08:00
++- **Result**：`PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT`
++- **Panel entry count**：`0`
++- **Reason**：联机与 canonical Task 链路可用，但 Excel 5 行没有产生同时满足“输入身份匹配”和“页面已确认多规格”的安全候选。
++
++## Runtime and device
++
++```text
++SERVICE_LISTEN=0.0.0.0:8080
++HEALTH_HTTP=200
++HEALTH_OK=True
++DEVICE_ALIAS=device-e4a6069f4f
++DEVICE_STATUS=online
++ASSIGNED_TASK=False ACTIVE_JOB=False ACTIVE_ATTEMPT=False
++```
++
++真实 device key/serial、账号和鉴权材料未写入仓库。服务仅通过当前进程环境改变监听地址，仓库配置无变化。
++
++## Candidate matrix
++
++| Excel row | Canonical Task | Retained observation | Identity/multi-SKU decision | Action |
++|---:|---:|---|---|---|
++| 2 | 3528 | `3g*2丸/盒` 商品详情；输入为 `3G*1丸(铁盒装)`；CTA 为 `去复诊开药` | `NOT_APPLICABLE`：规格不一致且入口触及问诊边界；未确认多规格 | 未点击；取消 Task |
++| 3 | 3529 | 药品详情，但页面品名/规格与输入 `银丹心脑通软胶囊 0.4g*36s` 不一致 | `NOT_APPLICABLE`：搜索结果漂移；未确认多规格 | 未点击；取消 Task |
++| 4 | 3530 | 便携 Wi-Fi 商品 | `NOT_APPLICABLE`：明显非目标医疗器械 | 未点击；取消 Task |
++| 5 | 3531 | 颈椎贴商品 | `NOT_APPLICABLE`：明显非目标 `骨痛灵酊` | 未点击；取消 Task |
++| 6 | 3532 | 返回其他药品详情 | `NOT_APPLICABLE`：与 `复方罗布麻片 100s` 不一致 | 未点击；取消 Task |
++| 4 exact retry | 3533 | 胶原蛋白敷料详情，但品牌/规格与输入不一致；底部两组圆形缩略图是“这些人已拼”的买家头像和拼单行，不是 SKU 选项 | `NOT_APPLICABLE`：身份不可靠；未确认多规格 | 未点击；取消 Task |
++
++首行点击前 Original 帧已保存并记录 hash。最后一次搜索漂移帧也已保存；中间帧只用于当场 Stop/Continue 判断，未作为可复验 Original 留存。
++
++## Canonical state and cleanup
++
++```text
++TASK_3528=cancelled; JOB_1511=cancelled; ATTEMPT_1313=failed/LOCAL_TASK_FINISHED; ATTEMPT_1314=cancelled/TASK_CANCELLED; leases=released
++TASK_3529=cancelled; JOB_1512=cancelled; ATTEMPT_1315=cancelled/TASK_CANCELLED; lease=released
++TASK_3530=cancelled; JOB_1513=cancelled; ATTEMPT_1316=cancelled/TASK_CANCELLED; lease=released
++TASK_3531=cancelled; JOB_1514=cancelled; ATTEMPT_1317=cancelled/TASK_CANCELLED; lease=released
++TASK_3532=cancelled; JOB_1515=cancelled; ATTEMPT_1318=cancelled/TASK_CANCELLED; lease=released
++TASK_3533=cancelled; JOB_1516=cancelled; ATTEMPT_1319=cancelled/TASK_CANCELLED; lease=released
++DEVICE_FINAL=online; assigned_task=false; active_job=false; active_attempt=false
++RESULT_RECEIPT_COUNT=0
++PRODUCT_COUNT=0
++RAW_COLLECTION_COUNT=0
++SNAPSHOT_COUNT=0
++```
++
++Task/Attempt 审计行按系统设计保留；未将其描述为“零数据库写入”。没有产生商品、Raw、Snapshot 或上传 ACK。
++
++## Observation semantics
++
++```text
++sku_panel_entry_count=0
++dimensions=NOT_OBSERVED
++options=NOT_OBSERVED
++combination_price=NOT_OBSERVED
++availability=NOT_OBSERVED
++ui_hierarchy=NOT_OBSERVED
++return_path=NOT_EXECUTED_NO_PANEL
++platform_sku_id=NOT_OBSERVED
++cart_action=false
++order_confirmation_clicked=false
++order_submitted=false
++payment_started=false
++```
++
++首行的 Excel `规格` 仍只属于 ProductAttribute candidate，未被转换为 SKU 维度或组合；页面主价未复制成组合价格。
++
++## Original / derived separation
++
++Original 位于仓库外：
++
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\cast\task-3528-row1-detail-before.jpg`
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\runtime-final.txt`
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\cast\task-3534-row4-before.jpg`
++- `C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\task-3534-terminal.txt`
++
++仓库只保留此脱敏报告和 manifest；截图、账号、Token、真实设备标识及网络 Raw 均未提交。
++
++## Stop condition
++
++已到达“目标页面不可安全取得/证据不足”的 Stop Condition。需要 Product Owner 提供或批准一个已确认多规格、且点击购买入口不会越过问诊/订单边界的测试商品后，才能续接同一 Task 的单次面板采样；本报告不支持启动 Generic SKU 契约冻结。
++
++## Final canonical Task 3534
++
++Product Owner 批准以 Excel 工作表第 4 行建立一个且仅一个最终 Task。Task `3534` / Job `1517` / Item `3811` 使用同一生命周期，没有创建或取消新的筛选 Task。
++
++点击前投屏显示 `HURMEVKOR` 烟酰胺美白祛斑面膜，与输入“京润珍珠/医用重组III型人源化胶原蛋白敷贴(赠品)/5片装/湖南紫晶汇康”明显不一致。底部入口为 `去拼单`；因目标身份不匹配，未请求或执行人工点击。
++
++```text
++TASK=failed; success=0; fail=1
++ITEM_3811=failed; product_id=None; message=LOCAL_TASK_FINISHED
++JOB_1517=failed; attempt_count=5; active_attempt=None; error=transient/LOCAL_TASK_FINISHED; local_status=failed
++ATTEMPT_1320..1324=failed; lease=released
++PRODUCT=0; RAW=0; SNAPSHOT=0; RECEIPT=0; QUALITY=0; QUARANTINE=0
++DEVICE_FINAL=online; assigned_task=false; active_job=false; active_attempt=false
++```
++
++五次 Attempt 均把“本地流程结束/没有合格目标”映射为 transient，导致同一错误商品页面被重复启动；直到达到 max attempts 后，Task 才聚合为 failed。没有错误 Complete，也没有数据污染，但错误分类造成不必要的重复执行，并且 Item 没有得到 `not_matched` 终态。
++
++### Web visibility
++
++```text
++DETAIL_HTTP=200 OK=True TASK_STATUS=failed SUCCESS=0 FAIL=1 ITEMS=1
++ITEM row=0 status=failed product_id=None message=LOCAL_TASK_FINISHED approval_present=True spec_present=True
++RESULTS_HTTP=200 OK=True TOTAL=0 ITEMS=0
++```
++
++`TaskDetail.vue` 会把当前 Item 显示为“采集失败/匹配失败”，在失败页签展示 `LOCAL_TASK_FINISHED`，并显示“本次采集结果（0）”和空结果提示。源码 hash 一致的外置测试副本真实 mounted `TaskDetail`，输出 `TASK_DETAIL_COMPONENT=PASS`；`tests.test_web_result_visibility` 4 项也通过。当前 Web 能展示真实失败和零结果；“未匹配”未显示是因为服务端/Android 没有产生 `not_matched` 状态，不是 Web 伪造。
++
++## Independent development Task candidates
++
++1. **PDD-TARGET-IDENTITY-GATE-001（P0/P1）**：搜索结果进入详情或任何购买面板交互前，以服务端目标四字段和当前允许的匹配策略验证候选身份；不匹配结果不得成为 Product/Raw/Snapshot，不得进入 SKU_PANEL。验收需覆盖错误首条结果、相似标题、品牌/规格不一致和无候选。
++2. **ANDROID-NOT-MATCHED-TERMINAL-001（P1）**：本地流程结束且不存在合格目标时，Item 返回可解释 `not_matched`，Job 使用非重试业务终态；`LOCAL_TASK_FINISHED/local_status=failed` 不得统一映射 transient。验收需证明单次执行、无 retry storm、Task 聚合正确、Web 显示未匹配原因。
++
++两项属于同一条身份与失败语义链，可作为一个独立开发 Task 的两个 Acceptance 分支；本证据 Task 不实施代码修改。
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md
 new file mode 100644
 index 0000000..c6513cb
@@ -88,15 +214,15 @@ index 0000000..c6513cb
 +Connect the already-approved device by USB, keep the existing ADB authorization, and unlock the screen. Do not click the purchase/group-buy entry before E2E resumes. The next check is a single `adb devices -l`; sampling remains limited to one confirmed multi-SKU product and one panel entry.
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
 new file mode 100644
-index 0000000..78c1a22
+index 0000000..0862c14
 --- /dev/null
 +++ b/docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,107 @@
 +{
 +  "task_id": "SKU-PANEL-EVIDENCE-001",
 +  "baseline": "80b3435558e67850c9cba4215ca81456721ef0db",
-+  "captured_at": "2026-08-29T12:29:10+08:00",
-+  "status": "PARTIAL_BLOCKED_NO_CONFIRMED_MULTI_SKU_CANDIDATE",
++  "captured_at": "2026-08-29T13:01:30+08:00",
++  "status": "PARTIAL_BLOCKED_TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT",
 +  "service": {
 +    "host": "0.0.0.0",
 +    "port": 8080,
@@ -122,7 +248,8 @@ index 0000000..78c1a22
 +    {"task_id": 3530, "job_id": 1513, "attempt_ids": [1316], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
 +    {"task_id": 3531, "job_id": 1514, "attempt_ids": [1317], "excel_row": 5, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
 +    {"task_id": 3532, "job_id": 1515, "attempt_ids": [1318], "excel_row": 6, "status": "cancelled", "decision": "NOT_APPLICABLE_SEARCH_DRIFT"},
-+    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"}
++    {"task_id": 3533, "job_id": 1516, "attempt_ids": [1319], "excel_row": 4, "status": "cancelled", "decision": "NOT_APPLICABLE_IDENTITY_MISMATCH_BUYER_AVATARS_NOT_SKU_OPTIONS"},
++    {"task_id": 3534, "job_id": 1517, "attempt_ids": [1320, 1321, 1322, 1323, 1324], "excel_row": 4, "status": "failed", "decision": "TARGET_IDENTITY_MISMATCH_NOT_CLICKED", "error": "transient/LOCAL_TASK_FINISHED", "expected_business_terminal": "not_matched/non_retry"}
 +  ],
 +  "sample": {
 +    "confirmed_multi_sku_count": 0,
@@ -138,6 +265,9 @@ index 0000000..78c1a22
 +  "terminal": {
 +    "tasks_cancelled": 6,
 +    "jobs_cancelled": 6,
++    "tasks_failed": 1,
++    "jobs_failed": 1,
++    "final_task_attempts": 5,
 +    "leases_active": 0,
 +    "result_receipts": 0,
 +    "products": 0,
@@ -161,16 +291,34 @@ index 0000000..78c1a22
 +      "repository_copy": false
 +    },
 +    {
-+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\frame-001.jpg",
-+      "sha256": "d0ee1ab665fd3721a5e5a78314ca883bf005c56685238d4a32ea7ab72844fabf",
-+      "contains_sensitive_raw": true,
-+      "repository_copy": false
-+    },
-+    {
 +      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\runtime-final.txt",
 +      "sha256": "3b09f18bba7839732733343a93ab5fe9f4bae42642746fd398f54f9cdd90edc5",
 +      "contains_sensitive_raw": false,
 +      "repository_copy": false
++    },
++    {
++      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\cast\\task-3534-row4-before.jpg",
++      "sha256": "38bfef0a75089e92fb7989dcd8c02b0352d8cb5ff0faada9c823d11942f14cfe",
++      "contains_sensitive_raw": true,
++      "repository_copy": false
++    },
++    {
++      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\task-3534-terminal.txt",
++      "sha256": "54c06fbffbe5a0368670244730e1ab0f687ff7748c8181416c0e20afc6131c42",
++      "contains_sensitive_raw": false,
++      "repository_copy": false
++    }
++  ],
++  "defect_candidates": [
++    {
++      "id": "PDD-TARGET-IDENTITY-GATE-001",
++      "priority": "P0/P1",
++      "scope": "reject search-result identity mismatch before detail/purchase/SKU interaction"
++    },
++    {
++      "id": "ANDROID-NOT-MATCHED-TERMINAL-001",
++      "priority": "P1",
++      "scope": "map no eligible target to explainable non-retry not_matched terminal instead of transient LOCAL_TASK_FINISHED"
 +    }
 +  ],
 +  "repository_contains_original_raw": false,
@@ -179,15 +327,15 @@ index 0000000..78c1a22
 +}
 diff --git a/docs/tasks/SKU-PANEL-EVIDENCE-001.md b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
 new file mode 100644
-index 0000000..f1edc57
+index 0000000..95d7aff
 --- /dev/null
 +++ b/docs/tasks/SKU-PANEL-EVIDENCE-001.md
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,140 @@
 +# SKU-PANEL-EVIDENCE-001：SKU_PANEL 最小真实证据采样
 +
 +- **Task ID**：SKU-PANEL-EVIDENCE-001
 +- **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-+- **Status**：PARTIAL / BLOCKED — NO_CONFIRMED_MULTI_SKU_CANDIDATE
++- **Status**：PARTIAL / BLOCKED — TARGET_IDENTITY_AND_RETRY_SEMANTICS_DEFECT
 +- **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 +- **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 +
@@ -307,6 +455,10 @@ index 0000000..f1edc57
 +- 只保留了首行点击前帧与最后一次漂移帧作为 Original；其他候选只保留服务端 Task/Job/Attempt 终态与当时观察摘要，不把未保留帧当作可复验证据。
 +- `SKU_PANEL_ENTRY_COUNT=0`，因此维度、选项、组合价格、控件树、返回路径和 direct `platform_sku_id` 均为 `NOT_OBSERVED`。
 +- Task `3528`～`3533` 均已进入 `cancelled`；Job `1511`～`1516` 均 `cancelled`，所有 Lease `released`，设备回到 online/idle。数据库保留 Task/Attempt 审计行；对应 Product、Raw Collection、Snapshot 与结果 receipt 均为 0。
++- Product Owner 批准后只创建了一个最终 canonical Task `3534`，固定使用 Excel 工作表第 4 行。Accepted 代码自动导航到 `HURMEVKOR` 烟酰胺面膜，明显不匹配“京润珍珠/医用重组III型人源化胶原蛋白敷贴/5片装”；点击前帧已保存，未点击 `去拼单`。
++- 同一 Item 生命周期自然运行至 terminal：Job `1517` 共 5 次 Attempt（`1320`～`1324`），每次均 `transient/LOCAL_TASK_FINISHED`，Lease 均 released；最终 Task/Item/Job 全部 `failed`。没有 Result/Raw/Snapshot/Receipt/Quality/Quarantine。
++- `/api/tasks/3534` 返回 `failed` Item 与 `LOCAL_TASK_FINISHED` 说明，`/api/management/tasks/3534/results` 返回 `TOTAL=0`；Web Task Detail 对该状态显示“采集失败/匹配失败”和“本次采集结果（0）”。这证明结果可见性正确，但服务端没有产生应有的 `not_matched` 语义。
++- 当前证据冻结两个独立开发 Task 候选：搜索结果在身份确认前不得作为目标进入详情/后续交互；无合格目标时必须以非重试 `not_matched` 业务终态结束，不能映射为 transient 并重复启动 5 次。本 Task 不实施修复。
 +- 完整脱敏矩阵与字面终态见 [`SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md`](SKU-PANEL-EVIDENCE-001-evidence/DEVICE-SAMPLING.md)。
 +
 +## Evidence
@@ -316,6 +468,6 @@ index 0000000..f1edc57
 +- Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
 +- Precheck：[`SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md`](SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md)；
 +- Manifest：[`SKU-PANEL-EVIDENCE-001-evidence/manifest.json`](SKU-PANEL-EVIDENCE-001-evidence/manifest.json)；
-+- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，但没有真实 SKU_PANEL evidence chain；第 2 步不得启动。
++- Review handoff：`PARTIAL / BLOCKED`。联机与 canonical 任务链证据有效，且已复现目标身份门禁/重试分类缺陷；没有真实 SKU_PANEL evidence chain，第 2 步不得启动。
 +
-+当前停止点：设备与服务已恢复、候选识别完成并安全停止；等待 Product Owner 提供或批准一个已确认多规格且可安全打开购买面板的测试商品。本轮不启动第 2 步。
++当前停止点：Task `3534` 已自然失败并释放全部 Lease。应先建立独立开发 Task 修复目标身份门禁与 `not_matched` 终态，再重新选择真实多规格样本；本轮不启动第 2 步。
