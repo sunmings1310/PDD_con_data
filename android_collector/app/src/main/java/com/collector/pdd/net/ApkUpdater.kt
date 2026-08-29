@@ -18,10 +18,18 @@ import java.net.URL
 object ApkUpdater {
     @Volatile
     private var busy = false
-    @Volatile private var pendingRemoteVersion: String? = null
+    @Volatile private var pendingRemote: String? = null
 
     fun isBusy(): Boolean = busy
-    fun isRemoteUpdatePending(): Boolean = pendingRemoteVersion != null
+    fun isRemoteUpdatePending(): Boolean = pendingRemote != null
+
+    private fun key(cmd: JSONObject?): String = "${cmd?.optString("version_name", "")?.trim()}#${cmd?.optInt("generation", 0) ?: 0}"
+
+    fun observeCommand(prefs: ServerPrefs, cmd: JSONObject?) {
+        val generation = cmd?.optInt("generation", 0) ?: 0
+        if (generation > 0) prefs.otaGeneration = generation
+        if (cmd?.optString("version_name", "")?.trim() == ApiClient.APP_VERSION) pendingRemote = null
+    }
 
     fun handleCommand(
         context: Context,
@@ -29,10 +37,10 @@ object ApkUpdater {
         cmd: JSONObject?,
         log: (String) -> Unit,
     ) {
-        val version = cmd?.optString("version_name", "")?.trim().orEmpty()
-        if (version.isNotBlank() && pendingRemoteVersion == version) return
-        pendingRemoteVersion = version.ifBlank { "unknown" }
-        cmd?.optInt("generation", 0)?.takeIf { it > 0 }?.let { prefs.otaGeneration = it }
+        observeCommand(prefs, cmd)
+        val commandKey = key(cmd)
+        if (pendingRemote == commandKey || busy) return
+        pendingRemote = commandKey
         startUpdate(context, prefs, cmd, log, source = "远程指令")
     }
 
@@ -54,16 +62,19 @@ object ApkUpdater {
         source: String,
     ) {
         if (cmd == null) {
+            if (source == "远程指令") pendingRemote = null
             log("$source：无有效更新包信息")
             return
         }
         val urlPath = cmd.optString("apk_url", "").trim()
         if (urlPath.isBlank()) {
+            if (source == "远程指令") pendingRemote = null
             log("$source：缺少 apk_url")
             return
         }
         val ver = cmd.optString("version_name", "").trim()
         if (ver.isNotBlank() && ver == ApiClient.APP_VERSION) {
+            if (source == "远程指令") pendingRemote = null
             log("已是目标版本 $ver，跳过更新")
             return
         }
@@ -93,6 +104,7 @@ object ApkUpdater {
                 launchInstaller(context, apk)
                 log("已拉起安装界面，请在系统弹窗中确认安装")
             } catch (e: Exception) {
+                if (source == "远程指令") pendingRemote = null
                 log("更新失败: ${e.message}")
             } finally {
                 busy = false

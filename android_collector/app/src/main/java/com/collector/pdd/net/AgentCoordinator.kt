@@ -198,9 +198,13 @@ class AgentCoordinator(
             throw IllegalStateException(hb.optString("message", "heartbeat failed"))
         }
         ConnectionStatus.mark(true, "已连接服务 ${prefs.baseUrl()}")
+        val data = hb.optJSONObject("data")
+        val earlyUpdateApk = data?.optJSONObject("commands")?.optJSONObject("update_apk")
+        if (earlyUpdateApk != null) ApkUpdater.observeCommand(prefs, earlyUpdateApk)
         if (awaitingJobRecovery && activeJob == null) {
             // Keep the old lease as the only candidate while the server truth is
             // temporarily unavailable; never acquire a replacement job.
+            if (ApkUpdater.isRemoteUpdatePending()) return@withContext
             try {
                 recoverDurableState()
             } catch (e: Exception) {
@@ -243,7 +247,7 @@ class AgentCoordinator(
                 startEngineForJob(job)
             }
         }
-        val data = hb.optJSONObject("data")
+        
         // 心跳附带服务端最新包版本，驱动主界面更新条
         VersionStatus.applyServer(data?.optJSONObject("latest_apk"), ApiClient.APP_VERSION)
         val cmds = data?.optJSONObject("commands")
