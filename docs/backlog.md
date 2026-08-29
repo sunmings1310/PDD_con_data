@@ -495,4 +495,4 @@ Phase 5 验收见 `docs/tasks/phase5-acceptance.md`。本阶段停止，不进�
 
 验收见 `docs/tasks/phase6a-acceptance.md`。Phase 6A 已 ACCEPTED；Phase 6B 为 NOT STARTED，仍需 Product Owner 明确批准。
 
-<!-- PDD-TARGET-MATCH-TERMINAL-001 artifacts: code diff boundary is base→30482e04; docs wrapper rollback restores base docs. -->
+<!-- PDD-TARGET-MATCH-TERMINAL-001 artifacts: tested code diff boundary is base→b5edf6e; docs wrapper rollback restores base docs. -->
