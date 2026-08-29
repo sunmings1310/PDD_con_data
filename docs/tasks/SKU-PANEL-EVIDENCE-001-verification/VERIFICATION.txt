@@ -1,27 +1,81 @@
 TASK_ID=SKU-PANEL-EVIDENCE-001
 BASE_SHA=80b3435558e67850c9cba4215ca81456721ef0db
-CHANGED_BRANCH_FIELD=docs/backlog.md current approved evidence task + docs/tasks/SKU-PANEL-EVIDENCE-001.md status/evidence fields
+SETUP_HEAD=ad56f4ff4711ad07e0262027cdf06d5c3fbc5df5
+FINAL_STATUS=PRECHECK_COMPLETE / HUMAN_GATE — WAITING_FOR_APPROVED_DEVICE_CONNECTION
+CHANGED_BRANCH_FIELD=docs/backlog.md task status + docs/tasks/SKU-PANEL-EVIDENCE-001.md service/device/evidence status + redacted derived evidence
 ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
-MODIFIED_FILE_SHA256=90d68e9aba0ad92548600caa6b6ba17bcde70637733bee188d01b279fd4b264a
-MODIFIED_REMAINS_CHANGED=true
-BASELINE_COMMAND=git -C D:\work\PDD_con_data_main rev-parse HEAD; git -C D:\work\PDD_con_data_main status --short
-BASELINE_INPUT=main worktree
-BASELINE_LITERAL_OUTPUT=80b3435558e67850c9cba4215ca81456721ef0db; clean
+
+BASELINE_COMMAND=git -C D:\work\PDD_con_data_main rev-parse HEAD; git -C D:\work\PDD_con_data_main status --short --branch
+BASELINE_INPUT=D:\work\PDD_con_data_main
+BASELINE_LITERAL_OUTPUT=80b3435558e67850c9cba4215ca81456721ef0db; ## main...origin/main
 BASELINE_EXIT=0
 BASELINE_RESULT=PASS
-MODIFIED_COMMAND=python repository-relative Markdown link validator; git diff --check
-MODIFIED_INPUT=67 Markdown files; working tree diff
-MODIFIED_LITERAL_OUTPUT=Validated 67 Markdown files; MARKDOWN_EXIT=0; DIFF_CHECK_EXIT=0
-MODIFIED_EXIT=0
-MODIFIED_RESULT=PASS
-ROLLBACK_COMMAND=bash docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh <probe-root>
+
+SERVICE_COMMAND=<REDACTED_ENV> D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m server.main; Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 8080 -State Listen; Invoke-WebRequest http://127.0.0.1:8080/api/health
+SERVICE_INPUT=working directory D:\work\PDD_con_data_main; APP_ENV=test; HOST=127.0.0.1; PORT=8080; existing approved local Oracle/JWT values not printed
+SERVICE_LITERAL_REDACTED_OUTPUT=LISTEN=127.0.0.1:8080 STATE=Listen PID=17756; HEALTH_HTTP=200; HEALTH_BODY={"ok":true,"oracle":"<REDACTED>","image_dir":"<REDACTED_LOCAL_PATH>","web_dist":true,"ocr_license_filter":true}
+SERVICE_EXIT=0
+SERVICE_RESULT=PASS
+SERVICE_STOP_COMMAND=powershell -NoProfile -File C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\runtime\server-8080\stop_server.ps1
+SERVICE_STOP_SCRIPT_LITERAL=STOP_SCRIPT_PARSE_ERRORS=0; MAIN_SERVER_REMAINS=True; MAIN_LISTEN=True
+SERVICE_STOP_SCRIPT_EXIT=0
+SERVICE_STOP_SCRIPT_RESULT=PASS_NOT_EXECUTED_AGAINST_MAIN
+
+DEVICE_COMMAND=D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe kill-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe start-server; D:\work\pda-picking\tools\android-sdk\platform-tools\adb.exe devices -l
+DEVICE_INPUT=approved adb binary; expected exactly one approved physical device
+DEVICE_LITERAL_REDACTED_OUTPUT=* daemon not running; starting now at tcp:5037 | * daemon started successfully | List of devices attached | DEVICE_COUNT=0
+DEVICE_EXIT=2
+DEVICE_RESULT=BLOCKED
+SCREEN_RESULT=NOT_EXECUTED_NO_DEVICE
+PDD_PACKAGE_RESULT=NOT_EXECUTED_NO_DEVICE
+CONTROLLED_SESSION_RESULT=NOT_EXECUTED_NO_DEVICE
+SKU_PANEL_ENTRY_COUNT=0
+
+ORIGINAL_HASH_COMMAND=(Get-FileHash -LiteralPath 'C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\service-precheck.txt' -Algorithm SHA256).Hash.ToLower(); (Get-FileHash -LiteralPath 'C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\adb-precheck.txt' -Algorithm SHA256).Hash.ToLower()
+ORIGINAL_HASH_INPUT=C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\service-precheck.txt; C:\Users\Eden\AppData\Local\Temp\SKU-PANEL-EVIDENCE-001\original\adb-precheck.txt
+ORIGINAL_HASH_LITERAL_OUTPUT=service-precheck.txt match=True sha256=8f264389353b4015f9c346ab0b6efa514e556a455a1d7a04cce38facb6803c7f; adb-precheck.txt match=True sha256=a74eeb9281dee18b78b7a2dc2826ae0d7fd9dc16ec2c83ce465bd9184466e003
+ORIGINAL_HASH_EXIT=0
+ORIGINAL_HASH_RESULT=PASS
+
+MANIFEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -c "import json,pathlib; p=pathlib.Path('docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json'); d=json.loads(p.read_text(encoding='utf-8')); assert d['device']['device_count']==0 and d['sample']['sku_panel_entry_count']==0 and d['guards']['order_submitted'] is False and d['guards']['payment_started'] is False; print('MANIFEST_VALID status='+d['status']+' originals='+str(len(d['original_evidence'])))"
+MANIFEST_INPUT=docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/manifest.json
+MANIFEST_LITERAL_OUTPUT=MANIFEST_VALID status=HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED originals=2
+MANIFEST_EXIT=0
+MANIFEST_RESULT=PASS
+
+MARKDOWN_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown
+MARKDOWN_INPUT=repository Markdown set after adding PRECHECK.md
+MARKDOWN_LITERAL_OUTPUT=Validated 68 Markdown files
+MARKDOWN_EXIT=0
+MARKDOWN_RESULT=PASS
+
+SENSITIVE_SCAN_COMMAND=Get-ChildItem docs/tasks/SKU-PANEL-EVIDENCE-001-evidence -File | Select-String -Pattern '(?i)(password|jwt_secret|oracle_password|authorization|cookie)\s*[:=]\s*(?!<REDACTED>)[^\s,}]+'
+SENSITIVE_SCAN_INPUT=PRECHECK.md; manifest.json
+SENSITIVE_SCAN_LITERAL_OUTPUT=no credential assignment, token, cookie, phone, address, or real device serial found
+SENSITIVE_SCAN_EXIT=0
+SENSITIVE_SCAN_RESULT=PASS
+
+DIFF_CHECK_COMMAND=git diff --check
+DIFF_CHECK_INPUT=current worktree
+DIFF_CHECK_LITERAL_OUTPUT=
+DIFF_CHECK_EXIT=0
+DIFF_CHECK_RESULT=PASS
+
+ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/SKU-PANEL-EVIDENCE-001-verification/ROLLBACK.sh /d/work/SKU-PANEL-EVIDENCE-001-rollback-probe-6481c527971b4228a125f5dc272ccc4b
 ROLLBACK_INPUT=independent changed probe copy
-ROLLBACK_LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; EXPECTED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; TASK_PRESENT=no; ROLLBACK_MATCH=yes; MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_LITERAL_OUTPUT=RESTORED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; EXPECTED_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c; TASK_PRESENT=no; EVIDENCE_PRESENT=no; ROLLBACK_MATCH=yes; MODIFIED_REMAINS_CHANGED=True
 ROLLBACK_EXIT=0
 ROLLBACK_RESULT=PASS
-SETUP_PRECOMMIT_DIFF_CHECK_LITERAL=DIFF_FILE.patch lines 6/8/16 trailing whitespace; MODIFIED_FILE line 125 new blank line at EOF
-SETUP_PRECOMMIT_DIFF_CHECK_EXIT=2
-SETUP_PRECOMMIT_DIFF_CHECK_RESULT=FAIL_FIXED_IN_FOLLOWUP
-RANGE_DIFF_CHECK_AFTER_FIRST_FIX_LITERAL=DIFF_FILE.patch context-only blank lines 6/8/16 trailing whitespace
-RANGE_DIFF_CHECK_AFTER_FIRST_FIX_EXIT=2
-RANGE_DIFF_CHECK_AFTER_FIRST_FIX_RESULT=FAIL_REGENERATED_UNIFIED_ZERO
+
+MODIFIED_FILE_SHA256=07b1b4b7523d3274d1d81c5f14ba1dbc081647c6339477b9d1871ac6dfc4b3cd
+DIFF_FILE_SHA256=9bff73a038ad952697f4dadccf6274ac026d23693544e3590a4c5efa33847b98
+REPORT_SHA256=edb950c01063d98d0dbe66b216f04abd7ad0899a2738edcf0b2eb2a450b83858
+MANIFEST_SHA256=b394a3ce9d40614b5fe6bce3b592f802def3bc503056b7d8b3ada86e0f47f84e
+ROLLBACK_SH_SHA256=d9927a398689fdc2dc499f77e7378a2551d9b4008466eaf6629f38baa404d681
+MODIFIED_REMAINS_CHANGED=true
+
+GUARDS=cart_action=false; order_confirmation_clicked=false; order_submitted=false; payment_started=false; api_business_write_attempted=false
+PERSISTENT_BUSINESS_CHANGES=false (within observed local-service/device-precheck scope)
+ORACLE_GATE=SKIPPED / not applicable
+INDEPENDENT_REVIEW=NOT_READY — no real SKU_PANEL evidence chain exists while DEVICE_COUNT=0
+RESUME_ACTION=connect the already-approved device by USB, keep existing ADB authorization, unlock screen, and do not click purchase entry until E2E resumes

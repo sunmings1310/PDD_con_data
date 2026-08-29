@@ -1,0 +1,54 @@
+{
+  "task_id": "SKU-PANEL-EVIDENCE-001",
+  "baseline": "80b3435558e67850c9cba4215ca81456721ef0db",
+  "captured_at": "2026-08-29T11:43:30.2230684+08:00",
+  "status": "HUMAN_GATE_BLOCKED_APPROVED_DEVICE_NOT_CONNECTED",
+  "service": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "listen": true,
+    "health_http": 200,
+    "health_ok": true,
+    "pid": 17756,
+    "stop_script": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\runtime\\server-8080\\stop_server.ps1"
+  },
+  "device": {
+    "approved_adb": "D:\\work\\pda-picking\\tools\\android-sdk\\platform-tools\\adb.exe",
+    "device_count": 0,
+    "serial_stored": false,
+    "screen_status": "NOT_EXECUTED_NO_DEVICE",
+    "pdd_package_status": "NOT_EXECUTED_NO_DEVICE",
+    "session_status": "NOT_EXECUTED_NO_DEVICE"
+  },
+  "sample": {
+    "count": 0,
+    "sku_panel_entry_count": 0,
+    "dimensions": "NOT_OBSERVED",
+    "options": "NOT_OBSERVED",
+    "price_change": "NOT_OBSERVED",
+    "platform_sku_id": "NOT_OBSERVED",
+    "ui_hierarchy": "NOT_OBSERVED",
+    "return_path": "NOT_EXECUTED"
+  },
+  "guards": {
+    "cart_action": false,
+    "order_confirmation_clicked": false,
+    "order_submitted": false,
+    "payment_started": false,
+    "api_business_write_attempted": false,
+    "persistent_business_changes": false,
+    "persistent_business_changes_scope": "observed local-service and device-precheck actions only"
+  },
+  "original_evidence": [
+    {
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\service-precheck.txt",
+      "sha256": "8f264389353b4015f9c346ab0b6efa514e556a455a1d7a04cce38facb6803c7f"
+    },
+    {
+      "path": "C:\\Users\\Eden\\AppData\\Local\\Temp\\SKU-PANEL-EVIDENCE-001\\original\\adb-precheck.txt",
+      "sha256": "a74eeb9281dee18b78b7a2dc2826ae0d7fd9dc16ec2c83ce465bd9184466e003"
+    }
+  ],
+  "repository_contains_original_raw": false,
+  "sensitive_values_redacted": true
+}

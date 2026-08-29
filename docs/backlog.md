@@ -41,7 +41,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | IN_PROGRESS / REAL-DEVICE GATE | 在 `main@80b3435` 上对 1 个已确认多规格商品完成一次人工进入 SKU_PANEL 的只读、脱敏证据链；不实现 Generic SKU runtime/Schema/P1/Phase 6B | 完成 E2E 采样并由 Independent Reviewer 判断证据是否足以进入独立契约冻结 Task；本任务不启动第 2 步 |
+| [SKU-PANEL-EVIDENCE-001](tasks/SKU-PANEL-EVIDENCE-001.md) | PRECHECK_COMPLETE / HUMAN_GATE | 本地服务已恢复；ADB 重启后仍为 `DEVICE_COUNT=0`，尚未打开商品或 SKU_PANEL；不实现 Generic SKU runtime/Schema/P1/Phase 6B | 等待 Product Owner 连接并授权已批准真机后续接一次最小 E2E 采样；本任务不启动第 2 步 |
 
 ## Accepted Business Baseline（2026-08-24 merged）
 

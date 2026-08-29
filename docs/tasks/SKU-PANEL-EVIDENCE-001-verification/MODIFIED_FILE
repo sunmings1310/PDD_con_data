@@ -2,7 +2,7 @@
 
 - **Task ID**：SKU-PANEL-EVIDENCE-001
 - **Title**：在 Accepted main 上完成一次只读 SKU_PANEL 证据链
-- **Status**：IN_PROGRESS
+- **Status**：PRECHECK_COMPLETE / HUMAN_GATE — WAITING_FOR_APPROVED_DEVICE_CONNECTION
 - **Base**：`main@80b3435558e67850c9cba4215ca81456721ef0db`
 - **Branch / worktree**：`codex/sku-panel-evidence-001` / `D:\work\PDD_con_data_sku_panel_evidence`
 
@@ -62,7 +62,7 @@
 
 ## Acceptance Criteria
 
-- [ ] 服务 `127.0.0.1:8080` 状态有字面证据；
+- [x] 服务 `127.0.0.1:8080` 状态有字面证据；
 - [ ] ADB 只发现一个 approved device，真实 serial 仅记录 hash/alias；
 - [ ] PDD 包、屏幕与既有受控会话满足采样前提；
 - [ ] 单商品、单次面板进入与退出完成；
@@ -76,11 +76,11 @@
 
 | Layer | Command / action | Expected | Status |
 |---|---|---|---|
-| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200，或可复现 BLOCKED | PENDING |
-| Device | approved `adb devices -l`、screen/package只读检查 | exactly one approved device | PENDING |
-| Evidence | screenshot/UI hierarchy/hash/manifest + redaction scan | one bounded evidence chain | PENDING |
-| Guard | timeline and return-path review | no order/cart/payment action | PENDING |
-| Docs | links, diff, sensitive scan, rollback probe | PASS | PENDING |
+| Service | `Get-NetTCPConnection` + `GET /api/health` | LISTEN + HTTP 200 | PASS：PID `17756`，HTTP `200`，脱敏 body `ok=true` |
+| Device | approved `adb devices -l`、screen/package只读检查 | exactly one approved device | BLOCKED：`DEVICE_COUNT=0` after adb restart |
+| Evidence | screenshot/UI hierarchy/hash/manifest + redaction scan | one bounded evidence chain | BLOCKED：无设备，未进入页面；precheck manifest 已生成 |
+| Guard | timeline and return-path review | no order/cart/payment action | PASS（已观测 precheck 范围）：所有 guard 为 `false`，panel entry `0` |
+| Docs | links, diff, sensitive scan, rollback probe | PASS | PASS：68 Markdown links、manifest/hash/sensitive/diff 通过；rollback probe 见 Verification |
 
 ## Oracle Gate
 
@@ -119,6 +119,10 @@
 - Original evidence：仓库外隔离目录，路径与 hash 记录在脱敏 manifest；
 - Derived artifacts：`docs/tasks/SKU-PANEL-EVIDENCE-001-evidence/`；
 - Verification：`docs/tasks/SKU-PANEL-EVIDENCE-001-verification/`；
-- Review findings：PENDING。
+- Precheck：[`SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md`](SKU-PANEL-EVIDENCE-001-evidence/PRECHECK.md)；
+- Manifest：[`SKU-PANEL-EVIDENCE-001-evidence/manifest.json`](SKU-PANEL-EVIDENCE-001-evidence/manifest.json)；
+- Review findings：`NOT_READY`，因为真实 SKU_PANEL evidence chain 尚未产生；连接 approved device 后恢复 E2E。
+
+当前停止点：预检与脱敏证据已完成；等待 Product Owner 连接并授权已批准真机后续接。本轮不继续等待设备，不启动第 2 步。
 
 ARTIFACT_STATE=MODIFIED_COPY
