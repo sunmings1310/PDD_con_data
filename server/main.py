@@ -27,15 +27,16 @@ def _reconcile_once() -> None:
     from server.job_reconciliation import reconcile_oracle
     from server.candidate_observation import cleanup_expired
 
-    screenshot_refs: list[str] = []
+    root = IMAGE_DIR.resolve()
+    def delete_candidate_screenshot(rel: str) -> None:
+        candidate = (root / rel).resolve()
+        if root not in candidate.parents or not rel.startswith("candidate-observations/"):
+            raise OSError("invalid candidate screenshot reference")
+        if candidate.is_file():
+            candidate.unlink()
     with get_conn() as conn:
         reconcile_oracle(conn.cursor(), limit=100)
-        screenshot_refs = cleanup_expired(conn.cursor(), limit=100)
-    root = IMAGE_DIR.resolve()
-    for rel in screenshot_refs:
-        candidate = (root / rel).resolve()
-        if root in candidate.parents and candidate.is_file() and rel.startswith("candidate-observations/"):
-            candidate.unlink()
+        cleanup_expired(conn.cursor(), limit=100, delete_screenshot=delete_candidate_screenshot)
 
 
 async def _reconciliation_loop() -> None:

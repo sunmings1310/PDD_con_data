@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Callable
 import oracledb
 
 from server.db import next_id
@@ -76,6 +76,13 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
             + timedelta(days=RETENTION_DAYS)
         ).replace(tzinfo=None).isoformat(timespec="seconds"),
     }
+    public["payload_size_bytes"] = 0
+    encoded = ""
+    size = 0
+    for _ in range(3):
+        encoded = json.dumps(public, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        size = len(encoded.encode("utf-8"))
+        public["payload_size_bytes"] = size
     encoded = json.dumps(public, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     size = len(encoded.encode("utf-8"))
     if size > MAX_PAYLOAD_BYTES:
@@ -108,9 +115,10 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
         raise JobProtocolError("JOB_ITEM_MISMATCH", "Job does not own candidate observation TaskItem")
     cur.execute(
         """SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION
-             WHERE JOB_ID=:job_id AND ATTEMPT_ID=:attempt_id AND SOURCE_TYPE=:source_type
+             WHERE TASK_ID=:task_id AND SOURCE_TYPE=:source_type
+               AND JSON_VALUE(RAW_JSON,'$.task_item_id' RETURNING NUMBER)=:item_id
                AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id""",
-        {"job_id": body.job_id, "attempt_id": body.attempt_id, "source_type": SOURCE_TYPE,
+        {"task_id": body.task_id, "item_id": body.task_item_id, "source_type": SOURCE_TYPE,
          "enterprise_id": enterprise_id, "workspace_id": workspace_id},
     )
     if int(cur.fetchone()[0] or 0) >= MAX_PER_JOB:
@@ -163,11 +171,15 @@ def persist(cur: Any, *, body: Any, device: dict[str, Any]) -> dict[str, Any]:
     return {"raw_id": raw_id, "persisted": True, "acknowledged": True, "idempotent": False}
 
 
-def cleanup_expired(cur: Any, *, limit: int = 100) -> list[str]:
+def cleanup_expired(
+    cur: Any, *, limit: int = 100,
+    delete_screenshot: Callable[[str], None] | None = None,
+) -> list[str]:
     """Delete only candidate Raw older than 30 days; TaskItem summaries remain."""
     cur.execute(
         """SELECT RAW_ID,ENTERPRISE_ID,WORKSPACE_ID,REQUEST_KEY,
-                  DBMS_LOB.GETLENGTH(RAW_JSON) RAW_SIZE,
+                  NVL(JSON_VALUE(RAW_JSON,'$.payload_size_bytes' RETURNING NUMBER),
+                      DBMS_LOB.GETLENGTH(RAW_JSON)) RAW_SIZE,
                   JSON_VALUE(RAW_JSON,'$.screenshot_ref' RETURNING VARCHAR2(512)) SCREENSHOT_REF
              FROM SJZQ_RAW_COLLECTION
             WHERE SOURCE_TYPE=:source_type
@@ -179,6 +191,13 @@ def cleanup_expired(cur: Any, *, limit: int = 100) -> list[str]:
     rows = list(cur.fetchall())
     screenshot_refs: list[str] = []
     for raw_id, enterprise_id, workspace_id, request_key, size, screenshot_ref in rows:
+        if screenshot_ref:
+            if delete_screenshot is None:
+                continue
+            try:
+                delete_screenshot(str(screenshot_ref))
+            except OSError:
+                continue
         cur.execute(
             """DELETE FROM SJZQ_RAW_COLLECTION
                  WHERE RAW_ID=:raw_id AND SOURCE_TYPE=:source_type

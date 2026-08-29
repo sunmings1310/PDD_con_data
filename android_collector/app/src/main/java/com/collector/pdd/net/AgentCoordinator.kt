@@ -26,6 +26,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
+internal fun candidateEvidenceAcknowledged(events: List<OutboxEntity>): Boolean =
+    events.filter { it.eventType == "candidate_observation" }.all { it.state == "acked" }
+
 /**
  * 联机模式：心跳 / 拉任务 / 上报 / 响应投屏与远程终止。
  */
@@ -598,7 +601,7 @@ class AgentCoordinator(
                         if (attemptEvents.any { it.eventType == "job_checkpoint" && it.state != "acked" }) {
                             error("job checkpoint acknowledgement pending")
                         }
-                        if (attemptEvents.any { it.eventType == "candidate_observation" && it.state !in setOf("acked", "rejected") }) {
+                        if (!candidateEvidenceAcknowledged(attemptEvents)) {
                             error("candidate observation acknowledgement pending")
                         }
                         val rejected = products.filter { it.state == "rejected" }
@@ -639,9 +642,8 @@ class AgentCoordinator(
                     }
                     "job_fail" -> {
                         val identity = activeJob ?: error("job assignment not recovered")
-                        val pendingEvidence = dao.listForAttempt(identity.jobId, identity.attemptId)
-                            .any { it.eventType == "candidate_observation" && it.state !in setOf("acked", "rejected") }
-                        if (pendingEvidence) error("candidate observation acknowledgement pending")
+                        val attemptEvents = dao.listForAttempt(identity.jobId, identity.attemptId)
+                        if (!candidateEvidenceAcknowledged(attemptEvents)) error("candidate observation acknowledgement pending")
                         val localStatus = JSONObject(event.payloadJson).optString("local_status", "failed")
                         val (errorClass, errorCode) = TaskStatusMapping.jobFailureFor(localStatus)
                         api.failJob(identity, errorClass, errorCode, "local_status=$localStatus")
@@ -654,10 +656,13 @@ class AgentCoordinator(
                     else -> error("unknown outbox event ${event.eventType}")
                 }
             } catch (e: PermanentUploadException) {
-                if (event.eventType in setOf("product", "candidate_observation")) {
+                if (event.eventType == "product") {
                     dao.markRejected(event.outboxId, e.message.orEmpty().take(500))
                     CollectorApp.instance.database.taskDao().markRemoteFailed(event.remoteTaskId)
                     log("上报永久拒绝，任务将以失败结束 outbox=${event.outboxId}: ${e.message}")
+                } else if (event.eventType == "candidate_observation") {
+                    dao.markRetry(event.outboxId, Long.MAX_VALUE, e.message.orEmpty().take(500))
+                    log("候选观察协议拒绝，阻止Job终态并等待修复 outbox=${event.outboxId}: ${e.message}")
                 } else {
                     dao.markRetry(event.outboxId, Long.MAX_VALUE, e.message.orEmpty().take(500))
                     log("结束确认发生协议冲突 outbox=${event.outboxId}: ${e.message}")

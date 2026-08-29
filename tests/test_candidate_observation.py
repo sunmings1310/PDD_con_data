@@ -46,6 +46,7 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual({"title": "expected"}, payload["expected_fields"])
         self.assertNotIn("cookie", payload["observed_fields"])
         self.assertEqual(64, len(digest)); self.assertLess(size, 65536)
+        self.assertEqual(size, payload["payload_size_bytes"])
         with self.assertRaises(CandidateObservationError):
             canonical_payload(body(reason_code="no_candidate", candidate_present=True))
         with self.assertRaises(CandidateObservationError):
@@ -66,6 +67,9 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertEqual(77, result["raw_id"]); self.assertTrue(result["acknowledged"])
         sql="\n".join(x[0] for x in cur.sql)
         self.assertIn("INSERT INTO SJZQ_RAW_COLLECTION", sql)
+        self.assertIn("JSON_VALUE(RAW_JSON,'$.task_item_id' RETURNING NUMBER)=:item_id", sql)
+        count_sql = next(statement for statement, _ in cur.sql if "SELECT COUNT(*) FROM SJZQ_RAW_COLLECTION" in statement)
+        self.assertNotIn("ATTEMPT_ID", count_sql); self.assertNotIn("JOB_ID", count_sql)
         self.assertIn("UPDATE SJZQ_TASK_ITEM", sql)
         self.assertNotIn("PRODUCT_SNAPSHOT", sql); self.assertNotIn("QUALITY_RESULT", sql)
         commit_mock.assert_called_once_with(cur, 91)
@@ -78,7 +82,7 @@ class CandidateObservationTest(unittest.TestCase):
     def test_cleanup_only_candidate_raw_and_preserves_item_summary(self):
         cur=Cursor([[(77,2,3,"key",512,"candidate-observations/a.png")]])
         with patch("server.candidate_observation.adjust_used") as adjust:
-            refs=cleanup_expired(cur, limit=10)
+            refs=cleanup_expired(cur, limit=10, delete_screenshot=lambda _ref: None)
         self.assertEqual(["candidate-observations/a.png"], refs)
         sql="\n".join(x[0] for x in cur.sql)
         self.assertIn("SOURCE_TYPE=:source_type", sql)
@@ -88,6 +92,12 @@ class CandidateObservationTest(unittest.TestCase):
         self.assertIn("DELETE FROM SJZQ_RAW_COLLECTION", sql)
         self.assertNotIn("DELETE FROM SJZQ_TASK_ITEM", sql)
         adjust.assert_called_once()
+
+        blocked=Cursor([[(78,2,3,"key2",513,"candidate-observations/b.png")]])
+        with patch("server.candidate_observation.adjust_used") as blocked_adjust:
+            self.assertEqual([], cleanup_expired(blocked, limit=10, delete_screenshot=lambda _ref: (_ for _ in ()).throw(OSError("busy"))))
+        self.assertNotIn("DELETE FROM SJZQ_RAW_COLLECTION", "\n".join(x[0] for x in blocked.sql))
+        blocked_adjust.assert_not_called()
 
     def test_task_result_marks_candidate_raw_unavailable_for_library(self):
         row = _shape_task_result({"result_kind":"candidate_observation", "task_id":10,

@@ -49,7 +49,7 @@
     <div class="page-card" v-loading="resultsLoading">
       <div v-if="resultsRefreshing" class="refreshing-hint">正在刷新，保留当前采集结果</div>
       <div class="toolbar">
-        <h3 class="section-title" style="margin:0;flex:1">本次采集结果（{{ resultTotal }}）</h3>
+        <h3 class="section-title" style="margin:0;flex:1">正式采集结果（当前页 {{ formalResults.length }}）</h3>
         <el-button v-if="store.hasPerm('data:view')" @click="$router.push('/products')">已保存商品资料库</el-button>
         <el-button v-if="canManageResults" type="success" :disabled="!selectedProducts.length" @click="saveToLibrary">保存选中到商品资料库</el-button>
       </div>
@@ -57,7 +57,7 @@
       <el-alert v-if="resultsError" :title="resultsError" type="error" show-icon :closable="false">
         <template #default><el-button link type="primary" @click="loadResults">重试</el-button></template>
       </el-alert>
-      <el-table :data="taskResults" border stripe @selection-change="selectedProducts=$event">
+      <el-table :data="formalResults" border stripe @selection-change="selectedProducts=$event">
         <template #empty><el-empty v-if="resultsLoaded && !resultsError" description="该 Task 暂无采集结果" /></template>
         <el-table-column type="selection" width="48" :selectable="canSelectResult" />
         <el-table-column label="结果" width="125"><template #default="{row}"><el-tag :type="resultType(row)">{{ resultLabel(row) }}</el-tag></template></el-table-column>
@@ -80,6 +80,20 @@
         </el-table-column>
         <el-table-column prop="failure_reason" label="隔离/说明" min-width="180" show-overflow-tooltip />
         <el-table-column v-if="canManageResults" label="稳定资料操作" width="140"><template #default="{row}"><template v-if="row.product_id"><el-button link type="primary" @click="editProduct(row)">修改</el-button><el-button link type="danger" @click="deleteProduct(row)">删除</el-button></template><span v-else>-</span></template></el-table-column>
+      </el-table>
+      <div class="toolbar" style="margin-top:20px">
+        <h3 class="section-title" style="margin:0;flex:1">未匹配候选观察（当前页 {{ candidateObservations.length }}）</h3>
+      </div>
+      <el-alert title="该分区仅展示 matched=false 的审计证据；不计入成功、不进入质量指标或商品资料库。" type="warning" show-icon :closable="false" />
+      <el-table :data="candidateObservations" border stripe>
+        <template #empty><el-empty v-if="resultsLoaded && !resultsError" description="本页没有候选观察；完全无候选时会显示“未发现候选”记录" /></template>
+        <el-table-column label="观察结论" width="130"><template #default="{row}"><el-tag type="warning">{{ resultLabel(row) }}</el-tag></template></el-table-column>
+        <el-table-column prop="platform_title" label="观察到的标题" min-width="210" show-overflow-tooltip />
+        <el-table-column prop="product_attribute_spec" label="观察到的规格" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="approval_number" label="观察到的批准文号" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="manufacturer" label="观察到的厂家" min-width="170" show-overflow-tooltip />
+        <el-table-column prop="failure_reason" label="拒绝原因" min-width="150" />
+        <el-table-column label="审计证据" width="120"><template #default="{row}"><el-button v-if="row.raw_id" link type="primary" @click="openEvidence('raw', row.raw_id)">Raw #{{ row.raw_id }}</el-button><span v-else>-</span></template></el-table-column>
       </el-table>
       <el-pagination :current-page="resultPage" :page-size="resultLimit"
         :total="resultTotal" :page-sizes="[20,50,100]" layout="total, sizes, prev, pager, next"
@@ -197,6 +211,8 @@ const matchOkItems = computed(() => okItems.value.filter((x) => x.target_approva
 const matchFailItems = computed(() => failItems.value.filter((x) => x.target_approval && x.target_spec))
 const matchPendingItems = computed(() => pendingItems.value.filter((x) => x.target_approval && x.target_spec))
 const canManageResults = computed(() => Boolean(task.value?.can_manage_results && store.hasPerm('data:view')))
+const formalResults = computed(() => taskResults.value.filter((row) => row.result_kind !== 'candidate_observation'))
+const candidateObservations = computed(() => taskResults.value.filter((row) => row.result_kind === 'candidate_observation'))
 const percent = computed(() => {
   if (!items.value.length) return 0
   return Math.min(100, Math.round(((okItems.value.length + failItems.value.length) / items.value.length) * 100))

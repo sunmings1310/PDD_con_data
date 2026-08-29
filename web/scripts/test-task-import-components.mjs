@@ -246,6 +246,11 @@ const candidateRefresh = detailPage.proxy.$.setupState.loadResults(); const cand
 await settle(candidateRequest, { items: [{ result_kind: 'candidate_observation', failure_reason: 'candidate_rejected', product_id: null, library: { status: 'unavailable', can_save: false } }], total: 1 }); await candidateRefresh
 assert.equal(detailPage.proxy.$.setupState.resultLabel(detailPage.proxy.$.setupState.taskResults[0]), '候选未匹配')
 assert.equal(detailPage.proxy.$.setupState.canSelectResult(detailPage.proxy.$.setupState.taskResults[0]), false)
+assert.equal(detailPage.proxy.$.setupState.formalResults.length, 0)
+assert.equal(detailPage.proxy.$.setupState.candidateObservations.length, 1)
+const noCandidateRefresh = detailPage.proxy.$.setupState.loadResults(); const noCandidateRequest = stateRequests.shift()
+await settle(noCandidateRequest, { items: [{ result_kind: 'candidate_observation', failure_reason: 'no_candidate', raw_id: 78, product_id: null, library: { status: 'unavailable', can_save: false } }], total: 1 }); await noCandidateRefresh
+assert.equal(detailPage.proxy.$.setupState.resultLabel(detailPage.proxy.$.setupState.candidateObservations[0]), '未发现候选')
 const routeOld = detailPage.proxy.$.setupState.loadTask(); const routeOldRequest = stateRequests.shift()
 globalThis.__componentRoute.params.id = '2'; globalThis.__componentRoute.fullPath = '/tasks/2'; await nextTick()
 const routeTaskRequest = stateRequests.shift(); const routeResultsRequest = stateRequests.shift()
