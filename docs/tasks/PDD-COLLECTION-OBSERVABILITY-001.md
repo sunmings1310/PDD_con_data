@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-COLLECTION-OBSERVABILITY-001
 - **Title**：未匹配候选观察证据与 Task Detail 可见性
-- **Status**：READY / DECISION REQUIRED（保留期限）
+- **Status**：IN_PROGRESS（保留策略已批准，进入实现）
 
 ## Goal
 
@@ -45,7 +45,7 @@
 
 - 代码依赖：`PDD-TARGET-MATCH-TERMINAL-001` tested code `b5edf6e`；本 Task 使用独立 stacked branch 保留提交边界。
 - PR 依赖：前置 Task 未进入 main 前，本 Task 不创建指向 main 的可合并 PR。
-- 产品决策：候选观察默认保留期限及到期处置必须由 Product Owner 确认。
+- 产品决策：Product Owner 已批准候选观察 Raw 与受控脱敏截图默认保留 30 天，到期删除；永久保留 TaskItem 的 `not_matched` 终态和必要摘要。
 
 ## Affected Modules
 
@@ -106,12 +106,12 @@
 
 ## Human Decision Points
 
-- Product Owner 必须确认候选观察默认保留期限及到期删除/匿名化行为。建议默认 30 天；到期删除 Raw 行及受控截图引用，不影响 Task/Item 终态摘要。
+- Product Owner 已确认：默认保留 30 天；到期删除候选 Raw 与受控脱敏截图；永久保留 TaskItem `not_matched` 终态和必要摘要；不影响 Product、Snapshot、Quality、资料库或成功统计。
 - Schema/migration、改变 Product/Quality/Task 成功语义、PR、merge、release 仍需单独批准。
 
 ## Stop Condition
 
-- 保留策略未确认时停在设计门禁，不实施自动清理。
+- 实现必须覆盖 30 天清理边界和 TaskItem 摘要保留；若清理需要超出现有 Raw 关系或删除非候选事实，立即停止。
 - 若现有 Raw 表无法在不污染质量/产品语义的前提下满足事务、租户或分页性能，提交最小 migration ADR 并暂停。
 - Review `ACCEPT`、E2E `PASS` 后停在 Draft PR/merge 批准门禁；不得自动 merge/release。
 
