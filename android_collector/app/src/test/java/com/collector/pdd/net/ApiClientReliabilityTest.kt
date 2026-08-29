@@ -123,7 +123,7 @@ class ApiClientReliabilityTest {
     }
 
     @Test fun qualityAndIdempotencyConflictsArePermanentFailures() {
-        for (code in listOf("QUALITY_REJECTED", "IDEMPOTENCY_CONFLICT", "TASK_NOT_RUNNING")) {
+        for (code in listOf("QUALITY_REJECTED", "IDEMPOTENCY_CONFLICT", "TASK_NOT_RUNNING", "OBSERVATION_LIMIT_REACHED")) {
             server.enqueue(json(body = """{"ok":false,"message":"rejected","data":{"error_code":"$code"}}"""))
             assertThrows(PermanentUploadException::class.java) { client.uploadProductEvent(productEvent()) }
         }

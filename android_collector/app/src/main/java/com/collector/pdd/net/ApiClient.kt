@@ -516,6 +516,8 @@ class ApiClient(private val prefs: ServerPrefs) {
                     "IDEMPOTENCY_CONFLICT", "DEVICE_MISMATCH",
                     "TASK_NOT_FOUND", "TASK_NOT_RUNNING", "TASK_DEVICE_MISMATCH",
                     "TASK_ITEM_NOT_FOUND", "TASK_ITEM_TERMINAL", "ILLEGAL_TASK_ITEM_TRANSITION",
+                    "JOB_ITEM_MISMATCH", "OBSERVATION_REASON_CONFLICT", "INVALID_SCREENSHOT_REF",
+                    "OBSERVATION_TOO_LARGE", "OBSERVATION_LIMIT_REACHED", "QUOTA_EXCEEDED",
                 )
             ) throw PermanentUploadException(message)
             error(message)
