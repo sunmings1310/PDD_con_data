@@ -127,4 +127,4 @@
 ## Gate Conclusion
 
 - Bind hotfix 本身：**不因本回归 finding 阻断 Draft PR**；两处 Oracle bind 修复仍由其独立测试与 Review 证明。
-- 整体资料保存/时间线/正式媒体闭环：**不具备 release 条件**；三个 P1 应独立修复后再做 release regression。
+- 整体资料保存/时间线/正式媒体闭环：**不具备 release 条件**；四个 P1 应独立修复后再做 release regression。

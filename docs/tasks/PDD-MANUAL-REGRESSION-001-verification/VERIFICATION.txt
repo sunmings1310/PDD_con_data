@@ -13,18 +13,18 @@ MODIFIED_INPUT=Task 4286 success, Task 4285 not_matched, Product 1182, Snapshot 
 MODIFIED_LITERAL_OUTPUT=Python Ran 253 tests OK skipped=33; Node five contract groups PASS; dist 54/54 HTTP 200; Task4286 results total=5; Task4285 formal results=0 and TARGET_NOT_MATCHED; Product list total=73; Product1182 images HTTP 200; product edit changed brand to regression marker and restored to original; restart old PID=1188 stopped and new listener health HTTP=200; Product1182 timeline total=0 although Snapshot1050 links to Product1182; save-batch selected draft remained draft without an auditable ACK; Excel chooser/download automation timed out without creating a Task
 MODIFIED_EXIT_STATUS=0 for completed commands; save-batch business assertion=FAIL; Excel upload/download and post-logout relogin=BLOCKED
 MODIFIED_STATUS=TEST_COMPLETE_WITH_FINDINGS
-ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\PDD-MANUAL-REGRESSION-001-rollback-probe apply DIFF_FILE.patch; git -C <probe> apply -R DIFF_FILE.patch; git -C <probe> diff --quiet BASE
-ROLLBACK_INPUT=another temporary clone/copy; source worktree remains unchanged
-ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0; REVERSE_EXIT=0; RESTORED_DIFF_EXIT=0; TASK_ABSENT=True; VERIFICATION_FILES_ABSENT=True; PROBE_STATUS=<empty>; SOURCE_MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_COMMAND=$probe='C:\Users\Eden\AppData\Local\Temp\PDD-MANUAL-REGRESSION-001-rollback-probe'; $src='D:\work\PDD_con_data_pdd_manual_regression'; git -C $probe reset --hard 137a6f2a6fcb0978b8bcf9b0521cda1b4632f261; git -C $probe clean -fd; git -C $probe apply "$src\docs\tasks\PDD-MANUAL-REGRESSION-001-verification\DIFF_FILE.patch"; Copy-Item "$src\docs\tasks\PDD-MANUAL-REGRESSION-001-verification\DIFF_FILE.patch","$src\docs\tasks\PDD-MANUAL-REGRESSION-001-verification\VERIFICATION.txt" "$probe\docs\tasks\PDD-MANUAL-REGRESSION-001-verification"; git -C $probe add -- docs/backlog.md docs/tasks/PDD-MANUAL-REGRESSION-001.md docs/tasks/PDD-MANUAL-REGRESSION-001-verification; git -C $probe checkout 137a6f2a6fcb0978b8bcf9b0521cda1b4632f261 -- docs/backlog.md; git -C $probe rm -f --ignore-unmatch -- docs/tasks/PDD-MANUAL-REGRESSION-001.md docs/tasks/PDD-MANUAL-REGRESSION-001-verification/DIFF_FILE.patch docs/tasks/PDD-MANUAL-REGRESSION-001-verification/MODIFIED_FILE docs/tasks/PDD-MANUAL-REGRESSION-001-verification/VERIFICATION.txt docs/tasks/PDD-MANUAL-REGRESSION-001-verification/ROLLBACK.sh; git -C $probe diff --cached --quiet 137a6f2a6fcb0978b8bcf9b0521cda1b4632f261; git -C $probe diff --quiet 137a6f2a6fcb0978b8bcf9b0521cda1b4632f261
+ROLLBACK_INPUT=detached probe worktree at BASE; current DIFF_FILE plus current VERIFICATION copied into the probe; source worktree unchanged
+ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0; ROLLBACK_RM_EXIT=0; RESTORED_CACHED_DIFF_EXIT=0; RESTORED_WORKTREE_DIFF_EXIT=0; TASK_ABSENT=True; DIFF_ABSENT=True; MODIFIED_ABSENT=True; VERIFICATION_ABSENT=True; ROLLBACK_ABSENT=True; STATUS_LITERAL=<empty>
 ROLLBACK_EXIT_STATUS=0
 ROLLBACK_STATUS=PASS
 MODIFIED_REMAINS_CHANGED=true
 ORIGINAL_BACKLOG_SHA256=dcd68459df7ccd2008b2c131aac474e2de6b5dd24e4438e14fb36d37ba533cda
-DIFF_FILE_SHA256=ca7f2da0b12bf1e530804b2c0608ea81f264ee4a07f2c080f242a00c5c570596
+DIFF_FILE_SHA256=3677a80051d0b24f56fd65d7085a3d5875a39566a333791774afa2555e26b8ca
 MODIFIED_FILE_SHA256=f2642513d3ef67a2642b2b9dd593c56823b943d0e1e6ff36595ec7e32111db2d
 ROLLBACK_SH_SHA256=3f5d37292b26d02c8cc5e057a6baacff817927413385be2488e600c8baed5375
 EXTERNAL_EVIDENCE=C:\Users\Eden\AppData\Local\Temp\PDD-MANUAL-REGRESSION-001\runtime-readonly-evidence.md
-EXTERNAL_EVIDENCE_SHA256=c1137c2a73561f5d8387176c117f5225973f154a7fa07ec43806a13d08d4e370
+EXTERNAL_EVIDENCE_SHA256=dc916b05380e8d9fdef121099a080cd7447b7560f07c41df62fa131348bc9c92
 EXTERNAL_EVIDENCE_SENSITIVE_SCAN=0
 FINDINGS=P1 product timeline resource ID; P1 save-batch idempotency/ACK; P1 health metadata; P1 media path; P2 not-found UX; P2 asset cache policy
 HOTFIX_DRAFT_PR_BLOCKED=False
