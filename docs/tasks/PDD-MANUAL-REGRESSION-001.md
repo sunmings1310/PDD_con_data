@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-MANUAL-REGRESSION-001
 - **Title**：关键业务闭环独立手工回归
-- **Status**：TEST COMPLETE / INDEPENDENT REVIEW
+- **Status**：ACCEPTED / REGRESSION COMPLETE
 - **Priority**：P0
 
 ## Goal
@@ -63,7 +63,7 @@
 - [x] 浏览器行为与 API、服务日志和已完成的持久化事实相互印证；未完成的 Oracle 深层核对明确为 `BLOCKED`。
 - [x] 每个 finding 有复现证据摘要、影响、严重级别和建议归属 Task。
 - [x] 明确当前 bind hotfix Draft PR 是否被阻断。
-- [ ] Independent Reviewer 对证据完整性和结论给出 `ACCEPT/CHANGES REQUIRED/BLOCKED`。
+- [x] Independent Reviewer 对证据完整性和结论给出 `ACCEPT`。
 
 ## Test Plan
 
@@ -112,7 +112,7 @@
 
 - Original：本轮连续发现的启动、租户、两处 Oracle bind 与跨 worktree media 问题。
 - Derived：`docs/tasks/PDD-MANUAL-REGRESSION-001-verification/` 与外部脱敏 E2E evidence 目录。
-- Review：pending（已提交 Independent Reviewer）。
+- Review：`ACCEPT`（证据 Head `f6b939b38e34ab79d6f686465756cb527997d837`；后续仅增加 Review 状态包装）。
 - PR：本回归不创建 PR。
 
 ## Findings

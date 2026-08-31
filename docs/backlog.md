@@ -20,7 +20,7 @@
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
 | PDD-PRODUCT-CHANGE-BIND-HOTFIX-001 | REVIEW ACCEPT / WAITING DRAFT PR | 修复 `PUT /api/products/{id}` 的 Product Change INSERT 与 `POST /api/products/save-batch` 的 SAVED_BY UPDATE 两处 Oracle `ORA-01745`；不改 Schema、事务或审计语义 | Oracle strict 55/55 PASS、真实 save-batch HTTP 200、Independent Review ACCEPT；创建 Draft PR 后等待 merge 批准 |
-| PDD-MANUAL-REGRESSION-001 | TEST COMPLETE / INDEPENDENT REVIEW | 在 bind hotfix 运行态上独立复核启动、认证租户、设备/Task/Result、保存、资料库/媒体、Excel、导出与错误状态；先测试后修复 | 回归矩阵已完成并识别 4 个 P1、2 个 P2；等待独立 Review，不在测试 Task 修改业务代码 |
+| PDD-MANUAL-REGRESSION-001 | ACCEPTED / COMPLETE | 在 bind hotfix 运行态上独立复核启动、认证租户、设备/Task/Result、保存、资料库/媒体、Excel、导出与错误状态；先测试后修复 | Independent Review ACCEPT；4 个 P1、2 个 P2 转为独立修复候选，整体 release 仍未就绪 |
 
 ## Product-approved Web execution queue（2026-08-25）
 

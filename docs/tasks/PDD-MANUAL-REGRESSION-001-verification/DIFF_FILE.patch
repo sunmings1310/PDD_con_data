@@ -1,19 +1,19 @@
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 255e4d6..d492dd2 100644
+index 255e4d6..9095200 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -22,0 +23 @@
-+| PDD-MANUAL-REGRESSION-001 | TEST COMPLETE / INDEPENDENT REVIEW | 在 bind hotfix 运行态上独立复核启动、认证租户、设备/Task/Result、保存、资料库/媒体、Excel、导出与错误状态；先测试后修复 | 回归矩阵已完成并识别 4 个 P1、2 个 P2；等待独立 Review，不在测试 Task 修改业务代码 |
++| PDD-MANUAL-REGRESSION-001 | ACCEPTED / COMPLETE | 在 bind hotfix 运行态上独立复核启动、认证租户、设备/Task/Result、保存、资料库/媒体、Excel、导出与错误状态；先测试后修复 | Independent Review ACCEPT；4 个 P1、2 个 P2 转为独立修复候选，整体 release 仍未就绪 |
 diff --git a/docs/tasks/PDD-MANUAL-REGRESSION-001-verification/MODIFIED_FILE b/docs/tasks/PDD-MANUAL-REGRESSION-001-verification/MODIFIED_FILE
 new file mode 100644
-index 0000000..4958019
+index 0000000..85fd3b7
 --- /dev/null
 +++ b/docs/tasks/PDD-MANUAL-REGRESSION-001-verification/MODIFIED_FILE
 @@ -0,0 +1,4 @@
 +TASK=PDD-MANUAL-REGRESSION-001
 +BRANCH_FIELD=independent manual regression status and evidence matrix
 +BASELINE_STATUS=task setup at e64f0121e0ee7ad3b92cda92ea0225ca016c784e
-+MODIFIED_STATUS=TEST_COMPLETE_REVIEW_PENDING
++MODIFIED_STATUS=ACCEPTED_REGRESSION_COMPLETE
 diff --git a/docs/tasks/PDD-MANUAL-REGRESSION-001-verification/ROLLBACK.sh b/docs/tasks/PDD-MANUAL-REGRESSION-001-verification/ROLLBACK.sh
 new file mode 100755
 index 0000000..b2ebadf
@@ -35,7 +35,7 @@ index 0000000..b2ebadf
 +printf 'ROLLBACK_RESULT=PASS\n'
 diff --git a/docs/tasks/PDD-MANUAL-REGRESSION-001.md b/docs/tasks/PDD-MANUAL-REGRESSION-001.md
 new file mode 100644
-index 0000000..3f9880d
+index 0000000..b3468b9
 --- /dev/null
 +++ b/docs/tasks/PDD-MANUAL-REGRESSION-001.md
 @@ -0,0 +1,130 @@
@@ -43,7 +43,7 @@ index 0000000..3f9880d
 +
 +- **Task ID**：PDD-MANUAL-REGRESSION-001
 +- **Title**：关键业务闭环独立手工回归
-+- **Status**：TEST COMPLETE / INDEPENDENT REVIEW
++- **Status**：ACCEPTED / REGRESSION COMPLETE
 +- **Priority**：P0
 +
 +## Goal
@@ -104,7 +104,7 @@ index 0000000..3f9880d
 +- [x] 浏览器行为与 API、服务日志和已完成的持久化事实相互印证；未完成的 Oracle 深层核对明确为 `BLOCKED`。
 +- [x] 每个 finding 有复现证据摘要、影响、严重级别和建议归属 Task。
 +- [x] 明确当前 bind hotfix Draft PR 是否被阻断。
-+- [ ] Independent Reviewer 对证据完整性和结论给出 `ACCEPT/CHANGES REQUIRED/BLOCKED`。
++- [x] Independent Reviewer 对证据完整性和结论给出 `ACCEPT`。
 +
 +## Test Plan
 +
@@ -153,7 +153,7 @@ index 0000000..3f9880d
 +
 +- Original：本轮连续发现的启动、租户、两处 Oracle bind 与跨 worktree media 问题。
 +- Derived：`docs/tasks/PDD-MANUAL-REGRESSION-001-verification/` 与外部脱敏 E2E evidence 目录。
-+- Review：pending（已提交 Independent Reviewer）。
++- Review：`ACCEPT`（证据 Head `f6b939b38e34ab79d6f686465756cb527997d837`；后续仅增加 Review 状态包装）。
 +- PR：本回归不创建 PR。
 +
 +## Findings
