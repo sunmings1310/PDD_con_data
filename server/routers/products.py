@@ -1112,10 +1112,10 @@ def save_products(body: dict, request: Request, user=Depends(require_perms("data
             if not before or not _can_edit_product(cur, before, user, tenant):
                 continue
             cur.execute("""
-                UPDATE SJZQ_PRODUCT SET LIBRARY_STATUS='saved', SAVED_BY=:uid,
+                UPDATE SJZQ_PRODUCT SET LIBRARY_STATUS='saved', SAVED_BY=:saved_by_user_id,
                        SAVED_TIME=SYSTIMESTAMP, UPDATE_TIME=SYSTIMESTAMP
                  WHERE PRODUCT_ID=:id AND NVL(IS_DELETED,0)=0
-            """, {"uid": user["user_id"], "id": pid})
+            """, {"saved_by_user_id": user["user_id"], "id": pid})
             after = _snapshot(cur, pid)
             _record_change(cur, pid, "save_library", before, after, user)
             saved += 1
