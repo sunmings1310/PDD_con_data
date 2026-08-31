@@ -72,7 +72,7 @@
 | 1 | cold start / single-port / asset / login | 当前 Head 资源，认证刷新可恢复 | 单监听、health、当前 dist、登录刷新与退出跳转通过；退出后的自动重新登录因不读取凭据而 BLOCKED | PASS / BLOCKED |
 | 2 | tenant / workspace / permission | headers 与服务端上下文一致，无越权/泄漏 | Legacy Enterprise / Default Workspace 下设备、任务、商品、质量数据一致；未认证受保护 API 返回 401 | PASS |
 | 3 | device / heartbeat / task surfaces | 列表详情一致、状态可解释 | 在线设备 1；成功与失败 Task 列表、详情、进度和状态可解释 | PASS |
-| 4 | existing results | success/not_matched/missing fields 均可见且不伪造 | Task 4286 显示 5 个 Snapshot/Raw/Quality；Task 4285 显示 not_matched 且正式结果为 0 | PASS |
+| 4 | existing results | success/not_matched/missing fields 均可见且不伪造 | Task 4286 显示 5 个 Snapshot/Raw/Quality；Task 4285 显示 not_matched 且正式结果为 0；本轮没有可识别的 missing-field 样本 | PASS / BLOCKED（missing-field 未执行） |
 | 5 | edit / save-batch / replay / rollback | 保存成功、重复安全、失败不部分提交 | Product 1182 编辑并恢复通过；save-batch 源码无持久幂等，UI 选择保存后未取得可审计响应且仍为 draft | FAIL |
 | 6 | product/media | list/detail/edit/image HTTP/restart 持续正确 | 73 条资料、Product 1182、图片 HTTP 200；Snapshot 1050 存在但 Product 时间线返回 0 | FAIL |
 | 7 | Excel unified flow | template/validate/preview/canonical review，不 dispatch | 统一入口与两种 mode 契约通过；IAB file chooser/download event 无法完成真实上传/下载 | BLOCKED |
