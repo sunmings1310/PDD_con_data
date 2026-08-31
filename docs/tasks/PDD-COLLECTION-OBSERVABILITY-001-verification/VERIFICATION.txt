@@ -1,41 +1,53 @@
 TASK=PDD-COLLECTION-OBSERVABILITY-001
 BASE=e15f50f93ee91d613011eed36324c14753ef4025
+TESTED_CODE_HEAD=cebd8f60b537a46bf983a3fe35d42bbb8d775101
 BRANCH=codex/pdd-collection-observability-001
-STATE=READY / DECISION REQUIRED (retention policy)
-CHANGED_FIELDS=Task definition and backlog state only; no business code or schema
 
 ARTIFACT_MODIFIED_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\MODIFIED_FILE
 ARTIFACT_DIFF_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
 ARTIFACT_VERIFICATION=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\VERIFICATION.txt
 ARTIFACT_ROLLBACK=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\ROLLBACK.sh
 
-BASELINE_COMMAND=git show e15f50f93ee91d613011eed36324c14753ef4025:docs/backlog.md; git cat-file -e e15f50f93ee91d613011eed36324c14753ef4025:docs/tasks/PDD-COLLECTION-OBSERVABILITY-001.md
-BASELINE_INPUT=accepted predecessor wrapper e15f50f93ee91d613011eed36324c14753ef4025
-BASELINE_LITERAL_RESULT=backlog exists; Task path absent (git cat-file exit 128)
-BASELINE_EXIT_STATUS=0 for backlog; 128 for expected-absent Task
+BASELINE_COMMAND=git diff --check e15f50f93ee91d613011eed36324c14753ef4025..cebd8f60b537a46bf983a3fe35d42bbb8d775101
+BASELINE_INPUT=accepted predecessor wrapper to tested code Head
+BASELINE_LITERAL_RESULT=no output
+BASELINE_EXIT_STATUS=0
 BASELINE_STATUS=PASS
 
-MODIFIED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/REPO-GOV-ALIGN-001-verification/validate_governance.py --check markdown; same validator --check yaml; git diff --check; allowlist and sensitive diff scan
-MODIFIED_INPUT=68 Markdown files; 1 YAML file; 5 Task/backlog/artifact paths
-MODIFIED_LITERAL_RESULT=Validated 68 Markdown files; YAML_FILES=1; YAML_PARSE=PASS; ALLOWLIST_CHANGED=5; ALLOWLIST_BAD=0; SENSITIVE_MATCHES=0
-MODIFIED_EXIT_STATUS=0
-MODIFIED_STATUS=PASS
+PYTHON_TARGETED_COMMAND=$env:APP_ENV='test'; $env:ORACLE_HOST='127.0.0.1'; $env:ORACLE_PORT='1521'; $env:ORACLE_SERVICE='TEST'; $env:ORACLE_USER='TEST'; $env:ORACLE_PASSWORD='test-password'; $env:JWT_SECRET='Test-only-JWT-secret-32-characters!'; D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_candidate_observation tests.test_job_service
+PYTHON_TARGETED_INPUT=test-only injected configuration; candidate/no_candidate, tenant/lease/idempotency/retention cases
+PYTHON_TARGETED_LITERAL_RESULT=Ran 20 tests in 0.011s; OK (skipped=6)
+PYTHON_TARGETED_EXIT_STATUS=0
+PYTHON_TARGETED_STATUS=PASS
 
-PATCH_COMMAND=git apply --check --unidiff-zero --whitespace=nowarn docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/DIFF_FILE.patch
-PATCH_INPUT=base e15f50f93ee91d613011eed36324c14753ef4025; Task/backlog 2-path patch
-PATCH_LITERAL_RESULT=no output
-PATCH_EXIT_STATUS=0
-PATCH_STATUS=PASS
-PATCH_SHA256=82228a6ff7902fa1a421dfa5e1b4636f987fa53b45affe7011530d0da1916bdb
-PATCH_HEADERS=2
+PYTHON_FULL_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; test-only injected settings; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+PYTHON_FULL_LITERAL_RESULT=Ran 263 tests in 0.683s; OK (skipped=35); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+PYTHON_FULL_EXIT_STATUS=0
+PYTHON_FULL_STATUS=PASS
 
-ROLLBACK_COMMAND=bash docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/ROLLBACK.sh
-ROLLBACK_INPUT=another committed probe copy containing the modified Task/backlog and four artifacts
-ROLLBACK_LITERAL_RESULT=PATCH_CHECK_EXIT=0; PATCH_APPLY_EXIT=0; RESTORED_DIFF_VS_BASE_EXIT=0; TASK_PRESENT=False; VERIFICATION_PRESENT=False; SOURCE_MODIFIED_SHA256=fe1fda1318764260d0e90501c3832c0be2bc2bbc6321eb53b70e234558b4dda5; MODIFIED_REMAINS_CHANGED=True
-ROLLBACK_EXIT_STATUS=0
-ROLLBACK_STATUS=PASS
-RESTORED_BEHAVIOR_STATUS=probe matches BASE; Task and verification artifacts absent; source MODIFIED_FILE remains changed
+ANDROID_COMMAND=$env:JAVA_HOME='D:\work\PDD_con_data\.tools\jdk-17.0.20+8'; $env:ANDROID_SDK_ROOT='D:\work\pda-picking\tools\android-sdk'; java -classpath android_collector\gradle\wrapper\gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
+ANDROID_LITERAL_RESULT=BUILD SUCCESSFUL in 8s; 30 actionable tasks: 1 executed, 29 up-to-date; XML: TESTS=82 FAILURES=0 ERRORS=0 SKIPPED=1
+ANDROID_EXIT_STATUS=0
+ANDROID_STATUS=PASS
 
-MODIFIED_SHA256=fe1fda1318764260d0e90501c3832c0be2bc2bbc6321eb53b70e234558b4dda5
-ROLLBACK_SHA256=23512cf9e550a7cae1eadcf1391951008e3fcc9c7344f6fbe58e6ca46355fd14
-MODIFIED_REMAINS_CHANGED=True
+WEB_COMMAND=D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64\npm.cmd ci; npm run test:task-import-components; npm run build
+WEB_LITERAL_RESULT=EXCEL_COMPONENT_RACE=PASS; TASK_CREATE_COMPONENT=PASS; TASK_LIST_COMPONENT=PASS; PRODUCT_COMPONENT=PASS; QUALITY_COMPONENT=PASS; QUARANTINE_COMPONENT=PASS; TASK_DETAIL_COMPONENT=PASS candidate_observation=warning_not_saveable; vite build: built in 6.36s
+WEB_EXIT_STATUS=0
+WEB_STATUS=PASS
+
+COMPILE_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server tests
+COMPILE_LITERAL_RESULT=no output
+COMPILE_EXIT_STATUS=0
+COMPILE_STATUS=PASS
+
+ORACLE_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_INPUT=Dev process lacks approved isolated Oracle environment and Phase flags
+ORACLE_LITERAL_RESULT=[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+ORACLE_EXIT_STATUS=2
+ORACLE_STATUS=BLOCKED
+ORACLE_NEXT=Control runs same command with existing approved isolated Oracle environment; no secret values may appear in output.
+
+MODIFIED_SHA256=e9bdc963de268d692d40dc3a6a4bc246c93542df26c677f966456bf8b562a0b2
+MODIFIED_STATUS=CHANGED
+ROLLBACK_STATUS=PENDING_PROBE_AFTER_EVIDENCE_WRAPPER_COMMIT
+FINAL_STATUS=IN_PROGRESS; Oracle Required, Independent Review and real-device E2E remain pending. No PR/merge/release.

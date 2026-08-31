@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-COLLECTION-OBSERVABILITY-001
 - **Title**：未匹配候选观察证据与 Task Detail 可见性
-- **Status**：IN_PROGRESS（保留策略已批准，进入实现）
+- **Status**：IN_PROGRESS（Dev 自检完成；Oracle Required、Independent Review 与真机 E2E 待完成）
 
 ## Goal
 
@@ -74,28 +74,29 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Android targeted | 待 Dev 固定 | 有候选不匹配、完全无候选、ACK 丢失 | observation outbox 正确且正式结果为 0 | pending |  | BLOCKED |
-| Python targeted | 待 Dev 固定 | lease/tenant/idempotency/payload limits | 单一 Raw、无正式业务结果 | pending |  | BLOCKED |
-| Web mounted | 待 Dev 固定 | candidate/no_candidate/403/404/stale | 分区和 empty state 正确 | pending |  | BLOCKED |
-| Full regression | `scripts/test-baseline.ps1` 分层门禁 | fixed Head | Python/Android/Web 继续通过 | pending |  | BLOCKED |
+| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；candidate outbox、ACK、终态 | outbox 正确，正式结果不增加 | 82 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
+| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_job_service` | test-only injected settings；候选/无候选、lease、幂等、30 天 | 单一 Raw、无正式业务结果 | 20 tests，skipped=6（Oracle env 不在 Dev 进程） | 0 | PASS |
+| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 263 tests，skipped=35 | 0 | PASS |
+| Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | six mounted contracts PASS；Vite build PASS | 0 | PASS |
+| Oracle strict | `scripts/test-baseline.ps1 -Suite oracle -Strict` | 隔离 Oracle / Phase flags | persistence、tenant、idempotency、cleanup | 当前 Dev 进程无 Oracle flags/环境 | 2 | BLOCKED（交 Control） |
 
 ## Oracle Gate
 
 - Required：Yes
 - Reason：复用真实 `SJZQ_RAW_COLLECTION`，涉及 lease/tenant/idempotency/quota/transaction 与 cleanup；虽然当前方案不改 Schema，仍必须运行隔离 Oracle。
 - Local isolated environment identifier：项目已批准专用可写可清理 Oracle；不得记录秘密。
-- Fixed Head SHA：pending
-- Canonical command / test count / literal result hash / exit：pending
-- Evidence generated at / expiry：pending
-- Four artifacts / rollback / persistent business changes：pending；测试清理必须为 0，persistent=false。
-- Hosted evidence validator：pending；GitHub 不连接 Oracle。
-- Independent Reviewer provenance check：pending
+- Tested code Head SHA：`cebd8f60b537a46bf983a3fe35d42bbb8d775101`；最终 evidence wrapper Head 待 Oracle 后固定
+- Dev attempt: `powershell -NoProfile -File .\\scripts\\test-baseline.ps1 -Suite oracle -Strict` -> `[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables`，exit 2。Control 必须以已批准隔离环境重跑，不得将此项记为 PASS。
+- Evidence generated at / expiry：待 Control 生成固定 Head manifest；候选 Raw/脱敏截图保留 30 天，TaskItem 必要摘要永久保留。
+- Four artifacts：Dev evidence wrapper 待提交；Oracle 测试清理必须为 0，persistent=false。
+- Hosted evidence validator：待 Oracle manifest；GitHub 不连接 Oracle。
+- Independent Reviewer provenance check：pending（必须检查 Oracle manifest 绑定固定 Head）。
 
 ## Real-device Gate
 
 - Required：Yes
 - Device/scenario：既有连续授权；至少覆盖一轮有候选不匹配和一轮完全无候选，不进入 SKU/购物车/订单/支付。
-- Command or steps / result：pending
+- Command or steps / result：pending；连续真机采集授权仍适用，但不得购物车、下单或支付。
 
 ## Rollback
 

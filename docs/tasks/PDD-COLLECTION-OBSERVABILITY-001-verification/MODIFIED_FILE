@@ -1,6 +1,5 @@
 BASE=e15f50f93ee91d613011eed36324c14753ef4025
+TESTED_CODE_HEAD=cebd8f60b537a46bf983a3fe35d42bbb8d775101
 BRANCH=codex/pdd-collection-observability-001
-BACKLOG_BASE_SHA256=e2e7776265fa66d2e0f1ef19e19f6609764e8a2f21b1abf63fc98857bcf32984
-BACKLOG_MODIFIED_SHA256=307fd9d2f0478f1ae4dac2ce1ee0ec2c19c49b48e69e1e924c93bf6a5bf43370
-TASK_BASE_STATE=ABSENT
-TASK_MODIFIED_STATE=PRESENT
+SCOPE=candidate_observation Raw-only contract; Android/Server/Web/tests; no schema migration
+TASK_STATUS=IN_PROGRESS; Python/Android/Web PASS; Oracle Required BLOCKED in Dev process; Review/E2E pending
