@@ -116,7 +116,8 @@ if (Should-Run 'oracle') {
             'tests/test_phase3_oracle.py',
             'tests/test_phase5_oracle.py',
             'tests/test_phase55_oracle.py',
-            'tests/test_phase6a_oracle.py'
+            'tests/test_phase6a_oracle.py',
+            'tests/test_product_change_bind_oracle.py'
         ) $Root
     }
 }
