@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-MANUAL-REGRESSION-001
 - **Title**：关键业务闭环独立手工回归
-- **Status**：IN_PROGRESS
+- **Status**：TEST COMPLETE / INDEPENDENT REVIEW
 - **Priority**：P0
 
 ## Goal
@@ -59,33 +59,33 @@
 
 ## Acceptance Criteria
 
-- [ ] 十组测试矩阵逐项记录 `PASS/FAIL/BLOCKED/SKIPPED`，不得以 HTTP 200 代替业务正确。
-- [ ] 浏览器行为与 API、服务日志、Oracle 事实相互印证。
-- [ ] 每个 finding 有复现步骤、请求/响应、日志摘要、影响、严重级别和建议归属 Task。
-- [ ] 明确当前 bind hotfix Draft PR 是否被阻断。
+- [x] 十组测试矩阵逐项记录 `PASS/FAIL/BLOCKED/SKIPPED`，不得以 HTTP 200 代替业务正确。
+- [x] 浏览器行为与 API、服务日志和已完成的持久化事实相互印证；未完成的 Oracle 深层核对明确为 `BLOCKED`。
+- [x] 每个 finding 有复现证据摘要、影响、严重级别和建议归属 Task。
+- [x] 明确当前 bind hotfix Draft PR 是否被阻断。
 - [ ] Independent Reviewer 对证据完整性和结论给出 `ACCEPT/CHANGES REQUIRED/BLOCKED`。
 
 ## Test Plan
 
 | # | Area | Expected | Actual | Status |
 |---:|---|---|---|---|
-| 1 | cold start / single-port / asset / login | 当前 Head 资源，认证刷新可恢复 | pending | BLOCKED |
-| 2 | tenant / workspace / permission | headers 与服务端上下文一致，无越权/泄漏 | pending | BLOCKED |
-| 3 | device / heartbeat / task surfaces | 列表详情一致、状态可解释 | pending | BLOCKED |
-| 4 | existing results | success/not_matched/missing fields 均可见且不伪造 | pending | BLOCKED |
-| 5 | edit / save-batch / replay / rollback | 保存成功、重复安全、失败不部分提交 | pending | BLOCKED |
-| 6 | product/media | list/detail/edit/image HTTP/restart 持续正确 | pending | BLOCKED |
-| 7 | Excel unified flow | template/validate/preview/canonical review，不 dispatch | pending | BLOCKED |
-| 8 | export/pagination/filter/states | 可用且 empty/error 明确 | pending | BLOCKED |
-| 9 | cache/chunk/HTTP scan | 无旧资产、无未解释 400/404/500 | pending | BLOCKED |
-| 10 | restart persistence/media config | 数据可读；媒体 workaround 与正式缺口分离 | pending | BLOCKED |
+| 1 | cold start / single-port / asset / login | 当前 Head 资源，认证刷新可恢复 | 单监听、health、当前 dist、登录刷新与退出跳转通过；退出后的自动重新登录因不读取凭据而 BLOCKED | PASS / BLOCKED |
+| 2 | tenant / workspace / permission | headers 与服务端上下文一致，无越权/泄漏 | Legacy Enterprise / Default Workspace 下设备、任务、商品、质量数据一致；未认证受保护 API 返回 401 | PASS |
+| 3 | device / heartbeat / task surfaces | 列表详情一致、状态可解释 | 在线设备 1；成功与失败 Task 列表、详情、进度和状态可解释 | PASS |
+| 4 | existing results | success/not_matched/missing fields 均可见且不伪造 | Task 4286 显示 5 个 Snapshot/Raw/Quality；Task 4285 显示 not_matched 且正式结果为 0 | PASS |
+| 5 | edit / save-batch / replay / rollback | 保存成功、重复安全、失败不部分提交 | Product 1182 编辑并恢复通过；save-batch 源码无持久幂等，UI 选择保存后未取得可审计响应且仍为 draft | FAIL |
+| 6 | product/media | list/detail/edit/image HTTP/restart 持续正确 | 73 条资料、Product 1182、图片 HTTP 200；Snapshot 1050 存在但 Product 时间线返回 0 | FAIL |
+| 7 | Excel unified flow | template/validate/preview/canonical review，不 dispatch | 统一入口与两种 mode 契约通过；IAB file chooser/download event 无法完成真实上传/下载 | BLOCKED |
+| 8 | export/pagination/filter/states | 可用且 empty/error 明确 | 商品分页和空状态通过；不存在 Task 重复错误并混杂空结果区 | PASS / P2 |
+| 9 | cache/chunk/HTTP scan | 无旧资产、无未解释 400/404/500 | 54/54 当前 dist 文件 200 且字节一致，未知 chunk 404；未发现当前 chunk 404/500 | PASS |
+| 10 | restart persistence/media config | 数据可读；媒体 workaround 与正式缺口分离 | 8080 从 PID 1188 重启到新进程，health 200；商品和媒体继续可读，但依赖临时 Junction | PASS / P1 |
 
 ## Oracle Gate
 
 - Required：Read-only corroboration only；不得把未执行称为 PASS。
 - Reason：核对 UI/API 展示对应的持久化事实，不执行 migration 或测试写入。
 - Fixed Head SHA：`892fa9faf224b3c3160d26dfcdd85bd65522209f`
-- Evidence：pending。
+- Evidence：UI/API 只读事实已交叉核验；本 Task 不把另一个任务的 Oracle strict 失败冒充本 Task 只读 Oracle PASS。Oracle 深层核对未完成，标记 BLOCKED。
 
 ## Real-device Gate
 
@@ -112,5 +112,19 @@
 
 - Original：本轮连续发现的启动、租户、两处 Oracle bind 与跨 worktree media 问题。
 - Derived：`docs/tasks/PDD-MANUAL-REGRESSION-001-verification/` 与外部脱敏 E2E evidence 目录。
-- Review：pending。
+- Review：pending（已提交 Independent Reviewer）。
 - PR：本回归不创建 PR。
+
+## Findings
+
+1. **P1 / `PDD-PRODUCT-TIMELINE-RESOURCE-ID-001`**：ProductList 的 `product_id=1182` 是 legacy ID、`master_product_id=600`；Snapshot 1050 的 `enterprise_product_id=588`。时间线接口把路由参数按 enterprise product ID 解释，导致现有 Snapshot 显示为空。
+2. **P1 / `PDD-PRODUCT-SAVE-IDEMPOTENCY-001`**：`save-batch` 没有稳定 idempotency key/receipt；重复请求会刷新保存时间并重复写 change/op-log。UI 也缺少可证实的提交 ACK 展示。
+3. **P1 / `PDD-HEALTH-METADATA-REDACTION-001`**：未认证 `/api/health` 暴露数据库网络端点与本机媒体绝对路径。
+4. **P1 / `PDD-MEDIA-PATH-STABILITY-001`**：跨 worktree 图片读取依赖临时 Junction；写路径与媒体读取路径尚未统一为稳定配置。
+5. **P2 / `PDD-TASK-DETAIL-NOT-FOUND-UX-001`**：不存在 Task 同时显示重复 `task not found` 和完整空结果/明细区。
+6. **P2 / `PDD-WEB-ASSET-CACHE-POLICY-001`**：HTML 与 hash asset 缺少明确 `Cache-Control`。
+
+## Gate Conclusion
+
+- Bind hotfix 本身：**不因本回归 finding 阻断 Draft PR**；两处 Oracle bind 修复仍由其独立测试与 Review 证明。
+- 整体资料保存/时间线/正式媒体闭环：**不具备 release 条件**；三个 P1 应独立修复后再做 release regression。

@@ -2,22 +2,30 @@ TASK=PDD-MANUAL-REGRESSION-001
 BASE=137a6f2a6fcb0978b8bcf9b0521cda1b4632f261
 RUNTIME_CODE_HEAD=892fa9faf224b3c3160d26dfcdd85bd65522209f
 BRANCH=codex/pdd-manual-regression-001
-STATE=IN_PROGRESS
+STATE=TEST_COMPLETE_REVIEW_PENDING
 BASELINE_COMMAND=GET http://127.0.0.1:8080/api/health; inspect listener and Git identities
 BASELINE_INPUT=current controlled local runtime; secrets not printed
 BASELINE_LITERAL_OUTPUT=LISTENER_COUNT=1; LISTEN=0.0.0.0:8080; HEALTH_OK=True; WEB_DIST=True; main=80b3435; hotfix wrapper=137a6f2
 BASELINE_EXIT_STATUS=0
 BASELINE_STATUS=PASS
-MODIFIED_COMMAND=pending E2E matrix
-MODIFIED_INPUT=pending
-MODIFIED_LITERAL_OUTPUT=pending
-MODIFIED_EXIT_STATUS=pending
-MODIFIED_STATUS=IN_PROGRESS
-ROLLBACK_COMMAND=pending
-ROLLBACK_INPUT=another copy
-ROLLBACK_LITERAL_OUTPUT=pending
-ROLLBACK_EXIT_STATUS=pending
-ROLLBACK_STATUS=pending
+MODIFIED_COMMAND=IAB manual regression against http://127.0.0.1:8080; scripts/run_python_unit_tests.py; Node contract and mounted-component gates; 8080 controlled restart
+MODIFIED_INPUT=Task 4286 success, Task 4285 not_matched, Product 1182, Snapshot 1050, Raw 1393, Quality 1292, existing controlled Excel; no new collection
+MODIFIED_LITERAL_OUTPUT=Python Ran 253 tests OK skipped=33; Node five contract groups PASS; dist 54/54 HTTP 200; Task4286 results total=5; Task4285 formal results=0 and TARGET_NOT_MATCHED; Product list total=73; Product1182 images HTTP 200; product edit changed brand to regression marker and restored to original; restart old PID=1188 stopped and new listener health HTTP=200; Product1182 timeline total=0 although Snapshot1050 links to Product1182; save-batch selected draft remained draft without an auditable ACK; Excel chooser/download automation timed out without creating a Task
+MODIFIED_EXIT_STATUS=0 for completed commands; save-batch business assertion=FAIL; Excel upload/download and post-logout relogin=BLOCKED
+MODIFIED_STATUS=TEST_COMPLETE_WITH_FINDINGS
+ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\PDD-MANUAL-REGRESSION-001-rollback-probe apply DIFF_FILE.patch; git -C <probe> apply -R DIFF_FILE.patch; git -C <probe> diff --quiet BASE
+ROLLBACK_INPUT=another temporary clone/copy; source worktree remains unchanged
+ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0; REVERSE_EXIT=0; RESTORED_DIFF_EXIT=0; TASK_ABSENT=True; VERIFICATION_FILES_ABSENT=True; PROBE_STATUS=<empty>; SOURCE_MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_STATUS=PASS
 MODIFIED_REMAINS_CHANGED=true
 ORIGINAL_BACKLOG_SHA256=dcd68459df7ccd2008b2c131aac474e2de6b5dd24e4438e14fb36d37ba533cda
-MODIFIED_FILE_SHA256=b009d7b316b5dd431529e0ba7ca34d7961ac4c26fbfccf004fbbf1c6162cb91d
+DIFF_FILE_SHA256=ca7f2da0b12bf1e530804b2c0608ea81f264ee4a07f2c080f242a00c5c570596
+MODIFIED_FILE_SHA256=f2642513d3ef67a2642b2b9dd593c56823b943d0e1e6ff36595ec7e32111db2d
+ROLLBACK_SH_SHA256=3f5d37292b26d02c8cc5e057a6baacff817927413385be2488e600c8baed5375
+EXTERNAL_EVIDENCE=C:\Users\Eden\AppData\Local\Temp\PDD-MANUAL-REGRESSION-001\runtime-readonly-evidence.md
+EXTERNAL_EVIDENCE_SHA256=c1137c2a73561f5d8387176c117f5225973f154a7fa07ec43806a13d08d4e370
+EXTERNAL_EVIDENCE_SENSITIVE_SCAN=0
+FINDINGS=P1 product timeline resource ID; P1 save-batch idempotency/ACK; P1 health metadata; P1 media path; P2 not-found UX; P2 asset cache policy
+HOTFIX_DRAFT_PR_BLOCKED=False
+RELEASE_READY=False
