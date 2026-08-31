@@ -51,3 +51,14 @@ MODIFIED_SHA256=e9bdc963de268d692d40dc3a6a4bc246c93542df26c677f966456bf8b562a0b2
 MODIFIED_STATUS=CHANGED
 ROLLBACK_STATUS=PENDING_PROBE_AFTER_EVIDENCE_WRAPPER_COMMIT
 FINAL_STATUS=IN_PROGRESS; Oracle Required, Independent Review and real-device E2E remain pending. No PR/merge/release.
+DIFF_FILE_COMMAND=git -C D:\work\PDD_con_data_pdd_collection_observability_rollback_probe apply --check --whitespace=nowarn D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
+DIFF_FILE_LITERAL_RESULT=no output
+DIFF_FILE_EXIT_STATUS=0
+DIFF_FILE_STATUS=PASS
+
+ROLLBACK_PROBE_COMMAND=PowerShell equivalent of ROLLBACK.sh in detached worktree D:\work\PDD_con_data_pdd_collection_observability_rollback_probe: git diff --binary BASE HEAD > external patch; git apply -R external patch; git diff --exit-code BASE -- .
+ROLLBACK_PROBE_INPUT=another worktree at evidence wrapper 6d1673a70ac5a6adf313bd08b81eb2c5bc06a735; no shell interpreter required
+ROLLBACK_PROBE_LITERAL_RESULT=POWERSHELL_ROLLBACK_APPLY_EXIT=0; POWERSHELL_RESTORED_DIFF_VS_BASE_EXIT=0; POWERSHELL_TASK_PRESENT=False; POWERSHELL_VERIFICATION_PRESENT=False
+ROLLBACK_PROBE_EXIT_STATUS=0
+ROLLBACK_PROBE_STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=probe restored to BASE; Task and verification absent; primary worktree MODIFIED_FILE remains changed
