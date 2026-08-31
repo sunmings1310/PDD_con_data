@@ -1020,12 +1020,12 @@ def _record_change(cur, product_id: int, action: str, before: dict | None, after
     cur.execute("""
         INSERT INTO SJZQ_PRODUCT_CHANGE
         (CHANGE_ID, PRODUCT_ID, TASK_ID, ACTION_CODE, BEFORE_JSON, AFTER_JSON, USER_ID, USERNAME)
-        VALUES (SJZQ_SEQ_PRODUCT_CHANGE.NEXTVAL, :pid, :tid, :action, :before_v, :after_v, :uid, :username)
+        VALUES (SJZQ_SEQ_PRODUCT_CHANGE.NEXTVAL, :pid, :tid, :action, :before_v, :after_v, :actor_user_id, :username)
     """, {
         "pid": product_id, "tid": (before or after or {}).get("task_id"), "action": action,
         "before_v": json.dumps(before, ensure_ascii=False, default=str) if before else None,
         "after_v": json.dumps(after, ensure_ascii=False, default=str) if after else None,
-        "uid": user["user_id"], "username": user["username"],
+        "actor_user_id": user["user_id"], "username": user["username"],
     })
 
 
