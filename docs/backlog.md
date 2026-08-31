@@ -15,6 +15,12 @@
 |---|---|---|---|
 | REPO-GOV-ALIGN-001 | MERGED / ACCEPTED BASELINE | 从 Accepted Business Baseline 对齐治理文档、AGENTS、模板和 CI；PR #3 merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` | 已完成并停止；等待 Product Owner 批准独立后续 Task |
 
+## Current P0 hotfix（2026-08-31）
+
+| Task | 状态 | 范围 | 下一步 |
+|---|---|---|---|
+| PDD-PRODUCT-CHANGE-BIND-HOTFIX-001 | REVIEW ACCEPT / WAITING DRAFT PR | 修复 `PUT /api/products/{id}` 的 Product Change INSERT 与 `POST /api/products/save-batch` 的 SAVED_BY UPDATE 两处 Oracle `ORA-01745`；不改 Schema、事务或审计语义 | Oracle strict 55/55 PASS、真实 save-batch HTTP 200、Independent Review ACCEPT；创建 Draft PR 后等待 merge 批准 |
+
 ## Product-approved Web execution queue（2026-08-25）
 
 严格按以下依赖顺序执行；后项必须从前项 merge 后的 `main` 建立独立 Task/分支，不在未合并依赖上串接：

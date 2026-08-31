@@ -1,0 +1,72 @@
+TASK=PDD-PRODUCT-CHANGE-BIND-HOTFIX-001
+BASE=80b3435558e67850c9cba4215ca81456721ef0db
+BRANCH=codex/pdd-product-change-bind-hotfix-001
+FIXED_CODE_HEAD=892fa9faf224b3c3160d26dfcdd85bd65522209f
+STATE=REVIEW ACCEPT / WAITING DRAFT PR
+CHANGED_BRANCH_FIELD_1=server.routers.products._record_change USER_ID bind :uid -> :actor_user_id
+CHANGED_BRANCH_FIELD_2=server.routers.products.save_products SAVED_BY bind :uid -> :saved_by_user_id
+ORIGINAL_PRODUCTS_SHA256=fe906040f8e57f4ee9da583cb5a0bfe2308e0bc52475ff32da98f7857af3ace8
+MODIFIED_PRODUCTS_SHA256=9c2a68c17f1ef44547064e7ebc49383864765f0e03b31c39572aa425584c5d22
+
+ARTIFACT_MODIFIED_FILE=D:\work\PDD_con_data_product_change_bind_hotfix\docs\tasks\PDD-PRODUCT-CHANGE-BIND-HOTFIX-001-verification\MODIFIED_FILE
+ARTIFACT_DIFF_FILE=D:\work\PDD_con_data_product_change_bind_hotfix\docs\tasks\PDD-PRODUCT-CHANGE-BIND-HOTFIX-001-verification\DIFF_FILE.patch
+ARTIFACT_VERIFICATION=D:\work\PDD_con_data_product_change_bind_hotfix\docs\tasks\PDD-PRODUCT-CHANGE-BIND-HOTFIX-001-verification\VERIFICATION.txt
+ARTIFACT_ROLLBACK=D:\work\PDD_con_data_product_change_bind_hotfix\docs\tasks\PDD-PRODUCT-CHANGE-BIND-HOTFIX-001-verification\ROLLBACK.sh
+
+BASELINE_COMMAND=live PUT /api/products/1182 and POST /api/products/save-batch against main@80b3435; isolated Oracle probe SELECT :uid FROM dual
+BASELINE_INPUT=existing tenant-authorized Product 1182; process-local approved Oracle/JWT environment; no secret values logged
+BASELINE_LITERAL_OUTPUT=PUT /api/products/1182 -> HTTP 500; POST /api/products/save-batch -> HTTP 500; ORA-01745: invalid host/bind variable name; SELECT :uid FROM dual failed while non-reserved bind succeeded
+BASELINE_EXIT_STATUS=HTTP 500 / Oracle error
+BASELINE_STATUS=FAIL (expected reproduction)
+
+RED_TEST_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_change_bind -v after temporarily restoring each legacy bind
+RED_TEST_INPUT=_record_change :uid and save_products SAVED_BY=:uid, one variable restored at a time
+RED_TEST_LITERAL_OUTPUT=offline assertion failed because :actor_user_id / SAVED_BY=:saved_by_user_id was absent and legacy :uid remained
+RED_TEST_EXIT_STATUS=1
+RED_TEST_STATUS=PASS (failure reproduced before fix)
+
+MODIFIED_TARGETED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_change_bind tests.test_product_consistency_p0 -v
+MODIFIED_TARGETED_INPUT=test-only injected config; production _record_change and save_products functions; no database
+MODIFIED_TARGETED_LITERAL_OUTPUT=Ran 7 tests in 0.003s; OK; TARGETED_EXIT=0
+MODIFIED_TARGETED_EXIT_STATUS=0
+MODIFIED_TARGETED_STATUS=PASS
+
+MODIFIED_PYTHON_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite python -Strict
+MODIFIED_PYTHON_INPUT=Python 3.10; fixed code Head 892fa9faf224b3c3160d26dfcdd85bd65522209f; Oracle tests intentionally handled by separate strict gate
+MODIFIED_PYTHON_LITERAL_OUTPUT=Ran 253 tests in 0.604s; OK (skipped=33); [PASS] python-unit: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+MODIFIED_PYTHON_EXIT_STATUS=0
+MODIFIED_PYTHON_STATUS=PASS
+
+MODIFIED_ORACLE_COMMAND=$env:PDD_PYTHON='<APPROVED_PYTHON>'; set approved process-local Oracle variables and required Phase 1-6A flags without echo; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+MODIFIED_ORACLE_INPUT=fixed code Head 892fa9faf224b3c3160d26dfcdd85bd65522209f; approved isolated writable/cleanable Oracle; credentials redacted
+MODIFIED_ORACLE_LITERAL_OUTPUT=test_record_change_executes_and_cleans_up_in_oracle ... ok; test_save_batch_updates_product_records_change_commits_and_cleans_up ... ok; Ran 55 tests in 330.866s; OK; [PASS] oracle-integration: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+MODIFIED_ORACLE_EXIT_STATUS=0
+MODIFIED_ORACLE_STATUS=PASS
+ORACLE_CLEANUP_LITERAL_OUTPUT=both tests assert zero remaining SJZQ_PRODUCT_CHANGE rows; save-batch test also asserts zero remaining SJZQ_PRODUCT rows
+PERSISTENT_BUSINESS_CHANGES=false
+
+RUNTIME_COMMAND=restart 8080 from D:\work\PDD_con_data_product_change_bind_hotfix@892fa9f; POST /api/products/save-batch using existing authorized UI flow
+RUNTIME_INPUT=existing Product 1182; no schema/config change
+RUNTIME_LITERAL_OUTPUT=HTTP 200
+RUNTIME_EXIT_STATUS=HTTP 200
+RUNTIME_STATUS=PASS
+RESTORED_BEHAVIOR_STATUS=Product can be saved to library; SAVED_BY and Product Change audit persist in one transaction; no ORA-01745
+
+REVIEW_COMMAND=Independent read-only review of 80b3435..892fa9f plus actual test evidence
+REVIEW_INPUT=production diff, offline tests, Oracle tests, canonical gate, tenant/permission/transaction/cleanup semantics
+REVIEW_LITERAL_OUTPUT=ACCEPT; products.py has no :uid; transaction, permission, tenant and audit semantics unchanged; real Oracle path covers save_products UPDATE -> _record_change -> commit -> cleanup
+REVIEW_EXIT_STATUS=0
+REVIEW_STATUS=ACCEPT
+
+STATIC_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall server tests; git diff --check
+STATIC_INPUT=fixed code and documentation closure working tree
+STATIC_LITERAL_OUTPUT=compileall produced no errors; Validated 67 Markdown files; YAML_FILES=1; YAML_PARSE=PASS; DIFF_CHECK_EXIT=0; CHANGED_COUNT=10; ALLOWLIST_BAD=0; SENSITIVE_MATCHES=0
+STATIC_EXIT_STATUS=0
+STATIC_STATUS=PASS
+
+ROLLBACK_COMMAND=D:\Git\bin\bash.exe docs/tasks/PDD-PRODUCT-CHANGE-BIND-HOTFIX-001-verification/ROLLBACK.sh <another-copy-root>
+ROLLBACK_INPUT=another worktree/copy at final documentation Head
+ROLLBACK_LITERAL_OUTPUT=ROLLBACK_RESULT=PASS; PATCH_APPLY_EXIT=0; ROLLBACK_EXIT=0; RESTORED_CACHED_DIFF_EXIT=0; RESTORED_WORKTREE_DIFF_EXIT=0; TASK_PRESENT=False; SOURCE_MODIFIED_PRESENT=True; SOURCE_MODIFIED_SHA256=86312e106011c2455acfd92f05e3ddc5d99c7e73b5a980ffa275f7b16add77d4
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_STATUS=PASS
+MODIFIED_REMAINS_CHANGED=true
