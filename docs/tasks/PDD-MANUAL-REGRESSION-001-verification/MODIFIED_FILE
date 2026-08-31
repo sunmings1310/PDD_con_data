@@ -1,0 +1,4 @@
+TASK=PDD-MANUAL-REGRESSION-001
+BRANCH_FIELD=independent manual regression status and evidence matrix
+BASELINE_STATUS=not established
+MODIFIED_STATUS=IN_PROGRESS
