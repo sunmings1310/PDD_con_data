@@ -7,6 +7,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
+| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
 | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
 ## Completed governance baseline

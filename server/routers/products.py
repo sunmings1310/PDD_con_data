@@ -866,7 +866,7 @@ def list_products(
                    SPEC_TEXT, SKU_PRICES_TEXT,
                    APPROVAL_NO, MANUFACTURER, ITEM_URL, PICK_TAG,
                    COLLECT_TIME, LIBRARY_STATUS, IS_DELETED, SAVED_BY, SAVED_TIME,
-                   MASTER_PRODUCT_ID, SNAPSHOT_ID
+                   MASTER_PRODUCT_ID, ENTERPRISE_PRODUCT_ID, SNAPSHOT_ID
               FROM SJZQ_PRODUCT
              WHERE NVL(IS_DELETED,0)=0 AND ENTERPRISE_ID=:enterprise_id AND WORKSPACE_ID=:workspace_id
         """

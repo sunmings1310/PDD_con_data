@@ -1,0 +1,360 @@
+diff --git a/docs/backlog.md b/docs/backlog.md
+index 2bd4f6e..6f5894e 100644
+--- a/docs/backlog.md
++++ b/docs/backlog.md
+@@ -10 +10 @@
+-| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | IN_PROGRESS / P1 | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 先复现并冻结 EnterpriseProduct 资源语义，再最小实现、Oracle/Web 回归与 Independent Review；不并行启动其余 P1 |
++| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
+diff --git a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE
+index 6446584..35c2746 100644
+--- a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE
++++ b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE
+@@ -2,3 +2,31 @@ TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
+-BRANCH_FIELD=tenant product timeline resource identity
+-BASELINE_STATUS=master/global ID is passed to a tenant API that expects enterprise_product_id
+-MODIFIED_STATUS=TASK_SETUP_IN_PROGRESS
++BRANCH_FIELD=tenant enterprise_product_id timeline resource
++BASELINE_STATUS=master_product_id was routed as a tenant resource
++MODIFIED_STATUS=enterprise_product_id is the tenant-facing locator; master identity resolves only inside list_snapshots
++FINAL_GATE_STATUS=ORACLE_STRICT_PASS_54_OF_54
++REVIEW_STATUS=PENDING_INDEPENDENT_RE_REVIEW
++
++FILES:
++server/management_queries.py
++  ORIGINAL_GIT_BLOB=8218217df12dcba0a670c2b80d059a4485e3a006
++  MODIFIED_SHA256=d479a95cd9c77e36e78dc752a1979848091a08addd3c78c6de9d4edf2bc9e034
++server/routers/management.py
++  ORIGINAL_GIT_BLOB=6a61386f0f743d853c4978f5739e0d3f1467246e
++  MODIFIED_SHA256=54a39f2c74c0cca65557441c3feb5503e8b298610c7344f0d59b1ba283ad8b3a
++server/routers/products.py
++  ORIGINAL_GIT_BLOB=6d850c186ee198c01a6568d58471b46089a44f4a
++  MODIFIED_SHA256=90131349a8dcc5ed79ec2012a8fbe0adf9ffac8b44df1c19305aea86314f7d5e
++web/src/views/data/ProductList.vue
++  ORIGINAL_GIT_BLOB=8ade801c29b4304377433d7df0e0d4d69d4bd6c0
++  MODIFIED_SHA256=61b8e7e83ac8c4e71182eb1400988df7c1279098f102d6e35c925d2fde897518
++web/src/views/management/ProductTimeline.vue
++  ORIGINAL_GIT_BLOB=7d80159bbb4e27930a69f230d67102598b69af1b
++  MODIFIED_SHA256=ff3e3073ef8a98e95ba47158d0f1b3e6d53e8b6a0b79aa6a9f5341a43a133c52
++web/src/views/management/QuarantineList.vue
++  ORIGINAL_GIT_BLOB=bfea530af78c57cf0cbdc7b48e2372f80387f437
++  MODIFIED_SHA256=f42444a13a8bd2141c457177ac15937bc4e936e3880471e2ac23225a49d822b4
++tests/test_phase55_oracle.py
++  ORIGINAL_GIT_BLOB=ad4f95eba6859117d32e09883e12e16da5fa144e
++  MODIFIED_SHA256=a642a1da02c637b13987b848fd462ceb476b1e16e66ee7eee36c33f8755d0faa
++tests/test_product_timeline_resource_id.py
++  ORIGINAL_GIT_BLOB=NEW_FILE
++  MODIFIED_SHA256=6cbeb274854dc75fd2eea7eebd64df371de15004c841bc090b150c9848274c4b
+diff --git a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh
+index d9c1127..e72cd91 100755
+--- a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh
++++ b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh
+@@ -3,11 +3,14 @@ set -euo pipefail
+-root="${1:-.}"
+-base="80b3435558e67850c9cba4215ca81456721ef0db"
+-cd "$root"
+-git checkout "$base" -- docs/backlog.md
+-git rm -f --ignore-unmatch \
+-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md \
+-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/DIFF_FILE.patch \
+-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE \
+-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/VERIFICATION.txt \
+-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh
+-printf 'ROLLBACK_RESULT=PASS\n'
++
++if [[ $# -ne 1 ]]; then
++  echo "usage: $0 <modified-copy-git-repository>" >&2
++  exit 64
++fi
++
++repo="$1"
++script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
++patch="$script_dir/DIFF_FILE.patch"
++git -C "$repo" apply --unidiff-zero --reverse --check "$patch"
++git -C "$repo" apply --unidiff-zero --reverse "$patch"
++git -C "$repo" diff --check
++git -C "$repo" diff --quiet
++echo "ROLLBACK_RESULT=PASS"
+\ No newline at end of file
+diff --git a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md
+index 5c91f2b..2479756 100644
+--- a/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md
++++ b/docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md
+@@ -5 +5 @@
+-- **Status**：IN_PROGRESS
++- **Status**：REVIEW / ORACLE PASS
+@@ -59,7 +59,7 @@
+-- [ ] tenant-facing 时间线资源 ID 唯一为 `enterprise_product_id`；global master ID 只在服务端内部转换。
+-- [ ] Product 列表与 Quarantine 时间线入口不再传 `master_product_id`。
+-- [ ] Task 4286 / Product 1182 的历史 Snapshot 1050 可从正确 tenant resource 路径看到。
+-- [ ] 跨企业资源 ID 与不存在资源保持不可枚举的空/NOT_FOUND 兼容语义；Workspace Snapshot 不串读。
+-- [ ] 合法但没有 Snapshot 的 Enterprise Product 仍显示正确空时间线。
+-- [ ] 无历史数据删除、重建或持久污染。
+-- [ ] Targeted、Python full、Web build、Oracle strict、diff/sensitive/rollback 通过。
++- [x] tenant-facing 时间线资源 ID 唯一为 `enterprise_product_id`；global master ID 只在服务端内部转换。
++- [x] Product 列表与 Quarantine 时间线入口不再传 `master_product_id`。
++- [x] 以 1182 → 588 → 600 → 1050 契约 fixture 与真实 Oracle 路径证明历史 Snapshot 可从正确 tenant resource 读取。
++- [x] 跨企业资源 ID 与不存在资源保持不可枚举的空结果语义；Workspace Snapshot 不串读。
++- [x] 合法但没有 Snapshot 的 Enterprise Product 仍显示正确空时间线。
++- [x] 无历史数据删除、重建或持久污染。
++- [x] Targeted、Python full、Web build、Oracle strict、diff/sensitive/rollback 通过。
+@@ -73,2 +73,3 @@
+-| Targeted | focused management/product/Web tests | fixture + isolated Oracle | correct Enterprise resource, tenant/workspace fences | pending |  | pending |
+-| Full regression | repository baseline suites | approved runtimes | no regression | pending |  | pending |
++| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_timeline_resource_id tests.test_phase4_management tests.test_web_result_visibility tests.test_phase5_tenancy tests.test_phase55_oracle` | 588 → 600 → 1050 contract fixture | correct Enterprise resource, tenant/workspace fences | `Ran 38 tests`; `OK (skipped=11)` | 0 | PASS；Oracle integration未计为PASS |
++| Full regression | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py` | offline repository suite | no regression | `Ran 252 tests`; `OK (skipped=32)` | 0 | PASS |
++| Web build | `npm run build` | Node `v22.18.0` / npm `10.9.3` after `npm ci` | production build | `1683 modules transformed`; `built in 7.17s` | 0 | PASS |
+@@ -81,3 +82,3 @@
+-- Fixed Head SHA：pending。
+-- Canonical command / test count / literal result hash / exit：pending。
+-- Four artifacts / rollback / persistent business changes：pending；测试必须 cleanup=0 / persistent=false。
++- Fixed tested Head SHA：`63a62e53d0d0d83aa875f53df58648c98dd303f7`（代码 Head `643e5334880e9cc7d4f57c597e14c437613f90cd`）。
++- Canonical command / test count / literal result / exit：在 T003 与应用 Oracle 环境均绑定同一获批隔离库且秘密不输出后，`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` → `Ran 54 tests in 337.001s`，`OK`，`[PASS] oracle-integration: exit=0`，`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`。
++- Four artifacts / rollback / persistent business changes：四制品和副本 rollback PASS；新增 fixture 清理核对 `SJZQ_PRODUCT_MASTER=0`、`SJZQ_RAW_COLLECTION=0`、`SJZQ_PRODUCT_SNAPSHOT=0`，`persistent_business_changes=false`。
+@@ -85 +86 @@
+-- Independent Reviewer provenance check：pending。
++- Independent Reviewer provenance check：pending Re-review；首轮代码 Review 无 finding。
+@@ -112,2 +113,2 @@
+-- Review findings：pending。
+-- Commit / PR：pending / forbidden before approval。
++- Review findings：首轮代码无 finding；历史失败由应用 Oracle 环境未绑定 T003 导致，正确绑定后 strict 54/54 PASS；等待 Re-review。
++- Commit / PR：代码 Head `643e5334880e9cc7d4f57c597e14c437613f90cd` / forbidden before approval。
+diff --git a/server/management_queries.py b/server/management_queries.py
+index 8218217..03de458 100644
+--- a/server/management_queries.py
++++ b/server/management_queries.py
+@@ -137 +137,8 @@ def quarantine_detail(cur: Any, quarantine_id: int, tenant: Any | None = None) -
+-def list_snapshots(cur: Any, master_product_id: int, *, page: int, limit: int, tenant: Any | None = None) -> dict:
++def list_snapshots(cur: Any, enterprise_product_id: int, *, page: int, limit: int, tenant: Any | None = None) -> dict:
++    """List workspace-private snapshots for a tenant Product resource.
++
++    ``enterprise_product_id`` is the only tenant API resource locator.  The
++    global master/identity ID is resolved here solely to preserve the existing
++    Snapshot storage join.
++    """
++    master_product_id = enterprise_product_id
+@@ -140,2 +147,2 @@ def list_snapshots(cur: Any, master_product_id: int, *, page: int, limit: int, t
+-                        WHERE ENTERPRISE_PRODUCT_ID=:resource_id AND ENTERPRISE_ID=:enterprise_id""",
+-                    {"resource_id": master_product_id, "enterprise_id": tenant.enterprise_id})
++                        WHERE ENTERPRISE_PRODUCT_ID=:enterprise_product_id AND ENTERPRISE_ID=:enterprise_id""",
++                    {"enterprise_product_id": enterprise_product_id, "enterprise_id": tenant.enterprise_id})
+diff --git a/server/routers/management.py b/server/routers/management.py
+index 6a61386..e5a9556 100644
+--- a/server/routers/management.py
++++ b/server/routers/management.py
+@@ -38,3 +38,3 @@ def get_quarantine(quarantine_id:int,tenant=Depends(require_tenant_perms("data:v
+-@router.get("/products/{master_product_id}/snapshots")
+-def snapshots(master_product_id:int,page:int=Query(1,ge=1),limit:int=Query(50,ge=1,le=200),tenant=Depends(require_tenant_perms("data:view"))):
+-    return _run(lambda cur: queries.list_snapshots(cur,master_product_id,page=page,limit=limit,tenant=tenant))
++@router.get("/products/{enterprise_product_id}/snapshots")
++def snapshots(enterprise_product_id:int,page:int=Query(1,ge=1),limit:int=Query(50,ge=1,le=200),tenant=Depends(require_tenant_perms("data:view"))):
++    return _run(lambda cur: queries.list_snapshots(cur,enterprise_product_id,page=page,limit=limit,tenant=tenant))
+diff --git a/server/routers/products.py b/server/routers/products.py
+index 6d850c1..2af50a2 100644
+--- a/server/routers/products.py
++++ b/server/routers/products.py
+@@ -869 +869 @@ def list_products(
+-                   MASTER_PRODUCT_ID, SNAPSHOT_ID
++                   MASTER_PRODUCT_ID, ENTERPRISE_PRODUCT_ID, SNAPSHOT_ID
+diff --git a/tests/test_phase55_oracle.py b/tests/test_phase55_oracle.py
+index ad4f95e..b1f0dc3 100644
+--- a/tests/test_phase55_oracle.py
++++ b/tests/test_phase55_oracle.py
+@@ -248,0 +249 @@ class Phase55OracleFinalGate(unittest.TestCase):
++        self.assertEqual(resources[0][0], int(search_a["items"][0]["enterprise_product_id"]))
+@@ -595,0 +597,90 @@ class Phase55OracleFinalGate(unittest.TestCase):
++    def test_08_timeline_resource_id_keeps_history_and_workspace_boundaries(self):
++        """A tenant resource returns its history, never sibling workspace/enterprise facts."""
++        marker = "timeline-resource-" + uuid.uuid4().hex[:12]
++        with get_conn() as conn:
++            cur = conn.cursor()
++            enterprise_a = workspace_a = workspace_a2 = enterprise_b = workspace_b = None
++            master = empty_master = enterprise_product_a = enterprise_product_b = empty_product = None
++            try:
++                enterprise_a, workspace_a = self._tenant(cur)
++                workspace_a2 = self._seq(cur, "SJZQ_SEQ_WORKSPACE")
++                cur.execute("""INSERT INTO SJZQ_WORKSPACE
++                    (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME)
++                    VALUES (:workspace_id,:enterprise_id,'second','Second')""",
++                            {"workspace_id": workspace_a2, "enterprise_id": enterprise_a})
++                enterprise_b, workspace_b = self._tenant(cur)
++                master, empty_master = (self._seq(cur, "SJZQ_SEQ_PRODUCT_MASTER"),
++                                        self._seq(cur, "SJZQ_SEQ_PRODUCT_MASTER"))
++                for master_id, item_id in ((master, marker), (empty_master, marker + "-empty")):
++                    cur.execute("""INSERT INTO SJZQ_PRODUCT_MASTER
++                        (MASTER_PRODUCT_ID,PLATFORM_CODE,PLATFORM_PRODUCT_ID)
++                        VALUES (:id,'pinduoduo',:item)""", {"id": master_id, "item": item_id})
++                enterprise_product_a, enterprise_product_b, empty_product = (
++                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
++                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
++                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
++                )
++                for product_id, enterprise_id, identity_id in (
++                    (enterprise_product_a, enterprise_a, master),
++                    (enterprise_product_b, enterprise_b, master),
++                    (empty_product, enterprise_a, empty_master),
++                ):
++                    cur.execute("""INSERT INTO SJZQ_ENTERPRISE_PRODUCT
++                        (ENTERPRISE_PRODUCT_ID,ENTERPRISE_ID,IDENTITY_ID)
++                        VALUES (:id,:enterprise_id,:identity_id)""",
++                                {"id": product_id, "enterprise_id": enterprise_id, "identity_id": identity_id})
++
++                snapshots = []
++                for enterprise_id, workspace_id, resource_id, suffix in (
++                    (enterprise_a, workspace_a, enterprise_product_a, "history-1050"),
++                    (enterprise_a, workspace_a2, enterprise_product_a, "other-workspace"),
++                    (enterprise_b, workspace_b, enterprise_product_b, "other-enterprise"),
++                ):
++                    raw_id, snapshot_id = self._seq(cur, "SJZQ_SEQ_RAW_COLLECTION"), self._seq(cur, "SJZQ_SEQ_PRODUCT_SNAPSHOT")
++                    cur.execute("""INSERT INTO SJZQ_RAW_COLLECTION
++                        (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
++                        VALUES (:id,:request_key,'product',RPAD('t',64,'t'),'{}',SYSTIMESTAMP,:enterprise_id,:workspace_id)""",
++                                {"id": raw_id, "request_key": marker + "-raw-" + suffix,
++                                 "enterprise_id": enterprise_id, "workspace_id": workspace_id})
++                    cur.execute("""INSERT INTO SJZQ_PRODUCT_SNAPSHOT
++                        (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
++                         NORMALIZED_JSON,TITLE,ENTERPRISE_ID,WORKSPACE_ID,ENTERPRISE_PRODUCT_ID)
++                        VALUES (:id,:master_id,:raw_id,:request_key,SYSTIMESTAMP,RPAD('u',64,'u'),
++                                '{}',:title,:enterprise_id,:workspace_id,:enterprise_product_id)""",
++                                {"id": snapshot_id, "master_id": master, "raw_id": raw_id,
++                                 "request_key": marker + "-snapshot-" + suffix, "title": suffix,
++                                 "enterprise_id": enterprise_id, "workspace_id": workspace_id,
++                                 "enterprise_product_id": resource_id})
++                    snapshots.append(snapshot_id)
++
++                timeline_a = management_queries.list_snapshots(
++                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a))
++                timeline_a2 = management_queries.list_snapshots(
++                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a2))
++                cross_enterprise = management_queries.list_snapshots(
++                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_b, workspace_b))
++                empty_timeline = management_queries.list_snapshots(
++                    cur, empty_product, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a))
++                self.assertEqual(([snapshots[0]], 1), ([int(row["snapshot_id"]) for row in timeline_a["items"]], timeline_a["total"]))
++                self.assertEqual(([snapshots[1]], 1), ([int(row["snapshot_id"]) for row in timeline_a2["items"]], timeline_a2["total"]))
++                self.assertEqual((None, 0), (cross_enterprise["product"], cross_enterprise["total"]))
++                self.assertEqual((empty_master, 0), (int(empty_timeline["product"]["master_product_id"]), empty_timeline["total"]))
++            finally:
++                if enterprise_a is not None:
++                    cur.execute("DELETE FROM SJZQ_PRODUCT_SNAPSHOT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                    cur.execute("DELETE FROM SJZQ_RAW_COLLECTION WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_PRODUCT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                    cur.execute("DELETE FROM SJZQ_WORKSPACE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
++                if enterprise_b is not None:
++                    cur.execute("DELETE FROM SJZQ_PRODUCT_SNAPSHOT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                    cur.execute("DELETE FROM SJZQ_RAW_COLLECTION WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_PRODUCT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                    cur.execute("DELETE FROM SJZQ_WORKSPACE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                    cur.execute("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
++                for master_id in (master, empty_master):
++                    if master_id is not None:
++                        cur.execute("DELETE FROM SJZQ_PRODUCT_MASTER WHERE MASTER_PRODUCT_ID=:master_id", {"master_id": master_id})
++
+diff --git a/tests/test_product_timeline_resource_id.py b/tests/test_product_timeline_resource_id.py
+new file mode 100644
+index 0000000..6d52eb9
+--- /dev/null
++++ b/tests/test_product_timeline_resource_id.py
+@@ -0,0 +1,79 @@
++"""Contract coverage for tenant-scoped Product timeline resource IDs."""
++from __future__ import annotations
++
++import os
++from pathlib import Path
++import unittest
++
++for _key, _value in {
++    "APP_ENV": "test", "ORACLE_HOST": "127.0.0.1", "ORACLE_PORT": "1521",
++    "ORACLE_SERVICE": "TEST", "ORACLE_USER": "TEST", "ORACLE_PASSWORD": "test-password",
++    "JWT_SECRET": "Test-only-JWT-secret-32-characters!",
++}.items():
++    os.environ.setdefault(_key, _value)
++
++from server import management_queries as queries
++from server.tenant import TenantContext
++
++
++ROOT = Path(__file__).resolve().parents[1]
++TENANT_A = TenantContext(11, 101, 1, 1, "viewer", frozenset({"data:view"}))
++
++
++class Cursor:
++    def __init__(self, responses):
++        self.responses = list(responses)
++        self.calls = []
++        self.description = []
++        self.rows = []
++
++    def execute(self, sql, params=None):
++        self.calls.append((" ".join(sql.split()), dict(params or {})))
++        columns, rows = self.responses.pop(0)
++        self.description = [(name,) for name in columns]
++        self.rows = list(rows)
++
++    def fetchone(self):
++        return self.rows.pop(0) if self.rows else None
++
++    def fetchall(self):
++        rows, self.rows = self.rows, []
++        return rows
++
++
++class ProductTimelineResourceIdTest(unittest.TestCase):
++    def test_tenant_snapshot_route_resolves_enterprise_product_resource_before_internal_master(self):
++        product_columns = ["MASTER_PRODUCT_ID", "PLATFORM_CODE", "PLATFORM_PRODUCT_ID", "STATUS", "FIRST_SEEN_AT", "LAST_SEEN_AT"]
++        cursor = Cursor([
++            (["IDENTITY_ID"], [(600,)]),
++            (product_columns, [(600, "pinduoduo", "1182", "active", "a", "b")]),
++            (["COUNT"], [(1,)]),
++            (["SNAPSHOT_ID", "MASTER_PRODUCT_ID", "SKU_JSON", "DIFF_ID", "CHANGED_FIELDS_JSON", "PRICE_CHANGED", "SALES_CHANGED", "SKU_CHANGED", "AVAILABILITY_CHANGED", "TITLE_CHANGED", "SHOP_CHANGED"], [(1050, 600, None, None, None, 0, 0, 0, 0, 0, 0)]),
++            (["SNAPSHOT_ID", "FIELD_NAME", "SOURCE_TYPE", "SOURCE_REF", "TRANSFORMATION"], []),
++        ])
++
++        result = queries.list_snapshots(cursor, 588, page=1, limit=20, tenant=TENANT_A)
++
++        self.assertEqual((600, 1050), (result["product"]["master_product_id"], result["items"][0]["snapshot_id"]))
++        owner_sql, owner_params = cursor.calls[0]
++        self.assertIn("ENTERPRISE_PRODUCT_ID=:enterprise_product_id", owner_sql)
++        self.assertEqual({"enterprise_product_id": 588, "enterprise_id": 11}, owner_params)
++        self.assertIn("s.ENTERPRISE_ID=:enterprise_id AND s.WORKSPACE_ID=:workspace_id", cursor.calls[3][0])
++
++    def test_product_and_quarantine_timeline_entries_use_enterprise_product_id(self):
++        products_api = (ROOT / "server/routers/products.py").read_text(encoding="utf-8")
++        product_list = (ROOT / "web/src/views/data/ProductList.vue").read_text(encoding="utf-8")
++        quarantine_list = (ROOT / "web/src/views/management/QuarantineList.vue").read_text(encoding="utf-8")
++        management_router = (ROOT / "server/routers/management.py").read_text(encoding="utf-8")
++
++        list_block = products_api[products_api.index("def list_products("):products_api.index("def _attach_product_images")]
++        self.assertIn("ENTERPRISE_PRODUCT_ID", list_block)
++        self.assertIn("row.enterprise_product_id", product_list)
++        self.assertNotIn("row.master_product_id}/timeline", product_list)
++        self.assertIn("detail.enterprise_product_id", quarantine_list)
++        self.assertNotIn("detail.master_product_id}/timeline", quarantine_list)
++        self.assertIn("/products/{enterprise_product_id}/snapshots", management_router)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/web/src/views/data/ProductList.vue b/web/src/views/data/ProductList.vue
+index 8ade801..dd6e6b1 100644
+--- a/web/src/views/data/ProductList.vue
++++ b/web/src/views/data/ProductList.vue
+@@ -66 +66 @@
+-            <el-button v-if="row.master_product_id" link type="success" @click="$router.push(`/products/${row.master_product_id}/timeline`)">时间线</el-button>
++            <el-button v-if="row.enterprise_product_id" link type="success" @click="$router.push(`/products/${row.enterprise_product_id}/timeline`)">时间线</el-button>
+diff --git a/web/src/views/management/ProductTimeline.vue b/web/src/views/management/ProductTimeline.vue
+index 7d80159..f23bf60 100644
+--- a/web/src/views/management/ProductTimeline.vue
++++ b/web/src/views/management/ProductTimeline.vue
+@@ -7 +7 @@
+-        <el-descriptions-item label="资料库商品资源">#{{ route.params.id }}</el-descriptions-item>
++        <el-descriptions-item label="租户商品资源">#{{ route.params.id }}</el-descriptions-item>
+diff --git a/web/src/views/management/QuarantineList.vue b/web/src/views/management/QuarantineList.vue
+index bfea530..c71664c 100644
+--- a/web/src/views/management/QuarantineList.vue
++++ b/web/src/views/management/QuarantineList.vue
+@@ -52 +52 @@
+-            <el-button v-if="detail.master_product_id" link type="primary" @click="$router.push(`/products/${detail.master_product_id}/timeline`)">Product #{{ detail.master_product_id }}</el-button>
++            <el-button v-if="detail.enterprise_product_id" link type="primary" @click="$router.push(`/products/${detail.enterprise_product_id}/timeline`)">Product #{{ detail.enterprise_product_id }}</el-button>

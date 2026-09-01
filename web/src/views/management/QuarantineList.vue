@@ -49,7 +49,7 @@
           <el-space wrap>
             <el-button v-if="detail.task_id" link type="primary" @click="$router.push(`/tasks/${detail.task_id}/trace`)">Task #{{ detail.task_id }}</el-button>
             <span>Job #{{ detail.job_id || '-' }}</span><span>Attempt #{{ detail.attempt_id || '-' }}</span><span>Device #{{ detail.device_id || '-' }}</span>
-            <el-button v-if="detail.master_product_id" link type="primary" @click="$router.push(`/products/${detail.master_product_id}/timeline`)">Product #{{ detail.master_product_id }}</el-button>
+            <el-button v-if="detail.enterprise_product_id" link type="primary" @click="$router.push(`/products/${detail.enterprise_product_id}/timeline`)">Product #{{ detail.enterprise_product_id }}</el-button>
           </el-space>
           <h3 class="section-title block-title">QualityGate</h3>
           <pre>{{ pretty(detail.quality_result || detail.quality_gate) }}</pre>
