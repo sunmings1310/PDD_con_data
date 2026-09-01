@@ -7,7 +7,7 @@ index d05e28a..44a928a 100644
 +            "AND nextAttemptAt <= :now ORDER BY createdAt ASC, " +
 +            "CASE WHEN eventType='candidate_observation' THEN 0 WHEN eventType IN ('job_fail','job_complete') THEN 2 ELSE 1 END ASC LIMIT :limit"
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/data/OutboxPayload.kt b/android_collector/app/src/main/java/com/collector/pdd/data/OutboxPayload.kt
-index 23161dc..3bbf350 100644
+index 23161dc..9e8c3df 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/data/OutboxPayload.kt
 +++ b/android_collector/app/src/main/java/com/collector/pdd/data/OutboxPayload.kt
 @@ -17,0 +18,2 @@ object OutboxPayload {
@@ -23,8 +23,13 @@ index 23161dc..3bbf350 100644
 +    /** Candidate observation values use the same credential and PII filter as Raw capture. */
 +    internal fun sanitizeCandidateObservationValue(value: String?): String = sanitizeRaw(value.orEmpty())
 +
+@@ -46,0 +54,4 @@ object OutboxPayload {
++    /** Sanitizes every string value in the complete candidate-observation event before Room outbox persistence. */
++    internal fun sanitizeCandidateObservationPayload(payload: JSONObject): JSONObject =
++        sanitizeJsonValue(payload) as JSONObject
++
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
-index 6996ddc..b807cd2 100644
+index 6996ddc..685997d 100644
 --- a/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
 +++ b/android_collector/app/src/main/java/com/collector/pdd/engine/TaskEngine.kt
 @@ -3,0 +4 @@ import com.collector.pdd.CollectorApp
@@ -47,7 +52,7 @@ index 6996ddc..b807cd2 100644
 -        collector.search(actions, SearchRequest(keyword, sort = sort, prefetchPages = prefetchPages))
 +    ): SearchResult {
 +        val result = collector.search(actions, SearchRequest(keyword, sort = sort, prefetchPages = prefetchPages))
-@@ -100,0 +108,45 @@ class TaskEngine(
+@@ -100,0 +108,46 @@ class TaskEngine(
 +        return result
 +    }
 +
@@ -70,7 +75,7 @@ index 6996ddc..b807cd2 100644
 +        if (product != null) observed.put("title", safeCandidateValue(product.productName.ifBlank { product.sellName }))
 +            .put("spec", safeCandidateValue(product.spec)).put("approval", safeCandidateValue(product.approvalNo))
 +            .put("manufacturer", safeCandidateValue(product.manufacturer)).put("item_id", safeCandidateValue(product.itemId))
-+            .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", product.shopName)
++            .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", safeCandidateValue(product.shopName))
 +        val differences = JSONObject()
 +        for (key in listOf("title", "spec", "approval", "manufacturer")) {
 +            if (expected.optString(key) != observed.optString(key)) differences.put(key, "mismatch")
@@ -81,22 +86,23 @@ index 6996ddc..b807cd2 100644
 +            .put("candidate_ordinal", ordinal).put("expected_fields", expected)
 +            .put("observed_fields", observed).put("field_differences", differences)
 +            .put("source_summary", JSONArray().also { array -> sources.take(12).forEach { source ->
-+                array.put(JSONObject().put("type", source.type).put("source_identifier", safeCandidateValue(source.sourceIdentifier).take(128)))
++                array.put(JSONObject().put("type", safeCandidateValue(source.type).take(32)).put("source_identifier", safeCandidateValue(source.sourceIdentifier).take(128)))
 +            } }).put("collected_at_epoch_ms", System.currentTimeMillis())
 +            .put("collector_version", BuildConfig.VERSION_NAME)
 +            .put("parser_version", product?.parserVersion ?: "not_attempted")
++        val sanitizedPayload = OutboxPayload.sanitizeCandidateObservationPayload(payload)
 +        val dao = CollectorApp.instance.database.outboxDao()
 +        if (dao.get(id) == null) dao.insert(OutboxEntity(
 +            outboxId=id, eventType="candidate_observation", remoteTaskId=taskId,
-+            taskItemId=itemId, payloadJson=payload.toString(), jobId=jobId, attemptId=attemptId,
++            taskItemId=itemId, payloadJson=sanitizedPayload.toString(), jobId=jobId, attemptId=attemptId,
 +            leaseToken=leaseToken, workerId=workerId, traceId=config.traceId,
 +            checkpointVersion=config.checkpointVersion,
 +        ))
 +        try { onCandidateObserved?.invoke(id) } catch (e: Exception) { log("候选观察已进入待上报队列 outbox=$id err=${e.message}") }
-@@ -249 +301 @@ class TaskEngine(
+@@ -249 +302 @@ class TaskEngine(
 -                    searchKeywordCounted(
 +                    val searchResult = searchKeywordCounted(
-@@ -271,0 +324,9 @@ class TaskEngine(
+@@ -271,0 +325,9 @@ class TaskEngine(
 +                        if (searchResult.candidates.isEmpty()) {
 +                            total++
 +                            queueCandidateObservation(config, target, 0, false)
@@ -106,7 +112,7 @@ index 6996ddc..b807cd2 100644
 +                            reportTargetResult(target, false, message)
 +                            continue
 +                        }
-@@ -582,0 +644 @@ class TaskEngine(
+@@ -582,0 +645 @@ class TaskEngine(
 +                    queueCandidateObservation(config, target, openIndex + 1, true, product, collected.raw.sources)
 diff --git a/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt b/android_collector/app/src/main/java/com/collector/pdd/net/AgentCoordinator.kt
 index 89435b8..e572fbc 100644
@@ -171,10 +177,12 @@ index 75b1d98..31f0d16 100644
 +                    "JOB_ITEM_MISMATCH", "OBSERVATION_REASON_CONFLICT", "INVALID_SCREENSHOT_REF",
 +                    "OBSERVATION_TOO_LARGE", "OBSERVATION_LIMIT_REACHED", "QUOTA_EXCEEDED",
 diff --git a/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt b/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
-index f5cbd00..dcc73c0 100644
+index f5cbd00..9cd62f4 100644
 --- a/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
 +++ b/android_collector/app/src/test/java/com/collector/pdd/data/OutboxPayloadRawCaptureTest.kt
-@@ -76,0 +77,10 @@ class OutboxPayloadRawCaptureTest {
+@@ -7,0 +8 @@ import org.junit.Test
++import org.json.JSONArray
+@@ -76,0 +78,28 @@ class OutboxPayloadRawCaptureTest {
 +
 +    @Test
 +    fun candidateObservationValuesUseRawCredentialAndPhoneSanitizer() {
@@ -183,6 +191,24 @@ index f5cbd00..dcc73c0 100644
 +        assertFalse(sanitized.contains("candidate-secret"))
 +        assertFalse(sanitized.contains("13800138000"))
 +        assertFalse(sanitized.contains("token=secret"))
++        assertTrue(sanitized.contains("<redacted"))
++    }
++
++    @Test
++    fun candidateObservationPayloadIsSanitizedAtTheOutboxBoundary() {
++        val payload = JSONObject()
++            .put("observed_fields", JSONObject().put(
++                "shop",
++                "Authorization: Bearer shop-secret 手机号 13800138000 https://shop.test/?token=shop-token",
++            ))
++            .put("source_summary", JSONArray().put(JSONObject()
++                .put("type", "Bearer source-secret 手机号 13900139000 authorization=source-token")
++                .put("source_identifier", "https://source.test/?token=identifier-token")))
++
++        val sanitized = OutboxPayload.sanitizeCandidateObservationPayload(payload).toString()
++
++        listOf("shop-secret", "source-secret", "shop-token", "source-token", "identifier-token", "13800138000", "13900139000")
++            .forEach { value -> assertFalse("outbox payload leaked $value", sanitized.contains(value)) }
 +        assertTrue(sanitized.contains("<redacted"))
 +    }
 diff --git a/android_collector/app/src/test/java/com/collector/pdd/net/ApiClientReliabilityTest.kt b/android_collector/app/src/test/java/com/collector/pdd/net/ApiClientReliabilityTest.kt
@@ -277,7 +303,7 @@ index 290c178..7f9cd70 100644
 +| PDD-COLLECTION-OBSERVABILITY-001 | IN_PROGRESS | 未匹配候选作为独立 `candidate_observation` Raw 事实在 Task Detail 展示；不创建 Product/Snapshot/Quality/Quarantine 或成功统计 | 复用现有 `SJZQ_RAW_COLLECTION`，无需 migration；30 天 Raw/脱敏截图保留策略已获 Product Owner 批准 |
 diff --git a/docs/tasks/PDD-COLLECTION-OBSERVABILITY-001.md b/docs/tasks/PDD-COLLECTION-OBSERVABILITY-001.md
 new file mode 100644
-index 0000000..a90c9b9
+index 0000000..e1c4874
 --- /dev/null
 +++ b/docs/tasks/PDD-COLLECTION-OBSERVABILITY-001.md
 @@ -0,0 +1,124 @@
@@ -285,7 +311,7 @@ index 0000000..a90c9b9
 +
 +- **Task ID**：PDD-COLLECTION-OBSERVABILITY-001
 +- **Title**：未匹配候选观察证据与 Task Detail 可见性
-+- **Status**：REVIEW_FIX_COMPLETE（CHANGES REQUIRED 的值级脱敏与非递归 DIFF 已修复；须由 Control 在新固定 Head 重跑 Oracle，再 Independent Re-review 与真机 E2E）
++- **Status**：REVIEW_FIX_COMPLETE（第二轮值级脱敏修复已完成；须由 Control 在最终固定 Head 重跑 Oracle，再 Independent Re-review 与真机 E2E）
 +
 +## Goal
 +
@@ -357,10 +383,10 @@ index 0000000..a90c9b9
 +
 +| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 +|---|---|---|---|---|---:|---|
-+| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；candidate outbox、ACK、终态和值级脱敏 | outbox 正确，正式结果不增加，敏感值不上报 | 83 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
-+| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_raw_capture` | test-only injected settings；候选/无候选、lease、幂等、30 天和值级脱敏 | 单一 Raw、无正式业务结果，敏感值被清除 | 14 tests | 0 | PASS |
-+| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 264 tests，skipped=35 | 0 | PASS |
-+| Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | six mounted contracts PASS；Vite build PASS | 0 | PASS |
++| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；完整 candidate outbox payload（shop/source.type）、ACK、终态和值级脱敏 | outbox 正确，正式结果不增加，敏感值不上报 | BUILD SUCCESSFUL；83 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
++| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_raw_capture` | test-only injected settings；候选/无候选、lease、幂等、30 天和 source.type 值级脱敏 | 单一 Raw、无正式业务结果，敏感值被清除 | 14 tests，OK | 0 | PASS |
++| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 264 tests，skipped=35；SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True | 0 | PASS |
++| Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | seven mounted contracts PASS；Vite build PASS | 0 | PASS |
 +| Oracle strict | `scripts/test-baseline.ps1 -Suite oracle -Strict` | 已批准隔离 Oracle / Phase 1–6A flags；秘密不写入证据 | persistence、tenant、idempotency、30 天边界与 cleanup | `8bdfd88` 的 58/58 仅 Historical；修复后固定 Head 必须由 Control 重跑 | — | REQUIRED |
 +
 +## Oracle Gate
@@ -368,7 +394,7 @@ index 0000000..a90c9b9
 +- Required：Yes
 +- Reason：复用真实 `SJZQ_RAW_COLLECTION`，涉及 lease/tenant/idempotency/quota/transaction 与 cleanup；虽然当前方案不改 Schema，仍必须运行隔离 Oracle。
 +- Local isolated environment identifier：项目已批准专用可写可清理 Oracle；不得记录秘密。
-+- Repair code Head SHA：`8af2143aa62ab0bdee118118182ff14ab7941f02`；最终 documentation closure Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
++- Repair code Head SHA：`35c8b5332f9bb4c52cea4128b7199b0516579530`；最终 documentation closure Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
 +- Dev attempt: `powershell -NoProfile -File .\\scripts\\test-baseline.ps1 -Suite oracle -Strict` -> `[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables`，exit 2。Control 必须以已批准隔离环境重跑，不得将此项记为 PASS。
 +- Historical Oracle evidence：`C:\\Users\\Eden\\AppData\\Local\\Temp\\PDD-COLLECTION-OBSERVABILITY-001-final\\oracle-evidence.json` 的旧 SHA/`8bdfd88` 仅供历史追溯，不可作为本修复的 PASS。Control 必须在最终 fixed Head 重跑并覆写该 stable path 的 manifest；候选 Raw/脱敏截图保留 30 天，TaskItem 必要摘要永久保留。
 +- Four artifacts：本 Review Fix 的非递归 patch、PowerShell rollback probe 与哈希在 closure evidence 中记录；Oracle 测试清理必须为 0，persistent=false。
@@ -407,7 +433,7 @@ index 0000000..a90c9b9
 +- Commit / PR：pending
 diff --git a/server/candidate_observation.py b/server/candidate_observation.py
 new file mode 100644
-index 0000000..1c875b0
+index 0000000..e2fc691
 --- /dev/null
 +++ b/server/candidate_observation.py
 @@ -0,0 +1,257 @@
@@ -483,7 +509,7 @@ index 0000000..1c875b0
 +            key: _safe_text(value, 128) for key, value in sorted(body.field_differences.items()) if key in _FIELDS
 +        },
 +        "source_summary": [
-+            {"type": str(item.get("type") or "")[:32],
++            {"type": _safe_text(item.get("type"), 32),
 +             "source_identifier": _safe_text(item.get("source_identifier"), 128)}
 +            for item in body.source_summary[:12]
 +        ],
@@ -832,10 +858,10 @@ index c1bd73f..ee9ccac 100644
 +    result_kind: Literal["snapshot", "quarantine", "legacy_product", "candidate_observation"]
 diff --git a/tests/test_candidate_observation.py b/tests/test_candidate_observation.py
 new file mode 100644
-index 0000000..e9eda0f
+index 0000000..df94030
 --- /dev/null
 +++ b/tests/test_candidate_observation.py
-@@ -0,0 +1,149 @@
+@@ -0,0 +1,155 @@
 +from __future__ import annotations
 +
 +import json
@@ -906,10 +932,16 @@ index 0000000..e9eda0f
 +            expected_fields={"title": "Authorization: Bearer secret-value"},
 +            observed_fields={"title": "手机号 13800138000", "shop": "https://shop.test/?token=secret-value"},
 +            field_differences={"title": "Bearer secret-value", "shop": "token=secret-value"},
-+            source_summary=[{"type": "detail", "source_identifier": "https://detail.test/path?authorization=secret-value"}],
++            source_summary=[{
++                "type": "Bearer source-type-secret 手机号 13900139000 authorization=source-type-token",
++                "source_identifier": "https://detail.test/path?authorization=secret-value",
++            }],
 +        ))
 +        self.assertNotIn("secret-value", encoded)
++        self.assertNotIn("source-type-secret", encoded)
++        self.assertNotIn("source-type-token", encoded)
 +        self.assertNotIn("13800138000", encoded)
++        self.assertNotIn("13900139000", encoded)
 +        self.assertIn("<redacted", encoded)
 +
 +    def test_persist_is_lease_fenced_raw_only_and_idempotent(self):

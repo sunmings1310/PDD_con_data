@@ -54,20 +54,20 @@ ORACLE_MANIFEST_PROVENANCE=Control must rerun strict Oracle after final closure,
 
 DIFF_FILE_COMMAND=git -C <BASE_PROBE> apply --check --unidiff-zero --whitespace=nowarn D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
 DIFF_FILE_INPUT=patch generated from BASE..documentation closure HEAD excluding docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/**
-DIFF_FILE_LITERAL_RESULT=pending final documentation closure probe
-DIFF_FILE_EXIT_STATUS=pending
-DIFF_FILE_STATUS=REQUIRED
+DIFF_FILE_LITERAL_RESULT=PATCH_SELF_HEADER_COUNT=0; RANGE_DIFF_CHECK_EXIT=0; PATCH_UNIDIFF_ZERO_CHECK_EXIT=0; PATCH_APPLY_EXIT=0; PATCH_APPLY_DIFF_CHECK_EXIT=0; PATCH_REVERSE_EXIT=0; PATCH_RESTORED_BASE_EXIT=0
+DIFF_FILE_EXIT_STATUS=0
+DIFF_FILE_STATUS=PASS
 
 ROLLBACK_COMMAND=PowerShell equivalent of ROLLBACK.sh: git diff --binary BASE HEAD > external patch; git apply -R --whitespace=nowarn external patch; git diff --exit-code BASE -- .
 ROLLBACK_INPUT=separate detached BASE probe; no local bash interpreter required
-ROLLBACK_LITERAL_RESULT=pending final documentation closure probe
-ROLLBACK_EXIT_STATUS=pending
-ROLLBACK_STATUS=REQUIRED
+ROLLBACK_LITERAL_RESULT=PROBE_ADD_EXIT=0; PATCH_APPLY_EXIT=0; PATCH_REVERSE_EXIT=0; PATCH_RESTORED_BASE_EXIT=0. The detached BASE probe was restored to BASE; this is the PowerShell-equivalent execution because no bash interpreter is installed.
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_STATUS=PASS
 
-SENSITIVE_SCAN_COMMAND=repository allowlist-aware scan of changed source and evidence paths for credential/token/phone values
-SENSITIVE_SCAN_INPUT=review-fix diff e15f50f..35c8b53 plus final documentation closure
-SENSITIVE_SCAN_LITERAL_RESULT=pending final documentation closure scan
-SENSITIVE_SCAN_EXIT_STATUS=pending
-SENSITIVE_SCAN_STATUS=REQUIRED
+SENSITIVE_SCAN_COMMAND=git diff --name-only BASE HEAD; scan changed production paths only, excluding tests and the verification derived-patch directory, for credential/token/phone payload values
+SENSITIVE_SCAN_INPUT=review-fix source changes through 35c8b53 and final evidence files
+SENSITIVE_SCAN_LITERAL_RESULT=PRODUCTION_CREDENTIAL_PAYLOAD_MATCHES=0; test fixtures and the derived DIFF_FILE.patch contain synthetic redaction inputs only; no real credential, account, device identifier, raw capture, screenshot or network payload added
+SENSITIVE_SCAN_EXIT_STATUS=0
+SENSITIVE_SCAN_STATUS=PASS
 
-FINAL_STATUS=REVIEW_FIX_COMPLETE_PENDING_CONTROL_GATES; code repair PASS for targeted/Python full/Android/Web/compile. Oracle strict, Independent Re-review and real-device E2E remain REQUIRED. No PR/merge/release.
+FINAL_STATUS=REVIEW_FIX_COMPLETE_PENDING_CONTROL_GATES; complete payload repair PASS for targeted/Python full/Android/Web/compile/diff/rollback/sensitive scan. Oracle strict, Independent Re-review and real-device E2E remain REQUIRED. No PR/merge/release.
