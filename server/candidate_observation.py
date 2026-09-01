@@ -12,6 +12,7 @@ import oracledb
 from server.db import next_id
 from server.job_service import JobProtocolError, require_active_lease
 from server.quota import STORAGE_BYTES, adjust_used, commit, reserve
+from server.raw_capture import sanitize
 
 SOURCE_TYPE = "candidate_observation"
 RETENTION_DAYS = 30
@@ -33,8 +34,12 @@ def _bounded_fields(value: dict[str, Any]) -> dict[str, str | int | float | bool
         if raw is None or isinstance(raw, (int, float, bool)):
             result[key] = raw
         else:
-            result[key] = str(raw)[:512]
+            result[key] = str(sanitize(str(raw)))[:512]
     return result
+
+
+def _safe_text(value: Any, limit: int) -> str:
+    return str(sanitize(str(value or "")))[:limit]
 
 
 def canonical_payload(body: Any) -> tuple[str, str, int]:
@@ -62,11 +67,11 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
         "expected_fields": _bounded_fields(body.expected_fields),
         "observed_fields": {} if no_candidate else _bounded_fields(body.observed_fields),
         "field_differences": {} if no_candidate else {
-            key: str(value)[:128] for key, value in sorted(body.field_differences.items()) if key in _FIELDS
+            key: _safe_text(value, 128) for key, value in sorted(body.field_differences.items()) if key in _FIELDS
         },
         "source_summary": [
             {"type": str(item.get("type") or "")[:32],
-             "source_identifier": str(item.get("source_identifier") or "")[:128]}
+             "source_identifier": _safe_text(item.get("source_identifier"), 128)}
             for item in body.source_summary[:12]
         ],
         "collected_at_epoch_ms": int(body.collected_at_epoch_ms),

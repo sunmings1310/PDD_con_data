@@ -15,8 +15,10 @@ object OutboxPayload {
         setOf(RegexOption.MULTILINE),
     )
     private val sensitiveQuery = Regex("(?i)([?&](?:token|access_token|auth|authorization|session|device_key)=)[^&#\\s]+")
+    private val inlineSensitiveQuery = Regex("(?i)\\b((?:token|access_token|auth|authorization|session|device_key)=)[^&#\\s]+")
+    private val bearerToken = Regex("(?i)\\bBearer\\s+[A-Za-z0-9._~+/=-]+")
     private val personalLine = Regex(
-        "(?im)^(?:.*1\\d{2}\\*{4}\\d{4}.*|.*(?:\\d+栋|\\d+幢|\\d+单元|\\d+室|\\d+号).*|.*(?:微信|支付宝|银行卡)支付.*)$",
+        "(?im)^(?:.*1[3-9]\\d{9}.*|.*1\\d{2}\\*{4}\\d{4}.*|.*(?:\\d+栋|\\d+幢|\\d+单元|\\d+室|\\d+号).*|.*(?:微信|支付宝|银行卡)支付.*)$",
     )
     private val unrelatedSystemUiLine = Regex(
         "(?im)^(?:.*通知[:：].*|.*(?:短信同步|通话记录同步|设备备份失败).*|.*com\\.android\\.systemui:id/.*|" +
@@ -26,10 +28,15 @@ object OutboxPayload {
     internal fun sanitizeRaw(value: String): String = value
         .replace(sensitiveLine, "<redacted-sensitive-line>")
         .replace(sensitiveQuery, "$1<redacted>")
+        .replace(inlineSensitiveQuery, "$1<redacted>")
+        .replace(bearerToken, "Bearer <redacted>")
         .replace(personalLine, "<redacted-personal-line>")
         .replace(unrelatedSystemUiLine, "")
         .lines().joinToString("\n") { it.trimEnd() }
         .replace(Regex("\n{3,}"), "\n\n")
+
+    /** Candidate observation values use the same credential and PII filter as Raw capture. */
+    internal fun sanitizeCandidateObservationValue(value: String?): String = sanitizeRaw(value.orEmpty())
 
     private fun sanitizeJsonValue(value: Any?): Any? = when (value) {
         is JSONObject -> JSONObject().also { output ->

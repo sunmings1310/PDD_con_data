@@ -5,10 +5,10 @@ import com.collector.pdd.BuildConfig
 import com.collector.pdd.data.CollectConfig
 import com.collector.pdd.data.CollectTarget
 import com.collector.pdd.data.AppDatabase
+import com.collector.pdd.data.OutboxPayload
 import com.collector.pdd.data.ProductEntity
 import com.collector.pdd.data.TaskEntity
 import com.collector.pdd.data.OutboxEntity
-import com.collector.pdd.data.OutboxPayload
 import com.collector.pdd.collector.Collector
 import com.collector.pdd.collector.CollectorRegistry
 import com.collector.pdd.collector.CollectorSession
@@ -120,12 +120,13 @@ class TaskEngine(
         val leaseToken = config.leaseToken ?: return
         val workerId = config.workerId ?: return
         val id = "candidate-$jobId-$attemptId-$itemId-$ordinal"
-        val expected = JSONObject().put("title", target.targetName).put("spec", target.targetSpec)
-            .put("approval", target.targetApproval).put("manufacturer", target.targetManufacturer)
+        val safeCandidateValue: (String?) -> String = { OutboxPayload.sanitizeCandidateObservationValue(it).take(512) }
+        val expected = JSONObject().put("title", safeCandidateValue(target.targetName)).put("spec", safeCandidateValue(target.targetSpec))
+            .put("approval", safeCandidateValue(target.targetApproval)).put("manufacturer", safeCandidateValue(target.targetManufacturer))
         val observed = JSONObject()
-        if (product != null) observed.put("title", product.productName.ifBlank { product.sellName })
-            .put("spec", product.spec).put("approval", product.approvalNo)
-            .put("manufacturer", product.manufacturer).put("item_id", product.itemId)
+        if (product != null) observed.put("title", safeCandidateValue(product.productName.ifBlank { product.sellName }))
+            .put("spec", safeCandidateValue(product.spec)).put("approval", safeCandidateValue(product.approvalNo))
+            .put("manufacturer", safeCandidateValue(product.manufacturer)).put("item_id", safeCandidateValue(product.itemId))
             .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", product.shopName)
         val differences = JSONObject()
         for (key in listOf("title", "spec", "approval", "manufacturer")) {
@@ -137,7 +138,7 @@ class TaskEngine(
             .put("candidate_ordinal", ordinal).put("expected_fields", expected)
             .put("observed_fields", observed).put("field_differences", differences)
             .put("source_summary", JSONArray().also { array -> sources.take(12).forEach { source ->
-                array.put(JSONObject().put("type", source.type).put("source_identifier", source.sourceIdentifier))
+                array.put(JSONObject().put("type", source.type).put("source_identifier", safeCandidateValue(source.sourceIdentifier).take(128)))
             } }).put("collected_at_epoch_ms", System.currentTimeMillis())
             .put("collector_version", BuildConfig.VERSION_NAME)
             .put("parser_version", product?.parserVersion ?: "not_attempted")

@@ -63,6 +63,17 @@ class CandidateObservationTest(unittest.TestCase):
         expected_ref = "candidate-observations/" + hashlib.sha256(body().idempotency_key.encode()).hexdigest() + ".jpg"
         self.assertEqual(expected_ref, json.loads(canonical_payload(body(screenshot_ref=expected_ref))[0])["screenshot_ref"])
 
+    def test_contract_resanitizes_candidate_values_and_source_identifiers_before_persistence(self):
+        encoded, _, _ = canonical_payload(body(
+            expected_fields={"title": "Authorization: Bearer secret-value"},
+            observed_fields={"title": "手机号 13800138000", "shop": "https://shop.test/?token=secret-value"},
+            field_differences={"title": "Bearer secret-value", "shop": "token=secret-value"},
+            source_summary=[{"type": "detail", "source_identifier": "https://detail.test/path?authorization=secret-value"}],
+        ))
+        self.assertNotIn("secret-value", encoded)
+        self.assertNotIn("13800138000", encoded)
+        self.assertIn("<redacted", encoded)
+
     def test_persist_is_lease_fenced_raw_only_and_idempotent(self):
         cur=Cursor([None, (11,), (0,None)])
         job={"task_id":10,"item_id":11}

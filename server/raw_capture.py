@@ -30,8 +30,12 @@ SENSITIVE_TEXT_RE = re.compile(
 SENSITIVE_QUERY_RE = re.compile(
     r"(?i)([?&](?:token|access_token|auth|authorization|session|device_key|lease_token)=)[^&#\s]+"
 )
+INLINE_SENSITIVE_QUERY_RE = re.compile(
+    r"(?i)\b((?:token|access_token|auth|authorization|session|device_key|lease_token)=)[^&#\s]+"
+)
+BEARER_TOKEN_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 PERSONAL_TEXT_RE = re.compile(
-    r"(?im)^(?:.*1\d{2}\*{4}\d{4}.*|.*(?:\d+栋|\d+幢|\d+单元|\d+室|\d+号).*|"
+    r"(?im)^(?:.*1[3-9]\d{9}.*|.*1\d{2}\*{4}\d{4}.*|.*(?:\d+栋|\d+幢|\d+单元|\d+室|\d+号).*|"
     r".*(?:微信|支付宝|银行卡)支付.*)$"
 )
 UNRELATED_SYSTEM_UI_RE = re.compile(
@@ -114,6 +118,8 @@ def sanitize(value: Any) -> Any:
         return [sanitize(item) for item in value]
     if isinstance(value, str):
         result = SENSITIVE_QUERY_RE.sub(r"\1<redacted>", SENSITIVE_TEXT_RE.sub("<redacted-sensitive-line>", value))
+        result = INLINE_SENSITIVE_QUERY_RE.sub(r"\1<redacted>", result)
+        result = BEARER_TOKEN_RE.sub("Bearer <redacted>", result)
         result = PERSONAL_TEXT_RE.sub("<redacted-personal-line>", result)
         result = UNRELATED_SYSTEM_UI_RE.sub("", result)
         return re.sub(r"\n{3,}", "\n\n", result)

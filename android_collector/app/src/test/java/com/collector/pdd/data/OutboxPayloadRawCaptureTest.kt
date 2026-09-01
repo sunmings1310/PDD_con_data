@@ -74,4 +74,14 @@ class OutboxPayloadRawCaptureTest {
         assertFalse(sanitized.getString("page_text").contains("个人消息"))
         assertEquals("<redacted>", sanitized.getString("authorization"))
     }
+
+    @Test
+    fun candidateObservationValuesUseRawCredentialAndPhoneSanitizer() {
+        val value = "Authorization: Bearer candidate-secret\n手机号 13800138000\nhttps://example.test/a?token=secret"
+        val sanitized = OutboxPayload.sanitizeCandidateObservationValue(value)
+        assertFalse(sanitized.contains("candidate-secret"))
+        assertFalse(sanitized.contains("13800138000"))
+        assertFalse(sanitized.contains("token=secret"))
+        assertTrue(sanitized.contains("<redacted"))
+    }
 }
