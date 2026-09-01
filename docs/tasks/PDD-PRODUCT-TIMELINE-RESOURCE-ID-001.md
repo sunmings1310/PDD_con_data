@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
 - **Title**：修复 Product / Enterprise Product / Legacy Product ID 混用
-- **Status**：IN_PROGRESS
+- **Status**：BLOCKED / ORACLE GATE
 
 ## Goal
 
@@ -70,7 +70,7 @@
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
 | Baseline | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py` + focused source trace | main fixed base | existing baseline remains green while wrong master ID path is reproduced | `Ran 249 tests`; `OK (skipped=31)`；ProductList→master ID、tenant query→enterprise ID 冲突已定位 | 0 | PASS / DEFECT REPRODUCED |
-| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_timeline_resource_id tests.test_phase4_management tests.test_web_result_visibility tests.test_phase5_tenancy tests.test_phase55_oracle` | 588 → 600 → 1050 contract fixture | correct Enterprise resource, tenant/workspace fences | `Ran 38 tests`; `OK (skipped=11)` | 0 | PASS |
+| Targeted | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_timeline_resource_id tests.test_phase4_management tests.test_web_result_visibility tests.test_phase5_tenancy tests.test_phase55_oracle` | 588 → 600 → 1050 contract fixture | correct Enterprise resource, tenant/workspace fences | `Ran 38 tests`; `OK (skipped=11)` | 0 | PASS；Oracle integration未计为PASS |
 | Full regression | `D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py` | offline repository suite | no regression | `Ran 252 tests`; `OK (skipped=32)` | 0 | PASS |
 | Web build | `npm run build` | Node `v22.18.0` / npm `10.9.3` after `npm ci` | production build | `1683 modules transformed`; `built in 7.17s` | 0 | PASS |
 
@@ -79,11 +79,11 @@
 - Required：Yes。
 - Reason：修改 Oracle tenant-bound Product/Snapshot 查询与真实历史读取契约。
 - Local isolated environment identifier：沿用已批准专用测试 Oracle，秘密不进入日志或仓库。
-- Fixed Head SHA：待 Control 在本次提交后冻结。
-- Canonical command / test count / literal result hash / exit：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict`；当前进程无隔离 T003 Oracle 环境，字面结果为 `[BLOCKED] oracle-integration: Python test environment is unavailable`，exit `2`。
-- Four artifacts / rollback / persistent business changes：`docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/` 已更新；独立副本 apply/reverse 后 `RESTORED_DIFF_EXIT=0`；Oracle fixture 新增 `finally` cleanup，未执行 Oracle 前不可宣称 persistent=false PASS。
+- Fixed code Head SHA：`643e5334880e9cc7d4f57c597e14c437613f90cd`。
+- Canonical command / test count / literal result / exit：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` → `Ran 54 tests in 265.765s`，`FAILED (errors=14)`，exit `1`；约 40 项后远端 Oracle 拒绝连接。单独重试新增时间线 Oracle test 仍为 `DPY-6005 / WinError 10061`，exit `1`。
+- Four artifacts / rollback / persistent business changes：四制品和副本 rollback PASS；Oracle strict 未完成，cleanup / persistent=false 未获最终证明。
 - Hosted evidence validator：pending。
-- Independent Reviewer provenance check：pending。
+- Independent Reviewer provenance check：`BLOCKED`；代码无 finding，仅 Required Oracle Gate 未通过。
 
 ## Real-device Gate
 
@@ -110,5 +110,5 @@
 
 - Original evidence：`PDD-MANUAL-REGRESSION-001` 的 Product 1182 / Snapshot 1050 运行证据。
 - Derived artifacts：`docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/`。
-- Review findings：pending Independent Review。
-- Commit / PR：待 Control 提交 / forbidden before approval。
+- Review findings：代码无 finding；隔离 Oracle 连接在 strict 中途被拒绝，恢复后必须在同一固定代码 Head 重跑并复审。
+- Commit / PR：代码 Head `643e5334880e9cc7d4f57c597e14c437613f90cd` / forbidden before approval。

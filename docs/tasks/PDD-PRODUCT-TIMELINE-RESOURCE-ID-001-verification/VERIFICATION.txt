@@ -39,6 +39,18 @@ ORACLE_EXIT_STATUS=2
 ORACLE_STATUS=BLOCKED
 ORACLE_NEXT_CONTROL_ACTION=在固定提交上提供 approved isolated T003 Oracle secrets/flags and execute canonical strict command; the added Phase55OracleFinalGate test covers historical visibility, enterprise/workspace fences and valid empty timeline with cleanup.
 
+CONTROL_ORACLE_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; set approved T003 Oracle variables and Phase1-6A flags without printing values; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+CONTROL_ORACLE_INPUT=fixed code Head 643e5334880e9cc7d4f57c597e14c437613f90cd; approved isolated writable Oracle; secrets redacted
+CONTROL_ORACLE_LITERAL_OUTPUT=Ran 54 tests in 265.765s; FAILED (errors=14); [FAIL] oracle-integration: exit=1; SUMMARY PASS=0 FAIL=1 BLOCKED=0 STRICT=True; failures were DPY-6005 / WinError 10061 after the server began refusing connections
+CONTROL_ORACLE_EXIT_STATUS=1
+CONTROL_ORACLE_STATUS=FAIL_EXTERNAL_CONNECTION
+CONTROL_ORACLE_TARGETED_RETRY_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_timeline_resource_id_keeps_history_and_workspace_boundaries
+CONTROL_ORACLE_TARGETED_RETRY_LITERAL_OUTPUT=Ran 1 test in 4.115s; FAILED (errors=1); DPY-6005 / WinError 10061
+CONTROL_ORACLE_TARGETED_RETRY_EXIT_STATUS=1
+INDEPENDENT_REVIEW=BLOCKED
+INDEPENDENT_REVIEW_CODE_FINDINGS=0
+INDEPENDENT_REVIEW_REASON=Required Oracle strict did not complete; cleanup and persistent_business_changes=false are not yet proven
+
 ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero --reverse DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 diff --quiet
 ROLLBACK_INPUT=independent temporary git copy initialized from branch HEAD baseline files; source worktree retained changed
 ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0 REVERSE_CHECK_EXIT=0 REVERSE_EXIT=0 RESTORED_DIFF_EXIT=0 DIFF_CHECK_EXIT=0
@@ -46,6 +58,6 @@ ROLLBACK_EXIT_STATUS=0
 ROLLBACK_STATUS=PASS
 RESTORED_BEHAVIOR=probe returns to baseline with no diff; source MODIFIED_FILE and implementation remain changed
 
-DIFF_FILE_SHA256=1773f98586b4734ff29510ab3d54edc186c32fcacac6f91156b1506285967695
-MODIFIED_FILE_SHA256=ba6e8d83954511af6298cf9f516fd522af5b07da96bf28be64e7d4c546071bb1
+DIFF_FILE_SHA256=633668268f1ccb11831ee706e79bfbec06b6bffb99362c824f04a908035259be
+MODIFIED_FILE_SHA256=8dda51abdcc0c260920a60bcb37a3ddcc61ac9e0acf39d8c2546abdc671bec90
 ROLLBACK_SH_SHA256=597055d3313d7598a87627b3c11b6c45202774b811d16bf2407da45194cd2047
