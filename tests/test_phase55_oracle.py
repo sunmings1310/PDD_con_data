@@ -246,6 +246,7 @@ class Phase55OracleFinalGate(unittest.TestCase):
         self.assertFalse(tasks.get_task(tb, user=user, tenant=ctx_a).ok)
         search_a = products.list_products(keyword=marker, page=1, limit=10, tenant=ctx_a).data
         self.assertEqual([pa], [int(x["product_id"]) for x in search_a["items"]])
+        self.assertEqual(resources[0][0], int(search_a["items"][0]["enterprise_product_id"]))
         self.assertEqual(1, dashboard.summary(tenant=ctx_a).data["pending_tasks"])
         with get_conn() as conn:
             cur = conn.cursor()
@@ -592,6 +593,96 @@ class Phase55OracleFinalGate(unittest.TestCase):
         with get_conn() as conn:
             self._cleanup_task_import_fixture(conn.cursor(), enterprise_id, workspace_id)
             conn.commit()
+
+    def test_08_timeline_resource_id_keeps_history_and_workspace_boundaries(self):
+        """A tenant resource returns its history, never sibling workspace/enterprise facts."""
+        marker = "timeline-resource-" + uuid.uuid4().hex[:12]
+        with get_conn() as conn:
+            cur = conn.cursor()
+            enterprise_a = workspace_a = workspace_a2 = enterprise_b = workspace_b = None
+            master = empty_master = enterprise_product_a = enterprise_product_b = empty_product = None
+            try:
+                enterprise_a, workspace_a = self._tenant(cur)
+                workspace_a2 = self._seq(cur, "SJZQ_SEQ_WORKSPACE")
+                cur.execute("""INSERT INTO SJZQ_WORKSPACE
+                    (WORKSPACE_ID,ENTERPRISE_ID,WORKSPACE_CODE,WORKSPACE_NAME)
+                    VALUES (:workspace_id,:enterprise_id,'second','Second')""",
+                            {"workspace_id": workspace_a2, "enterprise_id": enterprise_a})
+                enterprise_b, workspace_b = self._tenant(cur)
+                master, empty_master = (self._seq(cur, "SJZQ_SEQ_PRODUCT_MASTER"),
+                                        self._seq(cur, "SJZQ_SEQ_PRODUCT_MASTER"))
+                for master_id, item_id in ((master, marker), (empty_master, marker + "-empty")):
+                    cur.execute("""INSERT INTO SJZQ_PRODUCT_MASTER
+                        (MASTER_PRODUCT_ID,PLATFORM_CODE,PLATFORM_PRODUCT_ID)
+                        VALUES (:id,'pinduoduo',:item)""", {"id": master_id, "item": item_id})
+                enterprise_product_a, enterprise_product_b, empty_product = (
+                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
+                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
+                    self._seq(cur, "SJZQ_SEQ_ENTERPRISE_PRODUCT"),
+                )
+                for product_id, enterprise_id, identity_id in (
+                    (enterprise_product_a, enterprise_a, master),
+                    (enterprise_product_b, enterprise_b, master),
+                    (empty_product, enterprise_a, empty_master),
+                ):
+                    cur.execute("""INSERT INTO SJZQ_ENTERPRISE_PRODUCT
+                        (ENTERPRISE_PRODUCT_ID,ENTERPRISE_ID,IDENTITY_ID)
+                        VALUES (:id,:enterprise_id,:identity_id)""",
+                                {"id": product_id, "enterprise_id": enterprise_id, "identity_id": identity_id})
+
+                snapshots = []
+                for enterprise_id, workspace_id, resource_id, suffix in (
+                    (enterprise_a, workspace_a, enterprise_product_a, "history-1050"),
+                    (enterprise_a, workspace_a2, enterprise_product_a, "other-workspace"),
+                    (enterprise_b, workspace_b, enterprise_product_b, "other-enterprise"),
+                ):
+                    raw_id, snapshot_id = self._seq(cur, "SJZQ_SEQ_RAW_COLLECTION"), self._seq(cur, "SJZQ_SEQ_PRODUCT_SNAPSHOT")
+                    cur.execute("""INSERT INTO SJZQ_RAW_COLLECTION
+                        (RAW_ID,REQUEST_KEY,SOURCE_TYPE,PAYLOAD_SHA256,RAW_JSON,COLLECTED_AT,ENTERPRISE_ID,WORKSPACE_ID)
+                        VALUES (:id,:request_key,'product',RPAD('t',64,'t'),'{}',SYSTIMESTAMP,:enterprise_id,:workspace_id)""",
+                                {"id": raw_id, "request_key": marker + "-raw-" + suffix,
+                                 "enterprise_id": enterprise_id, "workspace_id": workspace_id})
+                    cur.execute("""INSERT INTO SJZQ_PRODUCT_SNAPSHOT
+                        (SNAPSHOT_ID,MASTER_PRODUCT_ID,RAW_ID,REQUEST_KEY,COLLECTED_AT,CONTENT_SHA256,
+                         NORMALIZED_JSON,TITLE,ENTERPRISE_ID,WORKSPACE_ID,ENTERPRISE_PRODUCT_ID)
+                        VALUES (:id,:master_id,:raw_id,:request_key,SYSTIMESTAMP,RPAD('u',64,'u'),
+                                '{}',:title,:enterprise_id,:workspace_id,:enterprise_product_id)""",
+                                {"id": snapshot_id, "master_id": master, "raw_id": raw_id,
+                                 "request_key": marker + "-snapshot-" + suffix, "title": suffix,
+                                 "enterprise_id": enterprise_id, "workspace_id": workspace_id,
+                                 "enterprise_product_id": resource_id})
+                    snapshots.append(snapshot_id)
+
+                timeline_a = management_queries.list_snapshots(
+                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a))
+                timeline_a2 = management_queries.list_snapshots(
+                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a2))
+                cross_enterprise = management_queries.list_snapshots(
+                    cur, enterprise_product_a, page=1, limit=10, tenant=self._ctx(enterprise_b, workspace_b))
+                empty_timeline = management_queries.list_snapshots(
+                    cur, empty_product, page=1, limit=10, tenant=self._ctx(enterprise_a, workspace_a))
+                self.assertEqual(([snapshots[0]], 1), ([int(row["snapshot_id"]) for row in timeline_a["items"]], timeline_a["total"]))
+                self.assertEqual(([snapshots[1]], 1), ([int(row["snapshot_id"]) for row in timeline_a2["items"]], timeline_a2["total"]))
+                self.assertEqual((None, 0), (cross_enterprise["product"], cross_enterprise["total"]))
+                self.assertEqual((empty_master, 0), (int(empty_timeline["product"]["master_product_id"]), empty_timeline["total"]))
+            finally:
+                if enterprise_a is not None:
+                    cur.execute("DELETE FROM SJZQ_PRODUCT_SNAPSHOT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                    cur.execute("DELETE FROM SJZQ_RAW_COLLECTION WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_PRODUCT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                    cur.execute("DELETE FROM SJZQ_WORKSPACE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_a})
+                if enterprise_b is not None:
+                    cur.execute("DELETE FROM SJZQ_PRODUCT_SNAPSHOT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                    cur.execute("DELETE FROM SJZQ_RAW_COLLECTION WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_PRODUCT WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                    cur.execute("DELETE FROM SJZQ_WORKSPACE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE_QUOTA WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                    cur.execute("DELETE FROM SJZQ_ENTERPRISE WHERE ENTERPRISE_ID=:enterprise_id", {"enterprise_id": enterprise_b})
+                for master_id in (master, empty_master):
+                    if master_id is not None:
+                        cur.execute("DELETE FROM SJZQ_PRODUCT_MASTER WHERE MASTER_PRODUCT_ID=:master_id", {"master_id": master_id})
 
     def test_09_legacy_release_without_reservation_or_quota_is_noop(self):
         """A legacy completion can have neither quota row nor reservation."""

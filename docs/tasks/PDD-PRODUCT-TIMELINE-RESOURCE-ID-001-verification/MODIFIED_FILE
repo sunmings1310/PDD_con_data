@@ -1,4 +1,30 @@
 TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
-BRANCH_FIELD=tenant product timeline resource identity
-BASELINE_STATUS=master/global ID is passed to a tenant API that expects enterprise_product_id
-MODIFIED_STATUS=TASK_SETUP_IN_PROGRESS
+BRANCH_FIELD=tenant enterprise_product_id timeline resource
+BASELINE_STATUS=master_product_id was routed as a tenant resource
+MODIFIED_STATUS=enterprise_product_id is the tenant-facing locator; master identity resolves only inside list_snapshots
+
+FILES:
+server/management_queries.py
+  ORIGINAL_GIT_BLOB=8218217df12dcba0a670c2b80d059a4485e3a006
+  MODIFIED_SHA256=d479a95cd9c77e36e78dc752a1979848091a08addd3c78c6de9d4edf2bc9e034
+server/routers/management.py
+  ORIGINAL_GIT_BLOB=6a61386f0f743d853c4978f5739e0d3f1467246e
+  MODIFIED_SHA256=54a39f2c74c0cca65557441c3feb5503e8b298610c7344f0d59b1ba283ad8b3a
+server/routers/products.py
+  ORIGINAL_GIT_BLOB=6d850c186ee198c01a6568d58471b46089a44f4a
+  MODIFIED_SHA256=90131349a8dcc5ed79ec2012a8fbe0adf9ffac8b44df1c19305aea86314f7d5e
+web/src/views/data/ProductList.vue
+  ORIGINAL_GIT_BLOB=8ade801c29b4304377433d7df0e0d4d69d4bd6c0
+  MODIFIED_SHA256=61b8e7e83ac8c4e71182eb1400988df7c1279098f102d6e35c925d2fde897518
+web/src/views/management/ProductTimeline.vue
+  ORIGINAL_GIT_BLOB=7d80159bbb4e27930a69f230d67102598b69af1b
+  MODIFIED_SHA256=ff3e3073ef8a98e95ba47158d0f1b3e6d53e8b6a0b79aa6a9f5341a43a133c52
+web/src/views/management/QuarantineList.vue
+  ORIGINAL_GIT_BLOB=bfea530af78c57cf0cbdc7b48e2372f80387f437
+  MODIFIED_SHA256=f42444a13a8bd2141c457177ac15937bc4e936e3880471e2ac23225a49d822b4
+tests/test_phase55_oracle.py
+  ORIGINAL_GIT_BLOB=ad4f95eba6859117d32e09883e12e16da5fa144e
+  MODIFIED_SHA256=a642a1da02c637b13987b848fd462ceb476b1e16e66ee7eee36c33f8755d0faa
+tests/test_product_timeline_resource_id.py
+  ORIGINAL_GIT_BLOB=NEW_FILE
+  MODIFIED_SHA256=6cbeb274854dc75fd2eea7eebd64df371de15004c841bc090b150c9848274c4b

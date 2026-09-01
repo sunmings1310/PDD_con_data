@@ -35,9 +35,9 @@ def get_quarantine(quarantine_id:int,tenant=Depends(require_tenant_perms("data:v
     return result
 
 
-@router.get("/products/{master_product_id}/snapshots")
-def snapshots(master_product_id:int,page:int=Query(1,ge=1),limit:int=Query(50,ge=1,le=200),tenant=Depends(require_tenant_perms("data:view"))):
-    return _run(lambda cur: queries.list_snapshots(cur,master_product_id,page=page,limit=limit,tenant=tenant))
+@router.get("/products/{enterprise_product_id}/snapshots")
+def snapshots(enterprise_product_id:int,page:int=Query(1,ge=1),limit:int=Query(50,ge=1,le=200),tenant=Depends(require_tenant_perms("data:view"))):
+    return _run(lambda cur: queries.list_snapshots(cur,enterprise_product_id,page=page,limit=limit,tenant=tenant))
 
 
 @router.get("/quality/metrics")

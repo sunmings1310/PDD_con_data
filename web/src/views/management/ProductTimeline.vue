@@ -4,7 +4,7 @@
       <div class="toolbar"><el-button @click="$router.back()">返回</el-button><el-button type="primary" @click="load">刷新</el-button></div>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false"><template #default><el-button link type="primary" @click="load">重试</el-button></template></el-alert>
       <el-descriptions v-if="product" :column="3" border>
-        <el-descriptions-item label="资料库商品资源">#{{ route.params.id }}</el-descriptions-item>
+        <el-descriptions-item label="租户商品资源">#{{ route.params.id }}</el-descriptions-item>
         <el-descriptions-item label="平台">{{ product.platform_code || '-' }}</el-descriptions-item>
         <el-descriptions-item label="商品标识">{{ product.platform_product_id || '-' }}</el-descriptions-item>
       </el-descriptions>

@@ -1,24 +1,51 @@
 TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
-BASE=80b3435558e67850c9cba4215ca81456721ef0db
-BRANCH=codex/pdd-product-timeline-resource-id-001
-STATE=TASK_SETUP_IN_PROGRESS
-BASELINE_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py; rg -n "snapshots|master_product_id|enterprise_product_id|legacy_product_id|list_snapshots" web/src server tests docs/decisions
-BASELINE_INPUT=main fixed base; Task 4286 / Product 1182 / Snapshot 1050 regression anchor
-BASELINE_LITERAL_OUTPUT=Ran 249 tests in 0.765s; OK (skipped=31); ProductList routes master_product_id; management tenant query interprets route resource_id as enterprise_product_id; Accepted Phase 5 ADR requires enterprise_product_id for tenant resources
-BASELINE_EXIT_STATUS=0
+BRANCH_FIELD=tenant enterprise_product_id timeline resource
+BASE=16b97d21b8539baf10377eceb47a517ad8f4fa2b
+
+BASELINE_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_timeline_resource_id
+BASELINE_INPUT=pre-fix ProductList/Quarantine master-product routes and tenant snapshot lookup
+BASELINE_LITERAL_OUTPUT=Ran 2 tests in 0.001s; FAILED (failures=2); Product list omitted ENTERPRISE_PRODUCT_ID and query bound :resource_id instead of :enterprise_product_id
+BASELINE_EXIT_STATUS=1
 BASELINE_STATUS=FAIL_REPRODUCED
-MODIFIED_COMMAND=Task setup only
-MODIFIED_INPUT=docs/backlog.md and Task-specific verification artifacts
-MODIFIED_LITERAL_OUTPUT=scope, non-goals, Oracle gate, rollback and stop condition frozen
+
+MODIFIED_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest tests.test_product_timeline_resource_id tests.test_phase4_management tests.test_web_result_visibility tests.test_phase5_tenancy tests.test_phase55_oracle
+MODIFIED_INPUT=tenant enterprise_product_id=588; internal master=600; historical Snapshot=1050 contract fixture
+MODIFIED_LITERAL_OUTPUT=Ran 38 tests in 0.010s; OK (skipped=11)
 MODIFIED_EXIT_STATUS=0
-MODIFIED_STATUS=IN_PROGRESS
-ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe apply D:\work\PDD_con_data_pdd_product_timeline\docs\tasks\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification\DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe apply -R D:\work\PDD_con_data_pdd_product_timeline\docs\tasks\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification\DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe diff --quiet 80b3435558e67850c9cba4215ca81456721ef0db
-ROLLBACK_INPUT=detached probe worktree based on BASE; source worktree unchanged
-ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0; REVERSE_EXIT=0; RESTORED_DIFF_EXIT=0; TASK_ABSENT=True; PROBE_STATUS=<empty>; SOURCE_MODIFIED_REMAINS_CHANGED=True
+MODIFIED_STATUS=PASS
+
+FULL_REGRESSION_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py
+FULL_REGRESSION_INPUT=offline repository suite
+FULL_REGRESSION_LITERAL_OUTPUT=Ran 252 tests in 0.613s; OK (skipped=32)
+FULL_REGRESSION_EXIT_STATUS=0
+FULL_REGRESSION_STATUS=PASS
+
+WEB_BUILD_COMMAND=Path=D:\work\PDD_con_data\.tools\node-v22.18.0-win-x64; npm run build
+WEB_BUILD_INPUT=web/ after npm ci; Node v22.18.0 npm 10.9.3
+WEB_BUILD_LITERAL_OUTPUT=1683 modules transformed; built in 7.17s
+WEB_BUILD_EXIT_STATUS=0
+WEB_BUILD_STATUS=PASS
+
+COMPILE_DIFF_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m compileall -q server scripts tests; git diff --check
+COMPILE_DIFF_INPUT=changed server, web and tests
+COMPILE_DIFF_LITERAL_OUTPUT=COMPILE_EXIT=0 DIFF_CHECK_EXIT=0
+COMPILE_DIFF_EXIT_STATUS=0
+COMPILE_DIFF_STATUS=PASS
+
+ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+ORACLE_INPUT=process environment without T003 isolated Oracle flags/secrets
+ORACLE_LITERAL_OUTPUT=[BLOCKED] oracle-integration: Python test environment is unavailable; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+ORACLE_EXIT_STATUS=2
+ORACLE_STATUS=BLOCKED
+ORACLE_NEXT_CONTROL_ACTION=在固定提交上提供 approved isolated T003 Oracle secrets/flags and execute canonical strict command; the added Phase55OracleFinalGate test covers historical visibility, enterprise/workspace fences and valid empty timeline with cleanup.
+
+ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero --reverse DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 diff --quiet
+ROLLBACK_INPUT=independent temporary git copy initialized from branch HEAD baseline files; source worktree retained changed
+ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0 REVERSE_CHECK_EXIT=0 REVERSE_EXIT=0 RESTORED_DIFF_EXIT=0 DIFF_CHECK_EXIT=0
 ROLLBACK_EXIT_STATUS=0
 ROLLBACK_STATUS=PASS
-ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
-MODIFIED_REMAINS_CHANGED=true
-DIFF_FILE_SHA256=b16562ec3f7809d6d0ed8573b37742bca30765fe094a8b26d08a5062d05c3536
-MODIFIED_FILE_SHA256=4e722d8591abb226a0eacb3283b1f333fbc4db054cafba85586cb8b61902fbf5
-ROLLBACK_SH_SHA256=7a3d703ff909c1f7e3acb1d71077c1e6df90cfa614d03cfebf152e5702b5788a
+RESTORED_BEHAVIOR=probe returns to baseline with no diff; source MODIFIED_FILE and implementation remain changed
+
+DIFF_FILE_SHA256=1773f98586b4734ff29510ab3d54edc186c32fcacac6f91156b1506285967695
+MODIFIED_FILE_SHA256=ba6e8d83954511af6298cf9f516fd522af5b07da96bf28be64e7d4c546071bb1
+ROLLBACK_SH_SHA256=597055d3313d7598a87627b3c11b6c45202774b811d16bf2407da45194cd2047

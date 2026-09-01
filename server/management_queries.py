@@ -134,11 +134,18 @@ def quarantine_detail(cur: Any, quarantine_id: int, tenant: Any | None = None) -
     return row
 
 
-def list_snapshots(cur: Any, master_product_id: int, *, page: int, limit: int, tenant: Any | None = None) -> dict:
+def list_snapshots(cur: Any, enterprise_product_id: int, *, page: int, limit: int, tenant: Any | None = None) -> dict:
+    """List workspace-private snapshots for a tenant Product resource.
+
+    ``enterprise_product_id`` is the only tenant API resource locator.  The
+    global master/identity ID is resolved here solely to preserve the existing
+    Snapshot storage join.
+    """
+    master_product_id = enterprise_product_id
     if tenant is not None:
         cur.execute("""SELECT IDENTITY_ID FROM SJZQ_ENTERPRISE_PRODUCT
-                        WHERE ENTERPRISE_PRODUCT_ID=:resource_id AND ENTERPRISE_ID=:enterprise_id""",
-                    {"resource_id": master_product_id, "enterprise_id": tenant.enterprise_id})
+                        WHERE ENTERPRISE_PRODUCT_ID=:enterprise_product_id AND ENTERPRISE_ID=:enterprise_id""",
+                    {"enterprise_product_id": enterprise_product_id, "enterprise_id": tenant.enterprise_id})
         owned = cur.fetchone()
         if not owned: return {"product": None, "items": [], "total": 0, "page": page, "limit": limit}
         master_product_id = int(owned[0])

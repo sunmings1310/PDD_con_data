@@ -63,7 +63,7 @@
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.master_product_id" link type="success" @click="$router.push(`/products/${row.master_product_id}/timeline`)">时间线</el-button>
+            <el-button v-if="row.enterprise_product_id" link type="success" @click="$router.push(`/products/${row.enterprise_product_id}/timeline`)">时间线</el-button>
             <el-button v-if="isSuperAdmin" link type="warning" @click="openEdit(row)">修改</el-button>
             <el-button v-if="isSuperAdmin" link type="danger" @click="removeProduct(row)">删除</el-button>
           </template>

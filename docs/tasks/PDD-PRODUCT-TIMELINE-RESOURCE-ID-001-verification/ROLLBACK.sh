@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root="${1:-.}"
-base="80b3435558e67850c9cba4215ca81456721ef0db"
-cd "$root"
-git checkout "$base" -- docs/backlog.md
-git rm -f --ignore-unmatch \
-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md \
-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/DIFF_FILE.patch \
-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/MODIFIED_FILE \
-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/VERIFICATION.txt \
-  docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/ROLLBACK.sh
-printf 'ROLLBACK_RESULT=PASS\n'
+
+if [[ $# -ne 1 ]]; then
+  echo "usage: $0 <modified-copy-git-repository>" >&2
+  exit 64
+fi
+
+repo="$1"
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+patch="$script_dir/DIFF_FILE.patch"
+git -C "$repo" apply --unidiff-zero --reverse --check "$patch"
+git -C "$repo" apply --unidiff-zero --reverse "$patch"
+git -C "$repo" diff --check
+git -C "$repo" diff --quiet
+echo "ROLLBACK_RESULT=PASS"
