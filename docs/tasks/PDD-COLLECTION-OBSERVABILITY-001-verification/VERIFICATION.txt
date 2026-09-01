@@ -50,7 +50,7 @@ ORACLE_CLEANUP=all task-scoped candidate observation fixtures removed by test te
 
 MODIFIED_SHA256=e9bdc963de268d692d40dc3a6a4bc246c93542df26c677f966456bf8b562a0b2
 MODIFIED_STATUS=CHANGED
-ROLLBACK_STATUS=PENDING_PROBE_AFTER_EVIDENCE_WRAPPER_COMMIT
+ROLLBACK_STATUS=SUPERSEDED_BY_REVIEW_FIX_PROBE
 FINAL_STATUS=REVIEW; Dev and initial Oracle strict gate PASS; final Head Oracle rerun, Independent Review and real-device E2E remain pending. No PR/merge/release.
 DIFF_FILE_COMMAND=git -C D:\work\PDD_con_data_pdd_collection_observability_rollback_probe apply --check --whitespace=nowarn D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
 DIFF_FILE_LITERAL_RESULT=no output
@@ -73,3 +73,12 @@ REVIEW_FIX_PYTHON_FULL_LITERAL_RESULT=Ran 264 tests in 0.801s; OK (skipped=35); 
 REVIEW_FIX_ANDROID_LITERAL_RESULT=BUILD SUCCESSFUL; XML TESTS=83 FAILURES=0 ERRORS=0 SKIPPED=1
 REVIEW_FIX_WEB_LITERAL_RESULT=TASK_DETAIL_COMPONENT=PASS candidate_observation=warning_not_saveable; vite build PASS
 ORACLE_MANIFEST_PROVENANCE=historical stable path C:\Users\Eden\AppData\Local\Temp\PDD-COLLECTION-OBSERVABILITY-001-final\oracle-evidence.json must be replaced by Control after final closure; no old manifest is claimed as current PASS
+
+CURRENT_REVIEW_FIX_BASE=e15f50f93ee91d613011eed36324c14753ef4025
+CURRENT_REPAIR_CODE_HEAD=8af2143aa62ab0bdee118118182ff14ab7941f02
+CURRENT_DOCS_WRAPPER_HEAD=26f85bc74a4889b7a32f5640340335218c4d9f9e
+CURRENT_DIFF_SCOPE=git diff --binary -U0 BASE HEAD -- . ':(exclude)docs/tasks/PDD-COLLECTION-OBSERVABILITY-001-verification/**'; patch excludes itself and the verification directory; replay requires --unidiff-zero
+CURRENT_DIFF_APPLY_LITERAL_RESULT=PATCH_UNIDIFF_ZERO_CHECK_EXIT=0; PATCH_APPLY_EXIT=0; PATCH_APPLY_DIFF_CHECK_EXIT=0; PATCH_REVERSE_EXIT=0; PATCH_RESTORED_BASE_EXIT=0
+CURRENT_ROLLBACK_PROBE_LITERAL_RESULT=POWERSHELL_ROLLBACK_APPLY_EXIT=0; POWERSHELL_RESTORED_DIFF_VS_BASE_EXIT=0; POWERSHELL_TASK_PRESENT=False; POWERSHELL_VERIFICATION_PRESENT=False
+CURRENT_ARTIFACT_SHA256_BEFORE_CLOSURE=DIFF_FILE.patch=a6b13a7154a82eaf9b2bd1e498d6b44324ff0f1629b3ce97f9759bf9792fb1c0; MODIFIED_FILE=ba3981be3c4ac2380af2c651696d278b54040bdbab4e3c2cf3da84c8edaf4ddb; ROLLBACK.sh=b9b02723898be6fb963210774ba164147d33a43f88560dd25afb64e5f2457435; VERIFICATION.txt=df85c182ab3e7af2b27d1158ab6361a9a4b030da2a2dcfe254e80457e2bdd060
+CURRENT_STATUS=REVIEW_FIX_COMPLETE; no current Oracle PASS is claimed. Control must run strict Oracle on the final closure Head, replace the stable external manifest at C:\Users\Eden\AppData\Local\Temp\PDD-COLLECTION-OBSERVABILITY-001-final\oracle-evidence.json, then request Independent Re-review.
