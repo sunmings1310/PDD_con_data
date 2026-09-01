@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-COLLECTION-OBSERVABILITY-001
 - **Title**：未匹配候选观察证据与 Task Detail 可见性
-- **Status**：REVIEW（Dev 自检与隔离 Oracle 严格门禁已完成；Independent Review 与真机 E2E 待完成）
+- **Status**：REVIEW_FIX_COMPLETE（CHANGES REQUIRED 的值级脱敏与非递归 DIFF 已修复；须由 Control 在新固定 Head 重跑 Oracle，再 Independent Re-review 与真机 E2E）
 
 ## Goal
 
@@ -74,29 +74,29 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；candidate outbox、ACK、终态 | outbox 正确，正式结果不增加 | 82 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
-| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_job_service` | test-only injected settings；候选/无候选、lease、幂等、30 天 | 单一 Raw、无正式业务结果 | 20 tests，skipped=6（Oracle env 不在 Dev 进程） | 0 | PASS |
-| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 263 tests，skipped=35 | 0 | PASS |
+| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；candidate outbox、ACK、终态和值级脱敏 | outbox 正确，正式结果不增加，敏感值不上报 | 83 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
+| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_raw_capture` | test-only injected settings；候选/无候选、lease、幂等、30 天和值级脱敏 | 单一 Raw、无正式业务结果，敏感值被清除 | 14 tests | 0 | PASS |
+| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 264 tests，skipped=35 | 0 | PASS |
 | Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | six mounted contracts PASS；Vite build PASS | 0 | PASS |
-| Oracle strict | `scripts/test-baseline.ps1 -Suite oracle -Strict` | 已批准隔离 Oracle / Phase 1–6A flags；秘密不写入证据 | persistence、tenant、idempotency、30 天边界与 cleanup | 58 tests；`OK`；`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True` | 0 | PASS |
+| Oracle strict | `scripts/test-baseline.ps1 -Suite oracle -Strict` | 已批准隔离 Oracle / Phase 1–6A flags；秘密不写入证据 | persistence、tenant、idempotency、30 天边界与 cleanup | `8bdfd88` 的 58/58 仅 Historical；修复后固定 Head 必须由 Control 重跑 | — | REQUIRED |
 
 ## Oracle Gate
 
 - Required：Yes
 - Reason：复用真实 `SJZQ_RAW_COLLECTION`，涉及 lease/tenant/idempotency/quota/transaction 与 cleanup；虽然当前方案不改 Schema，仍必须运行隔离 Oracle。
 - Local isolated environment identifier：项目已批准专用可写可清理 Oracle；不得记录秘密。
-- Tested code Head SHA：`cebd8f60b537a46bf983a3fe35d42bbb8d775101`；最终 evidence/docs wrapper Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
+- Repair code Head SHA：`8af2143aa62ab0bdee118118182ff14ab7941f02`；最终 documentation closure Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
 - Dev attempt: `powershell -NoProfile -File .\\scripts\\test-baseline.ps1 -Suite oracle -Strict` -> `[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables`，exit 2。Control 必须以已批准隔离环境重跑，不得将此项记为 PASS。
-- Evidence generated at / expiry：Control 已完成首次严格门禁（58/58，348.628s，skipped=0）；提交本证据 wrapper 后须在最终 Head 重跑并生成不移动 Head 的外部 manifest。候选 Raw/脱敏截图保留 30 天，TaskItem 必要摘要永久保留。
-- Four artifacts：Dev evidence wrapper 待提交；Oracle 测试清理必须为 0，persistent=false。
-- Hosted evidence validator：最终 Head 外部 manifest 待本证据 wrapper 提交后生成并验证；GitHub 不连接 Oracle。
-- Independent Reviewer provenance check：pending（必须检查 Oracle manifest 绑定固定 Head）。
+- Historical Oracle evidence：`C:\\Users\\Eden\\AppData\\Local\\Temp\\PDD-COLLECTION-OBSERVABILITY-001-final\\oracle-evidence.json` 的旧 SHA/`8bdfd88` 仅供历史追溯，不可作为本修复的 PASS。Control 必须在最终 fixed Head 重跑并覆写该 stable path 的 manifest；候选 Raw/脱敏截图保留 30 天，TaskItem 必要摘要永久保留。
+- Four artifacts：本 Review Fix 的非递归 patch、PowerShell rollback probe 与哈希在 closure evidence 中记录；Oracle 测试清理必须为 0，persistent=false。
+- Hosted evidence validator：Control 在最终 Head manifest 上执行；GitHub 不连接 Oracle。
+- Independent Reviewer provenance check：REQUIRED（必须检查新 manifest 绑定最终 fixed Head）。
 
 ## Real-device Gate
 
 - Required：Yes
 - Device/scenario：既有连续授权；至少覆盖一轮有候选不匹配和一轮完全无候选，不进入 SKU/购物车/订单/支付。
-- Command or steps / result：pending；连续真机采集授权仍适用，但不得购物车、下单或支付。
+- Command or steps / result：REQUIRED；连续真机采集授权仍适用，但不得购物车、下单或支付。
 
 ## Rollback
 

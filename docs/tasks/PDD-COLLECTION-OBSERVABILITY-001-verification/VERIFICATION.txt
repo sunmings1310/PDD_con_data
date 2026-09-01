@@ -63,3 +63,13 @@ ROLLBACK_PROBE_LITERAL_RESULT=POWERSHELL_ROLLBACK_APPLY_EXIT=0; POWERSHELL_RESTO
 ROLLBACK_PROBE_EXIT_STATUS=0
 ROLLBACK_PROBE_STATUS=PASS
 RESTORED_BEHAVIOR_STATUS=probe restored to BASE; Task and verification absent; primary worktree MODIFIED_FILE remains changed
+
+REVIEW_FIX_TARGETED_COMMAND=python -m unittest -v tests.test_candidate_observation tests.test_raw_capture
+REVIEW_FIX_TARGETED_INPUT=test-only configuration; Authorization/Bearer, phone number and query token supplied in candidate expected/observed/difference/source_identifier fields
+REVIEW_FIX_TARGETED_LITERAL_RESULT=Ran 14 tests; OK
+REVIEW_FIX_TARGETED_EXIT_STATUS=0
+REVIEW_FIX_TARGETED_STATUS=PASS
+REVIEW_FIX_PYTHON_FULL_LITERAL_RESULT=Ran 264 tests in 0.801s; OK (skipped=35); SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+REVIEW_FIX_ANDROID_LITERAL_RESULT=BUILD SUCCESSFUL; XML TESTS=83 FAILURES=0 ERRORS=0 SKIPPED=1
+REVIEW_FIX_WEB_LITERAL_RESULT=TASK_DETAIL_COMPONENT=PASS candidate_observation=warning_not_saveable; vite build PASS
+ORACLE_MANIFEST_PROVENANCE=historical stable path C:\Users\Eden\AppData\Local\Temp\PDD-COLLECTION-OBSERVABILITY-001-final\oracle-evidence.json must be replaced by Control after final closure; no old manifest is claimed as current PASS
