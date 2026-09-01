@@ -1,5 +1,5 @@
 BASE=e15f50f93ee91d613011eed36324c14753ef4025
-REPAIR_CODE_HEAD=8af2143aa62ab0bdee118118182ff14ab7941f02
+REPAIR_CODE_HEAD=35c8b5332f9bb4c52cea4128b7199b0516579530
 BRANCH=codex/pdd-collection-observability-001
-SCOPE=Candidate-observation value-level sanitization before Android outbox and before Server Raw persistence; non-recursive diff evidence; no schema migration
-STATUS=REVIEW_FIX_COMPLETE; Python/Android/Web PASS; final-head Oracle Required by Control; Independent Re-review and E2E Required
+SCOPE=Complete candidate-observation payload sanitization: TaskEngine shop/source.type, outbox boundary recursion, and server source_summary.type; non-recursive diff evidence; no schema migration
+STATUS=REVIEW_FIX_COMPLETE_PENDING_CONTROL_GATES; targeted/Python full/Android/Web/compile PASS; final-head Oracle Required by Control; Independent Re-review and E2E Required

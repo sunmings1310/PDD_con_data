@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-COLLECTION-OBSERVABILITY-001
 - **Title**：未匹配候选观察证据与 Task Detail 可见性
-- **Status**：REVIEW_FIX_COMPLETE（CHANGES REQUIRED 的值级脱敏与非递归 DIFF 已修复；须由 Control 在新固定 Head 重跑 Oracle，再 Independent Re-review 与真机 E2E）
+- **Status**：REVIEW_FIX_COMPLETE（第二轮值级脱敏修复已完成；须由 Control 在最终固定 Head 重跑 Oracle，再 Independent Re-review 与真机 E2E）
 
 ## Goal
 
@@ -74,10 +74,10 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；candidate outbox、ACK、终态和值级脱敏 | outbox 正确，正式结果不增加，敏感值不上报 | 83 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
-| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_raw_capture` | test-only injected settings；候选/无候选、lease、幂等、30 天和值级脱敏 | 单一 Raw、无正式业务结果，敏感值被清除 | 14 tests | 0 | PASS |
-| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 264 tests，skipped=35 | 0 | PASS |
-| Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | six mounted contracts PASS；Vite build PASS | 0 | PASS |
+| Android JVM | `testDebugUnitTest --no-daemon` | JDK 17 / SDK 34；完整 candidate outbox payload（shop/source.type）、ACK、终态和值级脱敏 | outbox 正确，正式结果不增加，敏感值不上报 | BUILD SUCCESSFUL；83 tests，failures=0，errors=0，skipped=1 | 0 | PASS |
+| Python targeted | `python -m unittest -v tests.test_candidate_observation tests.test_raw_capture` | test-only injected settings；候选/无候选、lease、幂等、30 天和 source.type 值级脱敏 | 单一 Raw、无正式业务结果，敏感值被清除 | 14 tests，OK | 0 | PASS |
+| Python full | `scripts/test-baseline.ps1 -Suite python -Strict` | test-only injected settings | 基础回归通过 | 264 tests，skipped=35；SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True | 0 | PASS |
+| Web mounted + build | `npm run test:task-import-components`; `npm run build` | Node 22.18.0/npm 10.9.3 | TaskDetail 候选分区及 stale fence 正确 | seven mounted contracts PASS；Vite build PASS | 0 | PASS |
 | Oracle strict | `scripts/test-baseline.ps1 -Suite oracle -Strict` | 已批准隔离 Oracle / Phase 1–6A flags；秘密不写入证据 | persistence、tenant、idempotency、30 天边界与 cleanup | `8bdfd88` 的 58/58 仅 Historical；修复后固定 Head 必须由 Control 重跑 | — | REQUIRED |
 
 ## Oracle Gate
@@ -85,7 +85,7 @@
 - Required：Yes
 - Reason：复用真实 `SJZQ_RAW_COLLECTION`，涉及 lease/tenant/idempotency/quota/transaction 与 cleanup；虽然当前方案不改 Schema，仍必须运行隔离 Oracle。
 - Local isolated environment identifier：项目已批准专用可写可清理 Oracle；不得记录秘密。
-- Repair code Head SHA：`8af2143aa62ab0bdee118118182ff14ab7941f02`；最终 documentation closure Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
+- Repair code Head SHA：`35c8b5332f9bb4c52cea4128b7199b0516579530`；最终 documentation closure Head 由提交后 `git rev-parse HEAD` 与外部 Oracle manifest 的 `git_head` 绑定，避免在提交内容中自引用未知 SHA。
 - Dev attempt: `powershell -NoProfile -File .\\scripts\\test-baseline.ps1 -Suite oracle -Strict` -> `[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables`，exit 2。Control 必须以已批准隔离环境重跑，不得将此项记为 PASS。
 - Historical Oracle evidence：`C:\\Users\\Eden\\AppData\\Local\\Temp\\PDD-COLLECTION-OBSERVABILITY-001-final\\oracle-evidence.json` 的旧 SHA/`8bdfd88` 仅供历史追溯，不可作为本修复的 PASS。Control 必须在最终 fixed Head 重跑并覆写该 stable path 的 manifest；候选 Raw/脱敏截图保留 30 天，TaskItem 必要摘要永久保留。
 - Four artifacts：本 Review Fix 的非递归 patch、PowerShell rollback probe 与哈希在 closure evidence 中记录；Oracle 测试清理必须为 0，persistent=false。
