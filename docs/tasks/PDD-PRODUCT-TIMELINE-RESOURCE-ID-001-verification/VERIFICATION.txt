@@ -1,0 +1,24 @@
+TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
+BASE=80b3435558e67850c9cba4215ca81456721ef0db
+BRANCH=codex/pdd-product-timeline-resource-id-001
+STATE=TASK_SETUP_IN_PROGRESS
+BASELINE_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe scripts\run_python_unit_tests.py; rg -n "snapshots|master_product_id|enterprise_product_id|legacy_product_id|list_snapshots" web/src server tests docs/decisions
+BASELINE_INPUT=main fixed base; Task 4286 / Product 1182 / Snapshot 1050 regression anchor
+BASELINE_LITERAL_OUTPUT=Ran 249 tests in 0.765s; OK (skipped=31); ProductList routes master_product_id; management tenant query interprets route resource_id as enterprise_product_id; Accepted Phase 5 ADR requires enterprise_product_id for tenant resources
+BASELINE_EXIT_STATUS=0
+BASELINE_STATUS=FAIL_REPRODUCED
+MODIFIED_COMMAND=Task setup only
+MODIFIED_INPUT=docs/backlog.md and Task-specific verification artifacts
+MODIFIED_LITERAL_OUTPUT=scope, non-goals, Oracle gate, rollback and stop condition frozen
+MODIFIED_EXIT_STATUS=0
+MODIFIED_STATUS=IN_PROGRESS
+ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe apply D:\work\PDD_con_data_pdd_product_timeline\docs\tasks\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification\DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe apply -R D:\work\PDD_con_data_pdd_product_timeline\docs\tasks\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification\DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-rollback-probe diff --quiet 80b3435558e67850c9cba4215ca81456721ef0db
+ROLLBACK_INPUT=detached probe worktree based on BASE; source worktree unchanged
+ROLLBACK_LITERAL_OUTPUT=APPLY_EXIT=0; REVERSE_EXIT=0; RESTORED_DIFF_EXIT=0; TASK_ABSENT=True; PROBE_STATUS=<empty>; SOURCE_MODIFIED_REMAINS_CHANGED=True
+ROLLBACK_EXIT_STATUS=0
+ROLLBACK_STATUS=PASS
+ORIGINAL_BACKLOG_SHA256=abf936170781ec73792bedcabde814e11fa813ac2b28634a08cc8a92c502656c
+MODIFIED_REMAINS_CHANGED=true
+DIFF_FILE_SHA256=b16562ec3f7809d6d0ed8573b37742bca30765fe094a8b26d08a5062d05c3536
+MODIFIED_FILE_SHA256=4e722d8591abb226a0eacb3283b1f333fbc4db054cafba85586cb8b61902fbf5
+ROLLBACK_SH_SHA256=7a3d703ff909c1f7e3acb1d71077c1e6df90cfa614d03cfebf152e5702b5788a

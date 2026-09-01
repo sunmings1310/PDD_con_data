@@ -1,0 +1,4 @@
+TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
+BRANCH_FIELD=tenant product timeline resource identity
+BASELINE_STATUS=master/global ID is passed to a tenant API that expects enterprise_product_id
+MODIFIED_STATUS=TASK_SETUP_IN_PROGRESS
