@@ -70,7 +70,7 @@ def canonical_payload(body: Any) -> tuple[str, str, int]:
             key: _safe_text(value, 128) for key, value in sorted(body.field_differences.items()) if key in _FIELDS
         },
         "source_summary": [
-            {"type": str(item.get("type") or "")[:32],
+            {"type": _safe_text(item.get("type"), 32),
              "source_identifier": _safe_text(item.get("source_identifier"), 128)}
             for item in body.source_summary[:12]
         ],

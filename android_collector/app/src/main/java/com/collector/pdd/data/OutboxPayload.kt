@@ -51,6 +51,10 @@ object OutboxPayload {
         else -> value
     }
 
+    /** Sanitizes every string value in the complete candidate-observation event before Room outbox persistence. */
+    internal fun sanitizeCandidateObservationPayload(payload: JSONObject): JSONObject =
+        sanitizeJsonValue(payload) as JSONObject
+
     internal fun sanitizeSourcePayload(source: RawSource): String {
         if (!source.contentType.contains("json", ignoreCase = true)) return sanitizeRaw(source.payload)
         val raw = source.payload.trim()

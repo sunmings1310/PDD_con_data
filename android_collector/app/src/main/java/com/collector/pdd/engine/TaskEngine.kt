@@ -127,7 +127,7 @@ class TaskEngine(
         if (product != null) observed.put("title", safeCandidateValue(product.productName.ifBlank { product.sellName }))
             .put("spec", safeCandidateValue(product.spec)).put("approval", safeCandidateValue(product.approvalNo))
             .put("manufacturer", safeCandidateValue(product.manufacturer)).put("item_id", safeCandidateValue(product.itemId))
-            .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", product.shopName)
+            .put("price", product.displayPrice ?: product.price ?: JSONObject.NULL).put("shop", safeCandidateValue(product.shopName))
         val differences = JSONObject()
         for (key in listOf("title", "spec", "approval", "manufacturer")) {
             if (expected.optString(key) != observed.optString(key)) differences.put(key, "mismatch")
@@ -138,14 +138,15 @@ class TaskEngine(
             .put("candidate_ordinal", ordinal).put("expected_fields", expected)
             .put("observed_fields", observed).put("field_differences", differences)
             .put("source_summary", JSONArray().also { array -> sources.take(12).forEach { source ->
-                array.put(JSONObject().put("type", source.type).put("source_identifier", safeCandidateValue(source.sourceIdentifier).take(128)))
+                array.put(JSONObject().put("type", safeCandidateValue(source.type).take(32)).put("source_identifier", safeCandidateValue(source.sourceIdentifier).take(128)))
             } }).put("collected_at_epoch_ms", System.currentTimeMillis())
             .put("collector_version", BuildConfig.VERSION_NAME)
             .put("parser_version", product?.parserVersion ?: "not_attempted")
+        val sanitizedPayload = OutboxPayload.sanitizeCandidateObservationPayload(payload)
         val dao = CollectorApp.instance.database.outboxDao()
         if (dao.get(id) == null) dao.insert(OutboxEntity(
             outboxId=id, eventType="candidate_observation", remoteTaskId=taskId,
-            taskItemId=itemId, payloadJson=payload.toString(), jobId=jobId, attemptId=attemptId,
+            taskItemId=itemId, payloadJson=sanitizedPayload.toString(), jobId=jobId, attemptId=attemptId,
             leaseToken=leaseToken, workerId=workerId, traceId=config.traceId,
             checkpointVersion=config.checkpointVersion,
         ))

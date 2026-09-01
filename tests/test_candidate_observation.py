@@ -68,10 +68,16 @@ class CandidateObservationTest(unittest.TestCase):
             expected_fields={"title": "Authorization: Bearer secret-value"},
             observed_fields={"title": "手机号 13800138000", "shop": "https://shop.test/?token=secret-value"},
             field_differences={"title": "Bearer secret-value", "shop": "token=secret-value"},
-            source_summary=[{"type": "detail", "source_identifier": "https://detail.test/path?authorization=secret-value"}],
+            source_summary=[{
+                "type": "Bearer source-type-secret 手机号 13900139000 authorization=source-type-token",
+                "source_identifier": "https://detail.test/path?authorization=secret-value",
+            }],
         ))
         self.assertNotIn("secret-value", encoded)
+        self.assertNotIn("source-type-secret", encoded)
+        self.assertNotIn("source-type-token", encoded)
         self.assertNotIn("13800138000", encoded)
+        self.assertNotIn("13900139000", encoded)
         self.assertIn("<redacted", encoded)
 
     def test_persist_is_lease_fenced_raw_only_and_idempotent(self):

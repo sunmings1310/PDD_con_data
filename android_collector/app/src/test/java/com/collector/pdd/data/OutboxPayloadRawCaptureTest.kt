@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONArray
 import org.json.JSONObject
 
 class OutboxPayloadRawCaptureTest {
@@ -82,6 +83,24 @@ class OutboxPayloadRawCaptureTest {
         assertFalse(sanitized.contains("candidate-secret"))
         assertFalse(sanitized.contains("13800138000"))
         assertFalse(sanitized.contains("token=secret"))
+        assertTrue(sanitized.contains("<redacted"))
+    }
+
+    @Test
+    fun candidateObservationPayloadIsSanitizedAtTheOutboxBoundary() {
+        val payload = JSONObject()
+            .put("observed_fields", JSONObject().put(
+                "shop",
+                "Authorization: Bearer shop-secret 手机号 13800138000 https://shop.test/?token=shop-token",
+            ))
+            .put("source_summary", JSONArray().put(JSONObject()
+                .put("type", "Bearer source-secret 手机号 13900139000 authorization=source-token")
+                .put("source_identifier", "https://source.test/?token=identifier-token")))
+
+        val sanitized = OutboxPayload.sanitizeCandidateObservationPayload(payload).toString()
+
+        listOf("shop-secret", "source-secret", "shop-token", "source-token", "identifier-token", "13800138000", "13900139000")
+            .forEach { value -> assertFalse("outbox payload leaked $value", sanitized.contains(value)) }
         assertTrue(sanitized.contains("<redacted"))
     }
 }
