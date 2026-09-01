@@ -32,24 +32,35 @@ COMPILE_DIFF_LITERAL_OUTPUT=COMPILE_EXIT=0 DIFF_CHECK_EXIT=0
 COMPILE_DIFF_EXIT_STATUS=0
 COMPILE_DIFF_STATUS=PASS
 
-ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-ORACLE_INPUT=process environment without T003 isolated Oracle flags/secrets
-ORACLE_LITERAL_OUTPUT=[BLOCKED] oracle-integration: Python test environment is unavailable; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
-ORACLE_EXIT_STATUS=2
-ORACLE_STATUS=BLOCKED
-ORACLE_NEXT_CONTROL_ACTION=在固定提交上提供 approved isolated T003 Oracle secrets/flags and execute canonical strict command; the added Phase55OracleFinalGate test covers historical visibility, enterprise/workspace fences and valid empty timeline with cleanup.
+HISTORICAL_DEV_ORACLE_COMMAND=powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+HISTORICAL_DEV_ORACLE_INPUT=process environment without T003 isolated Oracle flags/secrets
+HISTORICAL_DEV_ORACLE_LITERAL_OUTPUT=[BLOCKED] oracle-integration: Python test environment is unavailable; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
+HISTORICAL_DEV_ORACLE_EXIT_STATUS=2
+HISTORICAL_DEV_ORACLE_STATUS=BLOCKED
+HISTORICAL_DEV_ORACLE_NEXT_CONTROL_ACTION=在固定提交上提供 approved isolated T003 Oracle secrets/flags and execute canonical strict command; the added Phase55OracleFinalGate test covers historical visibility, enterprise/workspace fences and valid empty timeline with cleanup.
 
-CONTROL_ORACLE_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; set approved T003 Oracle variables and Phase1-6A flags without printing values; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-CONTROL_ORACLE_INPUT=fixed code Head 643e5334880e9cc7d4f57c597e14c437613f90cd; approved isolated writable Oracle; secrets redacted
-CONTROL_ORACLE_LITERAL_OUTPUT=Ran 54 tests in 265.765s; FAILED (errors=14); [FAIL] oracle-integration: exit=1; SUMMARY PASS=0 FAIL=1 BLOCKED=0 STRICT=True; failures were DPY-6005 / WinError 10061 after the server began refusing connections
-CONTROL_ORACLE_EXIT_STATUS=1
-CONTROL_ORACLE_STATUS=FAIL_EXTERNAL_CONNECTION
-CONTROL_ORACLE_TARGETED_RETRY_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_timeline_resource_id_keeps_history_and_workspace_boundaries
-CONTROL_ORACLE_TARGETED_RETRY_LITERAL_OUTPUT=Ran 1 test in 4.115s; FAILED (errors=1); DPY-6005 / WinError 10061
-CONTROL_ORACLE_TARGETED_RETRY_EXIT_STATUS=1
-INDEPENDENT_REVIEW=BLOCKED
-INDEPENDENT_REVIEW_CODE_FINDINGS=0
-INDEPENDENT_REVIEW_REASON=Required Oracle strict did not complete; cleanup and persistent_business_changes=false are not yet proven
+HISTORICAL_CONTROL_ORACLE_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; set approved T003 Oracle variables and Phase1-6A flags without printing values; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+HISTORICAL_CONTROL_ORACLE_INPUT=fixed code Head 643e5334880e9cc7d4f57c597e14c437613f90cd; approved isolated writable Oracle; secrets redacted
+HISTORICAL_CONTROL_ORACLE_LITERAL_OUTPUT=Ran 54 tests in 265.765s; FAILED (errors=14); [FAIL] oracle-integration: exit=1; SUMMARY PASS=0 FAIL=1 BLOCKED=0 STRICT=True; failures were DPY-6005 / WinError 10061 after the server began refusing connections
+HISTORICAL_CONTROL_ORACLE_EXIT_STATUS=1
+HISTORICAL_CONTROL_ORACLE_STATUS=FAIL_EXTERNAL_CONNECTION
+HISTORICAL_CONTROL_ORACLE_TARGETED_RETRY_COMMAND=D:\work\PDD_con_data\.venv-t001\Scripts\python.exe -m unittest -v tests.test_phase55_oracle.Phase55OracleFinalGate.test_08_timeline_resource_id_keeps_history_and_workspace_boundaries
+HISTORICAL_CONTROL_ORACLE_TARGETED_RETRY_LITERAL_OUTPUT=Ran 1 test in 4.115s; FAILED (errors=1); DPY-6005 / WinError 10061
+HISTORICAL_CONTROL_ORACLE_TARGETED_RETRY_EXIT_STATUS=1
+HISTORICAL_INDEPENDENT_REVIEW=BLOCKED
+HISTORICAL_INDEPENDENT_REVIEW_CODE_FINDINGS=0
+HISTORICAL_INDEPENDENT_REVIEW_REASON=Required Oracle strict did not complete; cleanup and persistent_business_changes=false are not yet proven
+
+FINAL_ORACLE_COMMAND=set PDD_PYTHON; bind approved T003 and application Oracle variables to the same isolated test environment without printing values; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
+FINAL_ORACLE_INPUT=fixed tested Head 63a62e53d0d0d83aa875f53df58648c98dd303f7; approved isolated writable Oracle; T003 and application connection variables both configured; secrets redacted
+FINAL_ORACLE_LITERAL_OUTPUT=Ran 54 tests in 337.001s; OK; skipped=0; [PASS] oracle-integration: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True
+FINAL_ORACLE_EXIT_STATUS=0
+FINAL_ORACLE_STATUS=PASS
+FINAL_CLEANUP_COMMAND=read-only marker counts for timeline-resource-% in SJZQ_PRODUCT_MASTER, SJZQ_RAW_COLLECTION and SJZQ_PRODUCT_SNAPSHOT; rollback connection
+FINAL_CLEANUP_LITERAL_OUTPUT=SJZQ_PRODUCT_MASTER=0; SJZQ_RAW_COLLECTION=0; SJZQ_PRODUCT_SNAPSHOT=0; PERSISTENT_BUSINESS_CHANGES=false
+FINAL_CLEANUP_EXIT_STATUS=0
+FINAL_CLEANUP_STATUS=PASS
+FINAL_REVIEW_STATUS=PENDING_INDEPENDENT_RE_REVIEW
 
 ROLLBACK_COMMAND=git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 apply --unidiff-zero --reverse DIFF_FILE.patch; git -C C:\Users\Eden\AppData\Local\Temp\pdd-timeline-rollback-fba565b0a2404b5ba820704867f8cb91 diff --quiet
 ROLLBACK_INPUT=independent temporary git copy initialized from branch HEAD baseline files; source worktree retained changed
@@ -58,6 +69,6 @@ ROLLBACK_EXIT_STATUS=0
 ROLLBACK_STATUS=PASS
 RESTORED_BEHAVIOR=probe returns to baseline with no diff; source MODIFIED_FILE and implementation remain changed
 
-DIFF_FILE_SHA256=633668268f1ccb11831ee706e79bfbec06b6bffb99362c824f04a908035259be
-MODIFIED_FILE_SHA256=8dda51abdcc0c260920a60bcb37a3ddcc61ac9e0acf39d8c2546abdc671bec90
+DIFF_FILE_SHA256=b1eda03cae706b11e2aa4f6a4a3c8d62883263bcaa59a55239f3a5a09639aac9
+MODIFIED_FILE_SHA256=c2b56dc9630e0b0f1018aa988d034fa361e26aa399f946055d09adab64262636
 ROLLBACK_SH_SHA256=597055d3313d7598a87627b3c11b6c45202774b811d16bf2407da45194cd2047

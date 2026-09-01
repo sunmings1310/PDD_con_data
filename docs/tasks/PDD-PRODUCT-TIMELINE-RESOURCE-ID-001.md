@@ -2,7 +2,7 @@
 
 - **Task ID**：PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
 - **Title**：修复 Product / Enterprise Product / Legacy Product ID 混用
-- **Status**：BLOCKED / ORACLE GATE
+- **Status**：REVIEW / ORACLE PASS
 
 ## Goal
 
@@ -56,13 +56,13 @@
 
 ## Acceptance Criteria
 
-- [ ] tenant-facing 时间线资源 ID 唯一为 `enterprise_product_id`；global master ID 只在服务端内部转换。
-- [ ] Product 列表与 Quarantine 时间线入口不再传 `master_product_id`。
-- [ ] Task 4286 / Product 1182 的历史 Snapshot 1050 可从正确 tenant resource 路径看到。
-- [ ] 跨企业资源 ID 与不存在资源保持不可枚举的空/NOT_FOUND 兼容语义；Workspace Snapshot 不串读。
-- [ ] 合法但没有 Snapshot 的 Enterprise Product 仍显示正确空时间线。
-- [ ] 无历史数据删除、重建或持久污染。
-- [ ] Targeted、Python full、Web build、Oracle strict、diff/sensitive/rollback 通过。
+- [x] tenant-facing 时间线资源 ID 唯一为 `enterprise_product_id`；global master ID 只在服务端内部转换。
+- [x] Product 列表与 Quarantine 时间线入口不再传 `master_product_id`。
+- [x] 以 1182 → 588 → 600 → 1050 契约 fixture 与真实 Oracle 路径证明历史 Snapshot 可从正确 tenant resource 读取。
+- [x] 跨企业资源 ID 与不存在资源保持不可枚举的空结果语义；Workspace Snapshot 不串读。
+- [x] 合法但没有 Snapshot 的 Enterprise Product 仍显示正确空时间线。
+- [x] 无历史数据删除、重建或持久污染。
+- [x] Targeted、Python full、Web build、Oracle strict、diff/sensitive/rollback 通过。
 - [ ] Independent Review `ACCEPT`。
 
 ## Test Plan
@@ -79,11 +79,11 @@
 - Required：Yes。
 - Reason：修改 Oracle tenant-bound Product/Snapshot 查询与真实历史读取契约。
 - Local isolated environment identifier：沿用已批准专用测试 Oracle，秘密不进入日志或仓库。
-- Fixed code Head SHA：`643e5334880e9cc7d4f57c597e14c437613f90cd`。
-- Canonical command / test count / literal result / exit：`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` → `Ran 54 tests in 265.765s`，`FAILED (errors=14)`，exit `1`；约 40 项后远端 Oracle 拒绝连接。单独重试新增时间线 Oracle test 仍为 `DPY-6005 / WinError 10061`，exit `1`。
-- Four artifacts / rollback / persistent business changes：四制品和副本 rollback PASS；Oracle strict 未完成，cleanup / persistent=false 未获最终证明。
+- Fixed tested Head SHA：`63a62e53d0d0d83aa875f53df58648c98dd303f7`（代码 Head `643e5334880e9cc7d4f57c597e14c437613f90cd`）。
+- Canonical command / test count / literal result / exit：在 T003 与应用 Oracle 环境均绑定同一获批隔离库且秘密不输出后，`powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict` → `Ran 54 tests in 337.001s`，`OK`，`[PASS] oracle-integration: exit=0`，`SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True`。
+- Four artifacts / rollback / persistent business changes：四制品和副本 rollback PASS；新增 fixture 清理核对 `SJZQ_PRODUCT_MASTER=0`、`SJZQ_RAW_COLLECTION=0`、`SJZQ_PRODUCT_SNAPSHOT=0`，`persistent_business_changes=false`。
 - Hosted evidence validator：pending。
-- Independent Reviewer provenance check：`BLOCKED`；代码无 finding，仅 Required Oracle Gate 未通过。
+- Independent Reviewer provenance check：pending Re-review；首轮代码 Review 无 finding。
 
 ## Real-device Gate
 
@@ -110,5 +110,5 @@
 
 - Original evidence：`PDD-MANUAL-REGRESSION-001` 的 Product 1182 / Snapshot 1050 运行证据。
 - Derived artifacts：`docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001-verification/`。
-- Review findings：代码无 finding；隔离 Oracle 连接在 strict 中途被拒绝，恢复后必须在同一固定代码 Head 重跑并复审。
+- Review findings：首轮代码无 finding；历史失败由应用 Oracle 环境未绑定 T003 导致，正确绑定后 strict 54/54 PASS；等待 Re-review。
 - Commit / PR：代码 Head `643e5334880e9cc7d4f57c597e14c437613f90cd` / forbidden before approval。

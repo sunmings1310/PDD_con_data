@@ -2,8 +2,8 @@ TASK=PDD-PRODUCT-TIMELINE-RESOURCE-ID-001
 BRANCH_FIELD=tenant enterprise_product_id timeline resource
 BASELINE_STATUS=master_product_id was routed as a tenant resource
 MODIFIED_STATUS=enterprise_product_id is the tenant-facing locator; master identity resolves only inside list_snapshots
-FINAL_GATE_STATUS=BLOCKED_ORACLE_CONNECTION_REFUSED
-REVIEW_STATUS=BLOCKED_WITH_NO_CODE_FINDING
+FINAL_GATE_STATUS=ORACLE_STRICT_PASS_54_OF_54
+REVIEW_STATUS=PENDING_INDEPENDENT_RE_REVIEW
 
 FILES:
 server/management_queries.py
