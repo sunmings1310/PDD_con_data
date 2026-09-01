@@ -1,7 +1,7 @@
 BASE=e15f50f93ee91d613011eed36324c14753ef4025
 BRANCH=codex/pdd-collection-observability-001
 TESTED_REPAIR_CODE_HEAD=35c8b5332f9bb4c52cea4128b7199b0516579530
-FINAL_DOCUMENTATION_CLOSURE_HEAD=resolved after this evidence commit by git rev-parse HEAD; Control must bind the external Oracle manifest git_head to that fixed Head
+FINAL_DOCUMENTATION_CLOSURE_HEAD=resolved after this evidence commit by git rev-parse HEAD; Control must bind the external Oracle manifest git_head to that fixed Head. Rollback probe source HEAD=ff0647c5632598edaa6980ed01a7ee85161439c1; all tracked content then restored to BASE.
 
 ARTIFACT_MODIFIED_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\MODIFIED_FILE
 ARTIFACT_DIFF_FILE=D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
@@ -60,7 +60,7 @@ DIFF_FILE_STATUS=PASS
 
 ROLLBACK_COMMAND=PowerShell equivalent of ROLLBACK.sh: git diff --binary BASE HEAD > external patch; git apply -R --whitespace=nowarn external patch; git diff --exit-code BASE -- .
 ROLLBACK_INPUT=separate detached BASE probe; no local bash interpreter required
-ROLLBACK_LITERAL_RESULT=PROBE_ADD_EXIT=0; PATCH_APPLY_EXIT=0; PATCH_REVERSE_EXIT=0; PATCH_RESTORED_BASE_EXIT=0. The detached BASE probe was restored to BASE; this is the PowerShell-equivalent execution because no bash interpreter is installed.
+ROLLBACK_LITERAL_RESULT=ROLLBACK_PROBE_ADD_EXIT=0; ROLLBACK_PATCH_CREATE_RAW_EXIT=0; ROLLBACK_PATCH_PREFIX_BYTES=100,105,102; POWERSHELL_ROLLBACK_CHECK_EXIT=0; POWERSHELL_ROLLBACK_APPLY_EXIT=0; POWERSHELL_RESTORED_DIFF_VS_BASE_EXIT=0; POWERSHELL_TASK_PRESENT=False; POWERSHELL_VERIFICATION_PRESENT=False. Windows emitted a non-fatal mode warning for ROLLBACK.sh, while git ls-files records 100755. The detached probe was restored to BASE using the PowerShell-equivalent execution because no bash interpreter is installed.
 ROLLBACK_EXIT_STATUS=0
 ROLLBACK_STATUS=PASS
 
