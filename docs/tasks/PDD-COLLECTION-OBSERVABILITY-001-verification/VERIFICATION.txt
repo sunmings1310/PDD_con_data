@@ -41,16 +41,17 @@ COMPILE_EXIT_STATUS=0
 COMPILE_STATUS=PASS
 
 ORACLE_COMMAND=$env:PDD_PYTHON='D:\work\PDD_con_data\.venv-t001\Scripts\python.exe'; powershell -NoProfile -File .\scripts\test-baseline.ps1 -Suite oracle -Strict
-ORACLE_INPUT=Dev process lacks approved isolated Oracle environment and Phase flags
-ORACLE_LITERAL_RESULT=[BLOCKED] oracle-integration: requires Phase 1-6A Oracle flags and isolated T003 Oracle environment variables; see docs/tasks/T003-oracle-test-env.md; SUMMARY PASS=0 FAIL=0 BLOCKED=1 STRICT=True
-ORACLE_EXIT_STATUS=2
-ORACLE_STATUS=BLOCKED
-ORACLE_NEXT=Control runs same command with existing approved isolated Oracle environment; no secret values may appear in output.
+ORACLE_INPUT=approved isolated writable/cleanable Oracle test environment; application and T003 Oracle variables point to the same environment; Phase 1-6A flags enabled; secret values omitted
+ORACLE_LITERAL_RESULT=Ran 58 tests in 348.628s; OK; [PASS] oracle-integration: exit=0; SUMMARY PASS=1 FAIL=0 BLOCKED=0 STRICT=True; ORACLE_STRICT_EXIT=0
+ORACLE_EXIT_STATUS=0
+ORACLE_STATUS=PASS
+ORACLE_SKIPPED=0
+ORACLE_CLEANUP=all task-scoped candidate observation fixtures removed by test teardown; final Head rerun and external manifest required after this wrapper commit
 
 MODIFIED_SHA256=e9bdc963de268d692d40dc3a6a4bc246c93542df26c677f966456bf8b562a0b2
 MODIFIED_STATUS=CHANGED
 ROLLBACK_STATUS=PENDING_PROBE_AFTER_EVIDENCE_WRAPPER_COMMIT
-FINAL_STATUS=IN_PROGRESS; Oracle Required, Independent Review and real-device E2E remain pending. No PR/merge/release.
+FINAL_STATUS=REVIEW; Dev and initial Oracle strict gate PASS; final Head Oracle rerun, Independent Review and real-device E2E remain pending. No PR/merge/release.
 DIFF_FILE_COMMAND=git -C D:\work\PDD_con_data_pdd_collection_observability_rollback_probe apply --check --whitespace=nowarn D:\work\PDD_con_data_pdd_collection_observability\docs\tasks\PDD-COLLECTION-OBSERVABILITY-001-verification\DIFF_FILE.patch
 DIFF_FILE_LITERAL_RESULT=no output
 DIFF_FILE_EXIT_STATUS=0
