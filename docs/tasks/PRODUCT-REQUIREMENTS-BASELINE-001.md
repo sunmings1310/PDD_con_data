@@ -127,5 +127,5 @@
 
 - Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 - Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-- Review findings：初审 finding 已关闭；Product Owner 随后新增简化企业管理决定，当前修订等待 Independent Re-review。
-- Commit / PR：原 Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR #18 已创建，企业决定修订后保持 Draft。
+- Review findings：初审 finding 已关闭；简化企业管理修订 fixed Head `babdf5f650d87adf1bf639a11d6acab6758dce61` Independent Re-review 为 `ACCEPT`，无剩余 finding。
+- Commit / PR：企业决定 Review fixed Head `babdf5f650d87adf1bf639a11d6acab6758dce61`；Draft PR #18 保持 Draft。

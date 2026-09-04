@@ -529,7 +529,7 @@ index 6894dbb..9b6d85f 100644
  | [`backlog.md`](backlog.md) | 唯一任务状态账本 |
  | [`roadmap.md`](roadmap.md) | 未来阶段与依赖，不构成实施授权 |
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 6f5894e..8b4fa25 100644
+index 6f5894e..06c31c1 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -1,13 +1,14 @@
@@ -544,7 +544,7 @@ index 6f5894e..8b4fa25 100644
  | Task | 状态 | 范围 | 下一步 |
  |---|---|---|---|
 -| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
-+| PRODUCT-REQUIREMENTS-BASELINE-001 | REVIEW / DOCS-ONLY / PR #18 DRAFT | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID；补充 Product Owner 批准的简化企业管理边界，不改业务代码/Schema | 企业决定修订后重跑文档门禁与 Independent Re-review；保持 Draft，不 Ready/merge |
++| PRODUCT-REQUIREMENTS-BASELINE-001 | ACCEPTED / DOCS-ONLY / PR #18 DRAFT | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID；补充 Product Owner 批准的简化企业管理边界，不改业务代码/Schema | 企业决定修订 fixed Head `babdf5f` Independent Re-review ACCEPT；保持 Draft并等待 Hosted CI，不 Ready/merge |
 +| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | MERGED / ACCEPTED | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | PR #17 已普通 merge 为 `main@d655370`；Review/Oracle 门禁通过 |
  | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
@@ -588,7 +588,7 @@ index 8d97c57..6e947ba 100644
 
 diff --git a/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
 new file mode 100644
-index 0000000..f23892b
+index 0000000..7b0c60c
 --- /dev/null
 +++ b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
 @@ -0,0 +1,131 @@
@@ -721,8 +721,8 @@ index 0000000..f23892b
 +
 +- Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 +- Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-+- Review findings：初审 finding 已关闭；Product Owner 随后新增简化企业管理决定，当前修订等待 Independent Re-review。
-+- Commit / PR：原 Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR #18 已创建，企业决定修订后保持 Draft。
++- Review findings：初审 finding 已关闭；简化企业管理修订 fixed Head `babdf5f650d87adf1bf639a11d6acab6758dce61` Independent Re-review 为 `ACCEPT`，无剩余 finding。
++- Commit / PR：企业决定 Review fixed Head `babdf5f650d87adf1bf639a11d6acab6758dce61`；Draft PR #18 保持 Draft。
 diff --git a/docs/tasks/TEMPLATE.md b/docs/tasks/TEMPLATE.md
 index b688317..2bf12ca 100644
 --- a/docs/tasks/TEMPLATE.md

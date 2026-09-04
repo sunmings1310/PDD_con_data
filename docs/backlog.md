@@ -7,7 +7,7 @@
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| PRODUCT-REQUIREMENTS-BASELINE-001 | REVIEW / DOCS-ONLY / PR #18 DRAFT | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID；补充 Product Owner 批准的简化企业管理边界，不改业务代码/Schema | 企业决定修订后重跑文档门禁与 Independent Re-review；保持 Draft，不 Ready/merge |
+| PRODUCT-REQUIREMENTS-BASELINE-001 | ACCEPTED / DOCS-ONLY / PR #18 DRAFT | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID；补充 Product Owner 批准的简化企业管理边界，不改业务代码/Schema | 企业决定修订 fixed Head `babdf5f` Independent Re-review ACCEPT；保持 Draft并等待 Hosted CI，不 Ready/merge |
 | PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | MERGED / ACCEPTED | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | PR #17 已普通 merge 为 `main@d655370`；Review/Oracle 门禁通过 |
 | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
