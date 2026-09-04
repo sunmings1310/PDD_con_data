@@ -2,7 +2,7 @@
 
 - **Task ID**：PRODUCT-REQUIREMENTS-BASELINE-001
 - **Title**：将稳定产品需求统一到根 `PRODUCT.md`
-- **Status**：REVIEW
+- **Status**：ACCEPTED
 - **Requirement IDs**：GOV-001、GOV-002
 - **Base**：`main@d6553704e2a73f4376f52de5bfd1054fa52923e4`
 - **Branch**：`codex/product-requirements-baseline-001`
@@ -80,7 +80,7 @@
 - [x] Historical feature list 明确非权威并链接当前入口；
 - [x] 所有新增/修改 Markdown 链接有效，YAML/governance、allowlist、敏感扫描与 `git diff --check` 通过；
 - [x] 四个验证/回滚制品可复现，另一副本 rollback 恢复原 hash，`MODIFIED_FILE` 保持 changed；
-- [ ] Independent Review 为 `ACCEPT`；ACCEPT 后只创建 Draft PR并跟踪 Hosted CI。
+- [x] Independent Review 为 `ACCEPT`；ACCEPT 后只创建 Draft PR并跟踪 Hosted CI。
 
 ## Test Plan
 
@@ -123,5 +123,5 @@
 
 - Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 - Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-- Review findings：初审 `CHANGES REQUIRED`：OBS 产品批准与实现/证据状态混淆；已通过显式双状态和本 Task 的 Product Owner 输入来源修复，等待 re-review。
-- Commit / PR：pending。
+- Review findings：初审 `CHANGES REQUIRED`；修复后 Independent Re-review 在固定 Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0` 为 `ACCEPT`，无剩余 finding。
+- Commit / PR：Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR pending。

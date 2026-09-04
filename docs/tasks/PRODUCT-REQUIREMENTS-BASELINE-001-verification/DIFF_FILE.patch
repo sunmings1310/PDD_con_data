@@ -491,7 +491,7 @@ index 6894dbb..9b6d85f 100644
  | [`backlog.md`](backlog.md) | 唯一任务状态账本 |
  | [`roadmap.md`](roadmap.md) | 未来阶段与依赖，不构成实施授权 |
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 6f5894e..08e3e62 100644
+index 6f5894e..9128ed1 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -1,13 +1,14 @@
@@ -506,7 +506,7 @@ index 6f5894e..08e3e62 100644
  | Task | 状态 | 范围 | 下一步 |
  |---|---|---|---|
 -| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
-+| PRODUCT-REQUIREMENTS-BASELINE-001 | REVIEW / DOCS-ONLY | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID 与追溯矩阵，不改业务代码/Schema | 本地治理验证通过；等待 Independent Review，ACCEPT 后只创建 Draft PR并停止 |
++| PRODUCT-REQUIREMENTS-BASELINE-001 | ACCEPTED / DOCS-ONLY | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID 与追溯矩阵，不改业务代码/Schema | Review fixed Head `3314df5` 为 ACCEPT；创建 Draft PR、跟踪 Hosted CI 后停止在 merge 门禁 |
 +| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | MERGED / ACCEPTED | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | PR #17 已普通 merge 为 `main@d655370`；Review/Oracle 门禁通过 |
  | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
@@ -550,7 +550,7 @@ index 8d97c57..6e947ba 100644
 
 diff --git a/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
 new file mode 100644
-index 0000000..6d81a49
+index 0000000..c854685
 --- /dev/null
 +++ b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
 @@ -0,0 +1,127 @@
@@ -558,7 +558,7 @@ index 0000000..6d81a49
 +
 +- **Task ID**：PRODUCT-REQUIREMENTS-BASELINE-001
 +- **Title**：将稳定产品需求统一到根 `PRODUCT.md`
-+- **Status**：REVIEW
++- **Status**：ACCEPTED
 +- **Requirement IDs**：GOV-001、GOV-002
 +- **Base**：`main@d6553704e2a73f4376f52de5bfd1054fa52923e4`
 +- **Branch**：`codex/product-requirements-baseline-001`
@@ -636,7 +636,7 @@ index 0000000..6d81a49
 +- [x] Historical feature list 明确非权威并链接当前入口；
 +- [x] 所有新增/修改 Markdown 链接有效，YAML/governance、allowlist、敏感扫描与 `git diff --check` 通过；
 +- [x] 四个验证/回滚制品可复现，另一副本 rollback 恢复原 hash，`MODIFIED_FILE` 保持 changed；
-+- [ ] Independent Review 为 `ACCEPT`；ACCEPT 后只创建 Draft PR并跟踪 Hosted CI。
++- [x] Independent Review 为 `ACCEPT`；ACCEPT 后只创建 Draft PR并跟踪 Hosted CI。
 +
 +## Test Plan
 +
@@ -679,8 +679,8 @@ index 0000000..6d81a49
 +
 +- Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 +- Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-+- Review findings：初审 `CHANGES REQUIRED`：OBS 产品批准与实现/证据状态混淆；已通过显式双状态和本 Task 的 Product Owner 输入来源修复，等待 re-review。
-+- Commit / PR：pending。
++- Review findings：初审 `CHANGES REQUIRED`；修复后 Independent Re-review 在固定 Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0` 为 `ACCEPT`，无剩余 finding。
++- Commit / PR：Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR pending。
 diff --git a/docs/tasks/TEMPLATE.md b/docs/tasks/TEMPLATE.md
 index b688317..2bf12ca 100644
 --- a/docs/tasks/TEMPLATE.md

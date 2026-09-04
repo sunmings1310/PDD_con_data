@@ -87,7 +87,7 @@ MODIFIED_REMAINS_CHANGED: true
 
 ARTIFACT HASHES (SHA-256 before final review wrapper)
 MODIFIED_FILE: 6A7E0F9DF65B08CFD8A1E079040CD57587B01F5381BD220A72F240EC2F825211
-DIFF_FILE.patch: 1CD2F42EEBA3AC3594CE5712A8E163B9D1AF7D70CC956A3233B5DBAD20A4998C
+DIFF_FILE.patch: 171AFCF08DE41F609F7E3480626673177A6216C3BF384CF8C3A58399CC53D189
 ROLLBACK.sh: 1A1502CAC85C0493F058422D17E96A311AF0EF9E45AD3550E25FEF31CE634F8E
 VERIFICATION.txt: self-hash intentionally recorded externally after final write
 
@@ -106,8 +106,10 @@ INITIAL FIXED HEAD: b3aa70f97f3677c7a7e548122bad6cf17f6079e3
 INITIAL RESULT: CHANGES REQUIRED
 INITIAL FINDING: OBS-001/002/003 product approval was not explicitly separated from unmerged implementation/evidence status.
 FIX: retain Accepted product semantics, add implementation/evidence Unknown boundaries, and link the current Task's Product Owner-approved input without inventing an unmerged document link.
-FINAL FIXED HEAD: pending review-fix commit
-FINAL RESULT: pending re-review
+REVIEW FIXED HEAD: 3314df5df8849eb9f257f8dd0f4323a48f21a7c0
+FINAL RESULT: ACCEPT
+REVIEW EVIDENCE: 36/13 requirement validation PASS; 68 Markdown/YAML PASS; git diff --check PASS; no remaining finding.
+DOCUMENTATION STATUS WRAPPER: this file, Task status and backlog status are updated after ACCEPT; wrapper Head is reviewed separately before Draft PR.
 
 HOSTED CI
 RUN: pending Draft PR
