@@ -3,6 +3,7 @@
 - **Task ID**：
 - **Title**：
 - **Status**：BACKLOG | READY | IN_PROGRESS | TEST | REVIEW | CHANGES_REQUIRED | ACCEPTED | PR | MERGED | E2E | RELEASED
+- **Requirement IDs**：引用 `PRODUCT.md` 中已批准的稳定 ID；非 Accepted 状态必须附 Product Owner 决定
 
 ## Goal
 
@@ -21,6 +22,12 @@
 ## Affected Modules
 
 ## ADR
+
+## Requirement Trace
+
+| Requirement ID | 本 Task 的具体化验收 | 状态/批准依据 |
+|---|---|---|
+|  |  | Accepted / Product Owner decision |
 
 ## Acceptance Criteria
 

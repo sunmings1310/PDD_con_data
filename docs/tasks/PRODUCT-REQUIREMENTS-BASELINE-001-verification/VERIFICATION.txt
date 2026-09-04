@@ -1,0 +1,120 @@
+PRODUCT-REQUIREMENTS-BASELINE-001 VERIFICATION
+Generated: 2026-09-04 Asia/Shanghai
+Repository: D:\work\PDD_con_data_product_requirements_baseline
+Base: d6553704e2a73f4376f52de5bfd1054fa52923e4
+Branch: codex/product-requirements-baseline-001
+
+BASELINE
+COMMAND: git worktree add --detach C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904 d6553704e2a73f4376f52de5bfd1054fa52923e4
+INPUT/ENVIRONMENT: clean detached worktree at the exact base; Python D:\work\PDD_con_data\.venv-t001\Scripts\python.exe
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe D:\work\PDD_con_data_product_requirements_baseline\docs\tasks\PRODUCT-REQUIREMENTS-BASELINE-001-verification\validate_docs.py C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904
+LITERAL OUTPUT:
+Validated 67 Markdown files
+Validated workflow YAML
+RESULT: PASS
+BASELINE_DOCS_EXIT=0
+COMMAND: git -C C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904 diff --check
+LITERAL OUTPUT: <empty>
+EXIT STATUS: 0
+STATUS: PASS
+ORIGINAL PRODUCT.md SHA-256: 6B5317556297FB8F58674B4A9B717723D67F06CA1503113FEDBE69379389BC34
+
+MODIFIED REQUIREMENTS CONTRACT
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py
+INPUT/ENVIRONMENT: current worktree; PRODUCT.md plus docs/tasks/TEMPLATE.md
+LITERAL OUTPUT:
+Validated 40 unique requirements across 14 modules
+Task template Requirement trace: PRESENT
+RESULT: PASS
+EXIT STATUS: 0
+STATUS: PASS
+
+MODIFIED LINKS / YAML
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_docs.py .
+INPUT/ENVIRONMENT: current worktree; repository Markdown and .github/workflows/*.yml
+LITERAL OUTPUT:
+Validated 68 Markdown files
+Validated workflow YAML
+RESULT: PASS
+EXIT STATUS: 0
+STATUS: PASS
+
+ALLOWLIST
+COMMAND: compare `git diff --name-only <base>` plus `git ls-files --others --exclude-standard` against the Task allowlist; permit only the nine named governance/Task files and docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/*
+INPUT/ENVIRONMENT: base d6553704e2a73f4376f52de5bfd1054fa52923e4; current worktree
+LITERAL OUTPUT:
+CHANGED_COUNT=14
+ALLOWLIST_VIOLATIONS=0
+EXIT STATUS: 0
+STATUS: PASS
+
+SENSITIVE SCAN
+COMMAND: scan `git diff --no-ext-diff <base> -- .` for private-key headers, AWS access key IDs, GitHub token prefixes, and JWT-shaped three-part values
+INPUT/ENVIRONMENT: current governance-only diff; no runtime secrets loaded
+LITERAL OUTPUT:
+SENSITIVE_HITS=0
+EXIT STATUS: 0
+STATUS: PASS
+
+WHITESPACE
+COMMAND: git diff --check
+INPUT/ENVIRONMENT: current worktree
+LITERAL OUTPUT: <empty>
+EXIT STATUS: 0
+STATUS: PASS
+
+ROLLBACK PROBE
+ROLLBACK ARTIFACT: docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/ROLLBACK.sh
+EXECUTABLE MODE: 100755 (Git index)
+SHELL AVAILABILITY COMMAND: where.exe bash
+LITERAL OUTPUT: BASH_NOT_FOUND
+SHELL AVAILABILITY EXIT STATUS: 1
+SHELL AVAILABILITY STATUS: BLOCKED (interpreter unavailable; artifact retained executable)
+EQUIVALENT TEST COMMAND: in detached probe C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-rollback-probe-ent, copy the modified allowed files and Task evidence; execute the same `git checkout <base> -- <pre-existing files>` and `git clean -fd -- <new Task and verification paths>` operations used by ROLLBACK.sh; compare SHA-256 and absence
+INPUT/ENVIRONMENT: another detached worktree at exact base; source worktree remains modified
+LITERAL OUTPUT:
+PROBE_CHANGED_SHA256=044A15D6A3F457A7C49DB57C982A827CAD1A7C994072A86447F602AA2F85FE61
+Removing docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/
+Removing docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
+RESTORED_SHA256=6B5317556297FB8F58674B4A9B717723D67F06CA1503113FEDBE69379389BC34
+TASK_ABSENT=true
+ROLLBACK_EXIT=0
+RESULT: restored to base content with no Task artifacts
+EXIT STATUS: 0
+STATUS: PASS
+RESTORED BEHAVIOR/STATUS: original PRODUCT.md hash restored; new Task/evidence absent; probe `git status --short` returned no output
+MODIFIED_REMAINS_CHANGED: true
+
+ARTIFACT HASHES (SHA-256 before final review wrapper)
+MODIFIED_FILE: 044A15D6A3F457A7C49DB57C982A827CAD1A7C994072A86447F602AA2F85FE61
+DIFF_FILE.patch: E70C3E6C45920B76B3E42A156E3612537B3449C8BE88165DD9556A501CCDE508
+ROLLBACK.sh: 1A1502CAC85C0493F058422D17E96A311AF0EF9E45AD3550E25FEF31CE634F8E
+VERIFICATION.txt: self-hash intentionally recorded externally after final write
+
+ORACLE GATE
+COMMAND: not run
+RESULT: SKIPPED / not applicable (docs-only; no Schema, SQL, transaction, tenant repository or Oracle dialect change)
+EXIT STATUS: not applicable
+
+REAL-DEVICE GATE
+COMMAND: not run
+RESULT: SKIPPED / not applicable (docs-only; no Android or collection runtime change)
+EXIT STATUS: not applicable
+
+INDEPENDENT REVIEW
+INITIAL FIXED HEAD: b3aa70f97f3677c7a7e548122bad6cf17f6079e3
+INITIAL RESULT: CHANGES REQUIRED
+INITIAL FINDING: OBS-001/002/003 product approval was not explicitly separated from unmerged implementation/evidence status.
+FIX: retain Accepted product semantics, add implementation/evidence Unknown boundaries, and link the current Task's Product Owner-approved input without inventing an unmerged document link.
+REVIEW FIXED HEAD: 3314df5df8849eb9f257f8dd0f4323a48f21a7c0
+FINAL RESULT: ACCEPT
+REVIEW EVIDENCE: 36/13 requirement validation PASS; 68 Markdown/YAML PASS; git diff --check PASS; no remaining finding at the original Draft PR Head.
+PRODUCT OWNER DECISION REVISION: simplified Enterprise management requirements ENT-001 through ENT-004 added; requirement validation now 40/14; implementation remains Unknown/Not Started and advanced Enterprise operations remain Deferred.
+DECISION REVISION REVIEW FIXED HEAD: babdf5f650d87adf1bf639a11d6acab6758dce61
+DECISION REVISION REVIEW RESULT: ACCEPT
+DECISION REVISION REVIEW EVIDENCE: 40/14 requirement validation PASS; 68 Markdown/YAML PASS; git diff --check PASS; no product-scope or implementation-status finding.
+DECISION STATUS WRAPPER: Task/backlog/verification acceptance update is reviewed separately before updating Draft PR #18.
+
+HOSTED CI
+RUN: pending Draft PR
+RESULT: pending

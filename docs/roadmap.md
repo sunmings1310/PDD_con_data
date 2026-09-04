@@ -1,7 +1,7 @@
 # 稳定数据采集系统升级路线图
 
 > **Status: CURRENT FUTURE-STAGE AUTHORITY（2026-08-29）**
-> 本文是未来阶段的权威入口，但路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前产品、实现和开放缺口分别见 [`../PRODUCT.md`](../PRODUCT.md)、[`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
+> 本文只维护未来阶段、顺序与依赖，不是产品需求账本；稳定需求、状态与验收以 [`../PRODUCT.md`](../PRODUCT.md) 的 Requirement ID 为准。路线项不等于实施授权；实际工作必须进入 [`backlog.md`](backlog.md) 并建立 Task。当前实现和开放缺口分别见 [`CURRENT_STATE.md`](CURRENT_STATE.md)、[`gaps/current.md`](gaps/current.md)。
 
 ## 当前未来阶段边界
 

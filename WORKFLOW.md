@@ -41,7 +41,7 @@ Control 在已批准 Task 范围内可自动推进调查、拆解、分支/workt
 
 ## 3. Task 创建与开工条件
 
-从 [`docs/tasks/TEMPLATE.md`](docs/tasks/TEMPLATE.md) 建立 Task。进入 `READY` 前必须具备：可验证 Goal、Scope/Non-goals、依赖、受影响模块、关联 ADR、验收条件、测试计划、Oracle/真机门禁、回滚、人工决策点和停止条件。
+从 [`docs/tasks/TEMPLATE.md`](docs/tasks/TEMPLATE.md) 建立 Task。每个开发 Task 必须引用 [`PRODUCT.md`](PRODUCT.md) 中一个或多个 `Accepted` Requirement ID，并把对应验收条件具体化；实施 `Planned`、`Deferred` 或 `Unknown` 需求前必须获得 Product Owner 批准并更新需求状态。进入 `READY` 前必须具备：可验证 Goal、Scope/Non-goals、依赖、受影响模块、关联 Requirement/ADR、验收条件、测试计划、Oracle/真机门禁、回滚、人工决策点和停止条件。
 
 开工前依次阅读 [`PRODUCT.md`](PRODUCT.md)、[`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)、相关 Accepted ADR、Task 和适用 `AGENTS.md`。复用已有调查；不得用旧 roadmap/GAP 条目代替当前授权。
 
