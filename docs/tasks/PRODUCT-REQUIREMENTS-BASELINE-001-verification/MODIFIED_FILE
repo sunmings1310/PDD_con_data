@@ -114,6 +114,7 @@
 
 #### OBS-001 — candidate_rejected 可审计可见
 - **状态**：Accepted
+- **实现/证据状态**：Unknown — 产品语义已由 Product Owner 批准，但实现仍在独立 Task 中，进入 main 前不得声称已验收。
 - **目标/价值**：目标未匹配时，用户仍能看到实际观察到的候选与拒绝原因。
 - **范围**：独立 Candidate Observation / Unmatched Evidence，含 matched=false、字段差异、采集时间、来源和 Task/Item 关联。
 - **验收**：Task Detail 展示候选摘要与拒绝原因；幂等重放不重复；tenant/workspace/Lease fence 生效。
@@ -121,6 +122,7 @@
 
 #### OBS-002 — no_candidate 明确语义
 - **状态**：Accepted
+- **实现/证据状态**：Unknown — 产品语义已批准；真实平台 `no_candidate` E2E 尚无可复核 Accepted 证据。
 - **目标/价值**：完全没有候选时给出明确、非伪造的用户反馈。
 - **范围**：Task Detail 显示 `no_candidate`、时间与执行来源，不制造空候选对象。
 - **验收**：无候选终态非重试且统计正确；平台实际返回推荐候选时不得标为 no_candidate。
@@ -128,6 +130,7 @@
 
 #### OBS-003 — 候选证据保留策略
 - **状态**：Accepted
+- **实现/证据状态**：Unknown — 30 天 Raw/脱敏截图与永久 TaskItem 摘要是已批准产品策略，清理实现仍待独立 Task 验收并 merge。
 - **目标/价值**：在可审计性与数据最小化之间取得边界。
 - **范围**：候选 Raw 与受控脱敏截图默认保留 30 天；TaskItem `not_matched` 终态与必要摘要永久保留。
 - **验收**：到期清理有边界、幂等与租户隔离测试；清理不改变 TaskItem 终态。
@@ -341,7 +344,7 @@
 |---|---|---|
 | MED-001～003、EXCEL-001～003 | [`WEB-TASK-IMPORT-001`](docs/tasks/WEB-TASK-IMPORT-001.md)、[`WEB-NAV-EXCEL-CONSOLIDATION-001`](docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md) | [`docs/backlog.md`](docs/backlog.md) |
 | LINEAGE-001～002、MEDIA-001～002 | [`Raw identity ADR`](docs/decisions/2026-08-24-raw-capture-identity-immutability.md)、[`Phase 3 ADR`](docs/decisions/phase3-data-quality-contract.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
-| OBS-001～003 | 当前已批准 Task `PDD-COLLECTION-OBSERVABILITY-001` 的独立分支证据；合并前不创建失效链接 | [`docs/backlog.md`](docs/backlog.md) |
+| OBS-001～003 | Product Owner 批准语义与实现未合并边界记录于本治理 [`Task Context`](docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md#product-owner-approved-input)；实现/证据均保持 Unknown，直到 `PDD-COLLECTION-OBSERVABILITY-001` 独立验收并 merge | [`docs/backlog.md`](docs/backlog.md) |
 | TASK-001 | [`Phase 1 ADR`](docs/decisions/phase1-success-data-contract.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 | TASK-002～004、DEVICE-002～003 | [`Phase 2 ADR`](docs/decisions/phase2-job-attempt-lease.md)、[`T003 ADR`](docs/decisions/T003-authoritative-task-state.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 | PROD-001～004 | [`Product field semantics ADR`](docs/decisions/2026-08-20-product-field-semantics-p0.md)、[`Product timeline task`](docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |

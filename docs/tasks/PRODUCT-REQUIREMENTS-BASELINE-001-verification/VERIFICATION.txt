@@ -86,8 +86,8 @@ RESTORED BEHAVIOR/STATUS: original PRODUCT.md hash restored; new Task/evidence a
 MODIFIED_REMAINS_CHANGED: true
 
 ARTIFACT HASHES (SHA-256 before final review wrapper)
-MODIFIED_FILE: 75C847E988472774A6C996705AA53C2AE0E8F3CFEFF7748EA68B2AB63B19DA1B
-DIFF_FILE.patch: 275425D5B677DAB2CF84BEEA22C603AFAA2A6B08D05F70DE2FF17177920C5671
+MODIFIED_FILE: 6A7E0F9DF65B08CFD8A1E079040CD57587B01F5381BD220A72F240EC2F825211
+DIFF_FILE.patch: 1CD2F42EEBA3AC3594CE5712A8E163B9D1AF7D70CC956A3233B5DBAD20A4998C
 ROLLBACK.sh: 1A1502CAC85C0493F058422D17E96A311AF0EF9E45AD3550E25FEF31CE634F8E
 VERIFICATION.txt: self-hash intentionally recorded externally after final write
 
@@ -102,8 +102,12 @@ RESULT: SKIPPED / not applicable (docs-only; no Android or collection runtime ch
 EXIT STATUS: not applicable
 
 INDEPENDENT REVIEW
-FIXED HEAD: pending initial evidence commit
-RESULT: pending
+INITIAL FIXED HEAD: b3aa70f97f3677c7a7e548122bad6cf17f6079e3
+INITIAL RESULT: CHANGES REQUIRED
+INITIAL FINDING: OBS-001/002/003 product approval was not explicitly separated from unmerged implementation/evidence status.
+FIX: retain Accepted product semantics, add implementation/evidence Unknown boundaries, and link the current Task's Product Owner-approved input without inventing an unmerged document link.
+FINAL FIXED HEAD: pending review-fix commit
+FINAL RESULT: pending re-review
 
 HOSTED CI
 RUN: pending Draft PR

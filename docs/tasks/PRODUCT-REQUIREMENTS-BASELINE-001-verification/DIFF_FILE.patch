@@ -1,8 +1,8 @@
 diff --git a/PRODUCT.md b/PRODUCT.md
-index 8bbc0bc..58c2595 100644
+index 8bbc0bc..66490e2 100644
 --- a/PRODUCT.md
 +++ b/PRODUCT.md
-@@ -1,76 +1,384 @@
+@@ -1,76 +1,387 @@
 -# Product Baseline
 +# Product Requirements Baseline
 
@@ -143,6 +143,7 @@ index 8bbc0bc..58c2595 100644
 +
 +#### OBS-001 — candidate_rejected 可审计可见
 +- **状态**：Accepted
++- **实现/证据状态**：Unknown — 产品语义已由 Product Owner 批准，但实现仍在独立 Task 中，进入 main 前不得声称已验收。
 +- **目标/价值**：目标未匹配时，用户仍能看到实际观察到的候选与拒绝原因。
 +- **范围**：独立 Candidate Observation / Unmatched Evidence，含 matched=false、字段差异、采集时间、来源和 Task/Item 关联。
 +- **验收**：Task Detail 展示候选摘要与拒绝原因；幂等重放不重复；tenant/workspace/Lease fence 生效。
@@ -150,6 +151,7 @@ index 8bbc0bc..58c2595 100644
 +
 +#### OBS-002 — no_candidate 明确语义
 +- **状态**：Accepted
++- **实现/证据状态**：Unknown — 产品语义已批准；真实平台 `no_candidate` E2E 尚无可复核 Accepted 证据。
 +- **目标/价值**：完全没有候选时给出明确、非伪造的用户反馈。
 +- **范围**：Task Detail 显示 `no_candidate`、时间与执行来源，不制造空候选对象。
 +- **验收**：无候选终态非重试且统计正确；平台实际返回推荐候选时不得标为 no_candidate。
@@ -157,6 +159,7 @@ index 8bbc0bc..58c2595 100644
 +
 +#### OBS-003 — 候选证据保留策略
 +- **状态**：Accepted
++- **实现/证据状态**：Unknown — 30 天 Raw/脱敏截图与永久 TaskItem 摘要是已批准产品策略，清理实现仍待独立 Task 验收并 merge。
 +- **目标/价值**：在可审计性与数据最小化之间取得边界。
 +- **范围**：候选 Raw 与受控脱敏截图默认保留 30 天；TaskItem `not_matched` 终态与必要摘要永久保留。
 +- **验收**：到期清理有边界、幂等与租户隔离测试；清理不改变 TaskItem 终态。
@@ -382,7 +385,7 @@ index 8bbc0bc..58c2595 100644
 +|---|---|---|
 +| MED-001～003、EXCEL-001～003 | [`WEB-TASK-IMPORT-001`](docs/tasks/WEB-TASK-IMPORT-001.md)、[`WEB-NAV-EXCEL-CONSOLIDATION-001`](docs/tasks/WEB-NAV-EXCEL-CONSOLIDATION-001.md) | [`docs/backlog.md`](docs/backlog.md) |
 +| LINEAGE-001～002、MEDIA-001～002 | [`Raw identity ADR`](docs/decisions/2026-08-24-raw-capture-identity-immutability.md)、[`Phase 3 ADR`](docs/decisions/phase3-data-quality-contract.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
-+| OBS-001～003 | 当前已批准 Task `PDD-COLLECTION-OBSERVABILITY-001` 的独立分支证据；合并前不创建失效链接 | [`docs/backlog.md`](docs/backlog.md) |
++| OBS-001～003 | Product Owner 批准语义与实现未合并边界记录于本治理 [`Task Context`](docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md#product-owner-approved-input)；实现/证据均保持 Unknown，直到 `PDD-COLLECTION-OBSERVABILITY-001` 独立验收并 merge | [`docs/backlog.md`](docs/backlog.md) |
 +| TASK-001 | [`Phase 1 ADR`](docs/decisions/phase1-success-data-contract.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 +| TASK-002～004、DEVICE-002～003 | [`Phase 2 ADR`](docs/decisions/phase2-job-attempt-lease.md)、[`T003 ADR`](docs/decisions/T003-authoritative-task-state.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 +| PROD-001～004 | [`Product field semantics ADR`](docs/decisions/2026-08-20-product-field-semantics-p0.md)、[`Product timeline task`](docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
@@ -545,6 +548,139 @@ index 8d97c57..6e947ba 100644
 
  ## 当前未来阶段边界
 
+diff --git a/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
+new file mode 100644
+index 0000000..6d81a49
+--- /dev/null
++++ b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
+@@ -0,0 +1,127 @@
++# PRODUCT-REQUIREMENTS-BASELINE-001：统一产品需求权威基线
++
++- **Task ID**：PRODUCT-REQUIREMENTS-BASELINE-001
++- **Title**：将稳定产品需求统一到根 `PRODUCT.md`
++- **Status**：REVIEW
++- **Requirement IDs**：GOV-001、GOV-002
++- **Base**：`main@d6553704e2a73f4376f52de5bfd1054fa52923e4`
++- **Branch**：`codex/product-requirements-baseline-001`
++
++## Goal
++
++扩充现有 `PRODUCT.md` 为单一稳定产品需求基线，建立不可复用的 Requirement ID、状态、验收与来源追溯；不创建第二份 PRD、状态账本或业务实现。
++
++## Context
++
++当前稳定产品语义分散在 `PRODUCT.md`、feature list、roadmap/backlog、CURRENT_STATE、Accepted ADR 与已验收 Task 中。部分历史清单仍携带旧分支和旧状态，容易被误当作当前需求或重复开发依据。
++
++### Product Owner approved input
++
++- Product Owner 已批准“目标未匹配仍展示实际候选观察，但不得写入 Product/Snapshot/成功统计”的产品语义；
++- 候选 Raw 与受控脱敏截图默认保留 30 天，TaskItem `not_matched` 终态和必要摘要永久保留；
++- 上述是产品需求批准，不等同于 `PDD-COLLECTION-OBSERVABILITY-001` 已实现、验收或 merge；当前 main 上的实现/证据状态必须保持 `Unknown`；
++- 真实平台 `no_candidate` 证据尚不足，不能将离线语义或模拟测试写成真实 E2E PASS。
++
++## Scope
++
++### Allowed
++
++- 扩充根 `PRODUCT.md`，覆盖医疗采集、Excel 统一下发、关键词血缘、候选不匹配可见、Product/SKU、媒体、租户、设备与任务可观测性；
++- 为稳定需求定义 ID、`Accepted / Planned / Deferred / Unknown`、目标/价值、范围、验收与约束；
++- 在 Workflow/Task 模板加入 Requirement ID 追溯规则；
++- 为 Historical feature list、roadmap、backlog、CURRENT_STATE 补充最小权威边界与当前主线事实；
++- 新增本 Task 和专属验证/回滚制品。
++
++### Forbidden
++
++- 业务代码、Schema/migration、运行时数据或生产配置；
++- Generic SKU runtime、P1 Schema、Phase 6B、历史回填或新产品能力；
++- 复制动态排期、测试数量或分支状态到 PRODUCT；
++- 创建第二套 PRD、backlog、roadmap、Control 状态表或 Requirement 状态账本。
++
++## Non-goals
++
++- 不重写历史 ADR/Task/验收证据；
++- 不解决 roadmap/backlog 中所有历史文案；
++- 不批准 `Deferred/Unknown` 项；
++- 不标记 PR Ready，不 merge 或 release。
++
++## Dependencies
++
++- `main@d6553704e2a73f4376f52de5bfd1054fa52923e4`；
++- Accepted Phase 1～6A、PR #2～#17 已合并事实；
++- Product Owner 对本 Task 范围的明确批准。
++
++## Affected Modules
++
++- 根治理文档：`PRODUCT.md`、`WORKFLOW.md`；
++- 状态/计划文档：`docs/CURRENT_STATE.md`、`docs/backlog.md`、`docs/roadmap.md`；
++- 历史产品盘点：`docs/product/feature-list*.md`；
++- Task 模板与本 Task 验证目录。
++
++## ADR
++
++不新增 ADR。本 Task 只汇总既有 Accepted 产品语义并链接原权威 ADR；不改变架构决定。
++
++## Requirement Trace
++
++| Requirement ID | 本 Task 的具体化验收 | 状态/批准依据 |
++|---|---|---|
++| GOV-001 | `PRODUCT.md` 成为唯一稳定需求入口；Task 模板引用 Requirement ID；其他文档只回链 | Product Owner 当前批准 |
++| GOV-002 | 保留跨租户共享、破坏性 migration、生产、真实账号、merge/release 等人工门禁 | Product Owner 当前批准与既有 Workflow |
++
++## Acceptance Criteria
++
++- [x] `PRODUCT.md` 定义稳定、不重复的 Requirement ID 和四种状态语义；
++- [x] 每项需求包含目标/价值、范围、验收与约束；
++- [x] 覆盖获批的八类核心产品主题，Deferred/Unknown 不被误写为 Accepted 实现；
++- [x] 动态排期、实现状态和测试证据留在原权威文档；
++- [x] Workflow 与 Task 模板要求开发 Task 引用已批准 Requirement ID；
++- [x] Historical feature list 明确非权威并链接当前入口；
++- [x] 所有新增/修改 Markdown 链接有效，YAML/governance、allowlist、敏感扫描与 `git diff --check` 通过；
++- [x] 四个验证/回滚制品可复现，另一副本 rollback 恢复原 hash，`MODIFIED_FILE` 保持 changed；
++- [ ] Independent Review 为 `ACCEPT`；ACCEPT 后只创建 Draft PR并跟踪 Hosted CI。
++
++## Test Plan
++
++| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
++|---|---|---|---|---|---:|---|
++| Targeted | `python docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py` | 当前工作树 | Requirement ID/字段/追溯唯一且完整 | 36 unique requirements / 13 modules；template trace present | 0 | PASS |
++| Governance | Markdown links + YAML + allowlist + sensitive scan | 当前 diff | 无失效链接、非法 YAML、越界文件或敏感值 | 68 Markdown；YAML PASS；allowlist 0；sensitive 0 | 0 | PASS |
++| Static | `git diff --check` | base..worktree | no output | no output | 0 | PASS |
++
++## Oracle Gate
++
++- Required：No
++- Reason：docs-only，不修改 Schema、SQL、transaction、tenant repository 或 Oracle 方言。
++- Status：`SKIPPED / not applicable`，不得称为 PASS。
++
++## Real-device Gate
++
++- Required：No
++- Device/scenario：docs-only，不修改 Android、采集或真实页面行为。
++- Status：`SKIPPED / not applicable`，不得称为 PASS。
++
++## Rollback
++
++- Code rollback：在独立副本按 `ROLLBACK.sh <probe-root> <base-sha>` 恢复允许文件并删除本 Task 新增文件。
++- Configuration rollback：无配置变更。
++- Data recovery：无数据库或运行数据变更。
++- Irreversible items：无。
++
++## Human Decision Points
++
++- Independent Review `ACCEPT` 后允许创建 Draft PR；
++- Ready、merge 与 release 仍需 Product Owner 明确批准；
++- 任何新增产品语义或把 Deferred/Unknown 改为 Accepted 必须暂停请求决定。
++
++## Stop Condition
++
++完成文档、验证、Independent Review、Draft PR 与 Hosted CI 后停止在 Ready/merge 人工门禁；若发现权威文档无法消解的产品语义冲突则停止并报告。
++
++## Evidence
++
++- Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
++- Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
++- Review findings：初审 `CHANGES REQUIRED`：OBS 产品批准与实现/证据状态混淆；已通过显式双状态和本 Task 的 Product Owner 输入来源修复，等待 re-review。
++- Commit / PR：pending。
 diff --git a/docs/tasks/TEMPLATE.md b/docs/tasks/TEMPLATE.md
 index b688317..2bf12ca 100644
 --- a/docs/tasks/TEMPLATE.md

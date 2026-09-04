@@ -15,6 +15,13 @@
 
 当前稳定产品语义分散在 `PRODUCT.md`、feature list、roadmap/backlog、CURRENT_STATE、Accepted ADR 与已验收 Task 中。部分历史清单仍携带旧分支和旧状态，容易被误当作当前需求或重复开发依据。
 
+### Product Owner approved input
+
+- Product Owner 已批准“目标未匹配仍展示实际候选观察，但不得写入 Product/Snapshot/成功统计”的产品语义；
+- 候选 Raw 与受控脱敏截图默认保留 30 天，TaskItem `not_matched` 终态和必要摘要永久保留；
+- 上述是产品需求批准，不等同于 `PDD-COLLECTION-OBSERVABILITY-001` 已实现、验收或 merge；当前 main 上的实现/证据状态必须保持 `Unknown`；
+- 真实平台 `no_candidate` 证据尚不足，不能将离线语义或模拟测试写成真实 E2E PASS。
+
 ## Scope
 
 ### Allowed
@@ -116,5 +123,5 @@
 
 - Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 - Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-- Review findings：pending。
+- Review findings：初审 `CHANGES REQUIRED`：OBS 产品批准与实现/证据状态混淆；已通过显式双状态和本 Task 的 Product Owner 输入来源修复，等待 re-review。
 - Commit / PR：pending。
