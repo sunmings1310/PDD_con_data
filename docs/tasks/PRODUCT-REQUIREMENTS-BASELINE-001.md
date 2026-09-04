@@ -21,12 +21,16 @@
 - 候选 Raw 与受控脱敏截图默认保留 30 天，TaskItem `not_matched` 终态和必要摘要永久保留；
 - 上述是产品需求批准，不等同于 `PDD-COLLECTION-OBSERVABILITY-001` 已实现、验收或 merge；当前 main 上的实现/证据状态必须保持 `Unknown`；
 - 真实平台 `no_candidate` 证据尚不足，不能将离线语义或模拟测试写成真实 E2E PASS。
+- 企业管理只作为现有 Web 管理端中的简化模块：平台管理员可查看、新建、编辑、启用/停用企业，创建时自动建立默认 Workspace；
+- 企业内人员、角色、设备、任务和商品复用现有页面及当前 Enterprise/Workspace 上下文；默认只用一个 Workspace，不建设复杂 Workspace 管理 UI；
+- 套餐、计费、续期、自助开通、复杂额度、集团组织、跨企业分析、独立部署及复杂注销/数据清除均为 Deferred；
+- 上述企业管理语义为 Accepted，但功能实现状态是 `Unknown / Not Started`，必须由后续独立开发 Task 验收，不得在本 docs-only Task 实现。
 
 ## Scope
 
 ### Allowed
 
-- 扩充根 `PRODUCT.md`，覆盖医疗采集、Excel 统一下发、关键词血缘、候选不匹配可见、Product/SKU、媒体、租户、设备与任务可观测性；
+- 扩充根 `PRODUCT.md`，覆盖医疗采集、Excel 统一下发、关键词血缘、候选不匹配可见、Product/SKU、媒体、租户、简化企业管理、设备与任务可观测性；
 - 为稳定需求定义 ID、`Accepted / Planned / Deferred / Unknown`、目标/价值、范围、验收与约束；
 - 在 Workflow/Task 模板加入 Requirement ID 追溯规则；
 - 为 Historical feature list、roadmap、backlog、CURRENT_STATE 补充最小权威边界与当前主线事实；
@@ -74,7 +78,7 @@
 
 - [x] `PRODUCT.md` 定义稳定、不重复的 Requirement ID 和四种状态语义；
 - [x] 每项需求包含目标/价值、范围、验收与约束；
-- [x] 覆盖获批的八类核心产品主题，Deferred/Unknown 不被误写为 Accepted 实现；
+- [x] 覆盖获批核心产品主题，含简化企业管理边界；Deferred/Unknown 不被误写为 Accepted 实现；
 - [x] 动态排期、实现状态和测试证据留在原权威文档；
 - [x] Workflow 与 Task 模板要求开发 Task 引用已批准 Requirement ID；
 - [x] Historical feature list 明确非权威并链接当前入口；
@@ -86,7 +90,7 @@
 
 | Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 |---|---|---|---|---|---:|---|
-| Targeted | `python docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py` | 当前工作树 | Requirement ID/字段/追溯唯一且完整 | 36 unique requirements / 13 modules；template trace present | 0 | PASS |
+| Targeted | `python docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py` | 当前工作树 | Requirement ID/字段/追溯唯一且完整 | 40 unique requirements / 14 modules；template trace present | 0 | PASS |
 | Governance | Markdown links + YAML + allowlist + sensitive scan | 当前 diff | 无失效链接、非法 YAML、越界文件或敏感值 | 68 Markdown；YAML PASS；allowlist 0；sensitive 0 | 0 | PASS |
 | Static | `git diff --check` | base..worktree | no output | no output | 0 | PASS |
 
@@ -123,5 +127,5 @@
 
 - Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 - Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-- Review findings：初审 `CHANGES REQUIRED`；修复后 Independent Re-review 在固定 Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0` 为 `ACCEPT`，无剩余 finding。
-- Commit / PR：Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR pending。
+- Review findings：初审 finding 已关闭；Product Owner 随后新增简化企业管理决定，当前修订等待 Independent Re-review。
+- Commit / PR：原 Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR #18 已创建，企业决定修订后保持 Draft。

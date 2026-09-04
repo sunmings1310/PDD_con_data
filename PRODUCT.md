@@ -36,6 +36,7 @@
 - Task / Job / Attempt / Lease / Checkpoint / Outbox 的可靠执行与恢复；
 - Product、Snapshot、Raw、Field Source、Quality、Diff 与 Quarantine；
 - Enterprise / Workspace 数据边界、设备注册与撤销、配额和审计；
+- 现有 Web 管理端中的简化企业管理模块，以及企业创建时的默认 Workspace；
 - Collector Contract/Registry 及 PDD Adapter 的受控扩展边界。
 
 ### V1 非目标
@@ -44,6 +45,8 @@
 - 未通过证据和决策门禁的正式 SKU/ProductAttribute Oracle 模型；
 - 历史回填、污染清洗、破坏性迁移或生产数据删除；
 - 完整动态插件系统、全站管理平台重构或无限后台常驻保证；
+- 独立企业 SaaS/运营平台、套餐计费、续期、自助开通、集团多级组织、跨企业分析、独立部署与复杂注销/数据清除流程；
+- 多 Workspace 的复杂配置、切换和管理 UI；V1 默认每个 Enterprise 使用一个 Workspace；
 - 旧 PyQt6/BitBrowser/SQLite 桌面链的新能力扩展。
 
 ## 3. 稳定产品需求
@@ -272,7 +275,40 @@
 - **验收**：切换上下文后旧请求失效；关键动作在服务端重新校验权限。
 - **约束**：客户端 header 仅表达上下文，不授予权限。
 
-### 3.10 设备与可观测性（DEVICE）
+### 3.10 简化企业管理（ENT）
+
+#### ENT-001 — 现有管理端中的企业基础管理
+- **状态**：Accepted
+- **实现/证据状态**：Unknown — 产品语义已批准，功能尚未启动独立开发 Task。
+- **目标/价值**：平台管理员可在现有 Web 管理端完成企业生命周期的最小管理，不建设独立 SaaS/运营平台。
+- **范围**：查看企业列表、新建企业、修改基础信息、启用和停用企业。
+- **验收**：只有平台管理员可执行；列表和编辑状态由服务端权威数据驱动；停用企业后相关访问按既有 RBAC/tenant 语义受限并留下审计记录。
+- **约束**：不得复制人员、角色、设备、任务、商品或资料库管理页面。
+
+#### ENT-002 — 创建企业时自动建立默认 Workspace
+- **状态**：Accepted
+- **实现/证据状态**：Unknown — 默认 Workspace 产品行为已批准，事务实现与 migration applicability 由后续开发 Task 证明。
+- **目标/价值**：新企业无需额外配置即可使用现有 Workspace 隔离模型。
+- **范围**：企业创建事务自动建立一个默认 Workspace，并把企业管理上下文指向该 Workspace。
+- **验收**：创建企业和默认 Workspace 原子成功或原子失败；重复请求幂等；默认 Workspace 与 Enterprise 绑定且不能跨租户访问。
+- **约束**：V1 默认只使用一个 Workspace，不新增复杂 Workspace 管理、层级、配额或自助切换 UI。
+
+#### ENT-003 — 复用企业上下文内的现有管理页面
+- **状态**：Accepted
+- **实现/证据状态**：Unknown — 复用边界已批准，现有页面是否全部满足需由后续 Task 调查验收。
+- **目标/价值**：避免为每个企业重复建设第二套人员、权限、设备与业务管理界面。
+- **范围**：企业内用户、角色、设备、任务和商品继续使用现有“人员管理/角色权限/设备/任务/资料库”页面及当前 Enterprise/Workspace 上下文。
+- **验收**：从企业列表进入或切换上下文后，既有页面只展示当前 tenant/workspace 数据；旧响应不能覆盖新上下文；服务端继续执行 TENANT-001～003 权威校验。
+- **约束**：导航便利不能替代服务端授权；不得创建企业专属复制页面或第二套状态账本。
+
+#### ENT-004 — 高级企业运营能力
+- **状态**：Deferred
+- **目标/价值**：记录未来可能的商业化与复杂组织能力，但不扩大当前产品。
+- **范围**：套餐、计费、续期、企业自助开通、复杂额度配置、集团多级组织、跨企业分析、独立部署、复杂注销和数据清除。
+- **验收**：任何一项启动前必须单独定义产品行为、数据边界、migration/删除风险、审计与验收。
+- **约束**：当前不得实现、预埋独立运营平台或以通用重构名义顺带建设。
+
+### 3.11 设备与可观测性（DEVICE）
 
 #### DEVICE-001 — 设备注册、心跳与撤销
 - **状态**：Accepted
@@ -295,7 +331,7 @@
 - **验收**：Task Detail/API 能沿 Task→Item→Job→Attempt/Lease→Result/Raw/Quality 下钻。
 - **约束**：展示摘要不能改变服务端权威状态。
 
-### 3.11 多平台边界（PLAT）
+### 3.12 多平台边界（PLAT）
 
 #### PLAT-001 — Collector Contract 与 Adapter 隔离
 - **状态**：Accepted
@@ -311,7 +347,7 @@
 - **验收**：需独立 Task、真实证据、平台权限与 Product Owner 批准。
 - **约束**：当前不得启动或声称已完成。
 
-### 3.12 治理（GOV）
+### 3.13 治理（GOV）
 
 #### GOV-001 — 单一产品需求基线
 - **状态**：Accepted
@@ -350,6 +386,7 @@
 | PROD-001～004 | [`Product field semantics ADR`](docs/decisions/2026-08-20-product-field-semantics-p0.md)、[`Product timeline task`](docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 | QLT-001～002 | [`Phase 3 ADR`](docs/decisions/phase3-data-quality-contract.md) | [`docs/gaps/current.md`](docs/gaps/current.md) |
 | TENANT-001～003、DEVICE-001 | [`Phase 5 ADR`](docs/decisions/phase5-product-master-tenancy.md)、[`BL-110 task`](docs/tasks/BL-110-WS-TENANT-BOUNDARY.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
+| ENT-001～004 | Product Owner 简化企业管理决定记录于本治理 [`Task Context`](docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md#product-owner-approved-input)；实现/证据保持 Unknown，ENT-004 保持 Deferred | [`docs/backlog.md`](docs/backlog.md) |
 | PLAT-001～002 | [`Phase 6A ADR`](docs/decisions/phase6a-collector-contract.md) | [`docs/roadmap.md`](docs/roadmap.md) |
 | GOV-001～002 | [`WORKFLOW.md`](WORKFLOW.md)、[`Task template`](docs/tasks/TEMPLATE.md) | [`docs/backlog.md`](docs/backlog.md) |
 
@@ -362,6 +399,7 @@
 | 旧桌面链去留 | Unknown | 不扩展新能力 | Product Owner 选择保留/归档/迁移 |
 | 第二平台与 Phase 6B | Deferred | 仅保留 Collector Contract 边界 | 独立平台 Task 与真实验收条件 |
 | 扩大 Product 跨 Enterprise 共享字段 | Deferred | 维持 Accepted 最小身份/私有事实边界 | 明确产品共享决策与 migration 方案 |
+| 套餐计费、企业自助、集团组织、跨企业分析、独立部署与复杂注销 | Deferred | 企业管理只作为现有管理端的简化模块 | 独立产品 Task、数据/审计方案与 Product Owner 批准 |
 
 ## 7. 成功标准
 

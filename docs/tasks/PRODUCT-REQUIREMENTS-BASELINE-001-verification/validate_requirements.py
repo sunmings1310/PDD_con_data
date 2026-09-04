@@ -27,7 +27,7 @@ if len(ids) != len(set(ids)):
 
 required_prefixes = {
     "MED", "EXCEL", "LINEAGE", "OBS", "TASK", "PROD", "QLT", "SKU",
-    "MEDIA", "TENANT", "DEVICE", "PLAT", "GOV",
+    "MEDIA", "TENANT", "ENT", "DEVICE", "PLAT", "GOV",
 }
 actual_prefixes = {item.split("-", 1)[0] for item in ids}
 missing_prefixes = sorted(required_prefixes - actual_prefixes)

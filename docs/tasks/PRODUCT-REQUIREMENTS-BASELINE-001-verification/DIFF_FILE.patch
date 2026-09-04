@@ -1,8 +1,8 @@
 diff --git a/PRODUCT.md b/PRODUCT.md
-index 8bbc0bc..66490e2 100644
+index 8bbc0bc..c736d9a 100644
 --- a/PRODUCT.md
 +++ b/PRODUCT.md
-@@ -1,76 +1,387 @@
+@@ -1,76 +1,425 @@
 -# Product Baseline
 +# Product Requirements Baseline
 
@@ -59,6 +59,7 @@ index 8bbc0bc..66490e2 100644
 -- Product、Snapshot、Raw evidence、Field Source、Quality Result、Diff、Quarantine；
 +- Product、Snapshot、Raw、Field Source、Quality、Diff 与 Quarantine；
  - Enterprise / Workspace 数据边界、设备注册与撤销、配额和审计；
++- 现有 Web 管理端中的简化企业管理模块，以及企业创建时的默认 Workspace；
  - Collector Contract/Registry 及 PDD Adapter 的受控扩展边界。
 
 -## V1 非目标
@@ -72,6 +73,8 @@ index 8bbc0bc..66490e2 100644
 +- 未通过证据和决策门禁的正式 SKU/ProductAttribute Oracle 模型；
 +- 历史回填、污染清洗、破坏性迁移或生产数据删除；
 +- 完整动态插件系统、全站管理平台重构或无限后台常驻保证；
++- 独立企业 SaaS/运营平台、套餐计费、续期、自助开通、集团多级组织、跨企业分析、独立部署与复杂注销/数据清除流程；
++- 多 Workspace 的复杂配置、切换和管理 UI；V1 默认每个 Enterprise 使用一个 Workspace；
  - 旧 PyQt6/BitBrowser/SQLite 桌面链的新能力扩展。
 
 -## 核心业务对象
@@ -224,6 +227,20 @@ index 8bbc0bc..66490e2 100644
 +- **范围**：draft 结果经人工审核保存后进入资料库。
 +- **验收**：本次采集结果与已保存资料库明确区分；候选观察不可被当作可保存成功结果。
 +- **约束**：普通编辑不覆盖不可变采集事实。
++
++#### QLT-001 — 统一 QualityGate
++- **状态**：Accepted
++- **目标/价值**：Parser 成功不等于业务数据可信。
++- **范围**：身份、必填字段、价格、SKU 一致性、销量、类型、范围、页面/解析状态和字段来源。
++- **验收**：规则可测试、可版本化、可解释；只有 PASS 数据进入正常持久化。
++- **约束**：HTTP 200 不能替代质量判定。
++
++#### QLT-002 — Quarantine 隔离
++- **状态**：Accepted
++- **目标/价值**：不可信数据既不静默丢弃，也不污染正常数据。
++- **范围**：记录 Task、可识别 identity、Raw reference、版本、失败原因、错误码和采集时间。
++- **验收**：隔离记录可查询；正常 Product/Snapshot 与质量指标不受污染。
++- **约束**：进入正常业务数据需另有明确复核流程。
 
 -- **Enterprise / Workspace / User / Role**：租户、工作空间与访问边界；
 -- **CollectionTask / CollectionJob / CollectionAttempt**：用户目标、稳定执行单元和一次执行尝试；
@@ -231,23 +248,9 @@ index 8bbc0bc..66490e2 100644
 -- **Product / ProductSnapshot**：稳定商品身份与某一时点的不可变事实；
 -- **Raw Collection / Field Source / Quality Result / Quarantine**：原始证据、字段来源、质量判定和异常隔离；
 -- **Collector / Adapter**：跨平台契约与平台特定实现。
-+#### QLT-001 — 统一 QualityGate
-+- **状态**：Accepted
-+- **目标/价值**：Parser 成功不等于业务数据可信。
-+- **范围**：身份、必填字段、价格、SKU 一致性、销量、类型、范围、页面/解析状态和字段来源。
-+- **验收**：规则可测试、可版本化、可解释；只有 PASS 数据进入正常持久化。
-+- **约束**：HTTP 200 不能替代质量判定。
++### 3.7 SKU（SKU）
 
 -## 关键产品不变量
-+#### QLT-002 — Quarantine 隔离
-+- **状态**：Accepted
-+- **目标/价值**：不可信数据既不静默丢弃，也不污染正常数据。
-+- **范围**：记录 Task、可识别 identity、Raw reference、版本、失败原因、错误码和采集时间。
-+- **验收**：隔离记录可查询；正常 Product/Snapshot 与质量指标不受污染。
-+- **约束**：进入正常业务数据需另有明确复核流程。
-+
-+### 3.7 SKU（SKU）
-+
 +#### SKU-001 — 只接受真实 SKU 面板事实
 +- **状态**：Accepted
 +- **目标/价值**：避免从输入或主商品信息伪造规格组合。
@@ -308,7 +311,40 @@ index 8bbc0bc..66490e2 100644
 +- **验收**：切换上下文后旧请求失效；关键动作在服务端重新校验权限。
 +- **约束**：客户端 header 仅表达上下文，不授予权限。
 +
-+### 3.10 设备与可观测性（DEVICE）
++### 3.10 简化企业管理（ENT）
++
++#### ENT-001 — 现有管理端中的企业基础管理
++- **状态**：Accepted
++- **实现/证据状态**：Unknown — 产品语义已批准，功能尚未启动独立开发 Task。
++- **目标/价值**：平台管理员可在现有 Web 管理端完成企业生命周期的最小管理，不建设独立 SaaS/运营平台。
++- **范围**：查看企业列表、新建企业、修改基础信息、启用和停用企业。
++- **验收**：只有平台管理员可执行；列表和编辑状态由服务端权威数据驱动；停用企业后相关访问按既有 RBAC/tenant 语义受限并留下审计记录。
++- **约束**：不得复制人员、角色、设备、任务、商品或资料库管理页面。
++
++#### ENT-002 — 创建企业时自动建立默认 Workspace
++- **状态**：Accepted
++- **实现/证据状态**：Unknown — 默认 Workspace 产品行为已批准，事务实现与 migration applicability 由后续开发 Task 证明。
++- **目标/价值**：新企业无需额外配置即可使用现有 Workspace 隔离模型。
++- **范围**：企业创建事务自动建立一个默认 Workspace，并把企业管理上下文指向该 Workspace。
++- **验收**：创建企业和默认 Workspace 原子成功或原子失败；重复请求幂等；默认 Workspace 与 Enterprise 绑定且不能跨租户访问。
++- **约束**：V1 默认只使用一个 Workspace，不新增复杂 Workspace 管理、层级、配额或自助切换 UI。
++
++#### ENT-003 — 复用企业上下文内的现有管理页面
++- **状态**：Accepted
++- **实现/证据状态**：Unknown — 复用边界已批准，现有页面是否全部满足需由后续 Task 调查验收。
++- **目标/价值**：避免为每个企业重复建设第二套人员、权限、设备与业务管理界面。
++- **范围**：企业内用户、角色、设备、任务和商品继续使用现有“人员管理/角色权限/设备/任务/资料库”页面及当前 Enterprise/Workspace 上下文。
++- **验收**：从企业列表进入或切换上下文后，既有页面只展示当前 tenant/workspace 数据；旧响应不能覆盖新上下文；服务端继续执行 TENANT-001～003 权威校验。
++- **约束**：导航便利不能替代服务端授权；不得创建企业专属复制页面或第二套状态账本。
++
++#### ENT-004 — 高级企业运营能力
++- **状态**：Deferred
++- **目标/价值**：记录未来可能的商业化与复杂组织能力，但不扩大当前产品。
++- **范围**：套餐、计费、续期、企业自助开通、复杂额度配置、集团多级组织、跨企业分析、独立部署、复杂注销和数据清除。
++- **验收**：任何一项启动前必须单独定义产品行为、数据边界、migration/删除风险、审计与验收。
++- **约束**：当前不得实现、预埋独立运营平台或以通用重构名义顺带建设。
++
++### 3.11 设备与可观测性（DEVICE）
 +
 +#### DEVICE-001 — 设备注册、心跳与撤销
 +- **状态**：Accepted
@@ -331,7 +367,7 @@ index 8bbc0bc..66490e2 100644
 +- **验收**：Task Detail/API 能沿 Task→Item→Job→Attempt/Lease→Result/Raw/Quality 下钻。
 +- **约束**：展示摘要不能改变服务端权威状态。
 +
-+### 3.11 多平台边界（PLAT）
++### 3.12 多平台边界（PLAT）
 +
 +#### PLAT-001 — Collector Contract 与 Adapter 隔离
 +- **状态**：Accepted
@@ -347,7 +383,7 @@ index 8bbc0bc..66490e2 100644
 +- **验收**：需独立 Task、真实证据、平台权限与 Product Owner 批准。
 +- **约束**：当前不得启动或声称已完成。
 +
-+### 3.12 治理（GOV）
++### 3.13 治理（GOV）
 +
 +#### GOV-001 — 单一产品需求基线
 +- **状态**：Accepted
@@ -391,6 +427,7 @@ index 8bbc0bc..66490e2 100644
 +| PROD-001～004 | [`Product field semantics ADR`](docs/decisions/2026-08-20-product-field-semantics-p0.md)、[`Product timeline task`](docs/tasks/PDD-PRODUCT-TIMELINE-RESOURCE-ID-001.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
 +| QLT-001～002 | [`Phase 3 ADR`](docs/decisions/phase3-data-quality-contract.md) | [`docs/gaps/current.md`](docs/gaps/current.md) |
 +| TENANT-001～003、DEVICE-001 | [`Phase 5 ADR`](docs/decisions/phase5-product-master-tenancy.md)、[`BL-110 task`](docs/tasks/BL-110-WS-TENANT-BOUNDARY.md) | [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) |
++| ENT-001～004 | Product Owner 简化企业管理决定记录于本治理 [`Task Context`](docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md#product-owner-approved-input)；实现/证据保持 Unknown，ENT-004 保持 Deferred | [`docs/backlog.md`](docs/backlog.md) |
 +| PLAT-001～002 | [`Phase 6A ADR`](docs/decisions/phase6a-collector-contract.md) | [`docs/roadmap.md`](docs/roadmap.md) |
 +| GOV-001～002 | [`WORKFLOW.md`](WORKFLOW.md)、[`Task template`](docs/tasks/TEMPLATE.md) | [`docs/backlog.md`](docs/backlog.md) |
 +
@@ -403,6 +440,7 @@ index 8bbc0bc..66490e2 100644
 +| 旧桌面链去留 | Unknown | 不扩展新能力 | Product Owner 选择保留/归档/迁移 |
 +| 第二平台与 Phase 6B | Deferred | 仅保留 Collector Contract 边界 | 独立平台 Task 与真实验收条件 |
 +| 扩大 Product 跨 Enterprise 共享字段 | Deferred | 维持 Accepted 最小身份/私有事实边界 | 明确产品共享决策与 migration 方案 |
++| 套餐计费、企业自助、集团组织、跨企业分析、独立部署与复杂注销 | Deferred | 企业管理只作为现有管理端的简化模块 | 独立产品 Task、数据/审计方案与 Product Owner 批准 |
 
 -- 未确认数据导致的错误 Complete、重复业务事实、过期 Lease 覆盖和异常页伪商品均为 0；
 -- 关键字段来源、Parser 版本、质量规则版本和差异可查询；
@@ -491,7 +529,7 @@ index 6894dbb..9b6d85f 100644
  | [`backlog.md`](backlog.md) | 唯一任务状态账本 |
  | [`roadmap.md`](roadmap.md) | 未来阶段与依赖，不构成实施授权 |
 diff --git a/docs/backlog.md b/docs/backlog.md
-index 6f5894e..9128ed1 100644
+index 6f5894e..8b4fa25 100644
 --- a/docs/backlog.md
 +++ b/docs/backlog.md
 @@ -1,13 +1,14 @@
@@ -506,7 +544,7 @@ index 6f5894e..9128ed1 100644
  | Task | 状态 | 范围 | 下一步 |
  |---|---|---|---|
 -| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
-+| PRODUCT-REQUIREMENTS-BASELINE-001 | ACCEPTED / DOCS-ONLY | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID 与追溯矩阵，不改业务代码/Schema | Review fixed Head `3314df5` 为 ACCEPT；创建 Draft PR、跟踪 Hosted CI 后停止在 merge 门禁 |
++| PRODUCT-REQUIREMENTS-BASELINE-001 | REVIEW / DOCS-ONLY / PR #18 DRAFT | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID；补充 Product Owner 批准的简化企业管理边界，不改业务代码/Schema | 企业决定修订后重跑文档门禁与 Independent Re-review；保持 Draft，不 Ready/merge |
 +| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | MERGED / ACCEPTED | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | PR #17 已普通 merge 为 `main@d655370`；Review/Oracle 门禁通过 |
  | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
@@ -550,10 +588,10 @@ index 8d97c57..6e947ba 100644
 
 diff --git a/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
 new file mode 100644
-index 0000000..c854685
+index 0000000..f23892b
 --- /dev/null
 +++ b/docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,131 @@
 +# PRODUCT-REQUIREMENTS-BASELINE-001：统一产品需求权威基线
 +
 +- **Task ID**：PRODUCT-REQUIREMENTS-BASELINE-001
@@ -577,12 +615,16 @@ index 0000000..c854685
 +- 候选 Raw 与受控脱敏截图默认保留 30 天，TaskItem `not_matched` 终态和必要摘要永久保留；
 +- 上述是产品需求批准，不等同于 `PDD-COLLECTION-OBSERVABILITY-001` 已实现、验收或 merge；当前 main 上的实现/证据状态必须保持 `Unknown`；
 +- 真实平台 `no_candidate` 证据尚不足，不能将离线语义或模拟测试写成真实 E2E PASS。
++- 企业管理只作为现有 Web 管理端中的简化模块：平台管理员可查看、新建、编辑、启用/停用企业，创建时自动建立默认 Workspace；
++- 企业内人员、角色、设备、任务和商品复用现有页面及当前 Enterprise/Workspace 上下文；默认只用一个 Workspace，不建设复杂 Workspace 管理 UI；
++- 套餐、计费、续期、自助开通、复杂额度、集团组织、跨企业分析、独立部署及复杂注销/数据清除均为 Deferred；
++- 上述企业管理语义为 Accepted，但功能实现状态是 `Unknown / Not Started`，必须由后续独立开发 Task 验收，不得在本 docs-only Task 实现。
 +
 +## Scope
 +
 +### Allowed
 +
-+- 扩充根 `PRODUCT.md`，覆盖医疗采集、Excel 统一下发、关键词血缘、候选不匹配可见、Product/SKU、媒体、租户、设备与任务可观测性；
++- 扩充根 `PRODUCT.md`，覆盖医疗采集、Excel 统一下发、关键词血缘、候选不匹配可见、Product/SKU、媒体、租户、简化企业管理、设备与任务可观测性；
 +- 为稳定需求定义 ID、`Accepted / Planned / Deferred / Unknown`、目标/价值、范围、验收与约束；
 +- 在 Workflow/Task 模板加入 Requirement ID 追溯规则；
 +- 为 Historical feature list、roadmap、backlog、CURRENT_STATE 补充最小权威边界与当前主线事实；
@@ -630,7 +672,7 @@ index 0000000..c854685
 +
 +- [x] `PRODUCT.md` 定义稳定、不重复的 Requirement ID 和四种状态语义；
 +- [x] 每项需求包含目标/价值、范围、验收与约束；
-+- [x] 覆盖获批的八类核心产品主题，Deferred/Unknown 不被误写为 Accepted 实现；
++- [x] 覆盖获批核心产品主题，含简化企业管理边界；Deferred/Unknown 不被误写为 Accepted 实现；
 +- [x] 动态排期、实现状态和测试证据留在原权威文档；
 +- [x] Workflow 与 Task 模板要求开发 Task 引用已批准 Requirement ID；
 +- [x] Historical feature list 明确非权威并链接当前入口；
@@ -642,7 +684,7 @@ index 0000000..c854685
 +
 +| Layer | Command | Input / Environment | Expected | Actual Result | Exit | Status |
 +|---|---|---|---|---|---:|---|
-+| Targeted | `python docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py` | 当前工作树 | Requirement ID/字段/追溯唯一且完整 | 36 unique requirements / 13 modules；template trace present | 0 | PASS |
++| Targeted | `python docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py` | 当前工作树 | Requirement ID/字段/追溯唯一且完整 | 40 unique requirements / 14 modules；template trace present | 0 | PASS |
 +| Governance | Markdown links + YAML + allowlist + sensitive scan | 当前 diff | 无失效链接、非法 YAML、越界文件或敏感值 | 68 Markdown；YAML PASS；allowlist 0；sensitive 0 | 0 | PASS |
 +| Static | `git diff --check` | base..worktree | no output | no output | 0 | PASS |
 +
@@ -679,8 +721,8 @@ index 0000000..c854685
 +
 +- Original evidence：`PRODUCT.md`、CURRENT_STATE/backlog/roadmap、Accepted ADR 与 Task；原始 `PRODUCT.md` SHA-256 记录在 `VERIFICATION.txt`。
 +- Derived artifacts：`docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/`。
-+- Review findings：初审 `CHANGES REQUIRED`；修复后 Independent Re-review 在固定 Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0` 为 `ACCEPT`，无剩余 finding。
-+- Commit / PR：Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR pending。
++- Review findings：初审 finding 已关闭；Product Owner 随后新增简化企业管理决定，当前修订等待 Independent Re-review。
++- Commit / PR：原 Review fixed Head `3314df5df8849eb9f257f8dd0f4323a48f21a7c0`；Draft PR #18 已创建，企业决定修订后保持 Draft。
 diff --git a/docs/tasks/TEMPLATE.md b/docs/tasks/TEMPLATE.md
 index b688317..2bf12ca 100644
 --- a/docs/tasks/TEMPLATE.md
