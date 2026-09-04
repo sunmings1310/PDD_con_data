@@ -1,5 +1,7 @@
 # 当前项目功能清单 V0.1（简版）
 
+> **Historical implementation inventory / 非权威需求与状态来源。** 稳定产品需求及 Requirement ID 以 [`../../PRODUCT.md`](../../PRODUCT.md) 为准，当前实现与任务状态分别以 [`../CURRENT_STATE.md`](../CURRENT_STATE.md) 和 [`../backlog.md`](../backlog.md) 为准。下列状态只保留历史沟通语境，不自动授权开发。
+>
 > 本功能清单基于当前开发分支代码盘点，其中可能包含尚未合并至 main 的 T003 功能。待 T003 完成最终验收并合并 main 后，应再次校准并形成正式功能基线版本。
 
 ## 使用说明

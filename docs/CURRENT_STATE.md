@@ -1,7 +1,7 @@
 # PDD_APP 当前状态
 
 > **Status: CURRENT IMPLEMENTATION AUTHORITY**
-> 更新日期：2026-08-29
+> 更新日期：2026-09-04
 > 本文只记录仍影响开发、Review、E2E 和发布决策的当前事实。产品范围见 [`../PRODUCT.md`](../PRODUCT.md)，流程见 [`../WORKFLOW.md`](../WORKFLOW.md)，任务状态见 [`backlog.md`](backlog.md)。
 
 ## 1. 当前可信基线
@@ -9,15 +9,15 @@
 | 项目 | 当前值 |
 |---|---|
 | 主分支 | `main` |
-| 当前主线基线 | `d91b6389bae80067352b2bb4bc5848ca3132f37a` |
-| 当前 Accepted 主线 | `d91b6389bae80067352b2bb4bc5848ca3132f37a`，包含 PR [#15](https://github.com/sunmings1310/PDD_con_data/pull/15) |
+| 当前主线基线 | `d6553704e2a73f4376f52de5bfd1054fa52923e4` |
+| 当前 Accepted 主线 | `d6553704e2a73f4376f52de5bfd1054fa52923e4`，包含 PR [#17](https://github.com/sunmings1310/PDD_con_data/pull/17) |
 | Accepted Business Baseline | `02234f2fd50d4b4afeceec6ff782d0151016887d`，来源 PR [#2](https://github.com/sunmings1310/PDD_con_data/pull/2) |
 | Accepted Governance Baseline | PR [#3](https://github.com/sunmings1310/PDD_con_data/pull/3)，Head `767a5ffe12de38d93570451566def314699043bf`，merge commit `713cd714902c728cc0e7b796bdde4972c78042c9` |
 | 治理任务状态 | `REPO-GOV-ALIGN-001：MERGED / ACCEPTED BASELINE`；`CI-ORACLE-LOCAL-GATE-001：MERGED / ACCEPTED GATE` |
 | 冻结旧治理候选 | `codex/repo-governance-baseline@28addc917706904bf84252cb1e1cbff01c75aa3d` |
 | Golden Sample | PDD `platform_product_id=985843042423` |
 
-PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge 为 `main@09e717c`；PR #7 与 #8 已完成 Web 结果可见性及状态收口。PR #9 已普通 merge 为 `main@a02c8a8`，`WEB-CLIENT-CONTRACT-001` 正式进入 Accepted 主线。PR #11 已普通 merge 为 `main@40e3e95`，`WEB-TASK-IMPORT-001` 正式进入 Accepted 主线。PR #13 已普通 merge 为 `main@d56787a`，`WEB-STATE-UX-001` 正式进入 Accepted 主线。PR #15 已普通 merge 为当前 `main@d91b638`，`WEB-NAV-EXCEL-CONSOLIDATION-001` 正式进入 Accepted 主线。
+PR #2 已于 2026-08-24 merge，形成 Accepted Business Baseline。PR #3 已于 2026-08-25 merge；`main@713cd71` 完整包含治理 Head `767a5ff`。PR #4 随后把 accepted governance state 记录合入 `main@42610e1`。PR #6 于 2026-08-26 merge 为 `main@b3a7e2c`，启用固定 PR Head 的本地隔离 Oracle evidence gate。PR #5 已普通 merge 为 `main@09e717c`；PR #7 与 #8 已完成 Web 结果可见性及状态收口。PR #9 已普通 merge 为 `main@a02c8a8`，`WEB-CLIENT-CONTRACT-001` 正式进入 Accepted 主线。PR #11 已普通 merge 为 `main@40e3e95`，`WEB-TASK-IMPORT-001` 正式进入 Accepted 主线。PR #13 已普通 merge 为 `main@d56787a`，`WEB-STATE-UX-001` 正式进入 Accepted 主线。PR #15 已普通 merge 为 `main@d91b638`，`WEB-NAV-EXCEL-CONSOLIDATION-001` 正式进入 Accepted 主线。PR #17 已普通 merge 为当前 `main@d655370`，修复租户商品时间线资源 ID 并完成 Review 与 Oracle 门禁。
 
 ## 2. 当前权威主链
 
@@ -98,7 +98,7 @@ Accepted Business Baseline 最终 Review 记录的实际结果：
 
 | 文档 | 唯一职责 |
 |---|---|
-| [`../PRODUCT.md`](../PRODUCT.md) | Product Owner 批准的产品范围与不变量 |
+| [`../PRODUCT.md`](../PRODUCT.md) | Product Owner 批准的产品范围、稳定 Requirement ID、验收边界与不变量 |
 | 本文 | 唯一当前实现、基线和阶段状态 |
 | [`backlog.md`](backlog.md) | 唯一任务状态账本 |
 | [`roadmap.md`](roadmap.md) | 未来阶段与依赖，不构成实施授权 |

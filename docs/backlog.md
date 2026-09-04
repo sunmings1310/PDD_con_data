@@ -1,13 +1,14 @@
 # 稳定数据采集系统 Backlog
 
 > **Status: CURRENT TASK STATUS AUTHORITY（2026-08-29）**
-> 本文是任务状态唯一账本。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
+> 本文是任务状态唯一账本，不是产品需求账本；稳定需求与 Requirement ID 以 [`../PRODUCT.md`](../PRODUCT.md) 为准。旧章节保留历史证据但不自动授权实施；当前实现见 [`CURRENT_STATE.md`](CURRENT_STATE.md)，开放缺口见 [`gaps/current.md`](gaps/current.md)，新任务使用 [`tasks/TEMPLATE.md`](tasks/TEMPLATE.md)。
 
 ## Completed governance tasks
 
 | Task | 状态 | 范围 | 下一步 |
 |---|---|---|---|
-| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | REVIEW / ORACLE PASS | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | 固定 Head Oracle strict 54/54 PASS、cleanup=0、persistent=false；等待 Independent Re-review，不并行启动其余 P1 |
+| PRODUCT-REQUIREMENTS-BASELINE-001 | REVIEW / DOCS-ONLY | 将稳定产品需求统一到 `PRODUCT.md`，建立 Requirement ID 与追溯矩阵，不改业务代码/Schema | 本地治理验证通过；等待 Independent Review，ACCEPT 后只创建 Draft PR并停止 |
+| PDD-PRODUCT-TIMELINE-RESOURCE-ID-001 | MERGED / ACCEPTED | 修复租户商品时间线把全局 master/legacy ID 当作 tenant resource ID 使用而返回空 Snapshot；保留历史数据 | PR #17 已普通 merge 为 `main@d655370`；Review/Oracle 门禁通过 |
 | CI-ORACLE-LOCAL-GATE-001 | MERGED / ACCEPTED GATE | 固定 Head 本地隔离 Oracle strict 证据；GitHub 不连接数据库 | PR #6 已 merge 为 `b3a7e2c493f44f4cb0bde7645d2c79340d019d65`；门禁已生效 |
 
 ## Completed governance baseline

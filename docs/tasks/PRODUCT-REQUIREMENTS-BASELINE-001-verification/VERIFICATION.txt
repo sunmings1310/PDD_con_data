@@ -1,0 +1,110 @@
+PRODUCT-REQUIREMENTS-BASELINE-001 VERIFICATION
+Generated: 2026-09-04 Asia/Shanghai
+Repository: D:\work\PDD_con_data_product_requirements_baseline
+Base: d6553704e2a73f4376f52de5bfd1054fa52923e4
+Branch: codex/product-requirements-baseline-001
+
+BASELINE
+COMMAND: git worktree add --detach C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904 d6553704e2a73f4376f52de5bfd1054fa52923e4
+INPUT/ENVIRONMENT: clean detached worktree at the exact base; Python D:\work\PDD_con_data\.venv-t001\Scripts\python.exe
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe D:\work\PDD_con_data_product_requirements_baseline\docs\tasks\PRODUCT-REQUIREMENTS-BASELINE-001-verification\validate_docs.py C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904
+LITERAL OUTPUT:
+Validated 67 Markdown files
+Validated workflow YAML
+RESULT: PASS
+BASELINE_DOCS_EXIT=0
+COMMAND: git -C C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-base-20260904 diff --check
+LITERAL OUTPUT: <empty>
+EXIT STATUS: 0
+STATUS: PASS
+ORIGINAL PRODUCT.md SHA-256: 6B5317556297FB8F58674B4A9B717723D67F06CA1503113FEDBE69379389BC34
+
+MODIFIED REQUIREMENTS CONTRACT
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_requirements.py
+INPUT/ENVIRONMENT: current worktree; PRODUCT.md plus docs/tasks/TEMPLATE.md
+LITERAL OUTPUT:
+Validated 36 unique requirements across 13 modules
+Task template Requirement trace: PRESENT
+RESULT: PASS
+EXIT STATUS: 0
+STATUS: PASS
+
+MODIFIED LINKS / YAML
+COMMAND: D:\work\PDD_con_data\.venv-t001\Scripts\python.exe docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/validate_docs.py .
+INPUT/ENVIRONMENT: current worktree; repository Markdown and .github/workflows/*.yml
+LITERAL OUTPUT:
+Validated 68 Markdown files
+Validated workflow YAML
+RESULT: PASS
+EXIT STATUS: 0
+STATUS: PASS
+
+ALLOWLIST
+COMMAND: compare `git diff --name-only <base>` plus `git ls-files --others --exclude-standard` against the Task allowlist; permit only the nine named governance/Task files and docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/*
+INPUT/ENVIRONMENT: base d6553704e2a73f4376f52de5bfd1054fa52923e4; current worktree
+LITERAL OUTPUT:
+CHANGED_COUNT=14
+ALLOWLIST_VIOLATIONS=0
+EXIT STATUS: 0
+STATUS: PASS
+
+SENSITIVE SCAN
+COMMAND: scan `git diff --no-ext-diff <base> -- .` for private-key headers, AWS access key IDs, GitHub token prefixes, and JWT-shaped three-part values
+INPUT/ENVIRONMENT: current governance-only diff; no runtime secrets loaded
+LITERAL OUTPUT:
+SENSITIVE_HITS=0
+EXIT STATUS: 0
+STATUS: PASS
+
+WHITESPACE
+COMMAND: git diff --check
+INPUT/ENVIRONMENT: current worktree
+LITERAL OUTPUT: <empty>
+EXIT STATUS: 0
+STATUS: PASS
+
+ROLLBACK PROBE
+ROLLBACK ARTIFACT: docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/ROLLBACK.sh
+EXECUTABLE MODE: 100755 (Git index)
+SHELL AVAILABILITY COMMAND: where.exe bash
+LITERAL OUTPUT: BASH_NOT_FOUND
+SHELL AVAILABILITY EXIT STATUS: 1
+SHELL AVAILABILITY STATUS: BLOCKED (interpreter unavailable; artifact retained executable)
+EQUIVALENT TEST COMMAND: in detached probe C:\Users\Eden\AppData\Local\Temp\PRODUCT-REQUIREMENTS-BASELINE-001-rollback-probe-2, copy the modified allowed files and Task evidence; execute the same `git checkout <base> -- <pre-existing files>` and `git clean -fd -- <new Task and verification paths>` operations used by ROLLBACK.sh; compare SHA-256 and absence
+INPUT/ENVIRONMENT: another detached worktree at exact base; source worktree remains modified
+LITERAL OUTPUT:
+PROBE_CHANGED_SHA256=75C847E988472774A6C996705AA53C2AE0E8F3CFEFF7748EA68B2AB63B19DA1B
+Removing docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001-verification/
+Removing docs/tasks/PRODUCT-REQUIREMENTS-BASELINE-001.md
+RESTORED_SHA256=6B5317556297FB8F58674B4A9B717723D67F06CA1503113FEDBE69379389BC34
+TASK_ABSENT=true
+ROLLBACK_EXIT=0
+RESULT: restored to base content with no Task artifacts
+EXIT STATUS: 0
+STATUS: PASS
+RESTORED BEHAVIOR/STATUS: original PRODUCT.md hash restored; new Task/evidence absent; probe `git status --short` returned no output
+MODIFIED_REMAINS_CHANGED: true
+
+ARTIFACT HASHES (SHA-256 before final review wrapper)
+MODIFIED_FILE: 75C847E988472774A6C996705AA53C2AE0E8F3CFEFF7748EA68B2AB63B19DA1B
+DIFF_FILE.patch: 275425D5B677DAB2CF84BEEA22C603AFAA2A6B08D05F70DE2FF17177920C5671
+ROLLBACK.sh: 1A1502CAC85C0493F058422D17E96A311AF0EF9E45AD3550E25FEF31CE634F8E
+VERIFICATION.txt: self-hash intentionally recorded externally after final write
+
+ORACLE GATE
+COMMAND: not run
+RESULT: SKIPPED / not applicable (docs-only; no Schema, SQL, transaction, tenant repository or Oracle dialect change)
+EXIT STATUS: not applicable
+
+REAL-DEVICE GATE
+COMMAND: not run
+RESULT: SKIPPED / not applicable (docs-only; no Android or collection runtime change)
+EXIT STATUS: not applicable
+
+INDEPENDENT REVIEW
+FIXED HEAD: pending initial evidence commit
+RESULT: pending
+
+HOSTED CI
+RUN: pending Draft PR
+RESULT: pending
